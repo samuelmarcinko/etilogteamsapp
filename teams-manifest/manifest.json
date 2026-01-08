@@ -1,0 +1,51 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "version": "1.0.0",
+  "id": "{{MICROSOFT_APP_ID}}",
+  "packageName": "com.company.teamsapprovalapp",
+  "developer": {
+    "name": "Your Company Name",
+    "websiteUrl": "https://your-company.com",
+    "privacyUrl": "https://your-company.com/privacy",
+    "termsOfUseUrl": "https://your-company.com/terms"
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "name": {
+    "short": "Approval Bot",
+    "full": "Internal Ticket Approval App"
+  },
+  "description": {
+    "short": "Manage approval requests for HR and Accounting",
+    "full": "Internal Microsoft Teams application that allows HR and Accounting staff to submit approval tickets, which managers can approve or reject directly inside Microsoft Teams using Adaptive Cards."
+  },
+  "accentColor": "#0078D4",
+  "bots": [
+    {
+      "botId": "{{MICROSOFT_APP_ID}}",
+      "scopes": [
+        "personal",
+        "team",
+        "groupchat"
+      ],
+      "supportsFiles": false,
+      "isNotificationOnly": false,
+      "supportsCalling": false,
+      "supportsVideo": false
+    }
+  ],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
+  "validDomains": [
+    "{{APP_DOMAIN}}"
+  ],
+  "webApplicationInfo": {
+    "id": "{{MICROSOFT_APP_ID}}",
+    "resource": "api://{{APP_DOMAIN}}/{{MICROSOFT_APP_ID}}"
+  }
+}

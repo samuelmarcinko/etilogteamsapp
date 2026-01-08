@@ -1,0 +1,74 @@
+const pool = require('../config');
+
+class User {
+  /**
+   * Create or update user
+   */
+  static async upsert(userData) {
+    const query = `
+      INSERT INTO users (user_id, email, display_name, role)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (user_id)
+      DO UPDATE SET
+        email = EXCLUDED.email,
+        display_name = EXCLUDED.display_name,
+        role = EXCLUDED.role,
+        updated_at = CURRENT_TIMESTAMP
+      RETURNING *
+    `;
+
+    const values = [
+      userData.userId,
+      userData.email,
+      userData.displayName,
+      userData.role || 'user'
+    ];
+
+    const result = await pool.query(query, values);
+    return result.rows[0];
+  }
+
+  /**
+   * Find user by user ID
+   */
+  static async findByUserId(userId) {
+    const query = 'SELECT * FROM users WHERE user_id = $1';
+    const result = await pool.query(query, [userId]);
+    return result.rows[0];
+  }
+
+  /**
+   * Find user by email
+   */
+  static async findByEmail(email) {
+    const query = 'SELECT * FROM users WHERE email = $1';
+    const result = await pool.query(query, [email]);
+    return result.rows[0];
+  }
+
+  /**
+   * Get all users
+   */
+  static async findAll() {
+    const query = 'SELECT * FROM users ORDER BY display_name';
+    const result = await pool.query(query);
+    return result.rows;
+  }
+
+  /**
+   * Update user role
+   */
+  static async updateRole(userId, role) {
+    const query = `
+      UPDATE users
+      SET role = $1, updated_at = CURRENT_TIMESTAMP
+      WHERE user_id = $2
+      RETURNING *
+    `;
+
+    const result = await pool.query(query, [role, userId]);
+    return result.rows[0];
+  }
+}
+
+module.exports = User;
