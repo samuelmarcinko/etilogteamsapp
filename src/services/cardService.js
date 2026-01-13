@@ -12,9 +12,16 @@ class CardService {
       const card = createApprovalCard(ticket);
       const cardAttachment = CardFactory.adaptiveCard(card);
 
-      // If conversationId is provided (channel), send to channel
-      if (conversationId) {
-        return await this.sendToConversation(conversationId, cardAttachment);
+      // Check if we should send to HR channel
+      const sendToChannel = process.env.SEND_TO_HR_CHANNEL === 'true';
+      const hrChannelId = process.env.HR_CHANNEL_ID;
+
+      // Use provided conversationId or HR channel from config
+      const targetChannel = conversationId || (sendToChannel ? hrChannelId : null);
+
+      // If channel is configured, send to channel
+      if (targetChannel) {
+        return await this.sendToChannel(targetChannel, cardAttachment, ticket);
       }
 
       // Otherwise, send as direct message to manager
@@ -26,18 +33,59 @@ class CardService {
   }
 
   /**
-   * Send card to a conversation (channel)
+   * Send card to a channel (HR channel)
    */
-  static async sendToConversation(conversationId, cardAttachment) {
+  static async sendToChannel(channelId, cardAttachment, ticket) {
     try {
-      // This requires a conversation reference or service URL
-      // For now, we'll return the card data to be sent via the API
+      const tenantId = process.env.TENANT_ID;
+      const serviceUrl = 'https://smba.trafficmanager.net/emea/';
+
+      const conversationParameters = {
+        isGroup: true,
+        channelData: {
+          channel: {
+            id: channelId
+          }
+        },
+        activity: {
+          type: 'message',
+          attachments: [cardAttachment]
+        },
+        bot: {
+          id: process.env.MICROSOFT_APP_ID,
+          name: 'Approval Bot'
+        },
+        tenantId: tenantId
+      };
+
+      let conversationReference;
+      let activityId;
+
+      await adapter.createConversation(
+        'msteams',
+        serviceUrl,
+        process.env.MICROSOFT_APP_ID,
+        conversationParameters,
+        async (turnContext) => {
+          const activity = {
+            type: 'message',
+            attachments: [cardAttachment]
+          };
+
+          const response = await turnContext.sendActivity(activity);
+          activityId = response.id;
+
+          conversationReference = TurnContext.getConversationReference(turnContext.activity);
+        }
+      );
+
       return {
-        conversationId,
-        attachment: cardAttachment
+        conversationReference,
+        activityId,
+        success: true
       };
     } catch (error) {
-      console.error('Error sending to conversation:', error);
+      console.error('Error sending to channel:', error);
       throw error;
     }
   }
