@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Approvals - ETILOG Approval System</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <script src="https://res.cdn.office.net/teams-js/2.19.0/js/MicrosoftTeams.min.js"></script>
+    <script src="/assets/js/i18n.js"></script>
+    <script src="/assets/js/navigation.js"></script>
+</head>
+<body data-page="approvals">
+    <div class="lang-switcher">
+        <button class="lang-btn active" data-lang="en" onclick="switchLanguage('en')">EN</button>
+        <button class="lang-btn" data-lang="sk" onclick="switchLanguage('sk')">SK</button>
+    </div>
+
+    <div class="container">
+        <div id="navContainer"></div>
+
+        <div class="header">
+            <img src="/assets/images/logo.png" alt="ETILOG Logo" class="logo">
+            <div class="header-content">
+                <h1>Pending Approvals</h1>
+                <p>Requests waiting for your approval</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Requests to Approve</h2>
+            <div id="approvalsList" class="requests-list">
+                <div class="loading-spinner">
+                    <div class="loading"></div>
+                    <p>Loading pending approvals...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load pending approvals
+        (async function() {
+            await microsoftTeams.app.initialize();
+            const context = await microsoftTeams.app.getContext();
+            const userId = context.user.id;
+            
+            try {
+                const response = await fetch(`/api/tickets?approver=${userId}&status=Pending`);
+                const tickets = await response.json();
+                
+                const container = document.getElementById('approvalsList');
+                if (tickets.length === 0) {
+                    container.innerHTML = '<div class="empty-state"><p>No pending approvals</p></div>';
+                } else {
+                    container.innerHTML = tickets.map(t => `
+                        <div class="request-item">
+                            <div class="request-header">
+                                <h3 class="request-title">${t.title}</h3>
+                                <span class="status-badge status-pending">Pending</span>
+                            </div>
+                            <div class="request-meta">
+                                <span class="meta-item"><strong>Type:</strong> ${t.ticket_type}</span>
+                                <span class="meta-item"><strong>Priority:</strong> ${t.priority}</span>
+                                <span class="meta-item"><strong>Created by:</strong> ${t.created_by_name}</span>
+                            </div>
+                            <p class="request-description">${t.description}</p>
+                            <div class="request-actions">
+                                <p><em>Open in HR channel to approve/reject</em></p>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                document.getElementById('approvalsList').innerHTML = '<div class="error-message"><p>Error loading approvals</p></div>';
+            }
+        })();
+    </script>
+</body>
+</html>

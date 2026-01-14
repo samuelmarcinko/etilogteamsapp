@@ -4,6 +4,19 @@ const translations = {
     // Header
     pageTitle: 'Approval Request System',
     pageSubtitle: 'Create a new approval request',
+    dashboardTitle: 'Dashboard',
+    dashboardSubtitle: 'Overview of all approval requests',
+    
+    // Stats
+    statPending: 'Pending',
+    statApproved: 'Approved',
+    statRejected: 'Rejected',
+    
+    // Dashboard
+    recentRequests: 'Recent Requests',
+    loadingRequests: 'Loading requests...',
+    noRequests: 'No requests found',
+    viewDetails: 'View Details',
     
     // Form labels
     labelTitle: 'Request Title',
@@ -11,6 +24,9 @@ const translations = {
     labelType: 'Request Type',
     labelPriority: 'Priority',
     labelApprover: 'Approver',
+    labelStatus: 'Status',
+    labelCreatedBy: 'Created By',
+    labelCreatedAt: 'Created At',
     
     // Placeholders
     placeholderTitle: 'e.g. Vacation Approval',
@@ -33,6 +49,11 @@ const translations = {
     priorityHigh: 'High',
     priorityUrgent: 'Urgent',
     
+    // Status
+    statusPending: 'Pending',
+    statusApproved: 'Approved',
+    statusRejected: 'Rejected',
+    
     // Helper texts
     helperDescription: 'Provide all relevant information',
     helperApprover: 'Select the person who should approve this request',
@@ -40,6 +61,8 @@ const translations = {
     // Button
     btnSubmit: 'Submit Request',
     btnSubmitting: 'Submitting...',
+    btnApprove: 'Approve',
+    btnReject: 'Reject',
     
     // Alerts
     alertSuccess: '✓ Request successfully created and sent for approval!',
@@ -55,6 +78,19 @@ const translations = {
     // Header
     pageTitle: 'Systém schvaľovania žiadostí',
     pageSubtitle: 'Vytvorte novú žiadosť o schválenie',
+    dashboardTitle: 'Nástenka',
+    dashboardSubtitle: 'Prehľad všetkých žiadostí o schválenie',
+    
+    // Stats
+    statPending: 'Čaká na schválenie',
+    statApproved: 'Schválené',
+    statRejected: 'Zamietnuté',
+    
+    // Dashboard
+    recentRequests: 'Posledné žiadosti',
+    loadingRequests: 'Načítavam žiadosti...',
+    noRequests: 'Neboli nájdené žiadne žiadosti',
+    viewDetails: 'Zobraziť detail',
     
     // Form labels
     labelTitle: 'Názov žiadosti',
@@ -62,6 +98,9 @@ const translations = {
     labelType: 'Typ žiadosti',
     labelPriority: 'Priorita',
     labelApprover: 'Schvaľovateľ',
+    labelStatus: 'Stav',
+    labelCreatedBy: 'Vytvoril',
+    labelCreatedAt: 'Vytvorené',
     
     // Placeholders
     placeholderTitle: 'Napr. Schválenie dovolenky',
@@ -84,6 +123,11 @@ const translations = {
     priorityHigh: 'Vysoká',
     priorityUrgent: 'Urgentná',
     
+    // Status
+    statusPending: 'Čaká na schválenie',
+    statusApproved: 'Schválené',
+    statusRejected: 'Zamietnuté',
+    
     // Helper texts
     helperDescription: 'Uveďte všetky relevantné informácie',
     helperApprover: 'Vyberte osobu, ktorá má žiadosť schváliť',
@@ -91,6 +135,8 @@ const translations = {
     // Button
     btnSubmit: 'Odoslať žiadosť',
     btnSubmitting: 'Odosiela sa...',
+    btnApprove: 'Schváliť',
+    btnReject: 'Zamietnuť',
     
     // Alerts
     alertSuccess: '✓ Žiadosť bola úspešne vytvorená a odoslaná na schválenie!',
@@ -117,6 +163,14 @@ function switchLanguage(lang) {
   currentLang = lang;
   localStorage.setItem('appLanguage', lang);
   updatePageLanguage();
+  
+  // Reload navigation if exists
+  const navContainer = document.getElementById('navContainer');
+  if (navContainer && typeof renderNavigation === 'function') {
+    navContainer.innerHTML = '';
+    const currentPage = document.body.getAttribute('data-page');
+    navContainer.appendChild(renderNavigation(currentPage));
+  }
 }
 
 // Update all text on page

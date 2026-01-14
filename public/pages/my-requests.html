@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Requests - ETILOG Approval System</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <script src="https://res.cdn.office.net/teams-js/2.19.0/js/MicrosoftTeams.min.js"></script>
+    <script src="/assets/js/i18n.js"></script>
+    <script src="/assets/js/navigation.js"></script>
+</head>
+<body data-page="my-requests">
+    <div class="lang-switcher">
+        <button class="lang-btn active" data-lang="en" onclick="switchLanguage('en')">EN</button>
+        <button class="lang-btn" data-lang="sk" onclick="switchLanguage('sk')">SK</button>
+    </div>
+
+    <div class="container">
+        <div id="navContainer"></div>
+
+        <div class="header">
+            <img src="/assets/images/logo.png" alt="ETILOG Logo" class="logo">
+            <div class="header-content">
+                <h1>My Requests</h1>
+                <p>View and track your submitted requests</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Your Requests</h2>
+            <div id="myRequestsList" class="requests-list">
+                <div class="loading-spinner">
+                    <div class="loading"></div>
+                    <p>Loading your requests...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load user's requests
+        (async function() {
+            await microsoftTeams.app.initialize();
+            const context = await microsoftTeams.app.getContext();
+            const userId = context.user.id;
+            
+            try {
+                const response = await fetch(`/api/tickets?created_by=${userId}`);
+                const tickets = await response.json();
+                
+                const container = document.getElementById('myRequestsList');
+                if (tickets.length === 0) {
+                    container.innerHTML = '<div class="empty-state"><p>No requests found</p></div>';
+                } else {
+                    container.innerHTML = tickets.map(t => `
+                        <div class="request-item">
+                            <div class="request-header">
+                                <h3 class="request-title">${t.title}</h3>
+                                <span class="status-badge status-${t.status.toLowerCase()}">${t.status}</span>
+                            </div>
+                            <div class="request-meta">
+                                <span class="meta-item"><strong>Type:</strong> ${t.ticket_type}</span>
+                                <span class="meta-item"><strong>Priority:</strong> ${t.priority}</span>
+                                <span class="meta-item"><strong>Approver:</strong> ${t.assigned_approver_name}</span>
+                            </div>
+                            <p class="request-description">${t.description}</p>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                document.getElementById('myRequestsList').innerHTML = '<div class="error-message"><p>Error loading requests</p></div>';
+            }
+        })();
+    </script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - ETILOG Approval System</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <script src="https://res.cdn.office.net/teams-js/2.19.0/js/MicrosoftTeams.min.js"></script>
+    <script src="/assets/js/i18n.js"></script>
+    <script src="/assets/js/navigation.js"></script>
+</head>
+<body data-page="dashboard">
+    <!-- Language Switcher -->
+    <div class="lang-switcher">
+        <button class="lang-btn active" data-lang="en" onclick="switchLanguage('en')">EN</button>
+        <button class="lang-btn" data-lang="sk" onclick="switchLanguage('sk')">SK</button>
+    </div>
+
+    <div class="container">
+        <!-- Navigation -->
+        <div id="navContainer"></div>
+
+        <!-- Header -->
+        <div class="header">
+            <img src="/assets/images/logo.png" alt="ETILOG Logo" class="logo">
+            <div class="header-content">
+                <h1 data-i18n="dashboardTitle">Dashboard</h1>
+                <p data-i18n="dashboardSubtitle">Overview of all approval requests</p>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <div class="stat-card stat-pending">
+                <div class="stat-icon">⏳</div>
+                <div class="stat-content">
+                    <div class="stat-value" id="pendingCount">0</div>
+                    <div class="stat-label" data-i18n="statPending">Pending</div>
+                </div>
+            </div>
+            
+            <div class="stat-card stat-approved">
+                <div class="stat-icon">✅</div>
+                <div class="stat-content">
+                    <div class="stat-value" id="approvedCount">0</div>
+                    <div class="stat-label" data-i18n="statApproved">Approved</div>
+                </div>
+            </div>
+            
+            <div class="stat-card stat-rejected">
+                <div class="stat-icon">❌</div>
+                <div class="stat-content">
+                    <div class="stat-value" id="rejectedCount">0</div>
+                    <div class="stat-label" data-i18n="statRejected">Rejected</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Requests -->
+        <div class="card">
+            <h2 data-i18n="recentRequests">Recent Requests</h2>
+            <div id="requestsList" class="requests-list">
+                <div class="loading-spinner">
+                    <div class="loading"></div>
+                    <p data-i18n="loadingRequests">Loading requests...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/assets/js/dashboard.js"></script>
+</body>
+</html>
