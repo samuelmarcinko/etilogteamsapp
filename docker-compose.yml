@@ -1,0 +1,21 @@
+version: "3.9"
+
+services:
+  teams-app:
+    image: node:20
+    container_name: teams-approval-app
+    restart: unless-stopped
+    working_dir: /app
+    command: sh -c "npm install && npm start"
+    volumes:
+      - .:/app
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - .env
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
