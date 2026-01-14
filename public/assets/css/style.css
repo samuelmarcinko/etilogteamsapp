@@ -213,6 +213,44 @@ body {
   gap: 1.5rem;
 }
 
+/* Language Switcher */
+.lang-switcher {
+  position: fixed;
+  top: 1.5rem;
+  right: 2rem;
+  display: flex;
+  gap: 0.5rem;
+  background: var(--white);
+  padding: 0.25rem;
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  z-index: 1000;
+}
+
+.lang-btn {
+  padding: 0.5rem 0.875rem;
+  border: none;
+  background: transparent;
+  color: var(--gray-700);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.lang-btn:hover {
+  background: var(--gray-100);
+  color: var(--gray-900);
+}
+
+.lang-btn.active {
+  background: var(--etilog-red);
+  color: var(--white);
+}
+
 @media (max-width: 640px) {
   .form-row {
     grid-template-columns: 1fr;
@@ -225,5 +263,10 @@ body {
   
   .container {
     padding: 1rem 0.75rem;
+  }
+  
+  .lang-switcher {
+    top: 1rem;
+    right: 1rem;
   }
 }
