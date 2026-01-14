@@ -15,6 +15,10 @@ const PORT = process.env.PORT || 3978;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, '../public')));
+app.use('/assets', express.static(path.join(__dirname, '../public/assets')));
+
 // Request logging
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
@@ -34,15 +38,7 @@ app.use('/api', apiRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
-  res.json({
-    message: 'Teams Approval App API',
-    version: '1.0.0',
-    endpoints: {
-      health: '/api/health',
-      bot: '/api/messages',
-      tickets: '/api/tickets'
-    }
-  });
+  res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
 // Error handlers (must be last)
@@ -63,6 +59,7 @@ app.listen(PORT, '0.0.0.0', () => {
 ║   - Bot Messages:  POST /api/messages                     ║
 ║   - API:          /api/*                                  ║
 ║   - Health Check: GET /api/health                         ║
+║   - Web UI:       GET /                                   ║
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
   `);
