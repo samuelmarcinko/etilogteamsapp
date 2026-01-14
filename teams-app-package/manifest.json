@@ -1,0 +1,45 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "version": "1.0.0",
+  "id": "39cb02be-f50d-4e06-afda-ec0ce359e2a8",
+  "packageName": "com.etilog.approval",
+  "developer": {
+    "name": "ETILOG",
+    "websiteUrl": "https://etilog.com",
+    "privacyUrl": "https://etilog.com/privacy",
+    "termsOfUseUrl": "https://etilog.com/terms"
+  },
+  "name": {
+    "short": "Approval Bot",
+    "full": "ETILOG Internal Approval Bot"
+  },
+  "description": {
+    "short": "Internal approval system for HR and Accounting",
+    "full": "ETILOG Internal Approval Bot helps manage approval requests for HR and Accounting departments. Submit tickets and get approvals directly in Teams."
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#4A90E2",
+  "bots": [
+    {
+      "botId": "39cb02be-f50d-4e06-afda-ec0ce359e2a8",
+      "scopes": [
+        "personal",
+        "team",
+        "groupchat"
+      ],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
+  "validDomains": [
+    "teams.etilog.com"
+  ]
+}
