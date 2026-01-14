@@ -9,7 +9,8 @@ require('dotenv').config();
 const credentialsFactory = new ConfigurationServiceClientCredentialFactory({
   MicrosoftAppId: process.env.MICROSOFT_APP_ID,
   MicrosoftAppPassword: process.env.MICROSOFT_APP_PASSWORD,
-  MicrosoftAppType: 'MultiTenant'
+  MicrosoftAppType: 'SingleTenant',
+  MicrosoftAppTenantId: process.env.TENANT_ID
 });
 
 const botFrameworkAuthentication = new ConfigurationBotFrameworkAuthentication(
