@@ -37,50 +37,54 @@ class TeamsBot extends TeamsActivityHandler {
       await next();
     });
 
-    // Handle adaptive card actions
-    this.onAdaptiveCardInvoke(async (context, invokeValue) => {
-      try {
-        const action = invokeValue.action?.verb;
-        const data = invokeValue.action?.data;
+  }
 
-        if (!action || !data?.ticketId) {
-          return this.createInvokeResponse(400, 'Invalid action data');
-        }
+  /**
+   * Handle adaptive card invoke actions
+   */
+  async handleTeamsCardActionInvoke(context) {
+    try {
+      const invokeValue = context.activity.value;
+      const action = invokeValue.action?.verb;
+      const data = invokeValue.action?.data;
 
-        const ticket = await Ticket.findById(data.ticketId);
-        if (!ticket) {
-          return this.createInvokeResponse(404, 'Ticket not found');
-        }
-
-        if (ticket.status !== 'Pending') {
-          return this.createInvokeResponse(400, 'Ticket has already been processed');
-        }
-
-        // Get user information
-        const user = {
-          id: context.activity.from.aadObjectId || context.activity.from.id,
-          name: context.activity.from.name,
-          email: context.activity.from.email || context.activity.from.userPrincipalName
-        };
-
-        // Verify user is the assigned approver
-        if (ticket.assigned_approver_id && ticket.assigned_approver_id !== user.id) {
-          return this.createInvokeResponse(403, 'You are not authorized to approve this ticket');
-        }
-
-        if (action === 'approve') {
-          return await this.handleApproval(context, ticket, user);
-        } else if (action === 'reject') {
-          const rejectionReason = data.rejectionReason || invokeValue.action?.data?.inputs?.rejectionReason;
-          return await this.handleRejection(context, ticket, user, rejectionReason);
-        }
-
-        return this.createInvokeResponse(400, 'Unknown action');
-      } catch (error) {
-        console.error('Error handling adaptive card action:', error);
-        return this.createInvokeResponse(500, 'Internal server error');
+      if (!action || !data?.ticketId) {
+        return this.createInvokeResponse(400, 'Invalid action data');
       }
-    });
+
+      const ticket = await Ticket.findById(data.ticketId);
+      if (!ticket) {
+        return this.createInvokeResponse(404, 'Ticket not found');
+      }
+
+      if (ticket.status !== 'Pending') {
+        return this.createInvokeResponse(400, 'Ticket has already been processed');
+      }
+
+      // Get user information
+      const user = {
+        id: context.activity.from.aadObjectId || context.activity.from.id,
+        name: context.activity.from.name,
+        email: context.activity.from.email || context.activity.from.userPrincipalName
+      };
+
+      // Verify user is the assigned approver
+      if (ticket.assigned_approver_id && ticket.assigned_approver_id !== user.id) {
+        return this.createInvokeResponse(403, 'You are not authorized to approve this ticket');
+      }
+
+      if (action === 'approve') {
+        return await this.handleApproval(context, ticket, user);
+      } else if (action === 'reject') {
+        const rejectionReason = data.rejectionReason || invokeValue.action?.data?.inputs?.rejectionReason;
+        return await this.handleRejection(context, ticket, user, rejectionReason);
+      }
+
+      return this.createInvokeResponse(400, 'Unknown action');
+    } catch (error) {
+      console.error('Error handling adaptive card action:', error);
+      return this.createInvokeResponse(500, 'Internal server error');
+    }
   }
 
   /**
