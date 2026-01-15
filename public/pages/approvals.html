@@ -38,11 +38,16 @@
     </div>
 
     <script>
+        // Global context variable
+        let teamsContext = null;
+        let currentUser = null;
+
         // Load pending approvals
         (async function() {
             await microsoftTeams.app.initialize();
-            const context = await microsoftTeams.app.getContext();
-            const userId = context.user.id;
+            teamsContext = await microsoftTeams.app.getContext();
+            currentUser = teamsContext.user;
+            const userId = currentUser.id;
             
             try {
                 const response = await fetch(`/api/tickets?assignedApproverId=${userId}&status=Pending`);
@@ -90,7 +95,12 @@
             try {
                 const response = await fetch(`/api/tickets/${ticketId}/approve`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        approver_id: currentUser.id,
+                        approver_name: currentUser.displayName || currentUser.userPrincipalName,
+                        approver_email: currentUser.userPrincipalName
+                    })
                 });
 
                 if (response.ok) {
@@ -116,7 +126,12 @@
                 const response = await fetch(`/api/tickets/${ticketId}/reject`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rejectionReason: reason })
+                    body: JSON.stringify({
+                        rejectionReason: reason,
+                        rejector_id: currentUser.id,
+                        rejector_name: currentUser.displayName || currentUser.userPrincipalName,
+                        rejector_email: currentUser.userPrincipalName
+                    })
                 });
 
                 if (response.ok) {
