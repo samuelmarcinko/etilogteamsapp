@@ -1,22 +1,22 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
   "manifestVersion": "1.16",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "id": "39cb02be-f50d-4e06-afda-ec0ce359e2a8",
   "packageName": "com.etilog.approval",
   "developer": {
-    "name": "ETILOG",
+    "name": "ETILOG s.r.o.",
     "websiteUrl": "https://etilog.com",
     "privacyUrl": "https://etilog.com/privacy",
     "termsOfUseUrl": "https://etilog.com/terms"
   },
   "name": {
-    "short": "Approval Bot",
-    "full": "ETILOG Internal Approval Bot"
+    "short": "ETILOG Approval Center",
+    "full": "Internal Ticket Approval App"
   },
   "description": {
-    "short": "Internal approval system for HR and Accounting",
-    "full": "ETILOG Internal Approval Bot helps manage approval requests for HR and Accounting departments. Submit tickets and get approvals directly in Teams."
+    "short": "Manage approval requests for employees",
+    "full": "Internal Microsoft Teams application that allows staff to submit approval tickets, which managers can approve or reject directly inside Microsoft Teams using Adaptive Cards."
   },
   "icons": {
     "color": "color.png",
