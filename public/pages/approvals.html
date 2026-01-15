@@ -186,7 +186,8 @@
                 return;
             }
 
-            closeRejectModal();
+            // Don't close modal yet - we need pendingRejectTicketId!
+            const ticketId = pendingRejectTicketId;
 
             try {
                 const payload = {
@@ -197,7 +198,7 @@
                 };
                 console.log('Sending reject request with payload:', payload);
 
-                const response = await fetch(`/api/tickets/${pendingRejectTicketId}/reject`, {
+                const response = await fetch(`/api/tickets/${ticketId}/reject`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -206,15 +207,18 @@
                 console.log('Reject response status:', response.status);
 
                 if (response.ok) {
+                    closeRejectModal();
                     showMessage(t('rejectSuccess'), 'success');
                     setTimeout(() => location.reload(), 1500);
                 } else {
                     const errorData = await response.json().catch(() => null);
                     console.error('Reject failed:', errorData);
+                    closeRejectModal();
                     showMessage(t('rejectFailed') + (errorData?.message ? ': ' + errorData.message : ''), 'error');
                 }
             } catch (error) {
                 console.error('Error rejecting ticket:', error);
+                closeRejectModal();
                 showMessage(t('rejectError') + ': ' + error.message, 'error');
             }
         }
