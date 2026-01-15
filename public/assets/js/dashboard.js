@@ -47,7 +47,7 @@ async function loadDashboardData() {
         console.error('Error loading dashboard:', error);
         document.getElementById('requestsList').innerHTML = `
             <div class="error-message">
-                <p>${t('alertError')} ${error.message}</p>
+                <p>${t('errorLoadingDashboard')}: ${error.message}</p>
             </div>
         `;
     }

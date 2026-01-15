@@ -21,17 +21,17 @@
         <div class="header">
             <img src="/assets/images/logo.png" alt="ETILOG Logo" class="logo">
             <div class="header-content">
-                <h1>Pending Approvals</h1>
-                <p>Requests waiting for your approval</p>
+                <h1 data-i18n="approvalsTitle">Pending Approvals</h1>
+                <p data-i18n="approvalsSubtitle">Requests waiting for your approval</p>
             </div>
         </div>
 
         <div class="card">
-            <h2>Requests to Approve</h2>
+            <h2 data-i18n="requestsToApprove">Requests to Approve</h2>
             <div id="approvalsList" class="requests-list">
                 <div class="loading-spinner">
                     <div class="loading"></div>
-                    <p>Loading pending approvals...</p>
+                    <p data-i18n="loadingApprovals">Loading pending approvals...</p>
                 </div>
             </div>
         </div>
@@ -51,39 +51,39 @@
 
                 const container = document.getElementById('approvalsList');
                 if (tickets.length === 0) {
-                    container.innerHTML = '<div class="empty-state"><p>No pending approvals</p></div>';
+                    container.innerHTML = `<div class="empty-state"><p>${t('noPendingApprovals')}</p></div>`;
                 } else {
-                    container.innerHTML = tickets.map(t => `
+                    container.innerHTML = tickets.map(ticket => `
                         <div class="request-item">
                             <div class="request-header">
-                                <h3 class="request-title">${t.title}</h3>
-                                <span class="status-badge status-pending">Pending</span>
+                                <h3 class="request-title">${ticket.title}</h3>
+                                <span class="status-badge status-pending">${t('statusPending')}</span>
                             </div>
                             <div class="request-meta">
-                                <span class="meta-item"><strong>Type:</strong> ${t.ticket_type}</span>
-                                <span class="meta-item"><strong>Priority:</strong> ${t.priority}</span>
-                                <span class="meta-item"><strong>Created by:</strong> ${t.created_by_name}</span>
+                                <span class="meta-item"><strong>${t('labelType')}:</strong> ${ticket.ticket_type}</span>
+                                <span class="meta-item"><strong>${t('labelPriority')}:</strong> ${ticket.priority}</span>
+                                <span class="meta-item"><strong>${t('labelCreatedBy')}:</strong> ${ticket.created_by_name}</span>
                             </div>
-                            <p class="request-description">${t.description}</p>
+                            <p class="request-description">${ticket.description}</p>
                             <div class="request-actions">
-                                <button class="btn btn-success" onclick="approveTicket('${t.ticket_id}')">
-                                    ✓ Approve
+                                <button class="btn btn-success" onclick="approveTicket('${ticket.ticket_id}')">
+                                    ✓ ${t('btnApprove')}
                                 </button>
-                                <button class="btn btn-danger" onclick="rejectTicket('${t.ticket_id}')">
-                                    ✗ Reject
+                                <button class="btn btn-danger" onclick="rejectTicket('${ticket.ticket_id}')">
+                                    ✗ ${t('btnReject')}
                                 </button>
                             </div>
                         </div>
                     `).join('');
                 }
             } catch (error) {
-                document.getElementById('approvalsList').innerHTML = '<div class="error-message"><p>Error loading approvals</p></div>';
+                document.getElementById('approvalsList').innerHTML = `<div class="error-message"><p>${t('errorLoadingApprovals')}</p></div>`;
             }
         })();
 
         // Approve ticket
         async function approveTicket(ticketId) {
-            if (!confirm('Are you sure you want to approve this request?')) {
+            if (!confirm(t('confirmApprove'))) {
                 return;
             }
 
@@ -94,20 +94,20 @@
                 });
 
                 if (response.ok) {
-                    alert('Request approved successfully!');
+                    alert(t('approveSuccess'));
                     location.reload();
                 } else {
-                    alert('Failed to approve request');
+                    alert(t('approveFailed'));
                 }
             } catch (error) {
                 console.error('Error approving ticket:', error);
-                alert('Error approving request');
+                alert(t('approveError'));
             }
         }
 
         // Reject ticket
         async function rejectTicket(ticketId) {
-            const reason = prompt('Please provide a reason for rejection:');
+            const reason = prompt(t('confirmReject'));
             if (!reason) {
                 return;
             }
@@ -120,14 +120,14 @@
                 });
 
                 if (response.ok) {
-                    alert('Request rejected successfully!');
+                    alert(t('rejectSuccess'));
                     location.reload();
                 } else {
-                    alert('Failed to reject request');
+                    alert(t('rejectFailed'));
                 }
             } catch (error) {
                 console.error('Error rejecting ticket:', error);
-                alert('Error rejecting request');
+                alert(t('rejectError'));
             }
         }
     </script>

@@ -70,7 +70,36 @@ const translations = {
     alertErrorLoading: 'Error loading approvers list',
     alertErrorInit: 'Error initializing Teams SDK',
     alertErrorSubmit: 'Error creating request',
-    
+
+    // Approvals page
+    approvalsTitle: 'Pending Approvals',
+    approvalsSubtitle: 'Requests waiting for your approval',
+    requestsToApprove: 'Requests to Approve',
+    loadingApprovals: 'Loading pending approvals...',
+    noPendingApprovals: 'No pending approvals',
+
+    // My Requests page
+    myRequestsTitle: 'My Requests',
+    myRequestsSubtitle: 'View and track your submitted requests',
+    yourRequests: 'Your Requests',
+    loadingYourRequests: 'Loading your requests...',
+    noRequestsFound: 'No requests found',
+
+    // Confirm dialogs
+    confirmApprove: 'Are you sure you want to approve this request?',
+    confirmReject: 'Please provide a reason for rejection:',
+
+    // Success/Error messages
+    approveSuccess: 'Request approved successfully!',
+    approveFailed: 'Failed to approve request',
+    approveError: 'Error approving request',
+    rejectSuccess: 'Request rejected successfully!',
+    rejectFailed: 'Failed to reject request',
+    rejectError: 'Error rejecting request',
+    errorLoadingDashboard: 'Error loading dashboard',
+    errorLoadingApprovals: 'Error loading approvals',
+    errorLoadingRequests: 'Error loading requests',
+
     // Required field
     required: '*'
   },
@@ -144,7 +173,36 @@ const translations = {
     alertErrorLoading: 'Chyba pri načítaní zoznamu schvaľovateľov',
     alertErrorInit: 'Chyba pri inicializácii Teams SDK',
     alertErrorSubmit: 'Chyba pri vytváraní žiadosti',
-    
+
+    // Approvals page
+    approvalsTitle: 'Čakajúce schválenia',
+    approvalsSubtitle: 'Žiadosti čakajúce na vaše schválenie',
+    requestsToApprove: 'Žiadosti na schválenie',
+    loadingApprovals: 'Načítavam čakajúce schválenia...',
+    noPendingApprovals: 'Žiadne čakajúce schválenia',
+
+    // My Requests page
+    myRequestsTitle: 'Moje žiadosti',
+    myRequestsSubtitle: 'Zobraziť a sledovať vaše odoslané žiadosti',
+    yourRequests: 'Vaše žiadosti',
+    loadingYourRequests: 'Načítavam vaše žiadosti...',
+    noRequestsFound: 'Neboli nájdené žiadne žiadosti',
+
+    // Confirm dialogs
+    confirmApprove: 'Naozaj chcete schváliť túto žiadosť?',
+    confirmReject: 'Prosím uveďte dôvod zamietnutia:',
+
+    // Success/Error messages
+    approveSuccess: 'Žiadosť bola úspešne schválená!',
+    approveFailed: 'Nepodarilo sa schváliť žiadosť',
+    approveError: 'Chyba pri schvaľovaní žiadosti',
+    rejectSuccess: 'Žiadosť bola úspešne zamietnutá!',
+    rejectFailed: 'Nepodarilo sa zamietnuť žiadosť',
+    rejectError: 'Chyba pri zamietaní žiadosti',
+    errorLoadingDashboard: 'Chyba pri načítaní nástenky',
+    errorLoadingApprovals: 'Chyba pri načítaní schválení',
+    errorLoadingRequests: 'Chyba pri načítaní žiadostí',
+
     // Required field
     required: '*'
   }

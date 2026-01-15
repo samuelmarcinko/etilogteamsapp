@@ -21,17 +21,17 @@
         <div class="header">
             <img src="/assets/images/logo.png" alt="ETILOG Logo" class="logo">
             <div class="header-content">
-                <h1>My Requests</h1>
-                <p>View and track your submitted requests</p>
+                <h1 data-i18n="myRequestsTitle">My Requests</h1>
+                <p data-i18n="myRequestsSubtitle">View and track your submitted requests</p>
             </div>
         </div>
 
         <div class="card">
-            <h2>Your Requests</h2>
+            <h2 data-i18n="yourRequests">Your Requests</h2>
             <div id="myRequestsList" class="requests-list">
                 <div class="loading-spinner">
                     <div class="loading"></div>
-                    <p>Loading your requests...</p>
+                    <p data-i18n="loadingYourRequests">Loading your requests...</p>
                 </div>
             </div>
         </div>
@@ -51,25 +51,25 @@
 
                 const container = document.getElementById('myRequestsList');
                 if (tickets.length === 0) {
-                    container.innerHTML = '<div class="empty-state"><p>No requests found</p></div>';
+                    container.innerHTML = `<div class="empty-state"><p>${t('noRequestsFound')}</p></div>`;
                 } else {
-                    container.innerHTML = tickets.map(t => `
+                    container.innerHTML = tickets.map(ticket => `
                         <div class="request-item">
                             <div class="request-header">
-                                <h3 class="request-title">${t.title}</h3>
-                                <span class="status-badge status-${t.status.toLowerCase()}">${t.status}</span>
+                                <h3 class="request-title">${ticket.title}</h3>
+                                <span class="status-badge status-${ticket.status.toLowerCase()}">${t('status' + ticket.status)}</span>
                             </div>
                             <div class="request-meta">
-                                <span class="meta-item"><strong>Type:</strong> ${t.ticket_type}</span>
-                                <span class="meta-item"><strong>Priority:</strong> ${t.priority}</span>
-                                <span class="meta-item"><strong>Approver:</strong> ${t.assigned_approver_name}</span>
+                                <span class="meta-item"><strong>${t('labelType')}:</strong> ${ticket.ticket_type}</span>
+                                <span class="meta-item"><strong>${t('labelPriority')}:</strong> ${ticket.priority}</span>
+                                <span class="meta-item"><strong>${t('labelApprover')}:</strong> ${ticket.assigned_approver_name}</span>
                             </div>
-                            <p class="request-description">${t.description}</p>
+                            <p class="request-description">${ticket.description}</p>
                         </div>
                     `).join('');
                 }
             } catch (error) {
-                document.getElementById('myRequestsList').innerHTML = '<div class="error-message"><p>Error loading requests</p></div>';
+                document.getElementById('myRequestsList').innerHTML = `<div class="error-message"><p>${t('errorLoadingRequests')}</p></div>`;
             }
         })();
     </script>
