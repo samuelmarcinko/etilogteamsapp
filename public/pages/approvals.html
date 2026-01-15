@@ -109,11 +109,7 @@
             console.log('Current user:', currentUser);
 
             if (!currentUser) {
-                alert('Error: User context not loaded. Please refresh the page.');
-                return;
-            }
-
-            if (!confirm(t('confirmApprove'))) {
+                showMessage(t('approveError') + ': User context not loaded', 'error');
                 return;
             }
 
@@ -134,16 +130,16 @@
                 console.log('Approve response status:', response.status);
 
                 if (response.ok) {
-                    alert(t('approveSuccess'));
-                    location.reload();
+                    showMessage(t('approveSuccess'), 'success');
+                    setTimeout(() => location.reload(), 1500);
                 } else {
                     const errorData = await response.json().catch(() => null);
                     console.error('Approve failed:', errorData);
-                    alert(t('approveFailed') + (errorData?.message ? ': ' + errorData.message : ''));
+                    showMessage(t('approveFailed') + (errorData?.message ? ': ' + errorData.message : ''), 'error');
                 }
             } catch (error) {
                 console.error('Error approving ticket:', error);
-                alert(t('approveError') + ': ' + error.message);
+                showMessage(t('approveError') + ': ' + error.message, 'error');
             }
         }
 
@@ -153,14 +149,12 @@
             console.log('Current user:', currentUser);
 
             if (!currentUser) {
-                alert('Error: User context not loaded. Please refresh the page.');
+                showMessage(t('rejectError') + ': User context not loaded', 'error');
                 return;
             }
 
-            const reason = prompt(t('confirmReject'));
-            if (!reason) {
-                return;
-            }
+            // For now, use a simple default reason. Later we can implement Teams Task Module for input
+            const reason = 'Rejected by approver';
 
             try {
                 const payload = {
@@ -180,17 +174,43 @@
                 console.log('Reject response status:', response.status);
 
                 if (response.ok) {
-                    alert(t('rejectSuccess'));
-                    location.reload();
+                    showMessage(t('rejectSuccess'), 'success');
+                    setTimeout(() => location.reload(), 1500);
                 } else {
                     const errorData = await response.json().catch(() => null);
                     console.error('Reject failed:', errorData);
-                    alert(t('rejectFailed') + (errorData?.message ? ': ' + errorData.message : ''));
+                    showMessage(t('rejectFailed') + (errorData?.message ? ': ' + errorData.message : ''), 'error');
                 }
             } catch (error) {
                 console.error('Error rejecting ticket:', error);
-                alert(t('rejectError') + ': ' + error.message);
+                showMessage(t('rejectError') + ': ' + error.message, 'error');
             }
+        }
+
+        // Show message helper (replaces alert/confirm for Teams compatibility)
+        function showMessage(message, type = 'info') {
+            const messageDiv = document.createElement('div');
+            messageDiv.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+                color: white;
+                border-radius: 8px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                z-index: 10000;
+                font-size: 14px;
+                max-width: 300px;
+            `;
+            messageDiv.textContent = message;
+            document.body.appendChild(messageDiv);
+
+            setTimeout(() => {
+                messageDiv.style.transition = 'opacity 0.3s';
+                messageDiv.style.opacity = '0';
+                setTimeout(() => messageDiv.remove(), 300);
+            }, 3000);
         }
     </script>
 </body>
