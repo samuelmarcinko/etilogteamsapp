@@ -19,8 +19,9 @@ class TicketService {
       // Create ticket in database
       const ticket = await Ticket.create(ticketData);
 
-      // Send approval card to manager
-      if (ticketData.assignedApprover?.id) {
+      // Send approval card to manager - DISABLED
+      // Using NotificationService instead (called from ticketController.js)
+      if (false && ticketData.assignedApprover?.id) {
         try {
           const cardResult = await CardService.sendApprovalCard(
             ticket,
