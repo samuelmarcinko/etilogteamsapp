@@ -88,61 +88,91 @@
 
         // Approve ticket
         async function approveTicket(ticketId) {
+            console.log('Approve clicked for ticket:', ticketId);
+            console.log('Current user:', currentUser);
+
+            if (!currentUser) {
+                alert('Error: User context not loaded. Please refresh the page.');
+                return;
+            }
+
             if (!confirm(t('confirmApprove'))) {
                 return;
             }
 
             try {
+                const payload = {
+                    approver_id: currentUser.id,
+                    approver_name: currentUser.displayName || currentUser.userPrincipalName,
+                    approver_email: currentUser.userPrincipalName
+                };
+                console.log('Sending approve request with payload:', payload);
+
                 const response = await fetch(`/api/tickets/${ticketId}/approve`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        approver_id: currentUser.id,
-                        approver_name: currentUser.displayName || currentUser.userPrincipalName,
-                        approver_email: currentUser.userPrincipalName
-                    })
+                    body: JSON.stringify(payload)
                 });
+
+                console.log('Approve response status:', response.status);
 
                 if (response.ok) {
                     alert(t('approveSuccess'));
                     location.reload();
                 } else {
-                    alert(t('approveFailed'));
+                    const errorData = await response.json().catch(() => null);
+                    console.error('Approve failed:', errorData);
+                    alert(t('approveFailed') + (errorData?.message ? ': ' + errorData.message : ''));
                 }
             } catch (error) {
                 console.error('Error approving ticket:', error);
-                alert(t('approveError'));
+                alert(t('approveError') + ': ' + error.message);
             }
         }
 
         // Reject ticket
         async function rejectTicket(ticketId) {
+            console.log('Reject clicked for ticket:', ticketId);
+            console.log('Current user:', currentUser);
+
+            if (!currentUser) {
+                alert('Error: User context not loaded. Please refresh the page.');
+                return;
+            }
+
             const reason = prompt(t('confirmReject'));
             if (!reason) {
                 return;
             }
 
             try {
+                const payload = {
+                    rejectionReason: reason,
+                    rejector_id: currentUser.id,
+                    rejector_name: currentUser.displayName || currentUser.userPrincipalName,
+                    rejector_email: currentUser.userPrincipalName
+                };
+                console.log('Sending reject request with payload:', payload);
+
                 const response = await fetch(`/api/tickets/${ticketId}/reject`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        rejectionReason: reason,
-                        rejector_id: currentUser.id,
-                        rejector_name: currentUser.displayName || currentUser.userPrincipalName,
-                        rejector_email: currentUser.userPrincipalName
-                    })
+                    body: JSON.stringify(payload)
                 });
+
+                console.log('Reject response status:', response.status);
 
                 if (response.ok) {
                     alert(t('rejectSuccess'));
                     location.reload();
                 } else {
-                    alert(t('rejectFailed'));
+                    const errorData = await response.json().catch(() => null);
+                    console.error('Reject failed:', errorData);
+                    alert(t('rejectFailed') + (errorData?.message ? ': ' + errorData.message : ''));
                 }
             } catch (error) {
                 console.error('Error rejecting ticket:', error);
-                alert(t('rejectError'));
+                alert(t('rejectError') + ': ' + error.message);
             }
         }
     </script>
