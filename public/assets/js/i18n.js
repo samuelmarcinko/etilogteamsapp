@@ -89,6 +89,13 @@ const translations = {
     confirmApprove: 'Are you sure you want to approve this request?',
     confirmReject: 'Please provide a reason for rejection:',
 
+    // Reject modal
+    rejectModalTitle: 'Rejection Reason',
+    rejectModalPlaceholder: 'Please provide a reason for rejection...',
+    rejectModalCancel: 'Cancel',
+    rejectModalSubmit: 'Reject',
+    rejectModalError: 'Please provide a reason for rejection',
+
     // Success/Error messages
     approveSuccess: 'Request approved successfully!',
     approveFailed: 'Failed to approve request',
@@ -191,6 +198,13 @@ const translations = {
     // Confirm dialogs
     confirmApprove: 'Naozaj chcete schváliť túto žiadosť?',
     confirmReject: 'Prosím uveďte dôvod zamietnutia:',
+
+    // Reject modal
+    rejectModalTitle: 'Dôvod zamietnutia',
+    rejectModalPlaceholder: 'Prosím uveďte dôvod zamietnutia...',
+    rejectModalCancel: 'Zrušiť',
+    rejectModalSubmit: 'Zamietnuť',
+    rejectModalError: 'Prosím uveďte dôvod zamietnutia',
 
     // Success/Error messages
     approveSuccess: 'Žiadosť bola úspešne schválená!',

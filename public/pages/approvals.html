@@ -37,10 +37,23 @@
         </div>
     </div>
 
+    <!-- Reject Reason Modal -->
+    <div id="rejectModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; justify-content: center; align-items: center;">
+        <div style="background: white; padding: 30px; border-radius: 12px; max-width: 500px; width: 90%; box-shadow: 0 10px 25px rgba(0,0,0,0.3);">
+            <h3 style="margin: 0 0 20px 0; color: #1f2937; font-size: 20px;" data-i18n="rejectModalTitle">Rejection Reason</h3>
+            <textarea id="rejectionReasonInput" data-i18n-placeholder="rejectModalPlaceholder" placeholder="Please provide a reason for rejection..." style="width: 100%; min-height: 100px; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-family: inherit; font-size: 14px; resize: vertical;"></textarea>
+            <div style="display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end;">
+                <button onclick="closeRejectModal()" data-i18n="rejectModalCancel" style="padding: 10px 20px; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">Cancel</button>
+                <button onclick="submitRejection()" data-i18n="rejectModalSubmit" style="padding: 10px 20px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">Reject</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Global context variable
         let teamsContext = null;
         let currentUser = null;
+        let pendingRejectTicketId = null;
 
         // Load pending approvals
         (async function() {
@@ -143,18 +156,37 @@
             }
         }
 
-        // Reject ticket
-        async function rejectTicket(ticketId) {
+        // Reject ticket - open modal
+        function rejectTicket(ticketId) {
             console.log('Reject clicked for ticket:', ticketId);
-            console.log('Current user:', currentUser);
 
             if (!currentUser) {
                 showMessage(t('rejectError') + ': User context not loaded', 'error');
                 return;
             }
 
-            // For now, use a simple default reason. Later we can implement Teams Task Module for input
-            const reason = 'Rejected by approver';
+            pendingRejectTicketId = ticketId;
+            document.getElementById('rejectModal').style.display = 'flex';
+            document.getElementById('rejectionReasonInput').value = '';
+            document.getElementById('rejectionReasonInput').focus();
+        }
+
+        // Close reject modal
+        function closeRejectModal() {
+            document.getElementById('rejectModal').style.display = 'none';
+            pendingRejectTicketId = null;
+        }
+
+        // Submit rejection with reason
+        async function submitRejection() {
+            const reason = document.getElementById('rejectionReasonInput').value.trim();
+
+            if (!reason) {
+                showMessage(t('rejectModalError'), 'error');
+                return;
+            }
+
+            closeRejectModal();
 
             try {
                 const payload = {
@@ -165,7 +197,7 @@
                 };
                 console.log('Sending reject request with payload:', payload);
 
-                const response = await fetch(`/api/tickets/${ticketId}/reject`, {
+                const response = await fetch(`/api/tickets/${pendingRejectTicketId}/reject`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
