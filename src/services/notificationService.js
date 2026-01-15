@@ -1,5 +1,5 @@
 const adapter = require('../bot/botAdapter');
-const { ConnectorClient, MicrosoftAppCredentials } = require('botbuilder');
+const { TurnContext } = require('botbuilder');
 require('dotenv').config();
 
 class NotificationService {
@@ -9,65 +9,61 @@ class NotificationService {
   static async sendNotification(userId, message, actionButton = null) {
     try {
       const botId = process.env.MICROSOFT_APP_ID;
-      const botPassword = process.env.MICROSOFT_APP_PASSWORD;
       const tenantId = process.env.TENANT_ID;
       const serviceUrl = 'https://smba.trafficmanager.net/emea/';
 
-      // Create credentials
-      const credentials = new MicrosoftAppCredentials(botId, botPassword);
-      const connectorClient = new ConnectorClient(credentials, { baseUri: serviceUrl });
-
-      // Create conversation parameters for 1:1 chat
-      const conversationParameters = {
-        isGroup: false,
+      // Create conversation reference for proactive messaging
+      const conversationReference = {
+        activityId: null,
+        user: {
+          id: userId,
+          name: 'User'
+        },
         bot: {
           id: `28:${botId}`,
           name: 'ETILOG Approval Bot'
         },
-        members: [{
-          id: userId
-        }],
-        tenantId: tenantId,
-        activity: null
-      };
-
-      // Create conversation with user
-      const conversationResponse = await connectorClient.conversations.createConversation(conversationParameters);
-      const conversationId = conversationResponse.id;
-
-      // Create message activity
-      const activity = {
-        type: 'message',
-        from: {
-          id: `28:${botId}`,
-          name: 'ETILOG Approval Bot'
-        },
-        recipient: {
-          id: userId
-        },
         conversation: {
-          id: conversationId
+          id: userId,
+          isGroup: false,
+          conversationType: 'personal',
+          tenantId: tenantId
         },
-        text: message,
-        attachments: []
+        channelId: 'msteams',
+        serviceUrl: serviceUrl
       };
 
-      // Add action button if provided (Hero Card)
-      if (actionButton) {
-        activity.attachments = [{
-          contentType: 'application/vnd.microsoft.card.hero',
-          content: {
-            buttons: [{
-              type: 'openUrl',
-              title: actionButton.title,
-              value: actionButton.url
-            }]
-          }
-        }];
-      }
+      // Use adapter to continue conversation and send proactive message
+      await adapter.continueConversationAsync(
+        botId,
+        conversationReference,
+        async (turnContext) => {
+          // Create message activity
+          const messageActivity = {
+            type: 'message',
+            text: message
+          };
 
-      // Send message
-      await connectorClient.conversations.sendToConversation(conversationId, activity);
+          // Add action button if provided (Hero Card)
+          if (actionButton) {
+            messageActivity.attachments = [{
+              contentType: 'application/vnd.microsoft.card.hero',
+              content: {
+                text: message,
+                buttons: [{
+                  type: 'openUrl',
+                  title: actionButton.title,
+                  value: actionButton.url
+                }]
+              }
+            }];
+            // Remove text from activity since it's in the card
+            delete messageActivity.text;
+          }
+
+          await turnContext.sendActivity(messageActivity);
+        }
+      );
 
       return { success: true };
     } catch (error) {
