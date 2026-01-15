@@ -7,7 +7,7 @@ class TicketController {
    */
   static async createTicket(req, res, next) {
     try {
-      const { title, description, ticketType, priority, assignedApprover, conversationId } = req.body;
+      const { title, description, ticketType, priority, conversationId } = req.body;
 
       // Validate input
       if (!title || !description) {
@@ -27,6 +27,13 @@ class TicketController {
         name: req.body.created_by_name || 'Unknown User',
         email: req.body.created_by_email || 'unknown@example.com'
       };
+
+      // Parse assigned approver from request body
+      const assignedApprover = req.body.assigned_approver_id ? {
+        id: req.body.assigned_approver_id,
+        name: req.body.assigned_approver_name,
+        email: req.body.assigned_approver_email
+      } : null;
 
       // Prepare ticket data
       const ticketData = {
