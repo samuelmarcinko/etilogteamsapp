@@ -17,11 +17,15 @@ class TicketController {
         });
       }
 
-      // Get creator info from authenticated user
-      const createdBy = {
+      // Get creator info from authenticated user or request body
+      const createdBy = req.user ? {
         id: req.user.id,
         name: req.user.name,
         email: req.user.email
+      } : {
+        id: req.body.created_by_id || 'unknown',
+        name: req.body.created_by_name || 'Unknown User',
+        email: req.body.created_by_email || 'unknown@example.com'
       };
 
       // Prepare ticket data

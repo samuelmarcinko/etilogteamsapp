@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const ticketRoutes = require('./ticketRoutes');
+const userRoutes = require('./userRoutes');
 
 // Health check endpoint
 router.get('/health', (req, res) => {
@@ -13,5 +14,6 @@ router.get('/health', (req, res) => {
 
 // API routes
 router.use('/tickets', ticketRoutes);
+router.use('/users', userRoutes);
 
 module.exports = router;

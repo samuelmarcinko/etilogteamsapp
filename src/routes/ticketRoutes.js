@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const TicketController = require('../controllers/ticketController');
-const { verifyToken } = require('../middleware/auth');
+const { optionalAuth } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
 
-// All routes require authentication
-router.use(verifyToken);
+// Optional auth for development - will be changed to verifyToken in production
+router.use(optionalAuth);
 
 // Create ticket
 router.post('/', asyncHandler(TicketController.createTicket));

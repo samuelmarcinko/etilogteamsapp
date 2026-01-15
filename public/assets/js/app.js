@@ -24,18 +24,20 @@ let currentUser = null;
 // Load list of approvers (managers)
 async function loadApprovers() {
     const approverSelect = document.getElementById('approver');
-    
+
     try {
-        // TODO: Replace with actual API call to get users from Azure AD
-        // For now, using static list
-        const approvers = [
-            { id: 'manager1-aad-id', name: 'Peter Kováč', email: 'peter.kovac@etilog.com' },
-            { id: 'manager2-aad-id', name: 'Mária Nováková', email: 'maria.novakova@etilog.com' },
-            { id: 'manager3-aad-id', name: 'Ján Horváth', email: 'jan.horvath@etilog.com' }
-        ];
-        
+        // Fetch users from Microsoft Graph API
+        const response = await fetch('/api/users');
+
+        if (!response.ok) {
+            throw new Error('Failed to load users');
+        }
+
+        const result = await response.json();
+        const approvers = result.data || [];
+
         approverSelect.innerHTML = `<option value="">${t('placeholderApprover')}</option>`;
-        
+
         approvers.forEach(approver => {
             const option = document.createElement('option');
             option.value = JSON.stringify({
@@ -46,7 +48,7 @@ async function loadApprovers() {
             option.textContent = `${approver.name} (${approver.email})`;
             approverSelect.appendChild(option);
         });
-        
+
     } catch (error) {
         console.error('Error loading approvers:', error);
         showAlert(t('alertErrorLoading'), 'error');
