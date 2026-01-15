@@ -25,11 +25,12 @@ async function loadDashboardData() {
             throw new Error('Failed to load tickets');
         }
         
-        const tickets = await response.json();
-        
+        const result = await response.json();
+        const tickets = result.data || [];
+
         // Update stats
         updateStats(tickets);
-        
+
         // Render recent requests
         renderRequests(tickets.slice(0, 10));
         

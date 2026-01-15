@@ -46,8 +46,9 @@
             
             try {
                 const response = await fetch(`/api/tickets?approver=${userId}&status=Pending`);
-                const tickets = await response.json();
-                
+                const result = await response.json();
+                const tickets = result.data || [];
+
                 const container = document.getElementById('approvalsList');
                 if (tickets.length === 0) {
                     container.innerHTML = '<div class="empty-state"><p>No pending approvals</p></div>';

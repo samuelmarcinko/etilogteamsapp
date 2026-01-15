@@ -46,8 +46,9 @@
             
             try {
                 const response = await fetch(`/api/tickets?created_by=${userId}`);
-                const tickets = await response.json();
-                
+                const result = await response.json();
+                const tickets = result.data || [];
+
                 const container = document.getElementById('myRequestsList');
                 if (tickets.length === 0) {
                     container.innerHTML = '<div class="empty-state"><p>No requests found</p></div>';
