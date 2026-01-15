@@ -45,7 +45,7 @@
             const userId = context.user.id;
             
             try {
-                const response = await fetch(`/api/tickets?created_by=${userId}`);
+                const response = await fetch(`/api/tickets?createdById=${userId}`);
                 const result = await response.json();
                 const tickets = result.data || [];
 

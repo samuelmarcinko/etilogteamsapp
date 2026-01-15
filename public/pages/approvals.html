@@ -45,7 +45,7 @@
             const userId = context.user.id;
             
             try {
-                const response = await fetch(`/api/tickets?approver=${userId}&status=Pending`);
+                const response = await fetch(`/api/tickets?assignedApproverId=${userId}&status=Pending`);
                 const result = await response.json();
                 const tickets = result.data || [];
 
