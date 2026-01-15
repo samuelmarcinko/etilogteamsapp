@@ -31,8 +31,8 @@ CREATE TABLE IF NOT EXISTS tickets (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_status CHECK (status IN ('Pending', 'Approved', 'Rejected')),
-    CONSTRAINT chk_ticket_type CHECK (ticket_type IN ('HR', 'Accounting', 'Other')),
-    CONSTRAINT chk_priority CHECK (priority IN ('Low', 'Medium', 'High'))
+    CONSTRAINT chk_ticket_type CHECK (ticket_type IN ('vacation', 'purchase', 'expense', 'hr', 'other', 'HR', 'Accounting', 'Other')),
+    CONSTRAINT chk_priority CHECK (priority IN ('low', 'medium', 'high', 'urgent', 'Low', 'Medium', 'High', 'Urgent'))
 );
 
 -- Ticket actions table (audit log)
