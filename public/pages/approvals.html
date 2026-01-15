@@ -71,20 +71,43 @@
                             </div>
                             <p class="request-description">${ticket.description}</p>
                             <div class="request-actions">
-                                <button class="btn btn-success" onclick="approveTicket('${ticket.ticket_id}')">
+                                <button class="btn btn-success" data-action="approve" data-ticket-id="${ticket.ticket_id}">
                                     ✓ ${t('btnApprove')}
                                 </button>
-                                <button class="btn btn-danger" onclick="rejectTicket('${ticket.ticket_id}')">
+                                <button class="btn btn-danger" data-action="reject" data-ticket-id="${ticket.ticket_id}">
                                     ✗ ${t('btnReject')}
                                 </button>
                             </div>
                         </div>
                     `).join('');
+
+                    // Add event listeners to all buttons
+                    setupButtonListeners();
                 }
             } catch (error) {
                 document.getElementById('approvalsList').innerHTML = `<div class="error-message"><p>${t('errorLoadingApprovals')}</p></div>`;
             }
         })();
+
+        // Setup button event listeners
+        function setupButtonListeners() {
+            const approveButtons = document.querySelectorAll('button[data-action="approve"]');
+            const rejectButtons = document.querySelectorAll('button[data-action="reject"]');
+
+            approveButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const ticketId = btn.getAttribute('data-ticket-id');
+                    approveTicket(ticketId);
+                });
+            });
+
+            rejectButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const ticketId = btn.getAttribute('data-ticket-id');
+                    rejectTicket(ticketId);
+                });
+            });
+        }
 
         // Approve ticket
         async function approveTicket(ticketId) {
