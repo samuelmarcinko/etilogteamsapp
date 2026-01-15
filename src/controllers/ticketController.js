@@ -117,10 +117,15 @@ class TicketController {
     try {
       const { ticketId } = req.params;
 
-      const approver = {
+      // Get approver info from authenticated user or request body
+      const approver = req.user ? {
         id: req.user.id,
         name: req.user.name,
         email: req.user.email
+      } : {
+        id: req.body.approver_id || 'unknown',
+        name: req.body.approver_name || 'Unknown User',
+        email: req.body.approver_email || 'unknown@example.com'
       };
 
       const ticket = await TicketService.approveTicket(ticketId, approver);
@@ -156,10 +161,15 @@ class TicketController {
       const { ticketId } = req.params;
       const { rejectionReason } = req.body;
 
-      const rejector = {
+      // Get rejector info from authenticated user or request body
+      const rejector = req.user ? {
         id: req.user.id,
         name: req.user.name,
         email: req.user.email
+      } : {
+        id: req.body.rejector_id || 'unknown',
+        name: req.body.rejector_name || 'Unknown User',
+        email: req.body.rejector_email || 'unknown@example.com'
       };
 
       const ticket = await TicketService.rejectTicket(ticketId, rejector, rejectionReason);
