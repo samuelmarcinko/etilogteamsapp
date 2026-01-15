@@ -80,34 +80,28 @@
                             </div>
                         </div>
                     `).join('');
-
-                    // Add event listeners to all buttons
-                    setupButtonListeners();
                 }
             } catch (error) {
                 document.getElementById('approvalsList').innerHTML = `<div class="error-message"><p>${t('errorLoadingApprovals')}</p></div>`;
             }
         })();
 
-        // Setup button event listeners
-        function setupButtonListeners() {
-            const approveButtons = document.querySelectorAll('button[data-action="approve"]');
-            const rejectButtons = document.querySelectorAll('button[data-action="reject"]');
+        // Event delegation for approve/reject buttons
+        document.getElementById('approvalsList').addEventListener('click', function(e) {
+            const button = e.target.closest('button[data-action]');
+            if (!button) return;
 
-            approveButtons.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const ticketId = btn.getAttribute('data-ticket-id');
-                    approveTicket(ticketId);
-                });
-            });
+            const action = button.getAttribute('data-action');
+            const ticketId = button.getAttribute('data-ticket-id');
 
-            rejectButtons.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const ticketId = btn.getAttribute('data-ticket-id');
-                    rejectTicket(ticketId);
-                });
-            });
-        }
+            console.log('Button clicked:', action, ticketId);
+
+            if (action === 'approve') {
+                approveTicket(ticketId);
+            } else if (action === 'reject') {
+                rejectTicket(ticketId);
+            }
+        });
 
         // Approve ticket
         async function approveTicket(ticketId) {
