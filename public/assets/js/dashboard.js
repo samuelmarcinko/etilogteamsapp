@@ -18,22 +18,31 @@ let currentUser = null;
 // Load dashboard data
 async function loadDashboardData() {
     try {
-        // Fetch all tickets
-        const response = await fetch('/api/tickets');
-        
-        if (!response.ok) {
+        // Fetch only MY tickets (created by me) and tickets assigned to me
+        const myTicketsResponse = await fetch(`/api/tickets?createdById=${currentUser.id}`);
+        const myApprovalsResponse = await fetch(`/api/tickets?assignedApproverId=${currentUser.id}`);
+
+        if (!myTicketsResponse.ok || !myApprovalsResponse.ok) {
             throw new Error('Failed to load tickets');
         }
-        
-        const result = await response.json();
-        const tickets = result.data || [];
 
-        // Update stats
-        updateStats(tickets);
+        const myTicketsResult = await myTicketsResponse.json();
+        const myApprovalsResult = await myApprovalsResponse.json();
 
-        // Render recent requests
-        renderRequests(tickets.slice(0, 10));
-        
+        const myTickets = myTicketsResult.data || [];
+        const myApprovals = myApprovalsResult.data || [];
+
+        // Combine and deduplicate tickets
+        const allMyTickets = [...myTickets, ...myApprovals.filter(
+            approval => !myTickets.find(ticket => ticket.id === approval.id)
+        )];
+
+        // Update stats (only my tickets)
+        updateStats(allMyTickets);
+
+        // Render recent requests (only my tickets)
+        renderRequests(allMyTickets.slice(0, 10));
+
     } catch (error) {
         console.error('Error loading dashboard:', error);
         document.getElementById('requestsList').innerHTML = `
