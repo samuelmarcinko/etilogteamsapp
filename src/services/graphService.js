@@ -1,5 +1,3 @@
-const { Client } = require('@microsoft/microsoft-graph-client');
-require('azure-functions-core-tools');
 const axios = require('axios');
 require('dotenv').config();
 
