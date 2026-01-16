@@ -28,21 +28,17 @@ class NotificationService {
       // Create activity feed notification
       const notification = {
         topic: {
-          source: 'entityUrl',
-          value: `https://graph.microsoft.com/v1.0/users/${userId}`
+          source: 'text',
+          value: 'Approval Request'
         },
-        activityType: 'approvalRequest',
+        activityType: 'approvalRequired',
         previewText: {
           content: title
         },
         templateParameters: [
           {
-            name: 'approvalTitle',
+            name: 'approvalTaskId',
             value: title
-          },
-          {
-            name: 'approvalMessage',
-            value: message
           }
         ],
         teamsAppId: teamsAppId
@@ -50,7 +46,7 @@ class NotificationService {
 
       // Add deep link if provided
       if (deepLink) {
-        notification.webUrl = deepLink;
+        notification.topic.webUrl = deepLink;
       }
 
       // Send notification via Graph API
