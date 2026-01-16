@@ -496,6 +496,20 @@ body {
   margin: 0;
 }
 
+.rejection-reason {
+  margin-top: 1rem;
+  padding: 0.875rem;
+  background-color: #fee;
+  border-left: 4px solid #dc3545;
+  border-radius: 4px;
+  color: #721c24;
+  line-height: 1.5;
+}
+
+.rejection-reason strong {
+  color: #721c24;
+}
+
 .empty-state {
   text-align: center;
   padding: 3rem 1rem;

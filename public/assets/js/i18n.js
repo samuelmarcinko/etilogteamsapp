@@ -27,6 +27,7 @@ const translations = {
     labelStatus: 'Status',
     labelCreatedBy: 'Created By',
     labelCreatedAt: 'Created At',
+    labelRejectionReason: 'Rejection Reason',
     
     // Placeholders
     placeholderTitle: 'e.g. Vacation Approval',
@@ -137,6 +138,7 @@ const translations = {
     labelStatus: 'Stav',
     labelCreatedBy: 'Vytvoril',
     labelCreatedAt: 'Vytvorené',
+    labelRejectionReason: 'Dôvod zamietnutia',
     
     // Placeholders
     placeholderTitle: 'Napr. Schválenie dovolenky',

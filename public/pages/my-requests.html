@@ -38,36 +38,78 @@
     </div>
 
     <script>
+        // Global variable to store tickets
+        let userTickets = [];
+
+        // Helper function to translate ticket type
+        function translateType(type) {
+            const typeMap = {
+                'vacation': 'typeVacation',
+                'purchase': 'typePurchase',
+                'expense': 'typeExpense',
+                'hr': 'typeHr',
+                'other': 'typeOther'
+            };
+            return t(typeMap[type.toLowerCase()] || 'typeOther');
+        }
+
+        // Helper function to translate priority
+        function translatePriority(priority) {
+            const priorityMap = {
+                'low': 'priorityLow',
+                'medium': 'priorityMedium',
+                'high': 'priorityHigh',
+                'urgent': 'priorityUrgent'
+            };
+            return t(priorityMap[priority.toLowerCase()] || 'priorityMedium');
+        }
+
+        // Render tickets function
+        function renderTickets() {
+            const container = document.getElementById('myRequestsList');
+            if (userTickets.length === 0) {
+                container.innerHTML = `<div class="empty-state"><p>${t('noRequestsFound')}</p></div>`;
+            } else {
+                container.innerHTML = userTickets.map(ticket => `
+                    <div class="request-item">
+                        <div class="request-header">
+                            <h3 class="request-title">${ticket.title}</h3>
+                            <span class="status-badge status-${ticket.status.toLowerCase()}">${t('status' + ticket.status)}</span>
+                        </div>
+                        <div class="request-meta">
+                            <span class="meta-item"><strong>${t('labelType')}:</strong> ${translateType(ticket.ticket_type)}</span>
+                            <span class="meta-item"><strong>${t('labelPriority')}:</strong> ${translatePriority(ticket.priority)}</span>
+                            <span class="meta-item"><strong>${t('labelApprover')}:</strong> ${ticket.assigned_approver_name}</span>
+                        </div>
+                        <p class="request-description">${ticket.description}</p>
+                        ${ticket.status === 'Rejected' && ticket.rejection_reason ? `
+                            <div class="rejection-reason">
+                                <strong>${t('labelRejectionReason')}:</strong> ${ticket.rejection_reason}
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Override switchLanguage to re-render tickets
+        const originalSwitchLanguage = window.switchLanguage;
+        window.switchLanguage = function(lang) {
+            originalSwitchLanguage(lang);
+            renderTickets(); // Re-render tickets with new language
+        };
+
         // Load user's requests
         (async function() {
             await microsoftTeams.app.initialize();
             const context = await microsoftTeams.app.getContext();
             const userId = context.user.id;
-            
+
             try {
                 const response = await fetch(`/api/tickets?createdById=${userId}`);
                 const result = await response.json();
-                const tickets = result.data || [];
-
-                const container = document.getElementById('myRequestsList');
-                if (tickets.length === 0) {
-                    container.innerHTML = `<div class="empty-state"><p>${t('noRequestsFound')}</p></div>`;
-                } else {
-                    container.innerHTML = tickets.map(ticket => `
-                        <div class="request-item">
-                            <div class="request-header">
-                                <h3 class="request-title">${ticket.title}</h3>
-                                <span class="status-badge status-${ticket.status.toLowerCase()}">${t('status' + ticket.status)}</span>
-                            </div>
-                            <div class="request-meta">
-                                <span class="meta-item"><strong>${t('labelType')}:</strong> ${ticket.ticket_type}</span>
-                                <span class="meta-item"><strong>${t('labelPriority')}:</strong> ${ticket.priority}</span>
-                                <span class="meta-item"><strong>${t('labelApprover')}:</strong> ${ticket.assigned_approver_name}</span>
-                            </div>
-                            <p class="request-description">${ticket.description}</p>
-                        </div>
-                    `).join('');
-                }
+                userTickets = result.data || [];
+                renderTickets();
             } catch (error) {
                 document.getElementById('myRequestsList').innerHTML = `<div class="error-message"><p>${t('errorLoadingRequests')}</p></div>`;
             }
