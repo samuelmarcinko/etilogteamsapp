@@ -28,6 +28,28 @@
 
         <div class="card">
             <h2 data-i18n="yourRequests">Your Requests</h2>
+
+            <!-- Filters Section -->
+            <div class="filters-section">
+                <div class="filters-row">
+                    <div class="filter-group">
+                        <label class="filter-label" data-i18n="filterSearch">Search</label>
+                        <input type="text"
+                               id="searchInput"
+                               class="filter-input"
+                               data-i18n-placeholder="filterSearchPlaceholder"
+                               placeholder="Search by title or description...">
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label" data-i18n="filterApprover">Filter by Approver</label>
+                        <select id="approverFilter" class="filter-select">
+                            <option value="" data-i18n="filterApproverAll">-- All Approvers --</option>
+                        </select>
+                    </div>
+                    <button class="filter-clear-btn" onclick="clearFilters()" data-i18n="filterClear">Clear Filters</button>
+                </div>
+            </div>
+
             <div id="myRequestsList" class="requests-list">
                 <div class="loading-spinner">
                     <div class="loading"></div>
@@ -38,8 +60,9 @@
     </div>
 
     <script>
-        // Global variable to store tickets
+        // Global variables
         let userTickets = [];
+        let filteredTickets = [];
 
         // Helper function to translate ticket type
         function translateType(type) {
@@ -64,13 +87,43 @@
             return t(priorityMap[priority.toLowerCase()] || 'priorityMedium');
         }
 
+        // Filter tickets based on search and approver filter
+        function applyFilters() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const selectedApprover = document.getElementById('approverFilter').value;
+
+            filteredTickets = userTickets.filter(ticket => {
+                // Search filter
+                const matchesSearch = !searchTerm ||
+                    ticket.title.toLowerCase().includes(searchTerm) ||
+                    ticket.description.toLowerCase().includes(searchTerm);
+
+                // Approver filter
+                const matchesApprover = !selectedApprover ||
+                    ticket.assigned_approver_id === selectedApprover;
+
+                return matchesSearch && matchesApprover;
+            });
+
+            renderTickets();
+        }
+
+        // Clear all filters
+        function clearFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('approverFilter').value = '';
+            applyFilters();
+        }
+
         // Render tickets function
         function renderTickets() {
             const container = document.getElementById('myRequestsList');
-            if (userTickets.length === 0) {
+            const ticketsToRender = filteredTickets;
+
+            if (ticketsToRender.length === 0) {
                 container.innerHTML = `<div class="empty-state"><p>${t('noRequestsFound')}</p></div>`;
             } else {
-                container.innerHTML = userTickets.map(ticket => `
+                container.innerHTML = ticketsToRender.map(ticket => `
                     <div class="request-item">
                         <div class="request-header">
                             <h3 class="request-title">${ticket.title}</h3>
@@ -92,11 +145,32 @@
             }
         }
 
-        // Override switchLanguage to re-render tickets
+        // Populate approver dropdown
+        function populateApproverFilter() {
+            const approverFilter = document.getElementById('approverFilter');
+            const uniqueApprovers = [...new Set(userTickets.map(ticket => ({
+                id: ticket.assigned_approver_id,
+                name: ticket.assigned_approver_name
+            })).map(JSON.stringify))].map(JSON.parse);
+
+            // Clear existing options except "All"
+            approverFilter.innerHTML = `<option value="" data-i18n="filterApproverAll">${t('filterApproverAll')}</option>`;
+
+            // Add unique approvers
+            uniqueApprovers.forEach(approver => {
+                const option = document.createElement('option');
+                option.value = approver.id;
+                option.textContent = approver.name;
+                approverFilter.appendChild(option);
+            });
+        }
+
+        // Override switchLanguage to re-render tickets and update filters
         const originalSwitchLanguage = window.switchLanguage;
         window.switchLanguage = function(lang) {
             originalSwitchLanguage(lang);
-            renderTickets(); // Re-render tickets with new language
+            renderTickets();
+            populateApproverFilter();
         };
 
         // Load user's requests
@@ -109,7 +183,13 @@
                 const response = await fetch(`/api/tickets?createdById=${userId}`);
                 const result = await response.json();
                 userTickets = result.data || [];
+                filteredTickets = userTickets;
+                populateApproverFilter();
                 renderTickets();
+
+                // Add event listeners for filters
+                document.getElementById('searchInput').addEventListener('input', applyFilters);
+                document.getElementById('approverFilter').addEventListener('change', applyFilters);
             } catch (error) {
                 document.getElementById('myRequestsList').innerHTML = `<div class="error-message"><p>${t('errorLoadingRequests')}</p></div>`;
             }

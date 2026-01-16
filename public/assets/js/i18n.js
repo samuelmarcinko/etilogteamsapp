@@ -85,6 +85,11 @@ const translations = {
     yourRequests: 'Your Requests',
     loadingYourRequests: 'Loading your requests...',
     noRequestsFound: 'No requests found',
+    filterSearch: 'Search',
+    filterSearchPlaceholder: 'Search by title or description...',
+    filterApprover: 'Filter by Approver',
+    filterApproverAll: '-- All Approvers --',
+    filterClear: 'Clear Filters',
 
     // Confirm dialogs
     confirmApprove: 'Are you sure you want to approve this request?',
@@ -196,6 +201,11 @@ const translations = {
     yourRequests: 'Vaše žiadosti',
     loadingYourRequests: 'Načítavam vaše žiadosti...',
     noRequestsFound: 'Neboli nájdené žiadne žiadosti',
+    filterSearch: 'Vyhľadávanie',
+    filterSearchPlaceholder: 'Hľadať podľa názvu alebo popisu...',
+    filterApprover: 'Filtrovať podľa schvaľovateľa',
+    filterApproverAll: '-- Všetci schvaľovatelia --',
+    filterClear: 'Zrušiť filtre',
 
     // Confirm dialogs
     confirmApprove: 'Naozaj chcete schváliť túto žiadosť?',
