@@ -13,12 +13,6 @@ services:
       - NODE_ENV=production
     env_file:
       - .env
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3978/api/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
     networks:
       - proxy
 
