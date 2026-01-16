@@ -1,6 +1,7 @@
 // Dashboard logic
 let teamsContext = null;
 let currentUser = null;
+let allTickets = []; // Store tickets globally for re-rendering
 
 // Initialize
 (async function init() {
@@ -8,7 +9,7 @@ let currentUser = null;
         await microsoftTeams.app.initialize();
         teamsContext = await microsoftTeams.app.getContext();
         currentUser = teamsContext.user;
-        
+
         await loadDashboardData();
     } catch (error) {
         console.error('Error initializing:', error);
@@ -37,6 +38,9 @@ async function loadDashboardData() {
             approval => !myTickets.find(ticket => ticket.id === approval.id)
         )];
 
+        // Store tickets globally
+        allTickets = allMyTickets;
+
         // Update stats (only my tickets)
         updateStats(allMyTickets);
 
@@ -60,7 +64,7 @@ function updateStats(tickets) {
         approved: tickets.filter(t => t.status === 'Approved').length,
         rejected: tickets.filter(t => t.status === 'Rejected').length
     };
-    
+
     document.getElementById('pendingCount').textContent = stats.pending;
     document.getElementById('approvedCount').textContent = stats.approved;
     document.getElementById('rejectedCount').textContent = stats.rejected;
@@ -69,7 +73,7 @@ function updateStats(tickets) {
 // Render requests list
 function renderRequests(tickets) {
     const container = document.getElementById('requestsList');
-    
+
     if (tickets.length === 0) {
         container.innerHTML = `
             <div class="empty-state">
@@ -78,7 +82,7 @@ function renderRequests(tickets) {
         `;
         return;
     }
-    
+
     container.innerHTML = tickets.map(ticket => `
         <div class="request-item">
             <div class="request-header">
@@ -105,3 +109,12 @@ function renderRequests(tickets) {
 function capitalizeFirst(str) {
     return str.charAt(0).toUpperCase() + str.slice(1);
 }
+
+// Override switchLanguage to re-render dashboard with new translations
+const originalSwitchLanguage = window.switchLanguage;
+window.switchLanguage = function(lang) {
+    originalSwitchLanguage(lang);
+    // Re-render stats and requests with new translations
+    updateStats(allTickets);
+    renderRequests(allTickets.slice(0, 10));
+};
