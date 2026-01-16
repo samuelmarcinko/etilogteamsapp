@@ -1,73 +1,73 @@
-const adapter = require('../bot/botAdapter');
-const { TurnContext } = require('botbuilder');
+const axios = require('axios');
 require('dotenv').config();
 
 class NotificationService {
   /**
-   * Send notification to user in Teams personal chat
+   * Get Graph API access token
    */
-  static async sendNotification(userId, message, actionButton = null) {
-    try {
-      const botId = process.env.MICROSOFT_APP_ID;
-      const tenantId = process.env.TENANT_ID;
-      const serviceUrl = 'https://smba.trafficmanager.net/emea/';
+  static async getGraphToken() {
+    const tokenEndpoint = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
+    const params = new URLSearchParams();
+    params.append('client_id', process.env.MICROSOFT_APP_ID);
+    params.append('client_secret', process.env.MICROSOFT_APP_PASSWORD);
+    params.append('scope', 'https://graph.microsoft.com/.default');
+    params.append('grant_type', 'client_credentials');
 
-      // Create conversation reference for proactive messaging
-      const conversationReference = {
-        activityId: null,
-        user: {
-          id: userId,
-          name: 'User'
+    const response = await axios.post(tokenEndpoint, params);
+    return response.data.access_token;
+  }
+
+  /**
+   * Send Activity Feed notification to user
+   */
+  static async sendNotification(userId, title, message, deepLink) {
+    try {
+      const accessToken = await this.getGraphToken();
+      const teamsAppId = process.env.TEAMS_APP_ID;
+
+      // Create activity feed notification
+      const notification = {
+        topic: {
+          source: 'entityUrl',
+          value: `https://graph.microsoft.com/v1.0/users/${userId}`
         },
-        bot: {
-          id: `28:${botId}`,
-          name: 'ETILOG Approval Bot'
+        activityType: 'approvalRequest',
+        previewText: {
+          content: title
         },
-        conversation: {
-          id: userId,
-          isGroup: false,
-          conversationType: 'personal',
-          tenantId: tenantId
-        },
-        channelId: 'msteams',
-        serviceUrl: serviceUrl
+        templateParameters: [
+          {
+            name: 'approvalTitle',
+            value: title
+          },
+          {
+            name: 'approvalMessage',
+            value: message
+          }
+        ],
+        teamsAppId: teamsAppId
       };
 
-      // Use adapter to continue conversation and send proactive message
-      await adapter.continueConversationAsync(
-        botId,
-        conversationReference,
-        async (turnContext) => {
-          // Create message activity
-          const messageActivity = {
-            type: 'message',
-            text: message
-          };
+      // Add deep link if provided
+      if (deepLink) {
+        notification.webUrl = deepLink;
+      }
 
-          // Add action button if provided (Hero Card)
-          if (actionButton) {
-            messageActivity.attachments = [{
-              contentType: 'application/vnd.microsoft.card.hero',
-              content: {
-                text: message,
-                buttons: [{
-                  type: 'openUrl',
-                  title: actionButton.title,
-                  value: actionButton.url
-                }]
-              }
-            }];
-            // Remove text from activity since it's in the card
-            delete messageActivity.text;
+      // Send notification via Graph API
+      await axios.post(
+        `https://graph.microsoft.com/v1.0/users/${userId}/teamwork/sendActivityNotification`,
+        notification,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
           }
-
-          await turnContext.sendActivity(messageActivity);
         }
       );
 
       return { success: true };
     } catch (error) {
-      console.error('Error sending notification:', error);
+      console.error('Error sending notification:', error.response?.data || error.message);
       // Don't throw - notification failure shouldn't break the main flow
       return { success: false, error: error.message };
     }
@@ -78,23 +78,16 @@ class NotificationService {
    */
   static async notifyApproverNewTicket(ticket) {
     try {
-      const appUrl = process.env.APP_URL || 'https://teams.etilog.com';
       const deepLink = `https://teams.microsoft.com/l/entity/${process.env.TEAMS_APP_ID}/approvals`;
 
-      const message = `🔔 **New Approval Request**\n\n` +
-        `**${ticket.created_by_name}** requested approval for: **${ticket.title}**\n\n` +
-        `Type: ${ticket.ticket_type} | Priority: ${ticket.priority}\n\n` +
-        `Description: ${ticket.description}`;
-
-      const actionButton = {
-        title: 'Open in Approval App',
-        url: deepLink
-      };
+      const title = `New approval request: ${ticket.title}`;
+      const message = `${ticket.created_by_name} requested approval for ${ticket.title} (${ticket.ticket_type}, Priority: ${ticket.priority})`;
 
       await this.sendNotification(
         ticket.assigned_approver_id,
+        title,
         message,
-        actionButton
+        deepLink
       );
 
       console.log(`✓ Notification sent to approver: ${ticket.assigned_approver_name}`);
@@ -110,19 +103,14 @@ class NotificationService {
     try {
       const deepLink = `https://teams.microsoft.com/l/entity/${process.env.TEAMS_APP_ID}/myRequests`;
 
-      const message = `✅ **Request Approved**\n\n` +
-        `Your request **${ticket.title}** has been approved by **${approverName}**.\n\n` +
-        `Ticket ID: ${ticket.ticket_id}`;
-
-      const actionButton = {
-        title: 'View My Requests',
-        url: deepLink
-      };
+      const title = `Request approved: ${ticket.title}`;
+      const message = `Your request "${ticket.title}" has been approved by ${approverName}`;
 
       await this.sendNotification(
         ticket.created_by_id,
+        title,
         message,
-        actionButton
+        deepLink
       );
 
       console.log(`✓ Approval notification sent to creator: ${ticket.created_by_name}`);
@@ -138,20 +126,14 @@ class NotificationService {
     try {
       const deepLink = `https://teams.microsoft.com/l/entity/${process.env.TEAMS_APP_ID}/myRequests`;
 
-      const message = `❌ **Request Rejected**\n\n` +
-        `Your request **${ticket.title}** has been rejected by **${rejectorName}**.\n\n` +
-        `Reason: ${reason}\n\n` +
-        `Ticket ID: ${ticket.ticket_id}`;
-
-      const actionButton = {
-        title: 'View My Requests',
-        url: deepLink
-      };
+      const title = `Request rejected: ${ticket.title}`;
+      const message = `Your request "${ticket.title}" has been rejected by ${rejectorName}. Reason: ${reason}`;
 
       await this.sendNotification(
         ticket.created_by_id,
+        title,
         message,
-        actionButton
+        deepLink
       );
 
       console.log(`✓ Rejection notification sent to creator: ${ticket.created_by_name}`);
