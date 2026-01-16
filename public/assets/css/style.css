@@ -1,25 +1,18 @@
 /* ============================================
-   MODERN GLASS MORPHISM DESIGN
+   MODERN CLEAN WHITE DESIGN
    Professional UI/UX for Teams App
+   Red & Black Company Colors
    ============================================ */
 
 :root {
-  /* Primary Colors */
+  /* Primary Colors - Company Brand */
   --etilog-red: #d9000c;
   --etilog-red-hover: #b30009;
   --etilog-red-light: rgba(217, 0, 12, 0.1);
+  --black: #000000;
+  --white: #ffffff;
 
-  /* Glass Morphism Colors */
-  --glass-bg: rgba(255, 255, 255, 0.75);
-  --glass-border: rgba(255, 255, 255, 0.3);
-  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
-
-  /* Gradient Background */
-  --gradient-start: #667eea;
-  --gradient-middle: #764ba2;
-  --gradient-end: #f093fb;
-
-  /* Modern Grays */
+  /* Clean White & Gray Scale */
   --gray-50: #f8fafc;
   --gray-100: #f1f5f9;
   --gray-200: #e2e8f0;
@@ -31,17 +24,12 @@
   --gray-800: #1e293b;
   --gray-900: #0f172a;
 
-  /* Status Colors with Glass Effect */
-  --status-pending-bg: rgba(251, 191, 36, 0.1);
-  --status-pending-border: rgba(251, 191, 36, 0.3);
+  /* Status Colors */
+  --status-pending-bg: #fef3c7;
   --status-pending-text: #92400e;
-
-  --status-approved-bg: rgba(34, 197, 94, 0.1);
-  --status-approved-border: rgba(34, 197, 94, 0.3);
+  --status-approved-bg: #d1fae5;
   --status-approved-text: #065f46;
-
-  --status-rejected-bg: rgba(239, 68, 68, 0.1);
-  --status-rejected-border: rgba(239, 68, 68, 0.3);
+  --status-rejected-bg: #fee2e2;
   --status-rejected-text: #991b1b;
 
   /* Modern Shadows */
@@ -65,59 +53,40 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-middle) 50%, var(--gradient-end) 100%);
-  background-attachment: fixed;
+  background: var(--gray-50);
   color: var(--gray-900);
   line-height: 1.6;
   min-height: 100vh;
   padding: 0;
   margin: 0;
-  overflow-x: hidden;
-}
-
-/* Add subtle noise texture */
-body::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
-  pointer-events: none;
-  z-index: 0;
 }
 
 .container {
-  position: relative;
-  z-index: 1;
   max-width: 900px;
   margin: 0 auto;
   padding: 2rem 1rem 4rem;
 }
 
 /* ==================================
-   GLASS MORPHISM HEADER
+   HEADER
    ================================== */
 
 .header {
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  background: var(--white);
   padding: 1.75rem 2.5rem;
-  border-radius: 24px;
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--shadow-lg);
+  border-radius: 20px;
+  box-shadow: var(--shadow-md);
   margin-bottom: 2rem;
   display: flex;
   align-items: center;
   gap: 1.5rem;
   transition: transform var(--transition), box-shadow var(--transition);
+  border: 1px solid var(--gray-200);
 }
 
 .header:hover {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--shadow-lg);
 }
 
 .logo {
@@ -149,15 +118,13 @@ body::before {
   top: 1.5rem;
   right: 1.5rem;
   z-index: 1000;
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-radius: 16px;
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--shadow-lg);
+  background: var(--white);
+  border-radius: 14px;
+  box-shadow: var(--shadow-md);
   padding: 0.375rem;
   display: flex;
   gap: 0.375rem;
+  border: 1px solid var(--gray-200);
 }
 
 .lang-btn {
@@ -167,42 +134,39 @@ body::before {
   color: var(--gray-600);
   font-weight: 600;
   font-size: 0.875rem;
-  border-radius: 12px;
+  border-radius: 10px;
   cursor: pointer;
   transition: all var(--transition);
   letter-spacing: 0.02em;
 }
 
 .lang-btn:hover {
-  background: rgba(255, 255, 255, 0.5);
+  background: var(--gray-100);
   color: var(--gray-900);
 }
 
 .lang-btn.active {
   background: var(--etilog-red);
   color: white;
-  box-shadow: 0 4px 12px rgba(217, 0, 12, 0.3);
+  box-shadow: 0 4px 12px rgba(217, 0, 12, 0.25);
 }
 
 /* ==================================
-   GLASS CARDS
+   CARDS
    ================================== */
 
 .card {
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-radius: 24px;
-  border: 1px solid var(--glass-border);
+  background: var(--white);
+  border-radius: 20px;
+  border: 1px solid var(--gray-200);
   padding: 2rem;
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-md);
   margin-bottom: 1.5rem;
   transition: all var(--transition);
 }
 
 .card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--shadow-lg);
 }
 
 .card h2 {
@@ -211,6 +175,68 @@ body::before {
   color: var(--gray-900);
   margin-bottom: 1.5rem;
   letter-spacing: -0.02em;
+}
+
+/* ==================================
+   NAVIGATION - ORIGINAL BOX STYLE
+   ================================== */
+
+.app-nav {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--white);
+  border-radius: 16px;
+  border: 1px solid var(--gray-200);
+  box-shadow: var(--shadow-md);
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.app-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  border-radius: 14px;
+  text-decoration: none;
+  color: var(--gray-700);
+  font-weight: 600;
+  transition: all var(--transition);
+  min-width: 100px;
+  border: 2px solid transparent;
+}
+
+.nav-item:hover {
+  background: var(--gray-50);
+  color: var(--gray-900);
+  border-color: var(--gray-200);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.nav-item.active {
+  background: linear-gradient(135deg, var(--etilog-red), var(--etilog-red-hover));
+  color: var(--white);
+  box-shadow: 0 4px 16px rgba(217, 0, 12, 0.3);
+  border-color: var(--etilog-red);
+}
+
+.nav-icon {
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.nav-label {
+  font-size: 0.875rem;
+  text-align: center;
+  letter-spacing: 0.01em;
 }
 
 /* ==================================
@@ -225,16 +251,14 @@ body::before {
 }
 
 .stat-card {
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-radius: 20px;
-  border: 1px solid var(--glass-border);
+  background: var(--white);
+  border-radius: 18px;
+  border: 1px solid var(--gray-200);
   padding: 1.75rem;
   display: flex;
   align-items: center;
   gap: 1.25rem;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow);
   transition: all var(--transition);
   position: relative;
   overflow: hidden;
@@ -247,23 +271,21 @@ body::before {
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(90deg, transparent, currentColor, transparent);
-  opacity: 0.5;
+  background: currentColor;
 }
 
 .stat-card:hover {
-  transform: translateY(-4px) scale(1.02);
-  box-shadow: var(--shadow-xl);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
 }
 
-.stat-pending::before { color: #fbbf24; }
-.stat-approved::before { color: #22c55e; }
-.stat-rejected::before { color: #ef4444; }
+.stat-pending::before { background: #fbbf24; }
+.stat-approved::before { background: #22c55e; }
+.stat-rejected::before { background: #ef4444; }
 
 .stat-icon {
   font-size: 2.5rem;
   line-height: 1;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
 .stat-content {
@@ -288,63 +310,6 @@ body::before {
 }
 
 /* ==================================
-   NAVIGATION
-   ================================== */
-
-.navigation {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.5rem;
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-radius: 20px;
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--shadow-md);
-  margin-bottom: 2rem;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.navigation::-webkit-scrollbar {
-  display: none;
-}
-
-.nav-tab {
-  flex: 1;
-  min-width: max-content;
-  padding: 0.875rem 1.5rem;
-  border: none;
-  background: transparent;
-  color: var(--gray-600);
-  font-weight: 600;
-  font-size: 0.9375rem;
-  border-radius: 14px;
-  cursor: pointer;
-  transition: all var(--transition);
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.nav-tab:hover {
-  background: rgba(255, 255, 255, 0.5);
-  color: var(--gray-900);
-}
-
-.nav-tab.active {
-  background: linear-gradient(135deg, var(--etilog-red), var(--etilog-red-hover));
-  color: white;
-  box-shadow: 0 4px 12px rgba(217, 0, 12, 0.3);
-}
-
-.nav-tab-icon {
-  font-size: 1.125rem;
-}
-
-/* ==================================
    FORM ELEMENTS
    ================================== */
 
@@ -365,13 +330,11 @@ body::before {
 .form-textarea {
   width: 100%;
   padding: 1rem 1.25rem;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 16px;
+  border: 2px solid var(--gray-300);
+  border-radius: 14px;
   font-size: 1rem;
   transition: all var(--transition);
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: var(--white);
   color: var(--gray-900);
   font-weight: 500;
 }
@@ -381,8 +344,7 @@ body::before {
 .form-textarea:focus {
   outline: none;
   border-color: var(--etilog-red);
-  background: rgba(255, 255, 255, 0.8);
-  box-shadow: 0 0 0 4px rgba(217, 0, 12, 0.1), var(--shadow-md);
+  box-shadow: 0 0 0 4px rgba(217, 0, 12, 0.1);
   transform: translateY(-1px);
 }
 
@@ -405,7 +367,7 @@ body::before {
 .btn {
   padding: 1rem 2rem;
   border: none;
-  border-radius: 16px;
+  border-radius: 14px;
   font-weight: 700;
   font-size: 1rem;
   cursor: pointer;
@@ -440,12 +402,12 @@ body::before {
 .btn-primary {
   background: linear-gradient(135deg, var(--etilog-red), var(--etilog-red-hover));
   color: white;
-  box-shadow: 0 4px 16px rgba(217, 0, 12, 0.3);
+  box-shadow: 0 4px 16px rgba(217, 0, 12, 0.25);
 }
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(217, 0, 12, 0.4);
+  box-shadow: 0 8px 24px rgba(217, 0, 12, 0.35);
 }
 
 .btn-primary:active {
@@ -453,39 +415,37 @@ body::before {
 }
 
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: var(--white);
   color: var(--gray-700);
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  border: 2px solid var(--gray-300);
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.7);
+  background: var(--gray-50);
   transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow);
 }
 
 .btn-approve {
   background: linear-gradient(135deg, #22c55e, #16a34a);
   color: white;
-  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.3);
+  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.25);
 }
 
 .btn-approve:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(34, 197, 94, 0.4);
+  box-shadow: 0 8px 24px rgba(34, 197, 94, 0.35);
 }
 
 .btn-reject {
   background: linear-gradient(135deg, #ef4444, #dc2626);
   color: white;
-  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.25);
 }
 
 .btn-reject:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.35);
 }
 
 .btn:disabled {
@@ -501,12 +461,10 @@ body::before {
 .filters-section {
   margin-bottom: 1.75rem;
   padding: 1.5rem;
-  background: rgba(255, 255, 255, 0.4);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow: var(--shadow);
+  background: var(--gray-50);
+  border-radius: 16px;
+  border: 1px solid var(--gray-200);
+  box-shadow: var(--shadow-sm);
 }
 
 .filters-row {
@@ -533,12 +491,11 @@ body::before {
 .filter-select {
   width: 100%;
   padding: 0.75rem 1rem;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 14px;
+  border: 2px solid var(--gray-300);
+  border-radius: 12px;
   font-size: 0.9375rem;
   transition: all var(--transition);
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(10px);
+  background: var(--white);
   color: var(--gray-900);
   font-weight: 500;
 }
@@ -547,16 +504,14 @@ body::before {
 .filter-select:focus {
   outline: none;
   border-color: var(--etilog-red);
-  background: rgba(255, 255, 255, 0.8);
   box-shadow: 0 0 0 3px rgba(217, 0, 12, 0.1);
 }
 
 .filter-clear-btn {
   padding: 0.75rem 1.5rem;
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(10px);
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 14px;
+  background: var(--white);
+  border: 2px solid var(--gray-300);
+  border-radius: 12px;
   font-size: 0.9375rem;
   font-weight: 600;
   color: var(--gray-700);
@@ -565,34 +520,32 @@ body::before {
 }
 
 .filter-clear-btn:hover {
-  background: rgba(255, 255, 255, 0.7);
+  background: var(--gray-50);
+  border-color: var(--gray-400);
   transform: translateY(-1px);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-sm);
 }
 
 /* ==================================
-   REQUEST ITEMS
+   REQUEST ITEMS - COMPACT SIZE
    ================================== */
 
 .requests-list {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .request-item {
-  padding: 1.25rem;
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 18px;
+  padding: 0.875rem;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: 14px;
   transition: all var(--transition);
   box-shadow: var(--shadow-sm);
 }
 
 .request-item:hover {
-  background: rgba(255, 255, 255, 0.7);
   border-color: var(--etilog-red);
   transform: translateX(4px);
   box-shadow: var(--shadow-md);
@@ -602,12 +555,12 @@ body::before {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
   gap: 1rem;
 }
 
 .request-title {
-  font-size: 1.0625rem;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--gray-900);
   margin: 0;
@@ -615,42 +568,36 @@ body::before {
 }
 
 .status-badge {
-  padding: 0.375rem 0.875rem;
-  border-radius: 12px;
-  font-size: 0.75rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 10px;
+  font-size: 0.6875rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid;
   white-space: nowrap;
 }
 
 .status-pending {
   background: var(--status-pending-bg);
   color: var(--status-pending-text);
-  border-color: var(--status-pending-border);
 }
 
 .status-approved {
   background: var(--status-approved-bg);
   color: var(--status-approved-text);
-  border-color: var(--status-approved-border);
 }
 
 .status-rejected {
   background: var(--status-rejected-bg);
   color: var(--status-rejected-text);
-  border-color: var(--status-rejected-border);
 }
 
 .request-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
-  margin-bottom: 0.75rem;
-  font-size: 0.875rem;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.8125rem;
   color: var(--gray-600);
   font-weight: 500;
 }
@@ -662,22 +609,21 @@ body::before {
 
 .request-description {
   color: var(--gray-700);
-  line-height: 1.6;
+  line-height: 1.4;
   margin: 0;
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   font-weight: 500;
 }
 
 .rejection-reason {
   margin-top: 1rem;
-  padding: 1rem;
-  background: rgba(239, 68, 68, 0.1);
+  padding: 0.875rem;
+  background: var(--status-rejected-bg);
   border-left: 4px solid #ef4444;
-  border-radius: 12px;
+  border-radius: 10px;
   color: var(--status-rejected-text);
   line-height: 1.6;
   font-weight: 500;
-  backdrop-filter: blur(10px);
 }
 
 .rejection-reason strong {
@@ -698,7 +644,7 @@ body::before {
   display: inline-block;
   width: 48px;
   height: 48px;
-  border: 4px solid rgba(255, 255, 255, 0.3);
+  border: 4px solid var(--gray-200);
   border-top-color: var(--etilog-red);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -718,13 +664,11 @@ body::before {
 
 .error-message {
   padding: 1.5rem;
-  background: rgba(239, 68, 68, 0.1);
-  border: 2px solid rgba(239, 68, 68, 0.3);
-  border-radius: 16px;
+  background: var(--status-rejected-bg);
+  border: 2px solid #fca5a5;
+  border-radius: 14px;
   color: #991b1b;
   font-weight: 600;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
 /* ==================================
@@ -737,11 +681,9 @@ body::before {
   right: 2rem;
   max-width: 400px;
   padding: 1.25rem 1.5rem;
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-radius: 18px;
-  border: 1px solid var(--glass-border);
+  background: var(--white);
+  border-radius: 16px;
+  border: 1px solid var(--gray-200);
   box-shadow: var(--shadow-xl);
   z-index: 9999;
   animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -811,6 +753,23 @@ body::before {
 
   .status-badge {
     align-self: flex-start;
+  }
+
+  .app-nav {
+    justify-content: flex-start;
+  }
+
+  .nav-item {
+    min-width: 80px;
+    padding: 0.875rem 1.125rem;
+  }
+
+  .nav-icon {
+    font-size: 1.5rem;
+  }
+
+  .nav-label {
+    font-size: 0.75rem;
   }
 }
 
