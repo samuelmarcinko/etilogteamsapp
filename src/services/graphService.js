@@ -46,13 +46,19 @@ class GraphService {
         },
         params: {
           $select: 'id,displayName,mail,userPrincipalName,userType',
-          $top: 100,
-          // Filter: only enabled users with @etilog.com domain (exclude guests and external users)
-          $filter: "accountEnabled eq true and userType eq 'Member' and (endswith(userPrincipalName,'@etilog.com') or endswith(mail,'@etilog.com'))"
+          $top: 999,
+          // Basic filter - we'll filter domain on backend
+          $filter: "accountEnabled eq true and userType eq 'Member'"
         }
       });
 
-      return response.data.value.map(user => ({
+      // Filter for @etilog.com domain on backend
+      const etilogUsers = response.data.value.filter(user => {
+        const email = user.mail || user.userPrincipalName || '';
+        return email.toLowerCase().endsWith('@etilog.com');
+      });
+
+      return etilogUsers.map(user => ({
         id: user.id,
         name: user.displayName,
         email: user.mail || user.userPrincipalName,
@@ -108,13 +114,19 @@ class GraphService {
         },
         params: {
           $select: 'id,displayName,mail,userPrincipalName,userType',
-          // Filter: only @etilog.com members matching search query
-          $filter: `accountEnabled eq true and userType eq 'Member' and (endswith(userPrincipalName,'@etilog.com') or endswith(mail,'@etilog.com')) and (startswith(displayName,'${query}') or startswith(mail,'${query}'))`,
-          $top: 20
+          // Basic filter with search - we'll filter domain on backend
+          $filter: `accountEnabled eq true and userType eq 'Member' and (startswith(displayName,'${query}') or startswith(mail,'${query}'))`,
+          $top: 50
         }
       });
 
-      return response.data.value.map(user => ({
+      // Filter for @etilog.com domain on backend
+      const etilogUsers = response.data.value.filter(user => {
+        const email = user.mail || user.userPrincipalName || '';
+        return email.toLowerCase().endsWith('@etilog.com');
+      });
+
+      return etilogUsers.slice(0, 20).map(user => ({
         id: user.id,
         name: user.displayName,
         email: user.mail || user.userPrincipalName,
