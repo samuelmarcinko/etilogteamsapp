@@ -68,12 +68,37 @@
         function translateType(type) {
             const typeMap = {
                 'vacation': 'typeVacation',
+                'sick-leave': 'typeSickLeave',
                 'purchase': 'typePurchase',
                 'expense': 'typeExpense',
                 'hr': 'typeHr',
                 'other': 'typeOther'
             };
             return t(typeMap[type.toLowerCase()] || 'typeOther');
+        }
+
+        // Helper function to get type badge class
+        function getTypeBadgeClass(type) {
+            const classMap = {
+                'vacation': 'type-vacation',
+                'sick-leave': 'type-sick-leave',
+                'purchase': 'type-purchase',
+                'expense': 'type-expense',
+                'hr': 'type-hr',
+                'other': 'type-other'
+            };
+            return classMap[type.toLowerCase()] || 'type-other';
+        }
+
+        // Helper function to format date
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            return date.toLocaleDateString(currentLang === 'sk' ? 'sk-SK' : 'en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
         }
 
         // Helper function to translate priority
@@ -127,12 +152,18 @@
                     <div class="request-item">
                         <div class="request-header">
                             <h3 class="request-title">${ticket.title}</h3>
-                            <span class="status-badge status-${ticket.status.toLowerCase()}">${t('status' + ticket.status)}</span>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <span class="type-badge ${getTypeBadgeClass(ticket.ticket_type)}">${translateType(ticket.ticket_type)}</span>
+                                <span class="status-badge status-${ticket.status.toLowerCase()}">${t('status' + ticket.status)}</span>
+                            </div>
                         </div>
                         <div class="request-meta">
-                            <span class="meta-item"><strong>${t('labelType')}:</strong> ${translateType(ticket.ticket_type)}</span>
                             <span class="meta-item"><strong>${t('labelPriority')}:</strong> ${translatePriority(ticket.priority)}</span>
                             <span class="meta-item"><strong>${t('labelApprover')}:</strong> ${ticket.assigned_approver_name}</span>
+                            ${(ticket.ticket_type === 'vacation' || ticket.ticket_type === 'sick-leave') && ticket.start_date && ticket.end_date ? `
+                                <span class="meta-item"><strong>${t('labelStartDate')}:</strong> ${formatDate(ticket.start_date)}</span>
+                                <span class="meta-item"><strong>${t('labelEndDate')}:</strong> ${formatDate(ticket.end_date)}</span>
+                            ` : ''}
                         </div>
                         <p class="request-description">${ticket.description}</p>
                         ${ticket.status === 'Rejected' && ticket.rejection_reason ? `

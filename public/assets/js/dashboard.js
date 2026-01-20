@@ -87,18 +87,22 @@ function renderRequests(tickets) {
         <div class="request-item">
             <div class="request-header">
                 <h3 class="request-title">${ticket.title}</h3>
-                <span class="status-badge status-${ticket.status.toLowerCase()}">${t('status' + ticket.status)}</span>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <span class="type-badge ${getTypeBadgeClass(ticket.ticket_type)}">${translateTicketType(ticket.ticket_type)}</span>
+                    <span class="status-badge status-${ticket.status.toLowerCase()}">${t('status' + ticket.status)}</span>
+                </div>
             </div>
             <div class="request-meta">
                 <span class="meta-item">
-                    <strong>${t('labelType')}:</strong> ${t('type' + capitalizeFirst(ticket.ticket_type))}
-                </span>
-                <span class="meta-item">
-                    <strong>${t('labelPriority')}:</strong> ${t('priority' + capitalizeFirst(ticket.priority))}
+                    <strong>${t('labelPriority')}:</strong> ${translatePriority(ticket.priority)}
                 </span>
                 <span class="meta-item">
                     <strong>${t('labelCreatedBy')}:</strong> ${ticket.created_by_name}
                 </span>
+                ${(ticket.ticket_type === 'vacation' || ticket.ticket_type === 'sick-leave') && ticket.start_date && ticket.end_date ? `
+                    <span class="meta-item"><strong>${t('labelStartDate')}:</strong> ${formatDate(ticket.start_date)}</span>
+                    <span class="meta-item"><strong>${t('labelEndDate')}:</strong> ${formatDate(ticket.end_date)}</span>
+                ` : ''}
             </div>
             <p class="request-description">${ticket.description}</p>
         </div>
@@ -108,6 +112,54 @@ function renderRequests(tickets) {
 // Helper function
 function capitalizeFirst(str) {
     return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+// Helper function to get type badge class
+function getTypeBadgeClass(type) {
+    const classMap = {
+        'vacation': 'type-vacation',
+        'sick-leave': 'type-sick-leave',
+        'purchase': 'type-purchase',
+        'expense': 'type-expense',
+        'hr': 'type-hr',
+        'other': 'type-other'
+    };
+    return classMap[type?.toLowerCase()] || 'type-other';
+}
+
+// Helper function to translate ticket type
+function translateTicketType(type) {
+    const typeMap = {
+        'vacation': 'typeVacation',
+        'sick-leave': 'typeSickLeave',
+        'purchase': 'typePurchase',
+        'expense': 'typeExpense',
+        'hr': 'typeHr',
+        'other': 'typeOther'
+    };
+    return t(typeMap[type?.toLowerCase()] || 'typeOther');
+}
+
+// Helper function to translate priority
+function translatePriority(priority) {
+    const priorityMap = {
+        'low': 'priorityLow',
+        'medium': 'priorityMedium',
+        'high': 'priorityHigh',
+        'urgent': 'priorityUrgent'
+    };
+    return t(priorityMap[priority?.toLowerCase()] || 'priorityMedium');
+}
+
+// Helper function to format date
+function formatDate(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString(currentLang === 'sk' ? 'sk-SK' : 'en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    });
 }
 
 // Override switchLanguage to re-render dashboard with new translations
