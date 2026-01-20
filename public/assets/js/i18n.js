@@ -30,6 +30,8 @@ const translations = {
     labelRejectionReason: 'Rejection Reason',
     labelStartDate: 'Start Date',
     labelEndDate: 'End Date',
+    labelDescription: 'Description',
+    labelPriorityLabel: 'Priority',
     
     // Placeholders
     placeholderTitle: 'e.g. Vacation Approval',
@@ -158,6 +160,8 @@ const translations = {
     labelRejectionReason: 'Dôvod zamietnutia',
     labelStartDate: 'Dátum od',
     labelEndDate: 'Dátum do',
+    labelDescription: 'Popis',
+    labelPriorityLabel: 'Priorita',
     
     // Placeholders
     placeholderTitle: 'Napr. Schválenie dovolenky',
