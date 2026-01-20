@@ -27,11 +27,58 @@
         </div>
 
         <div class="card">
-            <h2 data-i18n="requestsToApprove">Requests to Approve</h2>
-            <div id="approvalsList" class="requests-list">
-                <div class="loading-spinner">
-                    <div class="loading"></div>
-                    <p data-i18n="loadingApprovals">Loading pending approvals...</p>
+            <!-- Tabs -->
+            <div class="tabs-container">
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="pending" onclick="switchTab('pending')" data-i18n="tabPending">Pending</button>
+                    <button class="tab-btn" data-tab="history" onclick="switchTab('history')" data-i18n="tabHistory">History</button>
+                </div>
+            </div>
+
+            <!-- Pending Tab Content -->
+            <div id="pendingTab" class="tab-content active">
+                <h2 data-i18n="requestsToApprove">Requests to Approve</h2>
+                <div id="approvalsList" class="requests-list">
+                    <div class="loading-spinner">
+                        <div class="loading"></div>
+                        <p data-i18n="loadingApprovals">Loading pending approvals...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- History Tab Content -->
+            <div id="historyTab" class="tab-content" style="display: none;">
+                <h2 data-i18n="approvalsHistory">Approval History</h2>
+
+                <!-- Filters for History -->
+                <div class="filters-section">
+                    <div class="filters-row">
+                        <div class="filter-group">
+                            <label class="filter-label" data-i18n="filterStatus">Status</label>
+                            <select id="historyStatusFilter" class="filter-select" onchange="applyHistoryFilters()">
+                                <option value="" data-i18n="filterStatusAll">-- All --</option>
+                                <option value="Approved" data-i18n="statusApproved">Approved</option>
+                                <option value="Rejected" data-i18n="statusRejected">Rejected</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label class="filter-label" data-i18n="filterSearch">Search</label>
+                            <input type="text"
+                                   id="historySearchInput"
+                                   class="filter-input"
+                                   oninput="applyHistoryFilters()"
+                                   data-i18n-placeholder="filterSearchPlaceholder"
+                                   placeholder="Search by title or description...">
+                        </div>
+                        <button class="filter-clear-btn" onclick="clearHistoryFilters()" data-i18n="filterClear">Clear Filters</button>
+                    </div>
+                </div>
+
+                <div id="historyList" class="requests-list">
+                    <div class="loading-spinner">
+                        <div class="loading"></div>
+                        <p data-i18n="loadingHistory">Loading history...</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -54,6 +101,143 @@
         let teamsContext = null;
         let currentUser = null;
         let pendingRejectTicketId = null;
+        let historyTickets = [];
+        let filteredHistoryTickets = [];
+
+        // Switch between tabs
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.getAttribute('data-tab') === tabName) {
+                    btn.classList.add('active');
+                }
+            });
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.style.display = 'none';
+                content.classList.remove('active');
+            });
+
+            if (tabName === 'pending') {
+                document.getElementById('pendingTab').style.display = 'block';
+                document.getElementById('pendingTab').classList.add('active');
+            } else if (tabName === 'history') {
+                document.getElementById('historyTab').style.display = 'block';
+                document.getElementById('historyTab').classList.add('active');
+                // Load history if not already loaded
+                if (historyTickets.length === 0) {
+                    loadHistory();
+                }
+            }
+        }
+
+        // Load approval history
+        async function loadHistory() {
+            if (!currentUser) return;
+
+            const container = document.getElementById('historyList');
+            container.innerHTML = `
+                <div class="loading-spinner">
+                    <div class="loading"></div>
+                    <p>${t('loadingHistory')}</p>
+                </div>
+            `;
+
+            try {
+                const response = await fetch(`/api/tickets?assignedApproverId=${currentUser.id}`);
+                const result = await response.json();
+                const allTickets = result.data || [];
+
+                // Filter only Approved and Rejected tickets
+                historyTickets = allTickets.filter(t => t.status === 'Approved' || t.status === 'Rejected');
+                filteredHistoryTickets = historyTickets;
+                renderHistory();
+            } catch (error) {
+                console.error('Error loading history:', error);
+                container.innerHTML = `<div class="error-message"><p>${t('errorLoadingHistory')}</p></div>`;
+            }
+        }
+
+        // Render history tickets
+        function renderHistory() {
+            const container = document.getElementById('historyList');
+            const tickets = filteredHistoryTickets;
+
+            if (tickets.length === 0) {
+                container.innerHTML = `<div class="empty-state"><p>${t('noHistoryFound')}</p></div>`;
+                return;
+            }
+
+            container.innerHTML = tickets.map(ticket => `
+                <div class="request-item">
+                    <div class="request-header">
+                        <h3 class="request-title">${ticket.title}</h3>
+                        <span class="status-badge status-${ticket.status.toLowerCase()}">${t('status' + ticket.status)}</span>
+                    </div>
+                    <div class="request-meta">
+                        <span class="meta-item"><strong>${t('labelType')}:</strong> ${translateTicketType(ticket.ticket_type)}</span>
+                        <span class="meta-item"><strong>${t('labelPriority')}:</strong> ${translatePriority(ticket.priority)}</span>
+                        <span class="meta-item"><strong>${t('labelCreatedBy')}:</strong> ${ticket.created_by_name}</span>
+                        <span class="meta-item"><strong>${t('labelDate')}:</strong> ${new Date(ticket.updated_at).toLocaleDateString()}</span>
+                    </div>
+                    <p class="request-description">${ticket.description}</p>
+                    ${ticket.status === 'Rejected' && ticket.rejection_reason ? `
+                        <div class="rejection-reason">
+                            <strong>${t('labelRejectionReason')}:</strong> ${ticket.rejection_reason}
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        // Helper functions for translations
+        function translateTicketType(type) {
+            const typeMap = {
+                'vacation': 'typeVacation',
+                'purchase': 'typePurchase',
+                'expense': 'typeExpense',
+                'hr': 'typeHr',
+                'other': 'typeOther'
+            };
+            return t(typeMap[type?.toLowerCase()] || 'typeOther');
+        }
+
+        function translatePriority(priority) {
+            const priorityMap = {
+                'low': 'priorityLow',
+                'medium': 'priorityMedium',
+                'high': 'priorityHigh',
+                'urgent': 'priorityUrgent'
+            };
+            return t(priorityMap[priority?.toLowerCase()] || 'priorityMedium');
+        }
+
+        // Apply history filters
+        function applyHistoryFilters() {
+            const statusFilter = document.getElementById('historyStatusFilter').value;
+            const searchTerm = document.getElementById('historySearchInput').value.toLowerCase();
+
+            filteredHistoryTickets = historyTickets.filter(ticket => {
+                const matchesStatus = !statusFilter || ticket.status === statusFilter;
+                const matchesSearch = !searchTerm ||
+                    ticket.title.toLowerCase().includes(searchTerm) ||
+                    ticket.description.toLowerCase().includes(searchTerm) ||
+                    ticket.created_by_name.toLowerCase().includes(searchTerm);
+
+                return matchesStatus && matchesSearch;
+            });
+
+            renderHistory();
+        }
+
+        // Clear history filters
+        function clearHistoryFilters() {
+            document.getElementById('historyStatusFilter').value = '';
+            document.getElementById('historySearchInput').value = '';
+            applyHistoryFilters();
+        }
 
         // Load pending approvals
         (async function() {

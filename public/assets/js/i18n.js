@@ -78,6 +78,15 @@ const translations = {
     requestsToApprove: 'Requests to Approve',
     loadingApprovals: 'Loading pending approvals...',
     noPendingApprovals: 'No pending approvals',
+    tabPending: 'Pending',
+    tabHistory: 'History',
+    approvalsHistory: 'Approval History',
+    loadingHistory: 'Loading history...',
+    noHistoryFound: 'No approval history found',
+    errorLoadingHistory: 'Error loading history',
+    filterStatus: 'Status',
+    filterStatusAll: '-- All --',
+    labelDate: 'Date',
 
     // My Requests page
     myRequestsTitle: 'My Requests',
@@ -194,6 +203,15 @@ const translations = {
     requestsToApprove: 'Žiadosti na schválenie',
     loadingApprovals: 'Načítavam čakajúce schválenia...',
     noPendingApprovals: 'Žiadne čakajúce schválenia',
+    tabPending: 'Čakajúce',
+    tabHistory: 'História',
+    approvalsHistory: 'História schválení',
+    loadingHistory: 'Načítavam históriu...',
+    noHistoryFound: 'Nenašla sa žiadna história schválení',
+    errorLoadingHistory: 'Chyba pri načítaní histórie',
+    filterStatus: 'Stav',
+    filterStatusAll: '-- Všetky --',
+    labelDate: 'Dátum',
 
     // My Requests page
     myRequestsTitle: 'Moje žiadosti',

@@ -773,6 +773,66 @@ body {
   }
 }
 
+/* ==================================
+   TABS
+   ================================== */
+
+.tabs-container {
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid var(--gray-200);
+}
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0 0.5rem;
+}
+
+.tab-btn {
+  padding: 0.875rem 1.5rem;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--gray-600);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  position: relative;
+  bottom: -2px;
+}
+
+.tab-btn:hover {
+  color: var(--etilog-red);
+  background: var(--etilog-red-light);
+  border-radius: 8px 8px 0 0;
+}
+
+.tab-btn.active {
+  color: var(--etilog-red);
+  border-bottom-color: var(--etilog-red);
+}
+
+.tab-content {
+  display: none;
+  animation: fadeIn var(--transition-slow);
+}
+
+.tab-content.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
