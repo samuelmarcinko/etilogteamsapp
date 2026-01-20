@@ -45,17 +45,20 @@ class GraphService {
           'Content-Type': 'application/json'
         },
         params: {
-          $select: 'id,displayName,mail,userPrincipalName,userType',
+          $select: 'id,displayName,mail,userPrincipalName,userType,assignedLicenses',
           $top: 999,
-          // Basic filter - we'll filter domain on backend
+          // Basic filter - we'll filter domain and licenses on backend
           $filter: "accountEnabled eq true and userType eq 'Member'"
         }
       });
 
-      // Filter for @etilog.com domain on backend
+      // Filter for @etilog.com domain and users with licenses
       const etilogUsers = response.data.value.filter(user => {
         const email = user.mail || user.userPrincipalName || '';
-        return email.toLowerCase().endsWith('@etilog.com');
+        const hasEtilogDomain = email.toLowerCase().endsWith('@etilog.com');
+        const hasLicense = user.assignedLicenses && user.assignedLicenses.length > 0;
+
+        return hasEtilogDomain && hasLicense;
       });
 
       return etilogUsers.map(user => ({
@@ -113,17 +116,20 @@ class GraphService {
           'Content-Type': 'application/json'
         },
         params: {
-          $select: 'id,displayName,mail,userPrincipalName,userType',
-          // Basic filter with search - we'll filter domain on backend
+          $select: 'id,displayName,mail,userPrincipalName,userType,assignedLicenses',
+          // Basic filter with search - we'll filter domain and licenses on backend
           $filter: `accountEnabled eq true and userType eq 'Member' and (startswith(displayName,'${query}') or startswith(mail,'${query}'))`,
           $top: 50
         }
       });
 
-      // Filter for @etilog.com domain on backend
+      // Filter for @etilog.com domain and users with licenses
       const etilogUsers = response.data.value.filter(user => {
         const email = user.mail || user.userPrincipalName || '';
-        return email.toLowerCase().endsWith('@etilog.com');
+        const hasEtilogDomain = email.toLowerCase().endsWith('@etilog.com');
+        const hasLicense = user.assignedLicenses && user.assignedLicenses.length > 0;
+
+        return hasEtilogDomain && hasLicense;
       });
 
       return etilogUsers.slice(0, 20).map(user => ({
