@@ -45,9 +45,10 @@ class GraphService {
           'Content-Type': 'application/json'
         },
         params: {
-          $select: 'id,displayName,mail,userPrincipalName',
+          $select: 'id,displayName,mail,userPrincipalName,userType',
           $top: 100,
-          $filter: 'accountEnabled eq true'
+          // Filter: only enabled users with @etilog.com domain (exclude guests and external users)
+          $filter: "accountEnabled eq true and userType eq 'Member' and (endswith(userPrincipalName,'@etilog.com') or endswith(mail,'@etilog.com'))"
         }
       });
 
@@ -106,8 +107,9 @@ class GraphService {
           'Content-Type': 'application/json'
         },
         params: {
-          $select: 'id,displayName,mail,userPrincipalName',
-          $filter: `startswith(displayName,'${query}') or startswith(mail,'${query}')`,
+          $select: 'id,displayName,mail,userPrincipalName,userType',
+          // Filter: only @etilog.com members matching search query
+          $filter: `accountEnabled eq true and userType eq 'Member' and (endswith(userPrincipalName,'@etilog.com') or endswith(mail,'@etilog.com')) and (startswith(displayName,'${query}') or startswith(mail,'${query}'))`,
           $top: 20
         }
       });
