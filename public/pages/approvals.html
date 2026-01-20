@@ -101,6 +101,7 @@
         let teamsContext = null;
         let currentUser = null;
         let pendingRejectTicketId = null;
+        let pendingTickets = [];
         let historyTickets = [];
         let filteredHistoryTickets = [];
 
@@ -281,59 +282,63 @@
             applyHistoryFilters();
         }
 
+        // Render pending tickets
+        function renderPendingTickets() {
+            const container = document.getElementById('approvalsList');
+            if (pendingTickets.length === 0) {
+                container.innerHTML = `<div class="empty-state"><p>${t('noPendingApprovals')}</p></div>`;
+            } else {
+                container.innerHTML = pendingTickets.map(ticket => `
+                    <div class="request-item">
+                        <div class="request-header">
+                            <h3 class="request-title">${ticket.title}</h3>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <span class="type-badge ${getTypeBadgeClass(ticket.ticket_type)}">${translateTicketType(ticket.ticket_type)}</span>
+                                <span class="status-badge status-pending">${t('statusPending')}</span>
+                            </div>
+                        </div>
+                        <div class="request-meta">
+                            <span class="priority-badge priority-${ticket.priority.toLowerCase()}">
+                                ${ticket.priority === 'Urgent' ? '🔥' : ticket.priority === 'High' ? '⚠️' : ticket.priority === 'Low' ? '📌' : '📋'} ${t('labelPriorityLabel')}: ${translatePriority(ticket.priority)}
+                            </span>
+                            <span class="meta-item">
+                                <strong>👤 ${t('labelCreatedBy')}:</strong> ${ticket.created_by_name}
+                            </span>
+                            ${(ticket.ticket_type === 'vacation' || ticket.ticket_type === 'sick-leave') && ticket.start_date && ticket.end_date ? `
+                                <span class="meta-item">
+                                    <strong>📅</strong> ${formatDate(ticket.start_date)} → ${formatDate(ticket.end_date)}
+                                </span>
+                            ` : ''}
+                        </div>
+                        <div class="description-box">
+                            <div class="description-header">${t('labelDescription')}</div>
+                            <p class="request-description">${ticket.description}</p>
+                        </div>
+                        <div class="request-actions">
+                            <button class="btn-success" data-action="approve" data-ticket-id="${ticket.ticket_id}">
+                                ✓ ${t('btnApprove')}
+                            </button>
+                            <button class="btn-danger" data-action="reject" data-ticket-id="${ticket.ticket_id}">
+                                ✗ ${t('btnReject')}
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
         // Load pending approvals
         (async function() {
             await microsoftTeams.app.initialize();
             teamsContext = await microsoftTeams.app.getContext();
             currentUser = teamsContext.user;
             const userId = currentUser.id;
-            
+
             try {
                 const response = await fetch(`/api/tickets?assignedApproverId=${userId}&status=Pending`);
                 const result = await response.json();
-                const tickets = result.data || [];
-
-                const container = document.getElementById('approvalsList');
-                if (tickets.length === 0) {
-                    container.innerHTML = `<div class="empty-state"><p>${t('noPendingApprovals')}</p></div>`;
-                } else {
-                    container.innerHTML = tickets.map(ticket => `
-                        <div class="request-item">
-                            <div class="request-header">
-                                <h3 class="request-title">${ticket.title}</h3>
-                                <div style="display: flex; gap: 0.5rem; align-items: center;">
-                                    <span class="type-badge ${getTypeBadgeClass(ticket.ticket_type)}">${translateTicketType(ticket.ticket_type)}</span>
-                                    <span class="status-badge status-pending">${t('statusPending')}</span>
-                                </div>
-                            </div>
-                            <div class="request-meta">
-                                <span class="priority-badge priority-${ticket.priority.toLowerCase()}">
-                                    ${ticket.priority === 'Urgent' ? '🔥' : ticket.priority === 'High' ? '⚠️' : ticket.priority === 'Low' ? '📌' : '📋'} ${t('labelPriorityLabel')}: ${translatePriority(ticket.priority)}
-                                </span>
-                                <span class="meta-item">
-                                    <strong>👤 ${t('labelCreatedBy')}:</strong> ${ticket.created_by_name}
-                                </span>
-                                ${(ticket.ticket_type === 'vacation' || ticket.ticket_type === 'sick-leave') && ticket.start_date && ticket.end_date ? `
-                                    <span class="meta-item">
-                                        <strong>📅</strong> ${formatDate(ticket.start_date)} → ${formatDate(ticket.end_date)}
-                                    </span>
-                                ` : ''}
-                            </div>
-                            <div class="description-box">
-                                <div class="description-header">${t('labelDescription')}</div>
-                                <p class="request-description">${ticket.description}</p>
-                            </div>
-                            <div class="request-actions">
-                                <button class="btn-success" data-action="approve" data-ticket-id="${ticket.ticket_id}">
-                                    ✓ ${t('btnApprove')}
-                                </button>
-                                <button class="btn-danger" data-action="reject" data-ticket-id="${ticket.ticket_id}">
-                                    ✗ ${t('btnReject')}
-                                </button>
-                            </div>
-                        </div>
-                    `).join('');
-                }
+                pendingTickets = result.data || [];
+                renderPendingTickets();
             } catch (error) {
                 document.getElementById('approvalsList').innerHTML = `<div class="error-message"><p>${t('errorLoadingApprovals')}</p></div>`;
             }
@@ -496,6 +501,15 @@
                 setTimeout(() => messageDiv.remove(), 300);
             }, 3000);
         }
+
+        // Override switchLanguage to re-render ticket boxes with new translations
+        const originalSwitchLanguage = window.switchLanguage;
+        window.switchLanguage = function(lang) {
+            originalSwitchLanguage(lang);
+            // Re-render pending and history tickets with new translations
+            renderPendingTickets();
+            renderHistory();
+        };
     </script>
 </body>
 </html>
