@@ -87,14 +87,24 @@ class Ticket {
    * Update ticket status
    */
   static async updateStatus(ticketId, status, performedBy, rejectionReason = null) {
-    const query = `
+    // If rejected, also update rejection_reason column
+    const query = status === 'Rejected' ? `
+      UPDATE tickets
+      SET status = $1, rejection_reason = $2, updated_at = CURRENT_TIMESTAMP
+      WHERE ticket_id = $3
+      RETURNING *
+    ` : `
       UPDATE tickets
       SET status = $1, updated_at = CURRENT_TIMESTAMP
       WHERE ticket_id = $2
       RETURNING *
     `;
 
-    const result = await pool.query(query, [status, ticketId]);
+    const values = status === 'Rejected'
+      ? [status, rejectionReason, ticketId]
+      : [status, ticketId];
+
+    const result = await pool.query(query, values);
 
     // Log the action
     const action = status === 'Approved' ? 'Approved' : 'Rejected';
