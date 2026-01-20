@@ -15,12 +15,33 @@ class TeamsBot extends TeamsActivityHandler {
     this.onMessage(async (context, next) => {
       const text = context.activity.text?.trim().toLowerCase();
 
-      if (text === 'hello' || text === 'hi') {
-        await context.sendActivity('Hello! I am the Approval Bot. I help manage approval requests.');
-      } else if (text === 'help') {
+      // Greeting commands
+      if (text === 'hello' || text === 'hi' || text === 'ahoj' || text === 'nazdar') {
+        await context.sendActivity('Ahoj! Som ETILOG Approval Bot 🎫\n\nPomáham spravovať žiadosti o schválenie. Napíš "help" alebo "pomoc" pre viac informácií.');
+      }
+      // Help commands
+      else if (text === 'help' || text === 'pomoc' || text === 'napoveda') {
         await context.sendActivity(this.getHelpMessage());
-      } else {
-        await context.sendActivity('I didn\'t understand that. Type "help" for available commands.');
+      }
+      // Status command - check pending approvals
+      else if (text === 'status' || text === 'stav') {
+        await context.sendActivity('ℹ️ Pre zobrazenie stavu tvojich žiadostí otvor aplikáciu cez záložku "Moje žiadosti".\n\nPre schvaľovanie žiadostí klikni na záložku "Schvaľovanie".');
+      }
+      // My requests command
+      else if (text === 'my requests' || text === 'moje ziadosti' || text === 'moje žiadosti') {
+        await context.sendActivity('📋 Tvoje žiadosti nájdeš v aplikácii v záložke "My Requests" alebo "Moje žiadosti".');
+      }
+      // Create request command
+      else if (text === 'create' || text === 'vytvoriť' || text === 'vytvorit' || text === 'nova ziadost') {
+        await context.sendActivity('➕ Pre vytvorenie novej žiadosti otvor aplikáciu a prejdi do záložky "Create Request" alebo "Vytvoriť žiadosť".');
+      }
+      // About command
+      else if (text === 'about' || text === 'o aplikácii' || text === 'o aplikacii' || text === 'info') {
+        await context.sendActivity(this.getAboutMessage());
+      }
+      // Default response
+      else {
+        await context.sendActivity('❓ Nerozumiem príkazu. Napíš "help" alebo "pomoc" pre zoznam dostupných príkazov.');
       }
 
       await next();
@@ -184,41 +205,83 @@ class TeamsBot extends TeamsActivityHandler {
   }
 
   /**
-   * Get welcome message
+   * Get welcome message (Slovak version)
    */
   getWelcomeMessage() {
-    return `Welcome to the Approval Bot! 🎫
+    return `🎉 Vitaj v ETILOG Approval Center! 🎫
 
-I help manage approval requests for HR and Accounting teams.
+Som tvoj asistent pre správu schvaľovacích žiadostí.
 
-**What I can do:**
-- Send approval requests to managers
-- Process approvals and rejections
-- Send notifications about ticket status
+**Čo viem robiť:**
+✅ Odosielať žiadosti schvaľovateľom
+✅ Spracovávať schválenia a zamietnutia
+✅ Posielať notifikácie o stave žiadostí
+📊 Pomáhať s dovolenkami, nákupmi, výdavkami a HR záležitosťami
 
-Type "help" for more information.`;
+**Začni hneď:**
+- Napíš **"help"** alebo **"pomoc"** pre zoznam príkazov
+- Otvor aplikáciu v Teams záložke pre vytvorenie žiadosti
+
+Prajem príjemnú prácu! 💼`;
   }
 
   /**
-   * Get help message
+   * Get help message (Slovak version)
    */
   getHelpMessage() {
-    return `**Approval Bot Help** 📖
+    return `**📖 ETILOG Approval Bot - Nápoveda**
 
-**For HR/Accounting Staff:**
-- Create tickets through the API or web interface
-- Receive notifications when tickets are approved/rejected
+**🙋 Pre žiadateľov:**
+• Vytváraj žiadosti cez aplikáciu (dovolenka, nákupy, výdavky, HR)
+• Sleduj stav svojich žiadostí
+• Dostávaj notifikácie o schválení/zamietnutí
 
-**For Managers:**
-- Receive approval requests as Adaptive Cards
-- Click "Approve" or "Reject" to process tickets
-- Optionally add rejection reasons
+**👨‍💼 Pre schvaľovateľov:**
+• Prijímaj žiadosti ako Adaptive Cards
+• Klikni "Approve" alebo "Reject" pre spracovanie
+• Pridaj dôvod zamietnutia (voliteľné)
 
-**Commands:**
-- \`hello\` - Say hello to the bot
-- \`help\` - Show this help message
+**💬 Dostupné príkazy:**
+• \`hello\` / \`ahoj\` - Pozdrav bota
+• \`help\` / \`pomoc\` - Zobraz túto nápovedu
+• \`status\` / \`stav\` - Info o žiadostiach
+• \`create\` / \`vytvoriť\` - Ako vytvoriť žiadosť
+• \`my requests\` / \`moje žiadosti\` - Kde nájsť moje žiadosti
+• \`about\` / \`info\` - O aplikácii
 
-For more information, contact your IT administrator.`;
+**🆘 Potrebuješ pomoc?**
+Kontaktuj IT oddelenie: it@etilog.com`;
+  }
+
+  /**
+   * Get about message (Slovak version)
+   */
+  getAboutMessage() {
+    return `**ℹ️ O ETILOG Approval Center**
+
+**Verzia:** 1.0.0
+**Developer:** ETILOG IT Team
+**Posledná aktualizácia:** Január 2026
+
+**Funkcie:**
+✅ Schvaľovanie dovoleniek a PN-iek
+✅ Schvaľovanie nákupov a výdavkov
+✅ HR žiadosti
+✅ Real-time notifikácie
+✅ Slovenská aj anglická verzia
+✅ Pulzujúce badge notifikácie
+
+**Technológie:**
+• Microsoft Teams Platform
+• Node.js + Express
+• PostgreSQL Database
+• Adaptive Cards
+
+**Podpora:**
+📧 it@etilog.com
+🌐 https://etilog.com
+
+Ďakujeme za používanie! 🎉`;
   }
 }
 
