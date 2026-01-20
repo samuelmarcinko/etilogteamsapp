@@ -158,17 +158,22 @@
                             </div>
                         </div>
                         <div class="request-meta">
-                            <span class="meta-item"><strong>${t('labelPriority')}:</strong> ${translatePriority(ticket.priority)}</span>
-                            <span class="meta-item"><strong>${t('labelApprover')}:</strong> ${ticket.assigned_approver_name}</span>
-                            ${(ticket.ticket_type === 'vacation' || ticket.ticket_type === 'sick-leave') && ticket.start_date && ticket.end_date ? `
-                                <span class="meta-item"><strong>${t('labelStartDate')}:</strong> ${formatDate(ticket.start_date)}</span>
-                                <span class="meta-item"><strong>${t('labelEndDate')}:</strong> ${formatDate(ticket.end_date)}</span>
-                            ` : ''}
+                            <span class="priority-badge priority-${ticket.priority.toLowerCase()}">
+                                ${ticket.priority === 'Urgent' ? '🔥' : ticket.priority === 'High' ? '⚠️' : ticket.priority === 'Low' ? '📌' : '📋'} ${translatePriority(ticket.priority)}
+                            </span>
+                            <span class="meta-item">
+                                <strong>✅ ${t('labelApprover')}:</strong> ${ticket.assigned_approver_name}
+                            </span>
                         </div>
+                        ${(ticket.ticket_type === 'vacation' || ticket.ticket_type === 'sick-leave') && ticket.start_date && ticket.end_date ? `
+                            <div class="date-range">
+                                ${formatDate(ticket.start_date)} → ${formatDate(ticket.end_date)}
+                            </div>
+                        ` : ''}
                         <p class="request-description">${ticket.description}</p>
                         ${ticket.status === 'Rejected' && ticket.rejection_reason ? `
                             <div class="rejection-reason">
-                                <strong>${t('labelRejectionReason')}:</strong> ${ticket.rejection_reason}
+                                <strong>❌ ${t('labelRejectionReason')}:</strong> ${ticket.rejection_reason}
                             </div>
                         ` : ''}
                     </div>

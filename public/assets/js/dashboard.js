@@ -93,17 +93,18 @@ function renderRequests(tickets) {
                 </div>
             </div>
             <div class="request-meta">
-                <span class="meta-item">
-                    <strong>${t('labelPriority')}:</strong> ${translatePriority(ticket.priority)}
+                <span class="priority-badge priority-${ticket.priority.toLowerCase()}">
+                    ${ticket.priority === 'Urgent' ? '🔥' : ticket.priority === 'High' ? '⚠️' : ticket.priority === 'Low' ? '📌' : '📋'} ${translatePriority(ticket.priority)}
                 </span>
                 <span class="meta-item">
-                    <strong>${t('labelCreatedBy')}:</strong> ${ticket.created_by_name}
+                    <strong>👤 ${t('labelCreatedBy')}:</strong> ${ticket.created_by_name}
                 </span>
-                ${(ticket.ticket_type === 'vacation' || ticket.ticket_type === 'sick-leave') && ticket.start_date && ticket.end_date ? `
-                    <span class="meta-item"><strong>${t('labelStartDate')}:</strong> ${formatDate(ticket.start_date)}</span>
-                    <span class="meta-item"><strong>${t('labelEndDate')}:</strong> ${formatDate(ticket.end_date)}</span>
-                ` : ''}
             </div>
+            ${(ticket.ticket_type === 'vacation' || ticket.ticket_type === 'sick-leave') && ticket.start_date && ticket.end_date ? `
+                <div class="date-range">
+                    ${formatDate(ticket.start_date)} → ${formatDate(ticket.end_date)}
+                </div>
+            ` : ''}
             <p class="request-description">${ticket.description}</p>
         </div>
     `).join('');
