@@ -8,7 +8,7 @@ class TicketController {
    */
   static async createTicket(req, res, next) {
     try {
-      const { title, description, ticketType, priority, conversationId, start_date, end_date } = req.body;
+      const { title, description, ticket_type, priority, conversationId, start_date, end_date } = req.body;
 
       // Validate input
       if (!title || !description) {
@@ -40,7 +40,7 @@ class TicketController {
       const ticketData = {
         title,
         description,
-        ticketType: ticketType || 'Other',
+        ticketType: ticket_type || 'other',
         priority: priority || 'Medium',
         createdBy,
         assignedApprover,
