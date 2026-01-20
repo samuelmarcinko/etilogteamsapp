@@ -74,9 +74,10 @@
                             <span data-i18n="labelType">Request Type</span>
                             <span class="required" data-i18n="required">*</span>
                         </label>
-                        <select id="ticketType" name="ticketType" class="form-select" required>
+                        <select id="ticketType" name="ticketType" class="form-select" required onchange="toggleDateFields()">
                             <option value="" data-i18n="placeholderType">-- Select type --</option>
                             <option value="vacation" data-i18n="typeVacation">Vacation</option>
+                            <option value="sick-leave" data-i18n="typeSickLeave">Sick Leave</option>
                             <option value="purchase" data-i18n="typePurchase">Purchase</option>
                             <option value="expense" data-i18n="typeExpense">Expense</option>
                             <option value="hr" data-i18n="typeHr">HR Matters</option>
@@ -96,6 +97,35 @@
                             <option value="high" data-i18n="priorityHigh">High</option>
                             <option value="urgent" data-i18n="priorityUrgent">Urgent</option>
                         </select>
+                    </div>
+                </div>
+
+                <!-- Date Range (for Vacation and Sick Leave) -->
+                <div id="dateRangeContainer" class="form-row" style="display: none;">
+                    <div class="form-group">
+                        <label class="form-label" for="startDate">
+                            <span data-i18n="labelStartDate">Start Date</span>
+                            <span class="required" data-i18n="required">*</span>
+                        </label>
+                        <input
+                            type="date"
+                            id="startDate"
+                            name="startDate"
+                            class="form-input"
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="endDate">
+                            <span data-i18n="labelEndDate">End Date</span>
+                            <span class="required" data-i18n="required">*</span>
+                        </label>
+                        <input
+                            type="date"
+                            id="endDate"
+                            name="endDate"
+                            class="form-input"
+                        >
                     </div>
                 </div>
 

@@ -2,6 +2,27 @@
 let teamsContext = null;
 let currentUser = null;
 
+// Toggle date fields visibility based on ticket type
+function toggleDateFields() {
+    const ticketType = document.getElementById('ticketType').value;
+    const dateRangeContainer = document.getElementById('dateRangeContainer');
+    const startDateInput = document.getElementById('startDate');
+    const endDateInput = document.getElementById('endDate');
+
+    // Show date fields only for vacation and sick-leave
+    if (ticketType === 'vacation' || ticketType === 'sick-leave') {
+        dateRangeContainer.style.display = 'flex';
+        startDateInput.required = true;
+        endDateInput.required = true;
+    } else {
+        dateRangeContainer.style.display = 'none';
+        startDateInput.required = false;
+        endDateInput.required = false;
+        startDateInput.value = '';
+        endDateInput.value = '';
+    }
+}
+
 // Initialize app
 (async function init() {
     try {
@@ -83,7 +104,9 @@ document.getElementById('approvalForm').addEventListener('submit', async (e) => 
             created_by_email: currentUser?.userPrincipalName || 'unknown@etilog.com',
             assigned_approver_id: approverData.id,
             assigned_approver_name: approverData.name,
-            assigned_approver_email: approverData.email
+            assigned_approver_email: approverData.email,
+            start_date: formData.get('startDate') || null,
+            end_date: formData.get('endDate') || null
         };
         
         console.log('Submitting ticket:', ticketData);

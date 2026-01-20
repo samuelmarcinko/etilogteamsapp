@@ -28,6 +28,8 @@ const translations = {
     labelCreatedBy: 'Created By',
     labelCreatedAt: 'Created At',
     labelRejectionReason: 'Rejection Reason',
+    labelStartDate: 'Start Date',
+    labelEndDate: 'End Date',
     
     // Placeholders
     placeholderTitle: 'e.g. Vacation Approval',
@@ -39,6 +41,7 @@ const translations = {
     
     // Request types
     typeVacation: 'Vacation',
+    typeSickLeave: 'Sick Leave',
     typePurchase: 'Purchase',
     typeExpense: 'Expense',
     typeHr: 'HR Matters',
@@ -153,6 +156,8 @@ const translations = {
     labelCreatedBy: 'Vytvoril',
     labelCreatedAt: 'Vytvorené',
     labelRejectionReason: 'Dôvod zamietnutia',
+    labelStartDate: 'Dátum od',
+    labelEndDate: 'Dátum do',
     
     // Placeholders
     placeholderTitle: 'Napr. Schválenie dovolenky',
@@ -164,6 +169,7 @@ const translations = {
     
     // Request types
     typeVacation: 'Dovolenka',
+    typeSickLeave: 'PN-ka',
     typePurchase: 'Nákup',
     typeExpense: 'Výdavky',
     typeHr: 'HR záležitosti',

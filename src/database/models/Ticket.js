@@ -13,8 +13,8 @@ class Ticket {
         ticket_id, title, description, ticket_type, priority,
         created_by_id, created_by_name, created_by_email,
         assigned_approver_id, assigned_approver_name, assigned_approver_email,
-        conversation_id, activity_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        conversation_id, activity_id, start_date, end_date
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *
     `;
 
@@ -31,7 +31,9 @@ class Ticket {
       ticketData.assignedApprover?.name,
       ticketData.assignedApprover?.email,
       ticketData.conversationId,
-      ticketData.activityId
+      ticketData.activityId,
+      ticketData.startDate || null,
+      ticketData.endDate || null
     ];
 
     const result = await pool.query(query, values);
