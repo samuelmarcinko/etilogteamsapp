@@ -159,7 +159,8 @@ function translatePriority(priority) {
 function formatDate(dateString) {
     if (!dateString) return '';
     const date = new Date(dateString);
-    return date.toLocaleDateString(currentLang === 'sk' ? 'sk-SK' : 'en-US', {
+    const lang = getCurrentLang();
+    return date.toLocaleDateString(lang === 'sk' ? 'sk-SK' : 'en-US', {
         year: 'numeric',
         month: 'short',
         day: 'numeric'

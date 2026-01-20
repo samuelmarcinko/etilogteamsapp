@@ -30,7 +30,6 @@ const translations = {
     labelRejectionReason: 'Rejection Reason',
     labelStartDate: 'Start Date',
     labelEndDate: 'End Date',
-    labelDescription: 'Description',
     labelPriorityLabel: 'Priority',
     
     // Placeholders
@@ -160,7 +159,6 @@ const translations = {
     labelRejectionReason: 'Dôvod zamietnutia',
     labelStartDate: 'Dátum od',
     labelEndDate: 'Dátum do',
-    labelDescription: 'Popis',
     labelPriorityLabel: 'Priorita',
     
     // Placeholders
@@ -268,6 +266,11 @@ let currentLang = localStorage.getItem('appLanguage') || 'en';
 // Get translation
 function t(key) {
   return translations[currentLang][key] || key;
+}
+
+// Get current language
+function getCurrentLang() {
+  return currentLang;
 }
 
 // Switch language
