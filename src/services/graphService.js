@@ -61,12 +61,39 @@ class GraphService {
         return hasEtilogDomain && hasLicense;
       });
 
-      return etilogUsers.map(user => ({
-        id: user.id,
-        name: user.displayName,
-        email: user.mail || user.userPrincipalName,
-        upn: user.userPrincipalName
-      }));
+      // Map and format users: "Priezvisko Meno <email>"
+      const formattedUsers = etilogUsers.map(user => {
+        const email = user.mail || user.userPrincipalName;
+        const displayName = user.displayName || '';
+
+        // Split name into parts (assume "FirstName LastName" format)
+        const nameParts = displayName.trim().split(/\s+/);
+        let formattedName;
+
+        if (nameParts.length >= 2) {
+          // Last word is surname, everything else is first name
+          const lastName = nameParts[nameParts.length - 1];
+          const firstName = nameParts.slice(0, -1).join(' ');
+          formattedName = `${lastName} ${firstName}`;
+        } else {
+          // Single name, use as-is
+          formattedName = displayName;
+        }
+
+        return {
+          id: user.id,
+          name: formattedName,
+          email: email,
+          upn: user.userPrincipalName,
+          lastName: nameParts.length >= 2 ? nameParts[nameParts.length - 1] : displayName
+        };
+      });
+
+      // Sort alphabetically by last name
+      formattedUsers.sort((a, b) => a.lastName.localeCompare(b.lastName, 'sk'));
+
+      // Remove lastName from final output (was only for sorting)
+      return formattedUsers.map(({ lastName, ...user }) => user);
     } catch (error) {
       console.error('Error fetching users:', error.response?.data || error.message);
       throw new Error('Failed to fetch users from Microsoft Graph');
@@ -132,12 +159,39 @@ class GraphService {
         return hasEtilogDomain && hasLicense;
       });
 
-      return etilogUsers.slice(0, 20).map(user => ({
-        id: user.id,
-        name: user.displayName,
-        email: user.mail || user.userPrincipalName,
-        upn: user.userPrincipalName
-      }));
+      // Map and format users: "Priezvisko Meno <email>"
+      const formattedUsers = etilogUsers.map(user => {
+        const email = user.mail || user.userPrincipalName;
+        const displayName = user.displayName || '';
+
+        // Split name into parts (assume "FirstName LastName" format)
+        const nameParts = displayName.trim().split(/\s+/);
+        let formattedName;
+
+        if (nameParts.length >= 2) {
+          // Last word is surname, everything else is first name
+          const lastName = nameParts[nameParts.length - 1];
+          const firstName = nameParts.slice(0, -1).join(' ');
+          formattedName = `${lastName} ${firstName}`;
+        } else {
+          // Single name, use as-is
+          formattedName = displayName;
+        }
+
+        return {
+          id: user.id,
+          name: formattedName,
+          email: email,
+          upn: user.userPrincipalName,
+          lastName: nameParts.length >= 2 ? nameParts[nameParts.length - 1] : displayName
+        };
+      });
+
+      // Sort alphabetically by last name
+      formattedUsers.sort((a, b) => a.lastName.localeCompare(b.lastName, 'sk'));
+
+      // Return top 20, remove lastName from final output
+      return formattedUsers.slice(0, 20).map(({ lastName, ...user }) => user);
     } catch (error) {
       console.error('Error searching users:', error.response?.data || error.message);
       throw new Error('Failed to search users');
