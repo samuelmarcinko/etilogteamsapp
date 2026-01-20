@@ -384,6 +384,10 @@
 
                 if (response.ok) {
                     showMessage(t('approveSuccess'), 'success');
+                    // Refresh approval badge count
+                    if (window.refreshApprovalsBadge) {
+                        window.refreshApprovalsBadge();
+                    }
                     setTimeout(() => location.reload(), 1500);
                 } else {
                     const errorData = await response.json().catch(() => null);
@@ -449,6 +453,10 @@
                 if (response.ok) {
                     closeRejectModal();
                     showMessage(t('rejectSuccess'), 'success');
+                    // Refresh approval badge count
+                    if (window.refreshApprovalsBadge) {
+                        window.refreshApprovalsBadge();
+                    }
                     setTimeout(() => location.reload(), 1500);
                 } else {
                     const errorData = await response.json().catch(() => null);

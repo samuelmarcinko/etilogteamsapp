@@ -127,13 +127,18 @@ document.getElementById('approvalForm').addEventListener('submit', async (e) => 
         
         const result = await response.json();
         console.log('Ticket created:', result);
-        
+
         // Show success message
         showAlert(t('alertSuccess'), 'success');
-        
+
+        // Refresh approval badge count for the approver
+        if (window.refreshApprovalsBadge) {
+            window.refreshApprovalsBadge();
+        }
+
         // Reset form
         e.target.reset();
-        
+
         // Reload approvers select with translated placeholder
         await loadApprovers();
         

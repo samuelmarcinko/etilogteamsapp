@@ -211,6 +211,7 @@ body {
   transition: all var(--transition);
   min-width: 100px;
   border: 2px solid transparent;
+  position: relative;
 }
 
 .nav-item:hover {
@@ -226,6 +227,36 @@ body {
   color: var(--white);
   box-shadow: 0 4px 16px rgba(217, 0, 12, 0.3);
   border-color: var(--etilog-red);
+}
+
+.notification-badge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+  animation: pulse-badge 2s infinite;
+  z-index: 10;
+}
+
+@keyframes pulse-badge {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.6);
+  }
 }
 
 .nav-icon {
