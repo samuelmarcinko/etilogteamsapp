@@ -109,7 +109,8 @@ class ReminderService {
    */
   async getBotToken() {
     try {
-      const tokenEndpoint = 'https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token';
+      // Use tenant-specific endpoint (same as NotificationService does)
+      const tokenEndpoint = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
       const params = new URLSearchParams();
       params.append('grant_type', 'client_credentials');
       params.append('client_id', process.env.MICROSOFT_APP_ID);
@@ -119,7 +120,7 @@ class ReminderService {
       const response = await axios.post(tokenEndpoint, params);
       return response.data.access_token;
     } catch (error) {
-      console.error('Error getting bot token:', error);
+      console.error('Error getting bot token:', error.response?.data || error.message);
       throw error;
     }
   }
