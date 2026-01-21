@@ -10,7 +10,7 @@ class ReminderService {
 
   /**
    * Start the reminder scheduler
-   * Runs every hour to check for pending tickets older than 24 hours
+   * Runs once daily at 9:00 AM to check for pending tickets older than 24 hours
    */
   start() {
     if (this.isRunning) {
@@ -18,15 +18,16 @@ class ReminderService {
       return;
     }
 
-    // Schedule to run every hour at minute 0
+    // Schedule to run once daily at 9:00 AM
     // Cron format: minute hour day month dayOfWeek
-    this.cronJob = cron.schedule('0 * * * *', async () => {
-      console.log('⏰ Running reminder check for pending approvals...');
+    // 0 9 * * * = At 09:00 AM every day
+    this.cronJob = cron.schedule('0 9 * * *', async () => {
+      console.log('⏰ Running daily reminder check for pending approvals...');
       await this.checkAndSendReminders();
     });
 
     this.isRunning = true;
-    console.log('✅ Reminder service started - will check for pending approvals every hour');
+    console.log('✅ Reminder service started - will send reminders daily at 9:00 AM');
   }
 
   /**

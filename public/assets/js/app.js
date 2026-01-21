@@ -29,13 +29,30 @@ function toggleDateFields() {
         await microsoftTeams.app.initialize();
         teamsContext = await microsoftTeams.app.getContext();
         currentUser = teamsContext.user;
-        
+
         console.log('Teams context:', teamsContext);
         console.log('Current user:', currentUser);
-        
+
+        // Fetch current user info from Graph API to get displayName
+        try {
+            const userResponse = await fetch(`/api/users/${currentUser.id}`);
+            if (userResponse.ok) {
+                const userResult = await userResponse.json();
+                // Merge Graph API data with Teams context
+                currentUser = {
+                    ...currentUser,
+                    displayName: userResult.data.name,
+                    graphEmail: userResult.data.email
+                };
+                console.log('Enhanced user info from Graph:', currentUser);
+            }
+        } catch (error) {
+            console.warn('Could not fetch user from Graph API, using Teams context only:', error);
+        }
+
         // Load approvers list
         await loadApprovers();
-        
+
     } catch (error) {
         console.error('Error initializing Teams:', error);
         showAlert(t('alertErrorInit'), 'error');
