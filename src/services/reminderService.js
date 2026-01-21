@@ -1,8 +1,7 @@
 const cron = require('node-cron');
-const { CardFactory } = require('botbuilder');
+const axios = require('axios');
 const Ticket = require('../database/models/Ticket');
 const { createReminderCard } = require('../cards/approvalCard');
-const CardService = require('./cardService');
 
 class ReminderService {
   constructor() {
@@ -106,25 +105,105 @@ class ReminderService {
   }
 
   /**
-   * Send reminder message to approver
+   * Get Bot Framework access token
+   */
+  async getBotToken() {
+    try {
+      const tokenEndpoint = 'https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token';
+      const params = new URLSearchParams();
+      params.append('grant_type', 'client_credentials');
+      params.append('client_id', process.env.MICROSOFT_APP_ID);
+      params.append('client_secret', process.env.MICROSOFT_APP_PASSWORD);
+      params.append('scope', 'https://api.botframework.com/.default');
+
+      const response = await axios.post(tokenEndpoint, params);
+      return response.data.access_token;
+    } catch (error) {
+      console.error('Error getting bot token:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send reminder message to approver using Bot Framework REST API
    */
   async sendReminderToApprover(approverId, approverName, tickets) {
     try {
       console.log(`📤 Sending reminder to ${approverName} (${tickets.length} ticket(s))`);
 
+      // Get Bot Framework token
+      const token = await this.getBotToken();
+
       // Create reminder card
       const reminderCard = createReminderCard(tickets);
-      const cardAttachment = CardFactory.adaptiveCard(reminderCard);
 
-      // Use existing CardService which already works for sending messages
-      await CardService.sendDirectMessage(approverId, cardAttachment, {
-        ticket_id: 'REMINDER',
-        title: 'Pending Approvals Reminder'
-      });
+      // Create conversation
+      const serviceUrl = 'https://smba.trafficmanager.net/emea/';
+      const conversationParams = {
+        bot: {
+          id: process.env.MICROSOFT_APP_ID,
+          name: 'ETILOG Approval Bot'
+        },
+        isGroup: false,
+        members: [
+          {
+            id: approverId
+          }
+        ],
+        tenantId: process.env.TENANT_ID,
+        channelData: {
+          tenant: {
+            id: process.env.TENANT_ID
+          }
+        }
+      };
+
+      // Create conversation
+      const conversationResponse = await axios.post(
+        `${serviceUrl}v3/conversations`,
+        conversationParams,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      const conversationId = conversationResponse.data.id;
+
+      // Send the message with adaptive card
+      const message = {
+        type: 'message',
+        from: {
+          id: process.env.MICROSOFT_APP_ID,
+          name: 'ETILOG Approval Bot'
+        },
+        conversation: {
+          id: conversationId
+        },
+        attachments: [
+          {
+            contentType: 'application/vnd.microsoft.card.adaptive',
+            content: reminderCard
+          }
+        ]
+      };
+
+      await axios.post(
+        `${serviceUrl}v3/conversations/${conversationId}/activities`,
+        message,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
 
       console.log(`✅ Reminder sent to ${approverName}`);
     } catch (error) {
-      console.error(`❌ Error sending reminder to ${approverName}:`, error);
+      console.error(`❌ Error sending reminder to ${approverName}:`, error.response?.data || error.message);
     }
   }
 
