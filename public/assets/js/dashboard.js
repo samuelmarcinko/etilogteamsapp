@@ -86,7 +86,10 @@ function renderRequests(tickets) {
     container.innerHTML = tickets.map(ticket => `
         <div class="request-item">
             <div class="request-header">
-                <h3 class="request-title">${ticket.title}</h3>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+                    <h3 class="request-title">${ticket.title}</h3>
+                    <span style="font-size: 0.7rem; color: #9ca3af; font-weight: 400; white-space: nowrap; margin-left: 0.5rem; flex-shrink: 0;">${ticket.ticket_id}</span>
+                </div>
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
                     <span class="type-badge ${getTypeBadgeClass(ticket.ticket_type)}">${translateTicketType(ticket.ticket_type)}</span>
                     <span class="status-badge status-${ticket.status.toLowerCase()}">${t('status' + ticket.status)}</span>
