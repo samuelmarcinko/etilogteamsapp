@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Calendar - ETILOG Approval System</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <script src="https://res.cdn.office.net/teams-js/2.19.0/js/MicrosoftTeams.min.js"></script>
+    <script src="/assets/js/i18n.js"></script>
+    <script src="/assets/js/navigation.js"></script>
+</head>
+<body data-page="upcoming-time-off">
+    <div class="lang-switcher">
+        <button class="lang-btn active" data-lang="en" onclick="switchLanguage('en')">EN</button>
+        <button class="lang-btn" data-lang="sk" onclick="switchLanguage('sk')">SK</button>
+    </div>
+
+    <div class="container">
+        <div id="navContainer"></div>
+
+        <div class="header">
+            <img src="/assets/images/logo.png" alt="ETILOG Logo" class="logo">
+            <div class="header-content">
+                <h1 data-i18n="teamCalendarTitle">Team Calendar</h1>
+                <p data-i18n="teamCalendarSubtitle">See who's off today and upcoming days</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <!-- Today Section -->
+            <div class="calendar-section">
+                <h2 class="calendar-day-heading" data-i18n="calendarToday">
+                    <span class="calendar-icon">📅</span> Today
+                </h2>
+                <div id="todayList" class="calendar-list">
+                    <div class="loading-spinner">
+                        <div class="loading"></div>
+                        <p data-i18n="loadingCalendar">Loading calendar...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tomorrow Section -->
+            <div class="calendar-section">
+                <h2 class="calendar-day-heading" data-i18n="calendarTomorrow">
+                    <span class="calendar-icon">📅</span> Tomorrow
+                </h2>
+                <div id="tomorrowList" class="calendar-list">
+                    <div class="loading-spinner">
+                        <div class="loading"></div>
+                        <p data-i18n="loadingCalendar">Loading calendar...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Day After Tomorrow Section -->
+            <div class="calendar-section">
+                <h2 class="calendar-day-heading" data-i18n="calendarDayAfter">
+                    <span class="calendar-icon">📅</span> Day After Tomorrow
+                </h2>
+                <div id="dayAfterList" class="calendar-list">
+                    <div class="loading-spinner">
+                        <div class="loading"></div>
+                        <p data-i18n="loadingCalendar">Loading calendar...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .calendar-section {
+            margin-bottom: 2.5rem;
+        }
+
+        .calendar-day-heading {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .calendar-icon {
+            font-size: 1.5rem;
+        }
+
+        .calendar-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .calendar-empty {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 2rem;
+            background: #f9fafb;
+            border-radius: 8px;
+            color: #6b7280;
+            font-size: 0.95rem;
+        }
+
+        .person-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 1.25rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .person-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border-color: #d1d5db;
+        }
+
+        .person-card.vacation {
+            border-left: 4px solid #3b82f6;
+        }
+
+        .person-card.sick-leave {
+            border-left: 4px solid #f59e0b;
+        }
+
+        .person-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .person-icon {
+            font-size: 2rem;
+            flex-shrink: 0;
+        }
+
+        .person-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .person-name {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .person-type {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin: 0.25rem 0 0 0;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .person-dates {
+            font-size: 0.875rem;
+            color: #4b5563;
+            padding-top: 0.75rem;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .person-dates strong {
+            color: #1f2937;
+        }
+
+        .ticket-id-small {
+            font-size: 0.7rem;
+            color: #9ca3af;
+            margin-top: 0.5rem;
+            text-align: right;
+        }
+    </style>
+
+    <script>
+        let allApprovedTimeOff = [];
+
+        // Helper function to format date
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            const lang = getCurrentLang();
+            return date.toLocaleDateString(lang === 'sk' ? 'sk-SK' : 'en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+
+        // Helper function to check if date is in range
+        function isDateInRange(startDate, endDate, targetDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const target = new Date(targetDate);
+
+            // Set time to midnight for accurate comparison
+            start.setHours(0, 0, 0, 0);
+            end.setHours(0, 0, 0, 0);
+            target.setHours(0, 0, 0, 0);
+
+            return target >= start && target <= end;
+        }
+
+        // Get date objects for today, tomorrow, day after
+        function getDates() {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+
+            const dayAfter = new Date(today);
+            dayAfter.setDate(dayAfter.getDate() + 2);
+
+            return { today, tomorrow, dayAfter };
+        }
+
+        // Render person card
+        function renderPersonCard(ticket) {
+            const typeClass = ticket.ticket_type === 'vacation' ? 'vacation' : 'sick-leave';
+            const icon = ticket.ticket_type === 'vacation' ? '🏖️' : '🤒';
+            const typeLabel = ticket.ticket_type === 'vacation' ? t('typeVacation') : t('typeSickLeave');
+
+            return `
+                <div class="person-card ${typeClass}">
+                    <div class="person-header">
+                        <span class="person-icon">${icon}</span>
+                        <div class="person-info">
+                            <h3 class="person-name">${ticket.created_by_name}</h3>
+                            <p class="person-type">${typeLabel}</p>
+                        </div>
+                    </div>
+                    <div class="person-dates">
+                        <strong>📅</strong> ${formatDate(ticket.start_date)} → ${formatDate(ticket.end_date)}
+                    </div>
+                    <div class="ticket-id-small">${ticket.ticket_id}</div>
+                </div>
+            `;
+        }
+
+        // Render calendar for a specific day
+        function renderDayCalendar(containerId, targetDate, dayName) {
+            const container = document.getElementById(containerId);
+
+            // Filter tickets for this specific day
+            const peopleOff = allApprovedTimeOff.filter(ticket =>
+                isDateInRange(ticket.start_date, ticket.end_date, targetDate)
+            );
+
+            if (peopleOff.length === 0) {
+                container.innerHTML = `
+                    <div class="calendar-empty">
+                        <p>✅ ${t('calendarNoOneOff')}</p>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = peopleOff.map(ticket => renderPersonCard(ticket)).join('');
+            }
+        }
+
+        // Render all calendars
+        function renderAllCalendars() {
+            const { today, tomorrow, dayAfter } = getDates();
+
+            renderDayCalendar('todayList', today, 'today');
+            renderDayCalendar('tomorrowList', tomorrow, 'tomorrow');
+            renderDayCalendar('dayAfterList', dayAfter, 'dayAfter');
+        }
+
+        // Load approved time-off requests
+        (async function() {
+            await microsoftTeams.app.initialize();
+
+            try {
+                // Fetch all approved vacation and sick-leave tickets
+                const response = await fetch('/api/tickets?status=Approved');
+                const result = await response.json();
+                const allTickets = result.data || [];
+
+                // Filter only vacation and sick-leave with dates
+                allApprovedTimeOff = allTickets.filter(ticket =>
+                    (ticket.ticket_type === 'vacation' || ticket.ticket_type === 'sick-leave') &&
+                    ticket.start_date &&
+                    ticket.end_date
+                );
+
+                renderAllCalendars();
+            } catch (error) {
+                console.error('Error loading time-off calendar:', error);
+                document.getElementById('todayList').innerHTML = `
+                    <div class="error-message">
+                        <p>${t('errorLoadingCalendar')}</p>
+                    </div>
+                `;
+            }
+        })();
+
+        // Override switchLanguage to re-render with new translations
+        const originalSwitchLanguage = window.switchLanguage;
+        window.switchLanguage = function(lang) {
+            originalSwitchLanguage(lang);
+            renderAllCalendars();
+        };
+    </script>
+</body>
+</html>

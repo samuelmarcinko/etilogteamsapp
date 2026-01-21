@@ -125,6 +125,18 @@ const translations = {
     errorLoadingDashboard: 'Error loading dashboard',
     errorLoadingApprovals: 'Error loading approvals',
     errorLoadingRequests: 'Error loading requests',
+    errorLoadingHistory: 'Error loading history',
+    errorLoadingCalendar: 'Error loading calendar',
+
+    // Team Calendar
+    teamCalendarTitle: 'Team Calendar',
+    teamCalendarSubtitle: "See who's off today and upcoming days",
+    calendarToday: 'Today',
+    calendarTomorrow: 'Tomorrow',
+    calendarDayAfter: 'Day After Tomorrow',
+    calendarNoOneOff: 'No one is off',
+    loadingCalendar: 'Loading calendar...',
+    labelDate: 'Date',
 
     // Required field
     required: '*'
@@ -254,6 +266,18 @@ const translations = {
     errorLoadingDashboard: 'Chyba pri načítaní nástenky',
     errorLoadingApprovals: 'Chyba pri načítaní schválení',
     errorLoadingRequests: 'Chyba pri načítaní žiadostí',
+    errorLoadingHistory: 'Chyba pri načítaní histórie',
+    errorLoadingCalendar: 'Chyba pri načítaní kalendára',
+
+    // Team Calendar
+    teamCalendarTitle: 'Teamový kalendár',
+    teamCalendarSubtitle: 'Pozrite si kto má voľno dnes a v nasledujúcich dňoch',
+    calendarToday: 'Dnes',
+    calendarTomorrow: 'Zajtra',
+    calendarDayAfter: 'Pozajtra',
+    calendarNoOneOff: 'Nikto nemá voľno',
+    loadingCalendar: 'Načítavam kalendár...',
+    labelDate: 'Dátum',
 
     // Required field
     required: '*'
