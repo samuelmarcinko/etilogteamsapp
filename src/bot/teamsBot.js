@@ -208,18 +208,21 @@ class TeamsBot extends TeamsActivityHandler {
    * Get welcome message
    */
   getWelcomeMessage() {
-    return `🎉 Welcome to ETILOG Approval Center! 🎫
+    return `🎉 Hello! I'm the **ETILOG Approval Bot**! 🎫
 
-I'm your assistant for managing approval requests.
+I'm here to help you manage approval requests and speed up the approval process for all ETILOG employees.
 
-**What I can do:**
-✅ Send requests to approvers
-✅ Process approvals and rejections
-✅ Send notifications about request status
-📊 Help with time-off, purchases, expenses, and HR matters
+**My main purpose:**
+✅ Accelerate the approval workflow
+✅ Log all requests with complete history tracking
+✅ Send real-time notifications about request status
+📊 Handle time-off, purchases, expenses, and HR requests
+
+**Quick note:** 📦
+As a bot working for ETILOG - the European technology leader for professional packaging solutions and container systems - I'm quite busy helping with our innovative packaging needs! That's why I can only offer basic command-based assistance (no chatting, sorry! 😅). But don't worry, I'm very efficient at what I do best: managing your approval requests!
 
 **Get started:**
-- Type **"help"** for a list of commands
+- Type **"help"** for a list of available commands
 - Open the app in Teams tab to create a request
 
 Have a productive day! 💼`;
@@ -250,7 +253,7 @@ Have a productive day! 💼`;
 • \`about\` / \`info\` - About the application
 
 **🆘 Need help?**
-Contact IT department: it@etilog.com`;
+Contact IT department: samuel.marcinko@etilog.com`;
   }
 
   /**
@@ -263,12 +266,15 @@ Contact IT department: it@etilog.com`;
 **Developer:** ETILOG IT Team
 **Last Update:** January 2026
 
+**Purpose:**
+This bot accelerates the approval workflow and maintains complete history tracking for all employee requests. Designed for ETILOG s.r.o. - the European technology leader for professional packaging solutions and container systems.
+
 **Features:**
 ✅ Time-off and sick leave approvals
 ✅ Purchase and expense approvals
 ✅ HR requests
 ✅ Real-time notifications
-✅ Slovak and English version
+✅ Complete request history logging
 ✅ Pulsing badge notifications
 
 **Technologies:**
@@ -278,7 +284,7 @@ Contact IT department: it@etilog.com`;
 • Adaptive Cards
 
 **Support:**
-📧 it@etilog.com
+📧 samuel.marcinko@etilog.com
 🌐 https://etilog.com
 
 Thank you for using our app! 🎉`;
