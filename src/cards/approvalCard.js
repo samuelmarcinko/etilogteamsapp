@@ -434,9 +434,114 @@ function createNotificationCard(ticket, status, actionBy, rejectionReason = null
   return card;
 }
 
+/**
+ * Generate reminder card for pending approvals
+ */
+function createReminderCard(tickets) {
+  const ticketCount = tickets.length;
+  const ticketList = tickets.map(ticket => ({
+    type: 'TextBlock',
+    text: `• **${ticket.ticket_id}** - ${ticket.title} (${ticket.ticket_type})`,
+    wrap: true,
+    spacing: 'Small'
+  }));
+
+  const card = {
+    type: 'AdaptiveCard',
+    $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
+    version: '1.4',
+    body: [
+      {
+        type: 'Container',
+        style: 'warning',
+        items: [
+          {
+            type: 'ColumnSet',
+            columns: [
+              {
+                type: 'Column',
+                width: 'auto',
+                items: [
+                  {
+                    type: 'TextBlock',
+                    text: '⏰',
+                    size: 'ExtraLarge'
+                  }
+                ]
+              },
+              {
+                type: 'Column',
+                width: 'stretch',
+                items: [
+                  {
+                    type: 'TextBlock',
+                    text: 'Reminder: Pending Approvals',
+                    weight: 'Bolder',
+                    size: 'Large',
+                    wrap: true
+                  },
+                  {
+                    type: 'TextBlock',
+                    text: `You have ${ticketCount} pending ${ticketCount === 1 ? 'request' : 'requests'} waiting for approval`,
+                    isSubtle: true,
+                    spacing: 'None',
+                    wrap: true
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        type: 'Container',
+        spacing: 'Medium',
+        separator: true,
+        items: [
+          {
+            type: 'TextBlock',
+            text: 'Hey! 👋 You have pending approval requests that need your attention. Please review them when you get a chance.',
+            wrap: true,
+            size: 'Medium'
+          }
+        ]
+      },
+      {
+        type: 'Container',
+        spacing: 'Medium',
+        items: [
+          {
+            type: 'TextBlock',
+            text: '**Pending Requests:**',
+            weight: 'Bolder'
+          },
+          ...ticketList
+        ]
+      },
+      {
+        type: 'Container',
+        spacing: 'Medium',
+        separator: true,
+        items: [
+          {
+            type: 'TextBlock',
+            text: '💡 **Tip:** Open the ETILOG Approval Center app in Teams to review and process these requests.',
+            wrap: true,
+            isSubtle: true,
+            size: 'Small'
+          }
+        ]
+      }
+    ]
+  };
+
+  return card;
+}
+
 module.exports = {
   createApprovalCard,
   createApprovedCard,
   createRejectedCard,
-  createNotificationCard
+  createNotificationCard,
+  createReminderCard
 };

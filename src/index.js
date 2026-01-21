@@ -6,6 +6,7 @@ const adapter = require('./bot/botAdapter');
 const TeamsBot = require('./bot/teamsBot');
 const apiRoutes = require('./routes');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
+const ReminderService = require('./services/reminderService');
 
 // Initialize Express app
 const app = express();
@@ -28,6 +29,10 @@ app.use((req, res, next) => {
 // Create bot instance
 const bot = new TeamsBot();
 
+// Initialize reminder service
+const reminderService = new ReminderService(adapter);
+reminderService.start();
+
 // Bot Framework endpoint
 app.post('/api/messages', async (req, res) => {
   await adapter.process(req, res, (context) => bot.run(context));
@@ -35,6 +40,26 @@ app.post('/api/messages', async (req, res) => {
 
 // API routes
 app.use('/api', apiRoutes);
+
+// Manual reminder trigger endpoint (for testing)
+app.post('/api/reminders/trigger', async (req, res) => {
+  try {
+    console.log('🔄 Manual reminder trigger requested');
+    await reminderService.triggerManualCheck();
+    res.json({
+      success: true,
+      message: 'Reminder check triggered successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error triggering reminder:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to trigger reminder check',
+      error: error.message
+    });
+  }
+});
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -68,11 +93,13 @@ app.listen(PORT, '0.0.0.0', () => {
 // Graceful shutdown
 process.on('SIGINT', () => {
   console.log('\n🛑 Shutting down gracefully...');
+  reminderService.stop();
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
   console.log('\n🛑 Shutting down gracefully...');
+  reminderService.stop();
   process.exit(0);
 });
 
