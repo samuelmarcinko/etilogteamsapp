@@ -16,32 +16,32 @@ class TeamsBot extends TeamsActivityHandler {
       const text = context.activity.text?.trim().toLowerCase();
 
       // Greeting commands
-      if (text === 'hello' || text === 'hi' || text === 'ahoj' || text === 'nazdar') {
-        await context.sendActivity('Ahoj! Som ETILOG Approval Bot 🎫\n\nPomáham spravovať žiadosti o schválenie. Napíš "help" alebo "pomoc" pre viac informácií.');
+      if (text === 'hello' || text === 'hi' || text === 'hey') {
+        await context.sendActivity('Hello! I am the ETILOG Approval Bot 🎫\n\nI help manage approval requests. Type "help" for more information.');
       }
       // Help commands
-      else if (text === 'help' || text === 'pomoc' || text === 'napoveda') {
+      else if (text === 'help') {
         await context.sendActivity(this.getHelpMessage());
       }
       // Status command - check pending approvals
-      else if (text === 'status' || text === 'stav') {
-        await context.sendActivity('ℹ️ Pre zobrazenie stavu tvojich žiadostí otvor aplikáciu cez záložku "Moje žiadosti".\n\nPre schvaľovanie žiadostí klikni na záložku "Schvaľovanie".');
+      else if (text === 'status') {
+        await context.sendActivity('ℹ️ To view the status of your requests, open the app and go to the "My Requests" tab.\n\nTo approve requests, click on the "Approvals" tab.');
       }
       // My requests command
-      else if (text === 'my requests' || text === 'moje ziadosti' || text === 'moje žiadosti') {
-        await context.sendActivity('📋 Tvoje žiadosti nájdeš v aplikácii v záložke "My Requests" alebo "Moje žiadosti".');
+      else if (text === 'my requests' || text === 'requests') {
+        await context.sendActivity('📋 You can find your requests in the app under the "My Requests" tab.');
       }
       // Create request command
-      else if (text === 'create' || text === 'vytvoriť' || text === 'vytvorit' || text === 'nova ziadost') {
-        await context.sendActivity('➕ Pre vytvorenie novej žiadosti otvor aplikáciu a prejdi do záložky "Create Request" alebo "Vytvoriť žiadosť".');
+      else if (text === 'create' || text === 'new request') {
+        await context.sendActivity('➕ To create a new request, open the app and go to the "Create Request" tab.');
       }
       // About command
-      else if (text === 'about' || text === 'o aplikácii' || text === 'o aplikacii' || text === 'info') {
+      else if (text === 'about' || text === 'info') {
         await context.sendActivity(this.getAboutMessage());
       }
       // Default response
       else {
-        await context.sendActivity('❓ Nerozumiem príkazu. Napíš "help" alebo "pomoc" pre zoznam dostupných príkazov.');
+        await context.sendActivity('❓ I didn\'t understand that command. Type "help" for a list of available commands.');
       }
 
       await next();
@@ -205,83 +205,83 @@ class TeamsBot extends TeamsActivityHandler {
   }
 
   /**
-   * Get welcome message (Slovak version)
+   * Get welcome message
    */
   getWelcomeMessage() {
-    return `🎉 Vitaj v ETILOG Approval Center! 🎫
+    return `🎉 Welcome to ETILOG Approval Center! 🎫
 
-Som tvoj asistent pre správu schvaľovacích žiadostí.
+I'm your assistant for managing approval requests.
 
-**Čo viem robiť:**
-✅ Odosielať žiadosti schvaľovateľom
-✅ Spracovávať schválenia a zamietnutia
-✅ Posielať notifikácie o stave žiadostí
-📊 Pomáhať s dovolenkami, nákupmi, výdavkami a HR záležitosťami
+**What I can do:**
+✅ Send requests to approvers
+✅ Process approvals and rejections
+✅ Send notifications about request status
+📊 Help with time-off, purchases, expenses, and HR matters
 
-**Začni hneď:**
-- Napíš **"help"** alebo **"pomoc"** pre zoznam príkazov
-- Otvor aplikáciu v Teams záložke pre vytvorenie žiadosti
+**Get started:**
+- Type **"help"** for a list of commands
+- Open the app in Teams tab to create a request
 
-Prajem príjemnú prácu! 💼`;
+Have a productive day! 💼`;
   }
 
   /**
-   * Get help message (Slovak version)
+   * Get help message
    */
   getHelpMessage() {
-    return `**📖 ETILOG Approval Bot - Nápoveda**
+    return `**📖 ETILOG Approval Bot - Help**
 
-**🙋 Pre žiadateľov:**
-• Vytváraj žiadosti cez aplikáciu (dovolenka, nákupy, výdavky, HR)
-• Sleduj stav svojich žiadostí
-• Dostávaj notifikácie o schválení/zamietnutí
+**🙋 For Requesters:**
+• Create requests via the app (time-off, purchases, expenses, HR)
+• Track the status of your requests
+• Receive notifications about approval/rejection
 
-**👨‍💼 Pre schvaľovateľov:**
-• Prijímaj žiadosti ako Adaptive Cards
-• Klikni "Approve" alebo "Reject" pre spracovanie
-• Pridaj dôvod zamietnutia (voliteľné)
+**👨‍💼 For Approvers:**
+• Receive requests as Adaptive Cards
+• Click "Approve" or "Reject" to process
+• Add rejection reason (optional)
 
-**💬 Dostupné príkazy:**
-• \`hello\` / \`ahoj\` - Pozdrav bota
-• \`help\` / \`pomoc\` - Zobraz túto nápovedu
-• \`status\` / \`stav\` - Info o žiadostiach
-• \`create\` / \`vytvoriť\` - Ako vytvoriť žiadosť
-• \`my requests\` / \`moje žiadosti\` - Kde nájsť moje žiadosti
-• \`about\` / \`info\` - O aplikácii
+**💬 Available Commands:**
+• \`hello\` / \`hi\` / \`hey\` - Greet the bot
+• \`help\` - Show this help message
+• \`status\` - Info about requests
+• \`create\` / \`new request\` - How to create a request
+• \`my requests\` / \`requests\` - Where to find my requests
+• \`about\` / \`info\` - About the application
 
-**🆘 Potrebuješ pomoc?**
-Kontaktuj IT oddelenie: it@etilog.com`;
+**🆘 Need help?**
+Contact IT department: it@etilog.com`;
   }
 
   /**
-   * Get about message (Slovak version)
+   * Get about message
    */
   getAboutMessage() {
-    return `**ℹ️ O ETILOG Approval Center**
+    return `**ℹ️ About ETILOG Approval Center**
 
-**Verzia:** 1.0.0
+**Version:** 1.0.0
 **Developer:** ETILOG IT Team
-**Posledná aktualizácia:** Január 2026
+**Last Update:** January 2026
 
-**Funkcie:**
-✅ Schvaľovanie dovoleniek a PN-iek
-✅ Schvaľovanie nákupov a výdavkov
-✅ HR žiadosti
-✅ Real-time notifikácie
-✅ Slovenská aj anglická verzia
-✅ Pulzujúce badge notifikácie
+**Features:**
+✅ Time-off and sick leave approvals
+✅ Purchase and expense approvals
+✅ HR requests
+✅ Real-time notifications
+✅ Slovak and English version
+✅ Pulsing badge notifications
 
-**Technológie:**
+**Technologies:**
 • Microsoft Teams Platform
 • Node.js + Express
 • PostgreSQL Database
 • Adaptive Cards
 
-**Podpora:**
+**Support:**
 📧 it@etilog.com
 🌐 https://etilog.com
 
-Ďakujeme za používanie! 🎉`;
+Thank you for using our app! 🎉`;
   }
 }
 
