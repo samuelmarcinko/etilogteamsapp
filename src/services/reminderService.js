@@ -1,11 +1,11 @@
 const cron = require('node-cron');
-const { BotFrameworkAdapter, CardFactory } = require('botbuilder');
+const { CardFactory } = require('botbuilder');
+const adapter = require('../bot/botAdapter');
 const Ticket = require('../database/models/Ticket');
 const { createReminderCard } = require('../cards/approvalCard');
 
 class ReminderService {
-  constructor(adapter) {
-    this.adapter = adapter;
+  constructor() {
     this.isRunning = false;
   }
 
@@ -114,8 +114,12 @@ class ReminderService {
 
       // Create reminder card
       const reminderCard = createReminderCard(tickets);
+      const cardAttachment = CardFactory.adaptiveCard(reminderCard);
 
-      // Create conversation parameters for 1:1 chat
+      // Use same approach as cardService.js
+      const tenantId = process.env.TENANT_ID;
+      const serviceUrl = 'https://smba.trafficmanager.net/emea/';
+
       const conversationParameters = {
         isGroup: false,
         bot: {
@@ -123,19 +127,21 @@ class ReminderService {
           name: 'ETILOG Approval Bot'
         },
         members: [{ id: approverId }],
-        tenantId: process.env.TENANT_ID
+        tenantId: tenantId
       };
 
       // Send the reminder card
-      await this.adapter.createConversation(
+      await adapter.createConversation(
         'msteams',
-        process.env.APP_BASE_URL,
+        serviceUrl,
         process.env.MICROSOFT_APP_ID,
         conversationParameters,
         async (turnContext) => {
-          await turnContext.sendActivity({
-            attachments: [CardFactory.adaptiveCard(reminderCard)]
-          });
+          const activity = {
+            type: 'message',
+            attachments: [cardAttachment]
+          };
+          await turnContext.sendActivity(activity);
         }
       );
 

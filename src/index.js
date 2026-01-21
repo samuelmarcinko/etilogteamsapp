@@ -30,7 +30,7 @@ app.use((req, res, next) => {
 const bot = new TeamsBot();
 
 // Initialize reminder service
-const reminderService = new ReminderService(adapter);
+const reminderService = new ReminderService();
 reminderService.start();
 
 // Bot Framework endpoint
