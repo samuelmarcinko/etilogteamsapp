@@ -156,13 +156,24 @@
             text-overflow: ellipsis;
         }
 
-        .person-type {
-            font-size: 0.875rem;
-            color: #6b7280;
+        .person-email {
+            font-size: 0.75rem;
+            color: #9ca3af;
             margin: 0.25rem 0 0 0;
-            display: flex;
-            align-items: center;
-            gap: 0.25rem;
+            text-transform: lowercase;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .person-type-badge {
+            display: inline-block;
+            font-size: 0.75rem;
+            color: #6b7280;
+            background: #f3f4f6;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
         }
 
         .person-dates {
@@ -242,9 +253,10 @@
                         <span class="person-icon">${icon}</span>
                         <div class="person-info">
                             <h3 class="person-name">${ticket.created_by_name}</h3>
-                            <p class="person-type">${typeLabel}</p>
+                            <p class="person-email">${ticket.created_by_email?.toLowerCase() || ''}</p>
                         </div>
                     </div>
+                    <div class="person-type-badge">${typeLabel}</div>
                     <div class="person-dates">
                         <strong>📅</strong> ${formatDate(ticket.start_date)} → ${formatDate(ticket.end_date)}
                     </div>
