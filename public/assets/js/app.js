@@ -100,7 +100,7 @@ document.getElementById('approvalForm').addEventListener('submit', async (e) => 
             ticket_type: formData.get('ticketType'),
             priority: formData.get('priority'),
             created_by_id: currentUser?.id || 'unknown',
-            created_by_name: currentUser?.userPrincipalName || 'Unknown User',
+            created_by_name: currentUser?.displayName || currentUser?.userPrincipalName || 'Unknown User',
             created_by_email: currentUser?.userPrincipalName || 'unknown@etilog.com',
             assigned_approver_id: approverData.id,
             assigned_approver_name: approverData.name,
