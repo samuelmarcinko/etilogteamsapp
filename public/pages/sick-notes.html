@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETILOG Approval System</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <script src="https://res.cdn.office.net/teams-js/2.19.0/js/MicrosoftTeams.min.js"></script>
+    <script src="/assets/js/i18n.js"></script>
+    <script src="/assets/js/navigation.js"></script>
+</head>
+<body data-page="sick-notes">
+    <!-- Language Switcher -->
+    <div class="lang-switcher">
+        <button class="lang-btn active" data-lang="en" onclick="switchLanguage('en')">EN</button>
+        <button class="lang-btn" data-lang="sk" onclick="switchLanguage('sk')">SK</button>
+    </div>
+
+    <div class="container">
+        <!-- Navigation -->
+        <div id="navContainer"></div>
+
+        <!-- Header -->
+        <div class="header">
+            <img src="/assets/images/logo.png" alt="ETILOG Logo" class="logo">
+            <div class="header-content">
+                <h1 data-i18n="sickNotesTitle">My Sick Notes</h1>
+                <p data-i18n="sickNotesSubtitle">Upload and manage your sick note documents</p>
+            </div>
+        </div>
+
+        <!-- Alert Container -->
+        <div id="alertContainer"></div>
+
+        <!-- Upload Form Card -->
+        <div class="card">
+            <h3 class="card-title" data-i18n="sickNotesUploadTitle">Upload New Sick Note</h3>
+            <form id="sickNoteForm">
+                <!-- Title -->
+                <div class="form-group">
+                    <label class="form-label" for="snTitle">
+                        <span data-i18n="sickNotesLabelTitle">Title</span>
+                        <span class="required">*</span>
+                    </label>
+                    <input type="text" id="snTitle" name="title" class="form-input"
+                           data-i18n-placeholder="sickNotesPlaceholderTitle" required>
+                </div>
+
+                <!-- Date Range -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="snStartDate">
+                            <span data-i18n="labelStartDate">Start Date</span>
+                            <span class="required">*</span>
+                        </label>
+                        <input type="date" id="snStartDate" name="start_date" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="snEndDate">
+                            <span data-i18n="labelEndDate">End Date</span>
+                            <span class="required">*</span>
+                        </label>
+                        <input type="date" id="snEndDate" name="end_date" class="form-input" required>
+                    </div>
+                </div>
+
+                <!-- Doctor Name (optional) -->
+                <div class="form-group">
+                    <label class="form-label" for="snDoctor">
+                        <span data-i18n="sickNotesLabelDoctor">Doctor Name</span>
+                    </label>
+                    <input type="text" id="snDoctor" name="doctor_name" class="form-input"
+                           data-i18n-placeholder="sickNotesPlaceholderDoctor">
+                </div>
+
+                <!-- Diagnosis (optional) -->
+                <div class="form-group">
+                    <label class="form-label" for="snDiagnosis">
+                        <span data-i18n="sickNotesLabelDiagnosis">Diagnosis</span>
+                    </label>
+                    <input type="text" id="snDiagnosis" name="diagnosis" class="form-input"
+                           data-i18n-placeholder="sickNotesPlaceholderDiagnosis">
+                </div>
+
+                <!-- File Upload -->
+                <div class="form-group">
+                    <label class="form-label" for="snFile">
+                        <span data-i18n="sickNotesLabelFile">Document (PDF, JPG, PNG, HEIC)</span>
+                    </label>
+                    <input type="file" id="snFile" name="file" class="form-input"
+                           accept=".pdf,.jpg,.jpeg,.png,.heic,.heif,.webp,.bmp,.tiff,.tif">
+                    <p class="helper-text" data-i18n="sickNotesHelperFile">Max 10MB. Supported: PDF, JPG, PNG, HEIC, WebP</p>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="btn btn-primary btn-block" id="submitBtn">
+                    <span id="btnText" data-i18n="sickNotesBtnSubmit">Upload Sick Note</span>
+                    <span id="btnLoader" class="loading" style="display: none;"></span>
+                </button>
+            </form>
+        </div>
+
+        <!-- My Sick Notes List -->
+        <div class="card">
+            <h3 class="card-title" data-i18n="sickNotesListTitle">My Sick Notes</h3>
+            <div id="sickNotesList">
+                <div class="loading-container">
+                    <div class="loading"></div>
+                    <p data-i18n="sickNotesLoading">Loading sick notes...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // Initialize Microsoft Teams SDK
+    let teamsContext = null;
+    let currentUser = null;
+
+    (async function init() {
+        try {
+            await microsoftTeams.app.initialize();
+            teamsContext = await microsoftTeams.app.getContext();
+            currentUser = teamsContext.user;
+
+            // Fetch enhanced user info
+            try {
+                const userResponse = await fetch(`/api/users/${currentUser.id}`);
+                if (userResponse.ok) {
+                    const userResult = await userResponse.json();
+                    currentUser = {
+                        ...currentUser,
+                        displayName: userResult.data.name,
+                        graphEmail: userResult.data.email
+                    };
+                }
+            } catch (e) {
+                console.warn('Could not fetch user from Graph API:', e);
+            }
+
+            // Load existing sick notes
+            await loadSickNotes();
+
+        } catch (error) {
+            console.error('Error initializing Teams:', error);
+            showAlert(t('alertErrorInit'), 'error');
+        }
+    })();
+
+    // Load my sick notes
+    async function loadSickNotes() {
+        const container = document.getElementById('sickNotesList');
+        try {
+            const userId = currentUser?.id;
+            if (!userId) {
+                container.innerHTML = `<p class="empty-state">${t('sickNotesNoNotes')}</p>`;
+                return;
+            }
+
+            const response = await fetch(`/api/teams/sick-notes?userId=${userId}`);
+            if (!response.ok) throw new Error('Failed to load sick notes');
+
+            const result = await response.json();
+            const notes = result.data || [];
+
+            if (notes.length === 0) {
+                container.innerHTML = `<p class="empty-state">${t('sickNotesNoNotes')}</p>`;
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>${t('sickNotesColTitle')}</th>
+                                <th>${t('sickNotesColFrom')}</th>
+                                <th>${t('sickNotesColTo')}</th>
+                                <th>${t('sickNotesColDoctor')}</th>
+                                <th>${t('sickNotesColFile')}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${notes.map(n => `
+                                <tr>
+                                    <td>
+                                        <strong>${escapeHtml(n.title)}</strong>
+                                        ${n.diagnosis ? `<br><small style="opacity:0.7">${escapeHtml(n.diagnosis)}</small>` : ''}
+                                    </td>
+                                    <td>${formatDate(n.start_date)}</td>
+                                    <td>${formatDate(n.end_date)}</td>
+                                    <td>${n.doctor_name ? escapeHtml(n.doctor_name) : '-'}</td>
+                                    <td>${n.file_name ? `<span style="color: #16a34a;">&#10003; ${escapeHtml(n.file_name)}</span>` : '<span style="opacity:0.5">-</span>'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        } catch (error) {
+            console.error('Error loading sick notes:', error);
+            container.innerHTML = `<p class="empty-state" style="color: #ef4444;">${t('sickNotesErrorLoading')}</p>`;
+        }
+    }
+
+    // Handle form submission
+    document.getElementById('sickNoteForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const submitBtn = document.getElementById('submitBtn');
+        const btnText = document.getElementById('btnText');
+        const btnLoader = document.getElementById('btnLoader');
+
+        submitBtn.disabled = true;
+        btnText.textContent = t('sickNotesBtnSubmitting');
+        btnLoader.style.display = 'inline-block';
+
+        try {
+            const formData = new FormData(e.target);
+
+            // Add user info from Teams context
+            formData.append('user_id', currentUser?.id || 'unknown');
+            formData.append('user_name', currentUser?.displayName || currentUser?.userPrincipalName || 'Unknown');
+            formData.append('user_email', currentUser?.userPrincipalName || currentUser?.graphEmail || 'unknown@etilog.com');
+
+            const response = await fetch('/api/teams/sick-notes', {
+                method: 'POST',
+                body: formData  // FormData with file - no Content-Type header needed
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.message || t('sickNotesErrorSubmit'));
+            }
+
+            showAlert(t('sickNotesSuccess'), 'success');
+            e.target.reset();
+            await loadSickNotes();
+
+        } catch (error) {
+            console.error('Error submitting sick note:', error);
+            showAlert(t('sickNotesError') + error.message, 'error');
+        } finally {
+            submitBtn.disabled = false;
+            btnText.textContent = t('sickNotesBtnSubmit');
+            btnLoader.style.display = 'none';
+        }
+    });
+
+    // Helpers
+    function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    function formatDate(dateStr) {
+        if (!dateStr) return '-';
+        const d = new Date(dateStr);
+        return d.toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+
+    function showAlert(message, type = 'success') {
+        const alertContainer = document.getElementById('alertContainer');
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type}`;
+        alert.innerHTML = `<span class="alert-icon">${type === 'success' ? '✓' : '✗'}</span><span>${message}</span>`;
+        alertContainer.innerHTML = '';
+        alertContainer.appendChild(alert);
+        setTimeout(() => alert.remove(), 5000);
+    }
+    </script>
+</body>
+</html>
