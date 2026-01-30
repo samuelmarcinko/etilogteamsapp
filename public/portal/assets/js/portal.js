@@ -16,7 +16,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    await loadUserProfile();
+    const profileLoaded = await loadUserProfile();
+    if (!profileLoaded) {
+        // Don't redirect in loop - show error state
+        document.getElementById('pageLoading').style.display = 'none';
+        document.getElementById('pageContent').innerHTML = `
+            <div class="page-body">
+                <div class="empty-state">
+                    <div class="empty-icon">&#9888;</div>
+                    <div class="empty-text">Nepodarilo sa nacitat profil. Skuste sa znovu prihlasit.</div>
+                    <br><button class="btn btn-primary" onclick="handleLogout()">Odhlasit sa a skusit znova</button>
+                </div>
+            </div>`;
+        return;
+    }
+
     setupNavigation();
     navigateToPage(window.location.hash.slice(1) || 'dashboard');
 });
@@ -24,7 +38,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function loadUserProfile() {
     try {
         const response = await apiCall('/api/admin/me');
-        if (!response.ok) throw new Error('Failed to load profile');
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            console.error('Profile load failed:', response.status, errData);
+            throw new Error(errData.message || `HTTP ${response.status}`);
+        }
         const result = await response.json();
         portalUser = result.data;
 
@@ -40,9 +58,11 @@ async function loadUserProfile() {
         if (portalUser.role === 'admin') {
             document.getElementById('adminNav').style.display = 'block';
         }
+        return true;
     } catch (error) {
         console.error('Failed to load profile:', error);
-        showToast('Nepodarilo sa nacitat profil', 'error');
+        showToast('Nepodarilo sa nacitat profil: ' + error.message, 'error');
+        return false;
     }
 }
 

@@ -76,8 +76,13 @@ async function signIn() {
  * Handle successful login
  */
 function handleLoginSuccess(response) {
-    // Store token
-    const token = response.accessToken || response.idToken;
+    // Use ID token for our own backend API (audience = our client ID)
+    // Access token is for Microsoft Graph (audience = graph.microsoft.com) - don't use for our API
+    const token = response.idToken;
+    if (!token) {
+        console.error('No ID token received');
+        return;
+    }
     localStorage.setItem('etilog_token', token);
     localStorage.setItem('etilog_account', JSON.stringify(response.account));
 
@@ -107,12 +112,25 @@ async function signOut() {
 }
 
 /**
- * Get access token for API calls
+ * Get ID token for our backend API calls
  */
 async function getAccessToken() {
     // First try stored token
     const stored = localStorage.getItem('etilog_token');
-    if (stored) return stored;
+    if (stored) {
+        // Check if token is expired
+        try {
+            const payload = JSON.parse(atob(stored.split('.')[1]));
+            if (payload.exp * 1000 > Date.now()) {
+                return stored;
+            }
+            // Token expired, remove it
+            localStorage.removeItem('etilog_token');
+        } catch (e) {
+            // Invalid token format
+            localStorage.removeItem('etilog_token');
+        }
+    }
 
     if (!msalInstance || !currentAccount) {
         window.location.href = '/login';
@@ -124,7 +142,8 @@ async function getAccessToken() {
             ...loginRequest,
             account: currentAccount
         });
-        const token = response.accessToken || response.idToken;
+        // Use ID token for our backend
+        const token = response.idToken;
         localStorage.setItem('etilog_token', token);
         return token;
     } catch (e) {
@@ -149,12 +168,6 @@ async function apiCall(url, options = {}) {
             ...(options.body && !(options.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {})
         }
     });
-
-    if (response.status === 401) {
-        localStorage.removeItem('etilog_token');
-        window.location.href = '/login';
-        throw new Error('Session expired');
-    }
 
     return response;
 }
