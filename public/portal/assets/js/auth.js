@@ -13,7 +13,7 @@ async function initializeMsal() {
         msalInstance = new msal.PublicClientApplication(msalConfig);
         await msalInstance.initialize();
 
-        // Handle redirect response
+        // Handle redirect response (from login page redirect flow)
         const response = await msalInstance.handleRedirectPromise();
         if (response) {
             currentAccount = response.account;
@@ -21,21 +21,10 @@ async function initializeMsal() {
             return;
         }
 
-        // Check for existing session
+        // Check for existing session - just set currentAccount for token renewal
         const accounts = msalInstance.getAllAccounts();
         if (accounts.length > 0) {
             currentAccount = accounts[0];
-            // Try to get token silently
-            try {
-                const tokenResponse = await msalInstance.acquireTokenSilent({
-                    ...loginRequest,
-                    account: currentAccount
-                });
-                handleLoginSuccess(tokenResponse);
-            } catch (e) {
-                // Silent token failed - user needs to re-login
-                console.log('Silent token acquisition failed, user needs to sign in');
-            }
         }
     } catch (error) {
         console.error('MSAL initialization error:', error);
@@ -77,7 +66,6 @@ async function signIn() {
  */
 function handleLoginSuccess(response) {
     // Use ID token for our own backend API (audience = our client ID)
-    // Access token is for Microsoft Graph (audience = graph.microsoft.com) - don't use for our API
     const token = response.idToken;
     if (!token) {
         console.error('No ID token received');
@@ -86,8 +74,10 @@ function handleLoginSuccess(response) {
     localStorage.setItem('etilog_token', token);
     localStorage.setItem('etilog_account', JSON.stringify(response.account));
 
-    // Redirect to portal
-    window.location.href = '/portal/';
+    // Only redirect if we're on the login page - don't redirect if already on portal
+    if (window.location.pathname === '/login' || window.location.pathname === '/login/') {
+        window.location.href = '/portal/';
+    }
 }
 
 /**
