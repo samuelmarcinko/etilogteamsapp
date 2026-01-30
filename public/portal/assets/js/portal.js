@@ -180,7 +180,7 @@ async function renderDashboard(container) {
         <div class="page-body">
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-icon blue">&#128197;</div>
+                    <div class="stat-icon blue">&#127796;</div>
                     <div><div class="stat-value">${quota ? quota.vacation_days_remaining : '-'}</div><div class="stat-label">Zostatok dovolenky</div></div>
                 </div>
                 <div class="stat-card">
