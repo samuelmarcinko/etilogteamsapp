@@ -85,11 +85,13 @@ router.post('/', upload.single('file'), asyncHandler(async (req, res) => {
   const file = req.file;
 
   const result = await pool.query(
-    `INSERT INTO sick_notes (user_id, title, start_date, end_date, doctor_name, diagnosis, file_name, file_path, file_mime_type, status)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'active')
+    `INSERT INTO sick_notes (user_id, user_name, user_email, title, start_date, end_date, doctor_name, diagnosis, file_name, file_path, file_type, file_size, status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'active')
      RETURNING *`,
     [
       user_id,
+      user_name || 'Unknown',
+      user_email || 'unknown@etilog.com',
       title,
       start_date,
       end_date,
@@ -97,7 +99,8 @@ router.post('/', upload.single('file'), asyncHandler(async (req, res) => {
       diagnosis || null,
       file ? file.originalname : null,
       file ? file.path : null,
-      file ? file.mimetype : null
+      file ? file.mimetype : null,
+      file ? file.size : null
     ]
   );
 
