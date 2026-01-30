@@ -20,6 +20,12 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '../public')));
 app.use('/assets', express.static(path.join(__dirname, '../public/assets')));
 
+// Serve portal static files
+app.use('/portal', express.static(path.join(__dirname, '../public/portal')));
+
+// Serve uploaded files (protected - requires auth token in query for downloads)
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // Request logging
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
@@ -36,6 +42,15 @@ reminderService.start();
 // Bot Framework endpoint
 app.post('/api/messages', async (req, res) => {
   await adapter.process(req, res, (context) => bot.run(context));
+});
+
+// Auth config endpoint (public - no auth needed)
+app.get('/api/auth/config', (req, res) => {
+  res.json({
+    clientId: process.env.CLIENT_ID || process.env.MICROSOFT_APP_ID,
+    tenantId: process.env.TENANT_ID,
+    redirectUri: (process.env.APP_BASE_URL || 'https://teams.etilog.com') + '/portal/'
+  });
 });
 
 // API routes
@@ -64,6 +79,16 @@ app.post('/api/reminders/trigger', async (req, res) => {
 // Root endpoint
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
+// Portal login page
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/portal/login.html'));
+});
+
+// Portal SPA routes - serve the portal shell for all /portal/* paths
+app.get('/portal/*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/portal/index.html'));
 });
 
 // Error handlers (must be last)
