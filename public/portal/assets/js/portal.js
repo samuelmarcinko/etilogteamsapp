@@ -24,8 +24,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             <div class="page-body">
                 <div class="empty-state">
                     <div class="empty-icon">&#9888;</div>
-                    <div class="empty-text">Nepodarilo sa nacitat profil. Skuste sa znovu prihlasit.</div>
-                    <br><button class="btn btn-primary" onclick="handleLogout()">Odhlasit sa a skusit znova</button>
+                    <div class="empty-text">Nepodarilo sa načítať profil. Skúste sa znovu prihlásiť.</div>
+                    <br><button class="btn btn-primary" onclick="handleLogout()">Odhlásiť sa a skúsiť znova</button>
                 </div>
             </div>`;
         return;
@@ -61,7 +61,7 @@ async function loadUserProfile() {
         return true;
     } catch (error) {
         console.error('Failed to load profile:', error);
-        showToast('Nepodarilo sa nacitat profil: ' + error.message, 'error');
+        showToast('Nepodarilo sa načítať profil: ' + error.message, 'error');
         return false;
     }
 }
@@ -94,7 +94,7 @@ function navigateToPage(page) {
 
     // Check admin access
     if (page.startsWith('admin-') && portalUser?.role !== 'admin') {
-        showToast('Pristup zamietnuty', 'error');
+        showToast('Prístup zamietnutý', 'error');
         return;
     }
 
@@ -142,11 +142,11 @@ async function renderPage(page) {
             case 'admin-quotas': await renderAdminQuotas(content); break;
             case 'admin-sick-notes': await renderAdminSickNotes(content); break;
             case 'admin-tickets': await renderAdminTickets(content); break;
-            default: content.innerHTML = '<div class="page-body"><div class="empty-state"><div class="empty-icon">&#128533;</div><div class="empty-text">Stranka sa nenasla</div></div></div>';
+            default: content.innerHTML = '<div class="page-body"><div class="empty-state"><div class="empty-icon">&#128533;</div><div class="empty-text">Stránka sa nenašla</div></div></div>';
         }
     } catch (error) {
         console.error('Page render error:', error);
-        content.innerHTML = `<div class="page-body"><div class="empty-state"><div class="empty-icon">&#9888;</div><div class="empty-text">Chyba pri nacitani stranky: ${error.message}</div></div></div>`;
+        content.innerHTML = `<div class="page-body"><div class="empty-state"><div class="empty-icon">&#9888;</div><div class="empty-text">Chyba pri načítaní stránky: ${error.message}</div></div></div>`;
     }
 
     loading.style.display = 'none';
@@ -185,15 +185,15 @@ async function renderDashboard(container) {
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon amber">&#129298;</div>
-                    <div><div class="stat-value">${quota ? quota.sick_days_remaining : '-'}</div><div class="stat-label">Zostatok sick days</div></div>
+                    <div><div class="stat-value">${quota ? quota.sick_days_remaining : '-'}</div><div class="stat-label">Zostatok zdravotného voľna</div></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon green">&#9989;</div>
-                    <div><div class="stat-value">${approved}</div><div class="stat-label">Schvalene ziadosti</div></div>
+                    <div><div class="stat-value">${approved}</div><div class="stat-label">Schválené žiadosti</div></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon red">&#9203;</div>
-                    <div><div class="stat-value">${pending}</div><div class="stat-label">Cakajuce ziadosti</div></div>
+                    <div><div class="stat-value">${pending}</div><div class="stat-label">Čakajúce žiadosti</div></div>
                 </div>
             </div>
 
@@ -205,7 +205,7 @@ async function renderDashboard(container) {
                     <div class="quota-bar-container">
                         <div class="quota-bar-label">
                             <span>Dovolenka</span>
-                            <span>${quota ? parseFloat(quota.vacation_days_used) : 0} / ${quota ? quota.vacation_days_total : 20} dni</span>
+                            <span>${quota ? parseFloat(quota.vacation_days_used) : 0} / ${quota ? quota.vacation_days_total : 20} dní</span>
                         </div>
                         <div class="quota-bar">
                             <div class="quota-bar-fill ${vacUsedPct > 90 ? 'red' : vacUsedPct > 70 ? 'amber' : 'green'}" style="width: ${Math.min(vacUsedPct, 100)}%"></div>
@@ -213,8 +213,8 @@ async function renderDashboard(container) {
                     </div>
                     <div class="quota-bar-container">
                         <div class="quota-bar-label">
-                            <span>Sick Days</span>
-                            <span>${quota ? parseFloat(quota.sick_days_used) : 0} / ${quota ? quota.sick_days_total : 5} dni</span>
+                            <span>Zdravotné voľno</span>
+                            <span>${quota ? parseFloat(quota.sick_days_used) : 0} / ${quota ? quota.sick_days_total : 5} dní</span>
                         </div>
                         <div class="quota-bar">
                             <div class="quota-bar-fill ${sickUsedPct > 90 ? 'red' : sickUsedPct > 70 ? 'amber' : 'green'}" style="width: ${Math.min(sickUsedPct, 100)}%"></div>
@@ -225,13 +225,13 @@ async function renderDashboard(container) {
 
             <div class="portal-card">
                 <div class="card-header">
-                    <h2>Posledne ziadosti</h2>
+                    <h2>Posledné žiadosti</h2>
                 </div>
                 <div class="card-body">
                     ${tickets.length > 0 ? `
                         <table class="data-table">
                             <thead>
-                                <tr><th>Nazov</th><th>Typ</th><th>Status</th><th>Datum</th></tr>
+                                <tr><th>Názov</th><th>Typ</th><th>Status</th><th>Dátum</th></tr>
                             </thead>
                             <tbody>
                                 ${tickets.slice(0, 10).map(t => `
@@ -244,7 +244,7 @@ async function renderDashboard(container) {
                                 `).join('')}
                             </tbody>
                         </table>
-                    ` : '<div class="empty-state"><div class="empty-icon">&#128196;</div><div class="empty-text">Ziadne ziadosti</div></div>'}
+                    ` : '<div class="empty-state"><div class="empty-icon">&#128196;</div><div class="empty-text">Žiadne žiadosti</div></div>'}
                 </div>
             </div>
         </div>
@@ -270,7 +270,7 @@ async function renderMyQuotas(container) {
 
     container.innerHTML = `
         <div class="page-header">
-            <div><h1>Moje kvoty</h1><p>Prehlad dovolenky a sick days pre rok ${year}</p></div>
+            <div><h1>Moje kvoty</h1><p>Prehľad dovolenky a sick days pre rok ${year}</p></div>
         </div>
         <div class="page-body">
             <div class="quota-card">
@@ -279,7 +279,7 @@ async function renderMyQuotas(container) {
                     <div class="quota-type">Dovolenka</div>
                     <div class="quota-numbers">
                         <span>Celkom: <strong>${quota ? quota.vacation_days_total : '-'} dni</strong></span>
-                        <span>Vyuzite: <strong>${quota ? parseFloat(quota.vacation_days_used) : 0} dni</strong></span>
+                        <span>Využité: <strong>${quota ? parseFloat(quota.vacation_days_used) : 0} dni</strong></span>
                         <span>Zostatok: <strong>${quota ? quota.vacation_days_remaining : '-'} dni</strong></span>
                     </div>
                     <div class="quota-bar" style="margin-top: 0.75rem;">
@@ -291,10 +291,10 @@ async function renderMyQuotas(container) {
             <div class="quota-card">
                 <div class="quota-icon">&#129298;</div>
                 <div class="quota-details">
-                    <div class="quota-type">Sick Days</div>
+                    <div class="quota-type">Zdravotné voľno</div>
                     <div class="quota-numbers">
                         <span>Celkom: <strong>${quota ? quota.sick_days_total : '-'} dni</strong></span>
-                        <span>Vyuzite: <strong>${quota ? parseFloat(quota.sick_days_used) : 0} dni</strong></span>
+                        <span>Využité: <strong>${quota ? parseFloat(quota.sick_days_used) : 0} dni</strong></span>
                         <span>Zostatok: <strong>${quota ? quota.sick_days_remaining : '-'} dni</strong></span>
                     </div>
                     <div class="quota-bar" style="margin-top: 0.75rem;">
@@ -309,7 +309,7 @@ async function renderMyQuotas(container) {
                 </div>
                 <div class="card-body">
                     <table class="data-table">
-                        <thead><tr><th>Datum</th><th>Nazov</th></tr></thead>
+                        <thead><tr><th>Dátum</th><th>Názov</th></tr></thead>
                         <tbody>
                             ${holidays.map(h => `
                                 <tr><td>${formatDate(h.date)}</td><td>${escapeHtml(h.name)}</td></tr>
@@ -333,13 +333,13 @@ async function renderMySickNotes(container) {
     container.innerHTML = `
         <div class="page-header">
             <div><h1>Moje PN-ky</h1><p>Evidencia práceneschopností</p></div>
-            <button class="btn btn-primary" onclick="openNewSickNoteModal()">+ Nova PN-ka</button>
+            <button class="btn btn-primary" onclick="openNewSickNoteModal()">+ Nová PN-ka</button>
         </div>
         <div class="page-body">
             ${notes.length > 0 ? `
                 <table class="data-table">
                     <thead>
-                        <tr><th>Nazov</th><th>Datum od</th><th>Datum do</th><th>Lekar</th><th>Subor</th><th>Status</th><th></th></tr>
+                        <tr><th>Názov</th><th>Dátum od</th><th>Dátum do</th><th>Lekár</th><th>Súbor</th><th>Status</th><th></th></tr>
                     </thead>
                     <tbody>
                         ${notes.map(n => `
@@ -348,7 +348,7 @@ async function renderMySickNotes(container) {
                                 <td>${formatDate(n.start_date)}</td>
                                 <td>${formatDate(n.end_date)}</td>
                                 <td>${n.doctor_name ? escapeHtml(n.doctor_name) : '-'}</td>
-                                <td>${n.file_name ? `<a href="#" onclick="downloadSickNoteFile(${n.id})" style="color:var(--blue-600)">${escapeHtml(n.file_name)}</a>` : '<span style="color:var(--gray-400)">Ziadny</span>'}</td>
+                                <td>${n.file_name ? `<a href="#" onclick="downloadSickNoteFile(${n.id})" style="color:var(--blue-600)">${escapeHtml(n.file_name)}</a>` : '<span style="color:var(--gray-400)">Žiadny</span>'}</td>
                                 <td><span class="badge badge-${n.status}">${n.status}</span></td>
                                 <td>
                                     <button class="btn btn-ghost btn-sm" onclick="openUploadSickNoteModal(${n.id})">&#128206;</button>
@@ -358,50 +358,50 @@ async function renderMySickNotes(container) {
                         `).join('')}
                     </tbody>
                 </table>
-            ` : '<div class="empty-state"><div class="empty-icon">&#128203;</div><div class="empty-text">Ziadne PN-ky</div></div>'}
+            ` : '<div class="empty-state"><div class="empty-icon">&#128203;</div><div class="empty-text">Žiadne PN-ky</div></div>'}
         </div>
     `;
 }
 
 async function openNewSickNoteModal() {
-    document.getElementById('modalTitle').textContent = 'Nova PN-ka';
+    document.getElementById('modalTitle').textContent = 'Nová PN-ka';
     document.getElementById('modalBody').innerHTML = `
         <form id="sickNoteForm">
             <div class="form-group">
-                <label class="form-label">Nazov *</label>
+                <label class="form-label">Názov *</label>
                 <input type="text" class="form-input" name="title" required placeholder="napr. PN - chrípka">
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label">Datum od *</label>
+                    <label class="form-label">Dátum od *</label>
                     <input type="date" class="form-input" name="start_date" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Datum do *</label>
+                    <label class="form-label">Dátum do *</label>
                     <input type="date" class="form-input" name="end_date" required>
                 </div>
             </div>
             <div class="form-group">
-                <label class="form-label">Meno lekara</label>
+                <label class="form-label">Meno lekára</label>
                 <input type="text" class="form-input" name="doctor_name" placeholder="MUDr. ...">
             </div>
             <div class="form-group">
-                <label class="form-label">Diagnoza</label>
-                <input type="text" class="form-input" name="diagnosis" placeholder="Volitelne">
+                <label class="form-label">Diagnóza</label>
+                <input type="text" class="form-input" name="diagnosis" placeholder="Voliteľné">
             </div>
             <div class="form-group">
                 <label class="form-label">Popis</label>
-                <textarea class="form-textarea" name="description" rows="3" placeholder="Doplnujuce informacie..."></textarea>
+                <textarea class="form-textarea" name="description" rows="3" placeholder="Doplňujúce informácie..."></textarea>
             </div>
             <div class="form-group">
-                <label class="form-label">Subor (PDF, JPG, PNG - max 10MB)</label>
+                <label class="form-label">Súbor (PDF, JPG, PNG - max 10MB)</label>
                 <input type="file" class="form-input" name="file" accept=".pdf,.jpg,.jpeg,.png">
             </div>
         </form>
     `;
     document.getElementById('modalFooter').innerHTML = `
-        <button class="btn btn-secondary" onclick="closeModal()">Zrusit</button>
-        <button class="btn btn-primary" onclick="submitSickNote()">Ulozit</button>
+        <button class="btn btn-secondary" onclick="closeModal()">Zrušiť</button>
+        <button class="btn btn-primary" onclick="submitSickNote()">Uložiť</button>
     `;
     openModal();
 }
@@ -421,7 +421,7 @@ async function submitSickNote() {
             throw new Error(err.message);
         }
 
-        showToast('PN-ka bola vytvorena', 'success');
+        showToast('PN-ka bola vytvorená', 'success');
         closeModal();
         navigateToPage('my-sick-notes');
     } catch (error) {
@@ -430,14 +430,14 @@ async function submitSickNote() {
 }
 
 async function openUploadSickNoteModal(id) {
-    document.getElementById('modalTitle').textContent = 'Nahrat subor k PN-ke';
+    document.getElementById('modalTitle').textContent = 'Nahrať súbor k PN-ke';
     document.getElementById('modalBody').innerHTML = `
         <form id="uploadForm">
             <div class="form-group">
-                <label class="form-label">Subor (PDF, JPG, PNG - max 10MB)</label>
+                <label class="form-label">Súbor (PDF, JPG, PNG - max 10MB)</label>
                 <div class="file-upload-area" onclick="document.getElementById('uploadFile').click()">
                     <div class="file-upload-icon">&#128206;</div>
-                    <div class="file-upload-text">Kliknite pre vyber suboru alebo ho sem pretiahnite<br><strong>PDF, JPG, PNG</strong> do 10MB</div>
+                    <div class="file-upload-text">Kliknite pre výber súboru alebo ho sem pretiahnite<br><strong>PDF, JPG, PNG</strong> do 10MB</div>
                 </div>
                 <input type="file" id="uploadFile" name="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="showFilePreview(this)">
                 <div id="filePreview"></div>
@@ -445,8 +445,8 @@ async function openUploadSickNoteModal(id) {
         </form>
     `;
     document.getElementById('modalFooter').innerHTML = `
-        <button class="btn btn-secondary" onclick="closeModal()">Zrusit</button>
-        <button class="btn btn-primary" onclick="uploadSickNoteFile(${id})">Nahrat</button>
+        <button class="btn btn-secondary" onclick="closeModal()">Zrušiť</button>
+        <button class="btn btn-primary" onclick="uploadSickNoteFile(${id})">Nahrať</button>
     `;
     openModal();
 }
@@ -469,7 +469,7 @@ function showFilePreview(input) {
 async function uploadSickNoteFile(id) {
     const fileInput = document.getElementById('uploadFile');
     if (!fileInput.files[0]) {
-        showToast('Vyberte subor', 'error');
+        showToast('Vyberte súbor', 'error');
         return;
     }
 
@@ -484,7 +484,7 @@ async function uploadSickNoteFile(id) {
 
         if (!response.ok) throw new Error('Upload zlyhal');
 
-        showToast('Subor bol nahrany', 'success');
+        showToast('Súbor bol nahraný', 'success');
         closeModal();
         navigateToPage('my-sick-notes');
     } catch (error) {
@@ -495,7 +495,7 @@ async function uploadSickNoteFile(id) {
 async function downloadSickNoteFile(id) {
     try {
         const response = await apiCall(`/api/sick-notes/${id}/file`);
-        if (!response.ok) throw new Error('Subor sa nenasiel');
+        if (!response.ok) throw new Error('Súbor sa nenašiel');
 
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
@@ -507,18 +507,18 @@ async function downloadSickNoteFile(id) {
         a.remove();
         window.URL.revokeObjectURL(url);
     } catch (error) {
-        showToast('Chyba pri stahovaní: ' + error.message, 'error');
+        showToast('Chyba pri sťahovaní: ' + error.message, 'error');
     }
 }
 
 async function deleteSickNote(id) {
-    if (!confirm('Naozaj chcete vymazat tuto PN-ku?')) return;
+    if (!confirm('Naozaj chcete vymazať túto PN-ku?')) return;
 
     try {
         const response = await apiCall(`/api/sick-notes/${id}`, { method: 'DELETE' });
         if (!response.ok) throw new Error('Vymazanie zlyhalo');
 
-        showToast('PN-ka bola vymazana', 'success');
+        showToast('PN-ka bola vymazaná', 'success');
         navigateToPage('my-sick-notes');
     } catch (error) {
         showToast('Chyba: ' + error.message, 'error');
@@ -535,15 +535,15 @@ async function renderMyRequests(container) {
 
     container.innerHTML = `
         <div class="page-header">
-            <div><h1>Moje ziadosti</h1><p>Vsetky moje tikety a schvalovanie</p></div>
+            <div><h1>Moje žiadosti</h1><p>Všetky moje tikety a schvaľovanie</p></div>
         </div>
         <div class="page-body">
             <div class="filters-bar">
                 <select class="form-select" onchange="filterMyRequests(this.value)" id="myReqFilter">
-                    <option value="">Vsetky statusy</option>
-                    <option value="Pending">Cakajuce</option>
-                    <option value="Approved">Schvalene</option>
-                    <option value="Rejected">Zamietnute</option>
+                    <option value="">Všetky statusy</option>
+                    <option value="Pending">Čakajúce</option>
+                    <option value="Approved">Schválené</option>
+                    <option value="Rejected">Zamietnuté</option>
                 </select>
             </div>
             <div id="myRequestsList">
@@ -564,7 +564,7 @@ async function renderAdminDashboard(container) {
 
     container.innerHTML = `
         <div class="page-header">
-            <div><h1>Admin Dashboard</h1><p>Prehlad systemu pre rok ${year}</p></div>
+            <div><h1>Admin Dashboard</h1><p>Prehľad systému pre rok ${year}</p></div>
         </div>
         <div class="page-body">
             <div class="stats-grid">
@@ -574,26 +574,26 @@ async function renderAdminDashboard(container) {
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon amber">&#9203;</div>
-                    <div><div class="stat-value">${stats.tickets.pending}</div><div class="stat-label">Cakajuce tikety</div></div>
+                    <div><div class="stat-value">${stats.tickets.pending}</div><div class="stat-label">Čakajúce tikety</div></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon green">&#9989;</div>
-                    <div><div class="stat-value">${stats.tickets.approved}</div><div class="stat-label">Schvalene tikety</div></div>
+                    <div><div class="stat-value">${stats.tickets.approved}</div><div class="stat-label">Schválené tikety</div></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon red">&#10060;</div>
-                    <div><div class="stat-value">${stats.tickets.rejected}</div><div class="stat-label">Zamietnute tikety</div></div>
+                    <div><div class="stat-value">${stats.tickets.rejected}</div><div class="stat-label">Zamietnuté tikety</div></div>
                 </div>
             </div>
 
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-icon green">&#127796;</div>
-                    <div><div class="stat-value">${stats.tickets.approved_vacations}</div><div class="stat-label">Schvalene dovolenky</div></div>
+                    <div><div class="stat-value">${stats.tickets.approved_vacations}</div><div class="stat-label">Schválené dovolenky</div></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon amber">&#129298;</div>
-                    <div><div class="stat-value">${stats.tickets.approved_sick_leaves}</div><div class="stat-label">Schvalene sick leaves</div></div>
+                    <div><div class="stat-value">${stats.tickets.approved_sick_leaves}</div><div class="stat-label">Schválené PN-ky</div></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon blue">&#128203;</div>
@@ -619,15 +619,15 @@ async function renderAdminEmployees(container) {
 
     container.innerHTML = `
         <div class="page-header">
-            <div><h1>Zamestnanci</h1><p>Sprava rolí a kvot zamestnancov</p></div>
-            <button class="btn btn-primary" onclick="initializeAllQuotas()">Inicializovat kvoty ${year}</button>
+            <div><h1>Zamestnanci</h1><p>Správa rolí a kvót zamestnancov</p></div>
+            <button class="btn btn-primary" onclick="initializeAllQuotas()">Inicializovať kvóty ${year}</button>
         </div>
         <div class="page-body">
             <div class="portal-card">
                 <div class="card-body" style="overflow-x:auto;">
                     <table class="data-table">
                         <thead>
-                            <tr><th>Meno</th><th>Email</th><th>Rola</th><th>Dovolenka</th><th>Sick Days</th><th>Akcie</th></tr>
+                            <tr><th>Meno</th><th>Email</th><th>Rola</th><th>Dovolenka</th><th>Zdrav. voľno</th><th>Akcie</th></tr>
                         </thead>
                         <tbody>
                             ${employees.map(e => `
@@ -638,8 +638,8 @@ async function renderAdminEmployees(container) {
                                     <td>${e.vacation_days_total !== null ? `${e.vacation_days_used}/${e.vacation_days_total}` : '<span style="color:var(--gray-400)">-</span>'}</td>
                                     <td>${e.sick_days_total !== null ? `${e.sick_days_used}/${e.sick_days_total}` : '<span style="color:var(--gray-400)">-</span>'}</td>
                                     <td>
-                                        <button class="btn btn-ghost btn-sm" onclick="toggleEmployeeRole('${e.id}', '${e.role}')" title="Zmenit rolu">${e.role === 'admin' ? '&#128100;' : '&#128081;'}</button>
-                                        <button class="btn btn-ghost btn-sm" onclick="editEmployeeQuota('${e.id}', '${escapeHtml(e.name)}', ${e.vacation_days_total || 20}, ${e.sick_days_total || 5})" title="Upravit kvotu">&#9999;</button>
+                                        <button class="btn btn-ghost btn-sm" onclick="toggleEmployeeRole('${e.id}', '${e.role}')" title="Zmeniť rolu">${e.role === 'admin' ? '&#128100;' : '&#128081;'}</button>
+                                        <button class="btn btn-ghost btn-sm" onclick="editEmployeeQuota('${e.id}', '${escapeHtml(e.name)}', ${e.vacation_days_total || 20}, ${e.sick_days_total || 5})" title="Upraviť kvótu">&#9999;</button>
                                     </td>
                                 </tr>
                             `).join('')}
@@ -653,7 +653,7 @@ async function renderAdminEmployees(container) {
 
 async function toggleEmployeeRole(userId, currentRole) {
     const newRole = currentRole === 'admin' ? 'user' : 'admin';
-    if (!confirm(`Zmenit rolu na "${newRole}"?`)) return;
+    if (!confirm(`Zmeniť rolu na "${newRole}"?`)) return;
 
     try {
         const response = await apiCall(`/api/admin/employees/${userId}/role`, {
@@ -661,7 +661,7 @@ async function toggleEmployeeRole(userId, currentRole) {
             body: JSON.stringify({ role: newRole })
         });
         if (!response.ok) throw new Error('Zmena zlyhala');
-        showToast(`Rola zmenena na ${newRole}`, 'success');
+        showToast(`Rola zmenená na ${newRole}`, 'success');
         navigateToPage('admin-employees');
     } catch (error) {
         showToast('Chyba: ' + error.message, 'error');
@@ -679,15 +679,15 @@ async function editEmployeeQuota(userId, name, vacTotal, sickTotal) {
                     <input type="number" class="form-input" name="vacation_days_total" value="${vacTotal}" min="0" max="50">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Sick Days</label>
+                    <label class="form-label">Zdravotné voľno (dni)</label>
                     <input type="number" class="form-input" name="sick_days_total" value="${sickTotal}" min="0" max="30">
                 </div>
             </div>
         </form>
     `;
     document.getElementById('modalFooter').innerHTML = `
-        <button class="btn btn-secondary" onclick="closeModal()">Zrusit</button>
-        <button class="btn btn-primary" onclick="saveEmployeeQuota('${userId}', ${year})">Ulozit</button>
+        <button class="btn btn-secondary" onclick="closeModal()">Zrušiť</button>
+        <button class="btn btn-primary" onclick="saveEmployeeQuota('${userId}', ${year})">Uložiť</button>
     `;
     openModal();
 }
@@ -705,8 +705,8 @@ async function saveEmployeeQuota(userId, year) {
             method: 'PUT',
             body: JSON.stringify(data)
         });
-        if (!response.ok) throw new Error('Ulozenie zlyhalo');
-        showToast('Kvota ulozena', 'success');
+        if (!response.ok) throw new Error('Uloženie zlyhalo');
+        showToast('Kvóta uložená', 'success');
         closeModal();
         navigateToPage('admin-employees');
     } catch (error) {
@@ -716,7 +716,7 @@ async function saveEmployeeQuota(userId, year) {
 
 async function initializeAllQuotas() {
     const year = new Date().getFullYear();
-    if (!confirm(`Inicializovat kvoty pre vsetkych zamestnancov na rok ${year}?`)) return;
+    if (!confirm(`Inicializovať kvóty pre všetkých zamestnancov na rok ${year}?`)) return;
 
     try {
         const response = await apiCall('/api/quotas/initialize', {
@@ -724,7 +724,7 @@ async function initializeAllQuotas() {
             body: JSON.stringify({ year })
         });
         const result = await response.json();
-        showToast(`Inicializovane pre ${result.count} zamestnancov`, 'success');
+        showToast(`Inicializované pre ${result.count} zamestnancov`, 'success');
         navigateToPage('admin-employees');
     } catch (error) {
         showToast('Chyba: ' + error.message, 'error');
@@ -747,17 +747,17 @@ async function renderAdminQuotas(container) {
 
     container.innerHTML = `
         <div class="page-header">
-            <div><h1>Kvoty</h1><p>Prehlad kvot vsetkych zamestnancov</p></div>
+            <div><h1>Kvoty</h1><p>Prehľad kvót všetkých zamestnancov</p></div>
         </div>
         <div class="page-body">
             <div class="portal-card">
                 <div class="card-header">
-                    <h2>Nastavenia kvot</h2>
-                    <button class="btn btn-sm btn-secondary" onclick="openQuotaSettingsModal()">Upravit</button>
+                    <h2>Nastavenia kvót</h2>
+                    <button class="btn btn-sm btn-secondary" onclick="openQuotaSettingsModal()">Upraviť</button>
                 </div>
                 <div class="card-body">
                     <table class="data-table">
-                        <thead><tr><th>Rok</th><th>Default dovolenka</th><th>Default sick days</th><th>Prenos zostatku</th></tr></thead>
+                        <thead><tr><th>Rok</th><th>Predvolená dovolenka</th><th>Predvolené zdrav. voľno</th><th>Prenos zostatku</th></tr></thead>
                         <tbody>
                             ${settings.map(s => `
                                 <tr>
@@ -779,7 +779,7 @@ async function renderAdminQuotas(container) {
                 <div class="card-body" style="overflow-x:auto;">
                     <table class="data-table">
                         <thead>
-                            <tr><th>Zamestnanec</th><th>Dovolenka celkom</th><th>Dovolenka vyuzita</th><th>Zostatok</th><th>Sick days celkom</th><th>Sick days vyuzite</th><th>Zostatok</th></tr>
+                            <tr><th>Zamestnanec</th><th>Dovolenka celkom</th><th>Dovolenka využitá</th><th>Zostatok</th><th>Zdrav. voľno celkom</th><th>Zdrav. voľno využité</th><th>Zostatok</th></tr>
                         </thead>
                         <tbody>
                             ${quotas.map(q => `
@@ -803,7 +803,7 @@ async function renderAdminQuotas(container) {
 
 async function openQuotaSettingsModal() {
     const year = new Date().getFullYear();
-    document.getElementById('modalTitle').textContent = 'Nastavenia kvot';
+    document.getElementById('modalTitle').textContent = 'Nastavenia kvót';
     document.getElementById('modalBody').innerHTML = `
         <form id="quotaSettingsForm">
             <div class="form-group">
@@ -812,19 +812,19 @@ async function openQuotaSettingsModal() {
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label">Default dovolenka (dni)</label>
+                    <label class="form-label">Predvolená dovolenka (dni)</label>
                     <input type="number" class="form-input" name="default_vacation_days" value="20" min="0" max="50">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Default sick days</label>
+                    <label class="form-label">Predvolené zdrav. voľno</label>
                     <input type="number" class="form-input" name="default_sick_days" value="5" min="0" max="30">
                 </div>
             </div>
         </form>
     `;
     document.getElementById('modalFooter').innerHTML = `
-        <button class="btn btn-secondary" onclick="closeModal()">Zrusit</button>
-        <button class="btn btn-primary" onclick="saveQuotaSettings()">Ulozit</button>
+        <button class="btn btn-secondary" onclick="closeModal()">Zrušiť</button>
+        <button class="btn btn-primary" onclick="saveQuotaSettings()">Uložiť</button>
     `;
     openModal();
 }
@@ -842,8 +842,8 @@ async function saveQuotaSettings() {
             method: 'PUT',
             body: JSON.stringify(data)
         });
-        if (!response.ok) throw new Error('Ulozenie zlyhalo');
-        showToast('Nastavenia ulozene', 'success');
+        if (!response.ok) throw new Error('Uloženie zlyhalo');
+        showToast('Nastavenia uložené', 'success');
         closeModal();
         navigateToPage('admin-quotas');
     } catch (error) {
@@ -862,7 +862,7 @@ async function renderAdminSickNotes(container) {
 
     container.innerHTML = `
         <div class="page-header">
-            <div><h1>Vsetky PN-ky</h1><p>Evidencia PN-iek vsetkych zamestnancov</p></div>
+            <div><h1>Všetky PN-ky</h1><p>Evidencia PN-iek všetkých zamestnancov</p></div>
         </div>
         <div class="page-body">
             <div class="portal-card">
@@ -870,7 +870,7 @@ async function renderAdminSickNotes(container) {
                     ${notes.length > 0 ? `
                         <table class="data-table">
                             <thead>
-                                <tr><th>Zamestnanec</th><th>Nazov</th><th>Datum od</th><th>Datum do</th><th>Lekar</th><th>Subor</th><th>Status</th></tr>
+                                <tr><th>Zamestnanec</th><th>Názov</th><th>Dátum od</th><th>Dátum do</th><th>Lekár</th><th>Súbor</th><th>Status</th></tr>
                             </thead>
                             <tbody>
                                 ${notes.map(n => `
@@ -886,7 +886,7 @@ async function renderAdminSickNotes(container) {
                                 `).join('')}
                             </tbody>
                         </table>
-                    ` : '<div class="empty-state"><div class="empty-icon">&#128203;</div><div class="empty-text">Ziadne PN-ky</div></div>'}
+                    ` : '<div class="empty-state"><div class="empty-icon">&#128203;</div><div class="empty-text">Žiadne PN-ky</div></div>'}
                 </div>
             </div>
         </div>
@@ -904,24 +904,24 @@ async function renderAdminTickets(container) {
 
     container.innerHTML = `
         <div class="page-header">
-            <div><h1>Vsetky tikety</h1><p>Prehlad vsetkych tiketov v systeme (${year})</p></div>
+            <div><h1>Všetky tikety</h1><p>Prehľad všetkých tiketov v systéme (${year})</p></div>
         </div>
         <div class="page-body">
             <div class="filters-bar">
                 <select class="form-select" id="adminTicketStatus" onchange="filterAdminTickets()">
-                    <option value="">Vsetky statusy</option>
-                    <option value="Pending">Cakajuce</option>
-                    <option value="Approved">Schvalene</option>
-                    <option value="Rejected">Zamietnute</option>
+                    <option value="">Všetky statusy</option>
+                    <option value="Pending">Čakajúce</option>
+                    <option value="Approved">Schválené</option>
+                    <option value="Rejected">Zamietnuté</option>
                 </select>
                 <select class="form-select" id="adminTicketType" onchange="filterAdminTickets()">
-                    <option value="">Vsetky typy</option>
+                    <option value="">Všetky typy</option>
                     <option value="vacation">Dovolenka</option>
-                    <option value="sick-leave">Sick Leave</option>
-                    <option value="purchase">Purchase</option>
-                    <option value="expense">Expense</option>
+                    <option value="sick-leave">PN / Práceneschopnosť</option>
+                    <option value="purchase">Nákup</option>
+                    <option value="expense">Výdavok</option>
                     <option value="hr">HR</option>
-                    <option value="other">Other</option>
+                    <option value="other">Iné</option>
                 </select>
             </div>
             <div id="adminTicketsList" class="portal-card">
@@ -946,11 +946,11 @@ function filterAdminTickets() {
 }
 
 function renderAdminTicketsTable(tickets) {
-    if (!tickets.length) return '<div class="empty-state"><div class="empty-icon">&#128196;</div><div class="empty-text">Ziadne tikety</div></div>';
+    if (!tickets.length) return '<div class="empty-state"><div class="empty-icon">&#128196;</div><div class="empty-text">Žiadne tikety</div></div>';
     return `
         <table class="data-table">
             <thead>
-                <tr><th>ID</th><th>Nazov</th><th>Typ</th><th>Vytvoril</th><th>Schvalovatel</th><th>Status</th><th>Datum</th></tr>
+                <tr><th>ID</th><th>Názov</th><th>Typ</th><th>Vytvoril</th><th>Schvaľovateľ</th><th>Status</th><th>Dátum</th></tr>
             </thead>
             <tbody>
                 ${tickets.map(t => `
@@ -974,18 +974,18 @@ function renderAdminTicketsTable(tickets) {
 // ============================================
 
 function renderTicketsTable(tickets) {
-    if (!tickets.length) return '<div class="empty-state"><div class="empty-icon">&#128196;</div><div class="empty-text">Ziadne tikety</div></div>';
+    if (!tickets.length) return '<div class="empty-state"><div class="empty-icon">&#128196;</div><div class="empty-text">Žiadne tikety</div></div>';
     return `
         <div class="portal-card">
             <div class="card-body" style="overflow-x:auto;">
                 <table class="data-table">
                     <thead>
-                        <tr><th>Nazov</th><th>Typ</th><th>Schvalovatel</th><th>Status</th><th>Datum</th></tr>
+                        <tr><th>Názov</th><th>Typ</th><th>Schvaľovateľ</th><th>Status</th><th>Dátum</th></tr>
                     </thead>
                     <tbody>
                         ${tickets.map(t => `
                             <tr>
-                                <td><strong>${escapeHtml(t.title)}</strong>${t.rejection_reason ? `<br><small style="color:var(--red-500)">Dovod: ${escapeHtml(t.rejection_reason)}</small>` : ''}</td>
+                                <td><strong>${escapeHtml(t.title)}</strong>${t.rejection_reason ? `<br><small style="color:var(--red-500)">Dôvod: ${escapeHtml(t.rejection_reason)}</small>` : ''}</td>
                                 <td><span class="badge badge-${t.ticket_type === 'vacation' ? 'vacation' : t.ticket_type === 'sick-leave' ? 'sick' : 'user'}">${t.ticket_type}</span></td>
                                 <td>${t.assigned_approver_name ? escapeHtml(t.assigned_approver_name) : '-'}</td>
                                 <td><span class="badge badge-${t.status.toLowerCase()}">${t.status}</span></td>

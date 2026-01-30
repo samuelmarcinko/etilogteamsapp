@@ -148,9 +148,21 @@ class AdminController {
   static async getMyProfile(req, res, next) {
     try {
       const userId = req.user.id;
+      const userEmail = req.user.email;
 
-      // Check DB for role
+      // Check DB for role - first by user_id, then by email
       let dbUser = await User.findByUserId(userId);
+
+      if (!dbUser && userEmail) {
+        dbUser = await User.findByEmail(userEmail);
+        if (dbUser) {
+          // Found by email - update user_id to match Azure AD oid
+          await pool.query(
+            'UPDATE users SET user_id = $1, updated_at = CURRENT_TIMESTAMP WHERE email = $2',
+            [userId, userEmail]
+          );
+        }
+      }
 
       if (!dbUser) {
         // Create user in DB
