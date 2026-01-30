@@ -199,7 +199,7 @@ async function renderDashboard(container) {
 
             <div class="portal-card">
                 <div class="card-header">
-                    <h2>Moje kvoty ${year}</h2>
+                    <h2>Moje kvóty ${year}</h2>
                 </div>
                 <div class="card-body">
                     <div class="quota-bar-container">
@@ -270,7 +270,7 @@ async function renderMyQuotas(container) {
 
     container.innerHTML = `
         <div class="page-header">
-            <div><h1>Moje kvoty</h1><p>Prehľad dovolenky a sick days pre rok ${year}</p></div>
+            <div><h1>Moje kvóty</h1><p>Prehľad dovolenky a zdravotného voľna pre rok ${year}</p></div>
         </div>
         <div class="page-body">
             <div class="quota-card">
@@ -670,7 +670,7 @@ async function toggleEmployeeRole(userId, currentRole) {
 
 async function editEmployeeQuota(userId, name, vacTotal, sickTotal) {
     const year = new Date().getFullYear();
-    document.getElementById('modalTitle').textContent = `Kvoty - ${name}`;
+    document.getElementById('modalTitle').textContent = `Kvóty - ${name}`;
     document.getElementById('modalBody').innerHTML = `
         <form id="quotaForm">
             <div class="form-row">
@@ -747,7 +747,7 @@ async function renderAdminQuotas(container) {
 
     container.innerHTML = `
         <div class="page-header">
-            <div><h1>Kvoty</h1><p>Prehľad kvót všetkých zamestnancov</p></div>
+            <div><h1>Kvóty</h1><p>Prehľad kvót všetkých zamestnancov</p></div>
         </div>
         <div class="page-body">
             <div class="portal-card">
@@ -774,7 +774,7 @@ async function renderAdminQuotas(container) {
 
             <div class="portal-card">
                 <div class="card-header">
-                    <h2>Kvoty zamestnancov ${year}</h2>
+                    <h2>Kvóty zamestnancov ${year}</h2>
                 </div>
                 <div class="card-body" style="overflow-x:auto;">
                     <table class="data-table">
