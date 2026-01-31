@@ -511,6 +511,68 @@ async function downloadSickNoteFile(id) {
     }
 }
 
+async function previewSickNoteFile(id, fileName) {
+    try {
+        const response = await apiCall(`/api/sick-notes/${id}/file`);
+        if (!response.ok) throw new Error('Súbor sa nenašiel');
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const ext = fileName.toLowerCase().split('.').pop();
+        const isImage = ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'tiff', 'tif', 'heic', 'heif'].includes(ext);
+        const isPdf = ext === 'pdf';
+
+        // Create lightbox overlay
+        const overlay = document.createElement('div');
+        overlay.id = 'fileLightbox';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+        overlay.onclick = (e) => { if (e.target === overlay) { overlay.remove(); window.URL.revokeObjectURL(url); } };
+
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'position:relative;max-width:90vw;max-height:90vh;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 25px 50px rgba(0,0,0,0.3);';
+
+        // Header bar
+        const header = document.createElement('div');
+        header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--gray-50,#f9fafb);border-bottom:1px solid var(--gray-200,#e5e7eb);';
+        header.innerHTML = `
+            <span style="font-weight:600;font-size:14px;color:#374151;">${escapeHtml(fileName)}</span>
+            <div style="display:flex;gap:8px;">
+                <button onclick="event.stopPropagation();const a=document.createElement('a');a.href='${url}';a.download='${escapeHtml(fileName)}';a.click();" style="padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;font-size:13px;" title="Stiahnuť">&#11015; Stiahnuť</button>
+                <button onclick="event.stopPropagation();document.getElementById('fileLightbox').remove();" style="padding:6px 10px;border:none;border-radius:6px;background:#ef4444;color:#fff;cursor:pointer;font-size:16px;line-height:1;" title="Zavrieť">&#10005;</button>
+            </div>
+        `;
+        wrapper.appendChild(header);
+
+        const content = document.createElement('div');
+        content.style.cssText = 'display:flex;align-items:center;justify-content:center;max-height:calc(90vh - 52px);overflow:auto;';
+
+        if (isImage) {
+            const img = document.createElement('img');
+            img.src = url;
+            img.style.cssText = 'max-width:88vw;max-height:calc(90vh - 60px);object-fit:contain;';
+            content.appendChild(img);
+        } else if (isPdf) {
+            const iframe = document.createElement('iframe');
+            iframe.src = url;
+            iframe.style.cssText = 'width:88vw;height:calc(90vh - 60px);border:none;';
+            content.appendChild(iframe);
+        } else {
+            content.innerHTML = `<div style="padding:40px;text-align:center;"><p style="margin-bottom:16px;">Náhľad nie je dostupný pre tento typ súboru.</p><a href="${url}" download="${escapeHtml(fileName)}" style="color:var(--blue-600,#2563eb);">&#11015; Stiahnuť súbor</a></div>`;
+        }
+
+        wrapper.appendChild(content);
+        overlay.appendChild(wrapper);
+        document.body.appendChild(overlay);
+
+        // Close on Escape
+        const escHandler = (e) => { if (e.key === 'Escape') { overlay.remove(); window.URL.revokeObjectURL(url); document.removeEventListener('keydown', escHandler); } };
+        document.addEventListener('keydown', escHandler);
+
+    } catch (error) {
+        showToast('Chyba pri načítaní súboru: ' + error.message, 'error');
+    }
+}
+
 async function deleteSickNote(id) {
     if (!confirm('Naozaj chcete vymazať túto PN-ku?')) return;
 
@@ -870,7 +932,7 @@ async function renderAdminSickNotes(container) {
                     ${notes.length > 0 ? `
                         <table class="data-table">
                             <thead>
-                                <tr><th>Zamestnanec</th><th>Názov</th><th>Dátum od</th><th>Dátum do</th><th>Lekár</th><th>Súbor</th><th>Status</th></tr>
+                                <tr><th>Zamestnanec</th><th>Názov</th><th>Dátum od</th><th>Dátum do</th><th>Lekár</th><th>Doklad</th></tr>
                             </thead>
                             <tbody>
                                 ${notes.map(n => `
@@ -880,8 +942,7 @@ async function renderAdminSickNotes(container) {
                                         <td>${formatDate(n.start_date)}</td>
                                         <td>${formatDate(n.end_date)}</td>
                                         <td>${n.doctor_name ? escapeHtml(n.doctor_name) : '-'}</td>
-                                        <td>${n.file_name ? `<a href="#" onclick="downloadSickNoteFile(${n.id})" style="color:var(--blue-600)">${escapeHtml(n.file_name)}</a>` : '<span style="color:var(--gray-400)">-</span>'}</td>
-                                        <td><span class="badge badge-${n.status}">${n.status}</span></td>
+                                        <td>${n.file_name ? `<a href="#" onclick="previewSickNoteFile(${n.id}, '${escapeHtml(n.file_name)}')" style="color:var(--blue-600);cursor:pointer;">&#128065; ${escapeHtml(n.file_name)}</a>` : '<span style="color:var(--gray-400)">-</span>'}</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
