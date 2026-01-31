@@ -1,0 +1,519 @@
+/**
+ * ETILOG Portal - Internationalization (i18n)
+ * Supports SK (Slovak) and EN (English)
+ */
+
+const portalTranslations = {
+  sk: {
+    // Sidebar nav
+    navMain: 'Hlavné menu',
+    navDashboard: 'Dashboard',
+    navMyQuotas: 'Moje kvóty',
+    navMySickNotes: 'Moje PN-ky',
+    navMyRequests: 'Moje žiadosti',
+    navAdmin: 'Administrácia',
+    navAdminDashboard: 'Admin Dashboard',
+    navEmployees: 'Zamestnanci',
+    navQuotas: 'Kvóty',
+    navAllSickNotes: 'Všetky PN-ky',
+    navAllTickets: 'Všetky tikety',
+
+    // User section
+    userLoading: 'Načítavam...',
+    btnLogout: 'Odhlásiť sa',
+
+    // Common
+    days: 'dni',
+    yes: 'Áno',
+    no: 'Nie',
+    save: 'Uložiť',
+    cancel: 'Zrušiť',
+    edit: 'Upraviť',
+    delete: 'Vymazať',
+    upload: 'Nahrať',
+    close: 'Zavrieť',
+    download: 'Stiahnuť',
+    noFile: 'Žiadny',
+    none: '-',
+    reason: 'Dôvod',
+
+    // Errors
+    profileLoadFailed: 'Nepodarilo sa načítať profil. Skúste sa znovu prihlásiť.',
+    logoutRetry: 'Odhlásiť sa a skúsiť znova',
+    accessDenied: 'Prístup zamietnutý',
+    pageNotFound: 'Stránka sa nenašla',
+    pageLoadError: 'Chyba pri načítaní stránky',
+    changeFailed: 'Zmena zlyhala',
+    saveFailed: 'Uloženie zlyhalo',
+    uploadFailed: 'Upload zlyhal',
+    deleteFailed: 'Vymazanie zlyhalo',
+    fileNotFound: 'Súbor sa nenašiel',
+    downloadError: 'Chyba pri sťahovaní',
+    fileLoadError: 'Chyba pri načítaní súboru',
+    previewNotAvailable: 'Náhľad nie je dostupný pre tento typ súboru.',
+    downloadFile: 'Stiahnuť súbor',
+
+    // Ticket types
+    typeVacation: 'Dovolenka',
+    typeSickLeave: 'PN',
+    typePurchase: 'Nákup',
+    typeExpense: 'Výdavok',
+    typeHr: 'HR',
+    typeOther: 'Iné',
+
+    // Ticket statuses
+    statusPending: 'Čakajúca',
+    statusApproved: 'Schválená',
+    statusRejected: 'Zamietnutá',
+
+    // Dashboard
+    dashboardTitle: 'Dashboard',
+    dashboardWelcome: 'Vitajte',
+    vacationRemaining: 'Zostatok dovolenky',
+    sickDaysRemaining: 'Zostatok zdravotného voľna',
+    approvedRequests: 'Schválené žiadosti',
+    pendingRequests: 'Čakajúce žiadosti',
+    myQuotasYear: 'Moje kvóty',
+    vacation: 'Dovolenka',
+    sickLeave: 'Zdravotné voľno',
+    recentRequests: 'Posledné žiadosti',
+    colName: 'Názov',
+    colType: 'Typ',
+    colStatus: 'Status',
+    colDate: 'Dátum',
+    noRequests: 'Žiadne žiadosti',
+
+    // My Quotas
+    myQuotasTitle: 'Moje kvóty',
+    myQuotasDesc: 'Prehľad dovolenky a zdravotného voľna pre rok',
+    quotaTotal: 'Celkom',
+    quotaUsed: 'Využité',
+    quotaRemaining: 'Zostatok',
+    holidaysSR: 'Sviatky SR',
+    holidayColDate: 'Dátum',
+    holidayColName: 'Názov',
+
+    // My Sick Notes
+    mySickNotesTitle: 'Moje PN-ky',
+    mySickNotesDesc: 'Evidencia práceneschopností',
+    newSickNote: '+ Nová PN-ka',
+    sickNoteColName: 'Názov',
+    sickNoteColFrom: 'Dátum od',
+    sickNoteColTo: 'Dátum do',
+    sickNoteColDoctor: 'Lekár',
+    sickNoteColFile: 'Súbor',
+    sickNoteColStatus: 'Status',
+    noSickNotes: 'Žiadne PN-ky',
+
+    // New Sick Note Modal
+    newSickNoteTitle: 'Nová PN-ka',
+    sickNoteFieldTitle: 'Názov *',
+    sickNoteFieldTitlePlaceholder: 'napr. PN - chrípka',
+    sickNoteFieldDateFrom: 'Dátum od *',
+    sickNoteFieldDateTo: 'Dátum do *',
+    sickNoteFieldDoctor: 'Meno lekára',
+    sickNoteFieldDoctorPlaceholder: 'MUDr. ...',
+    sickNoteFieldDiagnosis: 'Diagnóza',
+    sickNoteFieldDiagnosisPlaceholder: 'Voliteľné',
+    sickNoteFieldDescription: 'Popis',
+    sickNoteFieldDescriptionPlaceholder: 'Doplňujúce informácie...',
+    sickNoteFieldFile: 'Súbor (PDF, JPG, PNG - max 10MB)',
+    sickNoteCreated: 'PN-ka bola vytvorená',
+    sickNoteDeleted: 'PN-ka bola vymazaná',
+    sickNoteDeleteConfirm: 'Naozaj chcete vymazať túto PN-ku?',
+
+    // Upload Modal
+    uploadTitle: 'Nahrať súbor k PN-ke',
+    uploadFileLabel: 'Súbor (PDF, JPG, PNG - max 10MB)',
+    uploadDropzone: 'Kliknite pre výber súboru alebo ho sem pretiahnite',
+    uploadDropzoneFormats: 'PDF, JPG, PNG',
+    uploadDropzoneSize: 'do 10MB',
+    uploadSelectFile: 'Vyberte súbor',
+    uploadSuccess: 'Súbor bol nahraný',
+
+    // My Requests
+    myRequestsTitle: 'Moje žiadosti',
+    myRequestsDesc: 'Všetky moje tikety a schvaľovanie',
+    filterAllStatuses: 'Všetky statusy',
+    filterPending: 'Čakajúce',
+    filterApproved: 'Schválené',
+    filterRejected: 'Zamietnuté',
+    colApprover: 'Schvaľovateľ',
+    noTickets: 'Žiadne tikety',
+
+    // Admin Dashboard
+    adminDashboardTitle: 'Admin Dashboard',
+    adminDashboardDesc: 'Prehľad systému pre rok',
+    totalEmployees: 'Zamestnancov',
+    pendingTickets: 'Čakajúce tikety',
+    approvedTickets: 'Schválené tikety',
+    rejectedTickets: 'Zamietnuté tikety',
+    approvedVacations: 'Schválené dovolenky',
+    approvedSickLeaves: 'Schválené PN-ky',
+    totalSickNotes: 'PN-ky celkom',
+    totalTickets: 'Tikety celkom',
+
+    // Admin Employees
+    employeesTitle: 'Zamestnanci',
+    employeesDesc: 'Správa rolí a kvót zamestnancov',
+    initQuotas: 'Inicializovať kvóty',
+    colEmail: 'Email',
+    colRole: 'Rola',
+    colVacation: 'Dovolenka',
+    colSickDays: 'Zdrav. voľno',
+    colActions: 'Akcie',
+    changeRoleConfirm: 'Zmeniť rolu na',
+    roleChanged: 'Rola zmenená na',
+    changeRoleTitle: 'Zmeniť rolu',
+    editQuotaTitle: 'Upraviť kvótu',
+
+    // Admin Quota Modal
+    quotaModalTitle: 'Kvóty',
+    quotaFieldVacation: 'Dovolenka (dni)',
+    quotaFieldSickDays: 'Zdravotné voľno (dni)',
+    quotaSaved: 'Kvóta uložená',
+    quotasInitialized: 'Inicializované pre',
+    quotasInitConfirm: 'Inicializovať kvóty pre všetkých zamestnancov na rok',
+    employees: 'zamestnancov',
+
+    // Admin Quotas
+    adminQuotasTitle: 'Kvóty',
+    adminQuotasDesc: 'Prehľad kvót všetkých zamestnancov',
+    quotaSettings: 'Nastavenia kvót',
+    quotaSettingsYear: 'Rok',
+    quotaSettingsDefaultVacation: 'Predvolená dovolenka (dni)',
+    quotaSettingsDefaultSick: 'Predvolené zdrav. voľno',
+    quotaSettingsCarryOver: 'Prenos zostatku',
+    quotaSettingsCarryOverMax: 'max',
+    quotaSettingsSaved: 'Nastavenia uložené',
+    employeeQuotasYear: 'Kvóty zamestnancov',
+    colEmployee: 'Zamestnanec',
+    colVacTotal: 'Dovolenka celkom',
+    colVacUsed: 'Dovolenka využitá',
+    colBalance: 'Zostatok',
+    colSickTotal: 'Zdrav. voľno celkom',
+    colSickUsed: 'Zdrav. voľno využité',
+
+    // Admin Sick Notes
+    allSickNotesTitle: 'Všetky PN-ky',
+    allSickNotesDesc: 'Evidencia PN-iek všetkých zamestnancov',
+    colEmployeeName: 'Zamestnanec',
+    colDocument: 'Doklad',
+
+    // Admin Tickets
+    allTicketsTitle: 'Všetky tikety',
+    allTicketsDesc: 'Prehľad všetkých tiketov v systéme',
+    filterAllTypes: 'Všetky typy',
+    filterVacation: 'Dovolenka',
+    filterSickLeave: 'PN / Práceneschopnosť',
+    filterPurchase: 'Nákup',
+    filterExpense: 'Výdavok',
+    filterHr: 'HR',
+    filterOther: 'Iné',
+    colTicketId: 'ID',
+    colCreatedBy: 'Vytvoril',
+  },
+
+  en: {
+    // Sidebar nav
+    navMain: 'Main menu',
+    navDashboard: 'Dashboard',
+    navMyQuotas: 'My Quotas',
+    navMySickNotes: 'My Sick Notes',
+    navMyRequests: 'My Requests',
+    navAdmin: 'Administration',
+    navAdminDashboard: 'Admin Dashboard',
+    navEmployees: 'Employees',
+    navQuotas: 'Quotas',
+    navAllSickNotes: 'All Sick Notes',
+    navAllTickets: 'All Tickets',
+
+    // User section
+    userLoading: 'Loading...',
+    btnLogout: 'Sign out',
+
+    // Common
+    days: 'days',
+    yes: 'Yes',
+    no: 'No',
+    save: 'Save',
+    cancel: 'Cancel',
+    edit: 'Edit',
+    delete: 'Delete',
+    upload: 'Upload',
+    close: 'Close',
+    download: 'Download',
+    noFile: 'None',
+    none: '-',
+    reason: 'Reason',
+
+    // Errors
+    profileLoadFailed: 'Failed to load profile. Please try logging in again.',
+    logoutRetry: 'Sign out and try again',
+    accessDenied: 'Access denied',
+    pageNotFound: 'Page not found',
+    pageLoadError: 'Error loading page',
+    changeFailed: 'Change failed',
+    saveFailed: 'Save failed',
+    uploadFailed: 'Upload failed',
+    deleteFailed: 'Delete failed',
+    fileNotFound: 'File not found',
+    downloadError: 'Download error',
+    fileLoadError: 'Error loading file',
+    previewNotAvailable: 'Preview is not available for this file type.',
+    downloadFile: 'Download file',
+
+    // Ticket types
+    typeVacation: 'Vacation',
+    typeSickLeave: 'Sick Leave',
+    typePurchase: 'Purchase',
+    typeExpense: 'Expense',
+    typeHr: 'HR',
+    typeOther: 'Other',
+
+    // Ticket statuses
+    statusPending: 'Pending',
+    statusApproved: 'Approved',
+    statusRejected: 'Rejected',
+
+    // Dashboard
+    dashboardTitle: 'Dashboard',
+    dashboardWelcome: 'Welcome',
+    vacationRemaining: 'Vacation remaining',
+    sickDaysRemaining: 'Sick days remaining',
+    approvedRequests: 'Approved requests',
+    pendingRequests: 'Pending requests',
+    myQuotasYear: 'My Quotas',
+    vacation: 'Vacation',
+    sickLeave: 'Sick leave',
+    recentRequests: 'Recent requests',
+    colName: 'Name',
+    colType: 'Type',
+    colStatus: 'Status',
+    colDate: 'Date',
+    noRequests: 'No requests',
+
+    // My Quotas
+    myQuotasTitle: 'My Quotas',
+    myQuotasDesc: 'Vacation and sick leave overview for year',
+    quotaTotal: 'Total',
+    quotaUsed: 'Used',
+    quotaRemaining: 'Remaining',
+    holidaysSR: 'Slovak Holidays',
+    holidayColDate: 'Date',
+    holidayColName: 'Name',
+
+    // My Sick Notes
+    mySickNotesTitle: 'My Sick Notes',
+    mySickNotesDesc: 'Sick leave records',
+    newSickNote: '+ New Sick Note',
+    sickNoteColName: 'Title',
+    sickNoteColFrom: 'Date from',
+    sickNoteColTo: 'Date to',
+    sickNoteColDoctor: 'Doctor',
+    sickNoteColFile: 'File',
+    sickNoteColStatus: 'Status',
+    noSickNotes: 'No sick notes',
+
+    // New Sick Note Modal
+    newSickNoteTitle: 'New Sick Note',
+    sickNoteFieldTitle: 'Title *',
+    sickNoteFieldTitlePlaceholder: 'e.g. Sick leave - flu',
+    sickNoteFieldDateFrom: 'Date from *',
+    sickNoteFieldDateTo: 'Date to *',
+    sickNoteFieldDoctor: 'Doctor name',
+    sickNoteFieldDoctorPlaceholder: 'Dr. ...',
+    sickNoteFieldDiagnosis: 'Diagnosis',
+    sickNoteFieldDiagnosisPlaceholder: 'Optional',
+    sickNoteFieldDescription: 'Description',
+    sickNoteFieldDescriptionPlaceholder: 'Additional information...',
+    sickNoteFieldFile: 'File (PDF, JPG, PNG - max 10MB)',
+    sickNoteCreated: 'Sick note created',
+    sickNoteDeleted: 'Sick note deleted',
+    sickNoteDeleteConfirm: 'Are you sure you want to delete this sick note?',
+
+    // Upload Modal
+    uploadTitle: 'Upload file to sick note',
+    uploadFileLabel: 'File (PDF, JPG, PNG - max 10MB)',
+    uploadDropzone: 'Click to select a file or drag it here',
+    uploadDropzoneFormats: 'PDF, JPG, PNG',
+    uploadDropzoneSize: 'up to 10MB',
+    uploadSelectFile: 'Select a file',
+    uploadSuccess: 'File uploaded',
+
+    // My Requests
+    myRequestsTitle: 'My Requests',
+    myRequestsDesc: 'All my tickets and approvals',
+    filterAllStatuses: 'All statuses',
+    filterPending: 'Pending',
+    filterApproved: 'Approved',
+    filterRejected: 'Rejected',
+    colApprover: 'Approver',
+    noTickets: 'No tickets',
+
+    // Admin Dashboard
+    adminDashboardTitle: 'Admin Dashboard',
+    adminDashboardDesc: 'System overview for year',
+    totalEmployees: 'Employees',
+    pendingTickets: 'Pending tickets',
+    approvedTickets: 'Approved tickets',
+    rejectedTickets: 'Rejected tickets',
+    approvedVacations: 'Approved vacations',
+    approvedSickLeaves: 'Approved sick leaves',
+    totalSickNotes: 'Total sick notes',
+    totalTickets: 'Total tickets',
+
+    // Admin Employees
+    employeesTitle: 'Employees',
+    employeesDesc: 'Manage employee roles and quotas',
+    initQuotas: 'Initialize quotas',
+    colEmail: 'Email',
+    colRole: 'Role',
+    colVacation: 'Vacation',
+    colSickDays: 'Sick days',
+    colActions: 'Actions',
+    changeRoleConfirm: 'Change role to',
+    roleChanged: 'Role changed to',
+    changeRoleTitle: 'Change role',
+    editQuotaTitle: 'Edit quota',
+
+    // Admin Quota Modal
+    quotaModalTitle: 'Quotas',
+    quotaFieldVacation: 'Vacation (days)',
+    quotaFieldSickDays: 'Sick leave (days)',
+    quotaSaved: 'Quota saved',
+    quotasInitialized: 'Initialized for',
+    quotasInitConfirm: 'Initialize quotas for all employees for year',
+    employees: 'employees',
+
+    // Admin Quotas
+    adminQuotasTitle: 'Quotas',
+    adminQuotasDesc: 'Employee quotas overview',
+    quotaSettings: 'Quota settings',
+    quotaSettingsYear: 'Year',
+    quotaSettingsDefaultVacation: 'Default vacation (days)',
+    quotaSettingsDefaultSick: 'Default sick leave',
+    quotaSettingsCarryOver: 'Carry over',
+    quotaSettingsCarryOverMax: 'max',
+    quotaSettingsSaved: 'Settings saved',
+    employeeQuotasYear: 'Employee quotas',
+    colEmployee: 'Employee',
+    colVacTotal: 'Vacation total',
+    colVacUsed: 'Vacation used',
+    colBalance: 'Balance',
+    colSickTotal: 'Sick leave total',
+    colSickUsed: 'Sick leave used',
+
+    // Admin Sick Notes
+    allSickNotesTitle: 'All Sick Notes',
+    allSickNotesDesc: 'Sick note records of all employees',
+    colEmployeeName: 'Employee',
+    colDocument: 'Document',
+
+    // Admin Tickets
+    allTicketsTitle: 'All Tickets',
+    allTicketsDesc: 'Overview of all tickets in the system',
+    filterAllTypes: 'All types',
+    filterVacation: 'Vacation',
+    filterSickLeave: 'Sick Leave',
+    filterPurchase: 'Purchase',
+    filterExpense: 'Expense',
+    filterHr: 'HR',
+    filterOther: 'Other',
+    colTicketId: 'ID',
+    colCreatedBy: 'Created by',
+  }
+};
+
+// Current language - default SK
+let portalLang = localStorage.getItem('etilog_portal_lang') || 'sk';
+
+/**
+ * Get translated string
+ */
+function pt(key) {
+  return (portalTranslations[portalLang] && portalTranslations[portalLang][key]) ||
+         (portalTranslations.sk[key]) ||
+         key;
+}
+
+/**
+ * Translate ticket type from DB value
+ */
+function translateType(type) {
+  const map = {
+    'vacation': pt('typeVacation'),
+    'sick-leave': pt('typeSickLeave'),
+    'purchase': pt('typePurchase'),
+    'expense': pt('typeExpense'),
+    'hr': pt('typeHr'),
+    'other': pt('typeOther')
+  };
+  return map[type] || type;
+}
+
+/**
+ * Translate ticket status from DB value
+ */
+function translateStatus(status) {
+  const map = {
+    'Pending': pt('statusPending'),
+    'Approved': pt('statusApproved'),
+    'Rejected': pt('statusRejected'),
+    'active': pt('statusActive') || 'Active',
+    'archived': pt('statusArchived') || 'Archived'
+  };
+  return map[status] || status;
+}
+
+/**
+ * Switch portal language and re-render
+ */
+function switchPortalLang(lang) {
+  portalLang = lang;
+  localStorage.setItem('etilog_portal_lang', lang);
+
+  // Update switcher buttons
+  document.querySelectorAll('.portal-lang-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.lang === lang);
+  });
+
+  // Update sidebar texts
+  updateSidebarLanguage();
+
+  // Re-render current page
+  if (typeof renderPage === 'function' && currentPage) {
+    renderPage(currentPage);
+  }
+}
+
+/**
+ * Update sidebar navigation text based on language
+ */
+function updateSidebarLanguage() {
+  const mappings = {
+    'dashboard': pt('navDashboard'),
+    'my-quotas': pt('navMyQuotas'),
+    'my-sick-notes': pt('navMySickNotes'),
+    'my-requests': pt('navMyRequests'),
+    'admin-dashboard': pt('navAdminDashboard'),
+    'admin-employees': pt('navEmployees'),
+    'admin-quotas': pt('navQuotas'),
+    'admin-sick-notes': pt('navAllSickNotes'),
+    'admin-tickets': pt('navAllTickets')
+  };
+
+  document.querySelectorAll('.sidebar-link').forEach(link => {
+    const page = link.dataset.page;
+    if (mappings[page]) {
+      const icon = link.querySelector('.nav-icon');
+      const iconHtml = icon ? icon.outerHTML : '';
+      link.innerHTML = iconHtml + ' ' + mappings[page];
+    }
+  });
+
+  // Section titles
+  const sections = document.querySelectorAll('.nav-section-title');
+  if (sections[0]) sections[0].textContent = pt('navMain');
+  if (sections[1]) sections[1].textContent = pt('navAdmin');
+}

@@ -9,6 +9,12 @@
 <body>
     <button class="mobile-toggle" onclick="toggleSidebar()">&#9776;</button>
 
+    <!-- Language Switcher -->
+    <div class="portal-lang-switcher">
+        <button class="portal-lang-btn" data-lang="sk" onclick="switchPortalLang('sk')">SK</button>
+        <button class="portal-lang-btn" data-lang="en" onclick="switchPortalLang('en')">EN</button>
+    </div>
+
     <div class="portal-layout">
         <!-- SIDEBAR -->
         <aside class="sidebar" id="sidebar">
@@ -90,6 +96,7 @@
     <script src="/portal/assets/js/msal-browser.min.js"></script>
     <script src="/portal/assets/js/authConfig.js"></script>
     <script src="/portal/assets/js/auth.js"></script>
+    <script src="/portal/assets/js/portalI18n.js"></script>
     <script src="/portal/assets/js/portal.js"></script>
 </body>
 </html>

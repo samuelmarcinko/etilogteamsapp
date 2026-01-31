@@ -892,6 +892,44 @@ body {
    MOBILE
    ============================================ */
 
+/* Language Switcher */
+.portal-lang-switcher {
+  position: fixed;
+  top: 0.75rem;
+  right: 1.25rem;
+  z-index: 300;
+  display: flex;
+  gap: 2px;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  padding: 2px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.portal-lang-btn {
+  padding: 5px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--gray-500);
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.5px;
+}
+
+.portal-lang-btn:hover {
+  color: var(--gray-700);
+  background: var(--gray-50);
+}
+
+.portal-lang-btn.active {
+  background: var(--etilog-red);
+  color: var(--white);
+}
+
 .mobile-toggle {
   display: none;
   position: fixed;
