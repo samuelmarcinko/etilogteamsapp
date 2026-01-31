@@ -142,6 +142,7 @@ async function renderPage(page) {
             case 'admin-quotas': await renderAdminQuotas(content); break;
             case 'admin-sick-notes': await renderAdminSickNotes(content); break;
             case 'admin-tickets': await renderAdminTickets(content); break;
+            case 'admin-ticket-types': await renderAdminTicketTypes(content); break;
             default: content.innerHTML = `<div class="page-body"><div class="empty-state"><div class="empty-icon">&#128533;</div><div class="empty-text">${pt('pageNotFound')}</div></div></div>`;
         }
     } catch (error) {
@@ -1023,6 +1024,216 @@ function renderAdminTicketsTable(tickets) {
             </tbody>
         </table>
     `;
+}
+
+// ============================================
+// ADMIN TICKET TYPES
+// ============================================
+
+async function renderAdminTicketTypes(container) {
+    const response = await apiCall('/api/ticket-types');
+    const types = (await response.json()).data || [];
+
+    container.innerHTML = `
+        <div class="page-header">
+            <div><h1>${pt('ticketTypesTitle')}</h1><p>${pt('ticketTypesDesc')}</p></div>
+            <button class="btn btn-primary" onclick="openNewTicketTypeModal()">${pt('ticketTypesAddNew')}</button>
+        </div>
+        <div class="page-body">
+            <div class="portal-card">
+                <div class="card-body" style="overflow-x:auto;">
+                    ${types.length > 0 ? `
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>${pt('ticketTypesColOrder')}</th>
+                                    <th>${pt('ticketTypesColKey')}</th>
+                                    <th>${pt('ticketTypesColSk')}</th>
+                                    <th>${pt('ticketTypesColEn')}</th>
+                                    <th>${pt('ticketTypesColDates')}</th>
+                                    <th>${pt('ticketTypesColActive')}</th>
+                                    <th>${pt('colActions')}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${types.map(t => `
+                                    <tr style="${!t.is_active ? 'opacity:0.5;' : ''}">
+                                        <td>${t.sort_order}</td>
+                                        <td><code>${escapeHtml(t.key)}</code></td>
+                                        <td>${escapeHtml(t.label_sk)}</td>
+                                        <td>${escapeHtml(t.label_en)}</td>
+                                        <td>${t.requires_dates ? '<span style="color:var(--green-600)">&#10003;</span>' : '<span style="color:var(--gray-400)">&#10005;</span>'}</td>
+                                        <td>${t.is_active ? '<span class="badge badge-approved">' + pt('yes') + '</span>' : '<span class="badge badge-rejected">' + pt('no') + '</span>'}</td>
+                                        <td>
+                                            <button class="btn btn-ghost btn-sm" onclick="editTicketType(${t.id}, '${escapeHtml(t.key)}', '${escapeHtml(t.label_sk)}', '${escapeHtml(t.label_en)}', ${t.requires_dates}, ${t.sort_order})" title="${pt('edit')}">&#9999;</button>
+                                            <button class="btn btn-ghost btn-sm" onclick="toggleTicketTypeActive(${t.id}, ${t.is_active})" title="${pt('ticketTypesToggleActive')}">${t.is_active ? '&#128683;' : '&#9989;'}</button>
+                                            <button class="btn btn-ghost btn-sm" onclick="deleteTicketType(${t.id})" style="color:var(--red-500)" title="${pt('delete')}">&#128465;</button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    ` : `<div class="empty-state"><div class="empty-icon">&#9881;</div><div class="empty-text">${pt('ticketTypesEmpty')}</div></div>`}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function openNewTicketTypeModal() {
+    document.getElementById('modalTitle').textContent = pt('ticketTypesNewTitle');
+    document.getElementById('modalBody').innerHTML = `
+        <form id="ticketTypeForm">
+            <div class="form-group">
+                <label class="form-label">${pt('ticketTypesFieldKey')} *</label>
+                <input type="text" class="form-input" name="key" required placeholder="napr. business-trip">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">${pt('ticketTypesFieldSk')} *</label>
+                    <input type="text" class="form-input" name="label_sk" required placeholder="napr. Služobná cesta">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">${pt('ticketTypesFieldEn')} *</label>
+                    <input type="text" class="form-input" name="label_en" required placeholder="e.g. Business Trip">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">${pt('ticketTypesFieldOrder')}</label>
+                    <input type="number" class="form-input" name="sort_order" value="10" min="0" max="100">
+                </div>
+                <div class="form-group" style="display:flex;align-items:center;gap:8px;padding-top:1.5rem;">
+                    <input type="checkbox" id="ttRequiresDates" name="requires_dates">
+                    <label for="ttRequiresDates" style="cursor:pointer;">${pt('ticketTypesFieldDates')}</label>
+                </div>
+            </div>
+        </form>
+    `;
+    document.getElementById('modalFooter').innerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
+        <button class="btn btn-primary" onclick="submitNewTicketType()">${pt('save')}</button>
+    `;
+    openModal();
+}
+
+async function submitNewTicketType() {
+    const form = document.getElementById('ticketTypeForm');
+    const data = {
+        key: form.key.value,
+        label_sk: form.label_sk.value,
+        label_en: form.label_en.value,
+        requires_dates: form.requires_dates.checked,
+        sort_order: parseInt(form.sort_order.value) || 0
+    };
+
+    try {
+        const response = await apiCall('/api/ticket-types', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error || pt('saveFailed'));
+        }
+        showToast(pt('ticketTypesCreated'), 'success');
+        closeModal();
+        navigateToPage('admin-ticket-types');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+function editTicketType(id, key, labelSk, labelEn, requiresDates, sortOrder) {
+    document.getElementById('modalTitle').textContent = pt('ticketTypesEditTitle');
+    document.getElementById('modalBody').innerHTML = `
+        <form id="ticketTypeEditForm">
+            <div class="form-group">
+                <label class="form-label">${pt('ticketTypesColKey')}</label>
+                <input type="text" class="form-input" value="${escapeHtml(key)}" disabled style="opacity:0.6;">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">${pt('ticketTypesFieldSk')} *</label>
+                    <input type="text" class="form-input" name="label_sk" value="${escapeHtml(labelSk)}" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">${pt('ticketTypesFieldEn')} *</label>
+                    <input type="text" class="form-input" name="label_en" value="${escapeHtml(labelEn)}" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">${pt('ticketTypesFieldOrder')}</label>
+                    <input type="number" class="form-input" name="sort_order" value="${sortOrder}" min="0" max="100">
+                </div>
+                <div class="form-group" style="display:flex;align-items:center;gap:8px;padding-top:1.5rem;">
+                    <input type="checkbox" id="ttEditRequiresDates" name="requires_dates" ${requiresDates ? 'checked' : ''}>
+                    <label for="ttEditRequiresDates" style="cursor:pointer;">${pt('ticketTypesFieldDates')}</label>
+                </div>
+            </div>
+        </form>
+    `;
+    document.getElementById('modalFooter').innerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
+        <button class="btn btn-primary" onclick="submitEditTicketType(${id})">${pt('save')}</button>
+    `;
+    openModal();
+}
+
+async function submitEditTicketType(id) {
+    const form = document.getElementById('ticketTypeEditForm');
+    const data = {
+        label_sk: form.label_sk.value,
+        label_en: form.label_en.value,
+        requires_dates: form.requires_dates.checked,
+        sort_order: parseInt(form.sort_order.value) || 0
+    };
+
+    try {
+        const response = await apiCall(`/api/ticket-types/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error || pt('saveFailed'));
+        }
+        showToast(pt('ticketTypesUpdated'), 'success');
+        closeModal();
+        navigateToPage('admin-ticket-types');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function toggleTicketTypeActive(id, currentActive) {
+    try {
+        const response = await apiCall(`/api/ticket-types/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ is_active: !currentActive })
+        });
+        if (!response.ok) throw new Error(pt('changeFailed'));
+        navigateToPage('admin-ticket-types');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function deleteTicketType(id) {
+    if (!confirm(pt('ticketTypesDeleteConfirm'))) return;
+
+    try {
+        const response = await apiCall(`/api/ticket-types/${id}`, { method: 'DELETE' });
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error || pt('deleteFailed'));
+        }
+        showToast(pt('ticketTypesDeleted'), 'success');
+        navigateToPage('admin-ticket-types');
+    } catch (error) {
+        showToast(pt('ticketTypesCannotDelete') + ': ' + error.message, 'error');
+    }
 }
 
 // ============================================

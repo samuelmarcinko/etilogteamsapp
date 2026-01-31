@@ -1,6 +1,7 @@
 // Initialize Microsoft Teams SDK
 let teamsContext = null;
 let currentUser = null;
+let ticketTypesData = []; // Loaded from API
 
 // Toggle date fields visibility based on ticket type
 function toggleDateFields() {
@@ -9,8 +10,11 @@ function toggleDateFields() {
     const startDateInput = document.getElementById('startDate');
     const endDateInput = document.getElementById('endDate');
 
-    // Show date fields only for vacation and sick-leave
-    if (ticketType === 'vacation' || ticketType === 'sick-leave') {
+    // Check if selected type requires dates (from API data)
+    const typeInfo = ticketTypesData.find(t => t.key === ticketType);
+    const needsDates = typeInfo ? typeInfo.requires_dates : false;
+
+    if (needsDates) {
         dateRangeContainer.style.display = 'flex';
         startDateInput.required = true;
         endDateInput.required = true;
@@ -21,6 +25,55 @@ function toggleDateFields() {
         startDateInput.value = '';
         endDateInput.value = '';
     }
+}
+
+// Load ticket types from API
+async function loadTicketTypes() {
+    const typeSelect = document.getElementById('ticketType');
+    try {
+        const response = await fetch('/api/ticket-types/active');
+        if (!response.ok) throw new Error('Failed to load ticket types');
+
+        const result = await response.json();
+        ticketTypesData = result.data || [];
+
+        // Get current language
+        const lang = localStorage.getItem('etilog_lang') || 'en';
+
+        // Keep placeholder
+        typeSelect.innerHTML = `<option value="">${t('placeholderType')}</option>`;
+
+        ticketTypesData.forEach(tt => {
+            const option = document.createElement('option');
+            option.value = tt.key;
+            option.textContent = lang === 'sk' ? tt.label_sk : tt.label_en;
+            option.dataset.labelSk = tt.label_sk;
+            option.dataset.labelEn = tt.label_en;
+            typeSelect.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading ticket types:', error);
+    }
+}
+
+// Update ticket type labels when language changes
+function updateTicketTypeLabels() {
+    const lang = localStorage.getItem('etilog_lang') || 'en';
+    const typeSelect = document.getElementById('ticketType');
+    if (!typeSelect) return;
+
+    typeSelect.querySelectorAll('option[data-label-sk]').forEach(opt => {
+        opt.textContent = lang === 'sk' ? opt.dataset.labelSk : opt.dataset.labelEn;
+    });
+}
+
+// Override the original switchLanguage to also update ticket type labels
+const _originalSwitchLanguage = typeof switchLanguage === 'function' ? switchLanguage : null;
+if (_originalSwitchLanguage) {
+    window.switchLanguage = function(lang) {
+        _originalSwitchLanguage(lang);
+        updateTicketTypeLabels();
+    };
 }
 
 // Initialize app
@@ -38,7 +91,6 @@ function toggleDateFields() {
             const userResponse = await fetch(`/api/users/${currentUser.id}`);
             if (userResponse.ok) {
                 const userResult = await userResponse.json();
-                // Merge Graph API data with Teams context
                 currentUser = {
                     ...currentUser,
                     displayName: userResult.data.name,
@@ -50,8 +102,11 @@ function toggleDateFields() {
             console.warn('Could not fetch user from Graph API, using Teams context only:', error);
         }
 
-        // Load approvers list
-        await loadApprovers();
+        // Load ticket types and approvers in parallel
+        await Promise.all([
+            loadTicketTypes(),
+            loadApprovers()
+        ]);
 
     } catch (error) {
         console.error('Error initializing Teams:', error);
@@ -64,7 +119,6 @@ async function loadApprovers() {
     const approverSelect = document.getElementById('approver');
 
     try {
-        // Fetch users from Microsoft Graph API
         const response = await fetch('/api/users');
 
         if (!response.ok) {
@@ -96,21 +150,19 @@ async function loadApprovers() {
 // Handle form submission
 document.getElementById('approvalForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    
+
     const submitBtn = document.getElementById('submitBtn');
     const btnText = document.getElementById('btnText');
     const btnLoader = document.getElementById('btnLoader');
-    
-    // Disable button and show loader
+
     submitBtn.disabled = true;
     btnText.textContent = t('btnSubmitting');
     btnLoader.style.display = 'inline-block';
-    
+
     try {
-        // Get form data
         const formData = new FormData(e.target);
         const approverData = JSON.parse(formData.get('approver'));
-        
+
         const ticketData = {
             title: formData.get('title'),
             description: formData.get('description'),
@@ -125,10 +177,9 @@ document.getElementById('approvalForm').addEventListener('submit', async (e) => 
             start_date: formData.get('startDate') || null,
             end_date: formData.get('endDate') || null
         };
-        
+
         console.log('Submitting ticket:', ticketData);
-        
-        // Send to API
+
         const response = await fetch('/api/tickets', {
             method: 'POST',
             headers: {
@@ -136,41 +187,39 @@ document.getElementById('approvalForm').addEventListener('submit', async (e) => 
             },
             body: JSON.stringify(ticketData)
         });
-        
+
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.message || t('alertErrorSubmit'));
         }
-        
+
         const result = await response.json();
         console.log('Ticket created:', result);
 
-        // Show success message
         showAlert(t('alertSuccess'), 'success');
 
-        // Refresh approval badge count for the approver
         if (window.refreshApprovalsBadge) {
             window.refreshApprovalsBadge();
         }
 
-        // Reset form
         e.target.reset();
 
-        // Reload approvers select with translated placeholder
-        await loadApprovers();
-        
-        // Optionally close the task module or navigate
+        // Reload ticket types and approvers
+        await Promise.all([
+            loadTicketTypes(),
+            loadApprovers()
+        ]);
+
         setTimeout(() => {
             if (microsoftTeams.tasks) {
                 microsoftTeams.tasks.submitTask({ success: true });
             }
         }, 2000);
-        
+
     } catch (error) {
         console.error('Error submitting ticket:', error);
         showAlert(t('alertError') + error.message, 'error');
     } finally {
-        // Re-enable button
         submitBtn.disabled = false;
         btnText.textContent = t('btnSubmit');
         btnLoader.style.display = 'none';
@@ -180,18 +229,17 @@ document.getElementById('approvalForm').addEventListener('submit', async (e) => 
 // Show alert message
 function showAlert(message, type = 'success') {
     const alertContainer = document.getElementById('alertContainer');
-    
+
     const alert = document.createElement('div');
     alert.className = `alert alert-${type}`;
     alert.innerHTML = `
         <span class="alert-icon">${type === 'success' ? '✓' : '✗'}</span>
         <span>${message}</span>
     `;
-    
+
     alertContainer.innerHTML = '';
     alertContainer.appendChild(alert);
-    
-    // Auto-remove after 5 seconds
+
     setTimeout(() => {
         alert.remove();
     }, 5000);

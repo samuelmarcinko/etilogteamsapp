@@ -212,6 +212,32 @@ const portalTranslations = {
     filterOther: 'Iné',
     colTicketId: 'ID',
     colCreatedBy: 'Vytvoril',
+
+    // Admin Ticket Types
+    navTicketTypes: 'Typy tiketov',
+    ticketTypesTitle: 'Typy tiketov',
+    ticketTypesDesc: 'Správa typov tiketov zobrazovaných v Teams appke',
+    ticketTypesAddNew: '+ Nový typ',
+    ticketTypesColKey: 'Kľúč',
+    ticketTypesColSk: 'Názov SK',
+    ticketTypesColEn: 'Názov EN',
+    ticketTypesColDates: 'Vyžaduje dátum',
+    ticketTypesColActive: 'Aktívny',
+    ticketTypesColOrder: 'Poradie',
+    ticketTypesNewTitle: 'Nový typ tiketu',
+    ticketTypesEditTitle: 'Upraviť typ tiketu',
+    ticketTypesFieldKey: 'Kľúč (unikátny, napr. business-trip)',
+    ticketTypesFieldSk: 'Názov v slovenčine',
+    ticketTypesFieldEn: 'Názov v angličtine',
+    ticketTypesFieldDates: 'Vyžaduje dátum od-do',
+    ticketTypesFieldOrder: 'Poradie zobrazenia',
+    ticketTypesCreated: 'Typ tiketu bol vytvorený',
+    ticketTypesUpdated: 'Typ tiketu bol aktualizovaný',
+    ticketTypesDeleted: 'Typ tiketu bol vymazaný',
+    ticketTypesDeleteConfirm: 'Naozaj chcete vymazať tento typ tiketu?',
+    ticketTypesCannotDelete: 'Nemožno vymazať',
+    ticketTypesEmpty: 'Žiadne typy tiketov',
+    ticketTypesToggleActive: 'Aktivovať/Deaktivovať',
   },
 
   en: {
@@ -422,6 +448,32 @@ const portalTranslations = {
     filterOther: 'Other',
     colTicketId: 'ID',
     colCreatedBy: 'Created by',
+
+    // Admin Ticket Types
+    navTicketTypes: 'Ticket Types',
+    ticketTypesTitle: 'Ticket Types',
+    ticketTypesDesc: 'Manage ticket types displayed in the Teams app',
+    ticketTypesAddNew: '+ New Type',
+    ticketTypesColKey: 'Key',
+    ticketTypesColSk: 'Label SK',
+    ticketTypesColEn: 'Label EN',
+    ticketTypesColDates: 'Requires dates',
+    ticketTypesColActive: 'Active',
+    ticketTypesColOrder: 'Order',
+    ticketTypesNewTitle: 'New Ticket Type',
+    ticketTypesEditTitle: 'Edit Ticket Type',
+    ticketTypesFieldKey: 'Key (unique, e.g. business-trip)',
+    ticketTypesFieldSk: 'Label in Slovak',
+    ticketTypesFieldEn: 'Label in English',
+    ticketTypesFieldDates: 'Requires date from-to',
+    ticketTypesFieldOrder: 'Display order',
+    ticketTypesCreated: 'Ticket type created',
+    ticketTypesUpdated: 'Ticket type updated',
+    ticketTypesDeleted: 'Ticket type deleted',
+    ticketTypesDeleteConfirm: 'Are you sure you want to delete this ticket type?',
+    ticketTypesCannotDelete: 'Cannot delete',
+    ticketTypesEmpty: 'No ticket types',
+    ticketTypesToggleActive: 'Activate/Deactivate',
   }
 };
 
@@ -437,10 +489,39 @@ function pt(key) {
          key;
 }
 
+// Cache for ticket types loaded from API
+let _portalTicketTypes = null;
+
+/**
+ * Load ticket types from API for translation
+ */
+async function loadPortalTicketTypes() {
+  try {
+    const response = await fetch('/api/ticket-types/active');
+    if (response.ok) {
+      const result = await response.json();
+      _portalTicketTypes = result.data || [];
+    }
+  } catch (e) {
+    console.warn('Could not load ticket types for translation');
+  }
+}
+
+// Load on init
+loadPortalTicketTypes();
+
 /**
  * Translate ticket type from DB value
  */
 function translateType(type) {
+  // Try dynamic types first (from API)
+  if (_portalTicketTypes) {
+    const found = _portalTicketTypes.find(t => t.key === type);
+    if (found) {
+      return portalLang === 'sk' ? found.label_sk : found.label_en;
+    }
+  }
+  // Fallback to hardcoded translations
   const map = {
     'vacation': pt('typeVacation'),
     'sick-leave': pt('typeSickLeave'),
@@ -481,6 +562,9 @@ function switchPortalLang(lang) {
   // Update sidebar texts
   updateSidebarLanguage();
 
+  // Reload ticket type translations
+  loadPortalTicketTypes();
+
   // Re-render current page
   if (typeof renderPage === 'function' && currentPage) {
     renderPage(currentPage);
@@ -500,7 +584,8 @@ function updateSidebarLanguage() {
     'admin-employees': pt('navEmployees'),
     'admin-quotas': pt('navQuotas'),
     'admin-sick-notes': pt('navAllSickNotes'),
-    'admin-tickets': pt('navAllTickets')
+    'admin-tickets': pt('navAllTickets'),
+    'admin-ticket-types': pt('navTicketTypes')
   };
 
   document.querySelectorAll('.sidebar-link').forEach(link => {
