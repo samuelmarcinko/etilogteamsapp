@@ -174,6 +174,8 @@ const portalTranslations = {
     quotaSaved: 'Kvóta uložená',
     quotasInitialized: 'Inicializované pre',
     quotasInitConfirm: 'Inicializovať kvóty pre všetkých zamestnancov na rok',
+    quotasAllAlreadyInit: 'Všetci zamestnanci už majú kvóty nastavené',
+    quotasAllExist: 'všetci už majú kvóty',
     employees: 'zamestnancov',
 
     // Admin Quotas
@@ -410,6 +412,8 @@ const portalTranslations = {
     quotaSaved: 'Quota saved',
     quotasInitialized: 'Initialized for',
     quotasInitConfirm: 'Initialize quotas for all employees for year',
+    quotasAllAlreadyInit: 'All employees already have quotas set up',
+    quotasAllExist: 'all already have quotas',
     employees: 'employees',
 
     // Admin Quotas

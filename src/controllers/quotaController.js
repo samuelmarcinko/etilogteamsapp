@@ -1,5 +1,7 @@
 const Quota = require('../database/models/Quota');
 const Holiday = require('../database/models/Holiday');
+const GraphService = require('../services/graphService');
+const pool = require('../database/config');
 
 class QuotaController {
   /**
@@ -151,16 +153,41 @@ class QuotaController {
   /**
    * Initialize quotas for all users (admin)
    * POST /api/quotas/initialize
+   *
+   * 1. Syncs all Entra ID (Graph API) users into users table
+   * 2. Creates quotas for users who don't have one yet
    */
   static async initializeQuotas(req, res, next) {
     try {
       const year = parseInt(req.body.year) || new Date().getFullYear();
+
+      // Step 1: Sync all Graph API users into the users table
+      let syncedCount = 0;
+      try {
+        const graphUsers = await GraphService.getUsers();
+        for (const gu of graphUsers) {
+          await pool.query(
+            `INSERT INTO users (user_id, display_name, email)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (user_id) DO UPDATE SET
+               display_name = EXCLUDED.display_name,
+               email = EXCLUDED.email`,
+            [gu.id, gu.name, gu.email]
+          );
+          syncedCount++;
+        }
+      } catch (e) {
+        console.error('Failed to sync Graph users:', e.message);
+      }
+
+      // Step 2: Initialize quotas for all users in DB
       const created = await Quota.initializeForAllUsers(year);
 
       res.json({
         success: true,
-        message: `Initialized quotas for ${created.length} new users`,
+        message: `Synced ${syncedCount} users, initialized quotas for ${created.length} new users`,
         count: created.length,
+        synced: syncedCount,
         data: created
       });
     } catch (error) {

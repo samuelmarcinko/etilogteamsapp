@@ -783,7 +783,11 @@ async function initializeAllQuotas() {
             body: JSON.stringify({ year })
         });
         const result = await response.json();
-        showToast(`${pt('quotasInitialized')} ${result.count} ${pt('employees')}`, 'success');
+        if (result.count > 0) {
+            showToast(`${pt('quotasInitialized')} ${result.count} ${pt('employees')}`, 'success');
+        } else {
+            showToast(pt('quotasAllAlreadyInit') || `${pt('quotasInitialized')} 0 - ${pt('quotasAllExist')}`, 'success');
+        }
         navigateToPage('admin-employees');
     } catch (error) {
         showToast(error.message, 'error');
@@ -862,6 +866,20 @@ async function renderAdminQuotas(container) {
 
 async function openQuotaSettingsModal() {
     const year = new Date().getFullYear();
+
+    // Load existing settings to pre-fill
+    let existingVacation = 20;
+    let existingSick = 5;
+    try {
+        const res = await apiCall('/api/quotas/settings');
+        const allSettings = (await res.json()).data || [];
+        const current = allSettings.find(s => s.year === year);
+        if (current) {
+            existingVacation = current.default_vacation_days;
+            existingSick = current.default_sick_days;
+        }
+    } catch (e) { /* use defaults */ }
+
     document.getElementById('modalTitle').textContent = pt('quotaSettings');
     document.getElementById('modalBody').innerHTML = `
         <form id="quotaSettingsForm">
@@ -872,11 +890,11 @@ async function openQuotaSettingsModal() {
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">${pt('quotaSettingsDefaultVacation')}</label>
-                    <input type="number" class="form-input" name="default_vacation_days" value="20" min="0" max="50">
+                    <input type="number" class="form-input" name="default_vacation_days" value="${existingVacation}" min="0" max="50">
                 </div>
                 <div class="form-group">
                     <label class="form-label">${pt('quotaSettingsDefaultSick')}</label>
-                    <input type="number" class="form-input" name="default_sick_days" value="5" min="0" max="30">
+                    <input type="number" class="form-input" name="default_sick_days" value="${existingSick}" min="0" max="30">
                 </div>
             </div>
         </form>

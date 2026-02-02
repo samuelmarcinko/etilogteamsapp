@@ -175,10 +175,12 @@ class Quota {
 
   /**
    * Initialize quotas for all users for a given year
+   * Uses quota_settings defaults, falls back to 20/5 if no settings exist
    */
   static async initializeForAllUsers(year) {
     const settings = await this.getSettings(year);
-    if (!settings) return [];
+    const vacationDays = settings?.default_vacation_days || 20;
+    const sickDays = settings?.default_sick_days || 5;
 
     const result = await pool.query(
       `INSERT INTO employee_quotas (user_id, year, vacation_days_total, sick_days_total)
@@ -188,7 +190,7 @@ class Quota {
          SELECT 1 FROM employee_quotas eq WHERE eq.user_id = u.user_id AND eq.year = $1
        )
        RETURNING *`,
-      [year, settings.default_vacation_days, settings.default_sick_days]
+      [year, vacationDays, sickDays]
     );
     return result.rows;
   }
