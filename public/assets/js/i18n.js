@@ -85,11 +85,19 @@ const translations = {
     btnReject: 'Reject',
     
     // Alerts
-    alertSuccess: '✓ Request successfully created and sent for approval!',
-    alertError: '✗ ',
+    alertSuccess: 'Request successfully created and sent for approval!',
+    alertError: 'Error: ',
     alertErrorLoading: 'Error loading approvers list',
     alertErrorInit: 'Error initializing Teams SDK',
     alertErrorSubmit: 'Error creating request',
+
+    // Quota info on create form
+    quotaInfoRemaining: 'remaining',
+    quotaInfoOf: 'of',
+    quotaInfoDays: 'days',
+    quotaInfoVacation: 'Vacation balance',
+    quotaInfoSick: 'Sick days balance',
+    quotaInfoNotSet: 'Quota not configured',
 
     // Approvals page
     approvalsTitle: 'Pending Approvals',
@@ -281,11 +289,19 @@ const translations = {
     btnReject: 'Zamietnuť',
     
     // Alerts
-    alertSuccess: '✓ Žiadosť bola úspešne vytvorená a odoslaná na schválenie!',
-    alertError: '✗ ',
+    alertSuccess: 'Žiadosť bola úspešne vytvorená a odoslaná na schválenie!',
+    alertError: 'Chyba: ',
     alertErrorLoading: 'Chyba pri načítaní zoznamu schvaľovateľov',
     alertErrorInit: 'Chyba pri inicializácii Teams SDK',
     alertErrorSubmit: 'Chyba pri vytváraní žiadosti',
+
+    // Quota info on create form
+    quotaInfoRemaining: 'zostáva',
+    quotaInfoOf: 'z',
+    quotaInfoDays: 'dní',
+    quotaInfoVacation: 'Zostatok dovolenky',
+    quotaInfoSick: 'Zostatok sick days',
+    quotaInfoNotSet: 'Kvóta nenastavená',
 
     // Approvals page
     approvalsTitle: 'Čakajúce schválenia',

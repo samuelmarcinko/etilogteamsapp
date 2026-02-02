@@ -2,6 +2,7 @@
 let teamsContext = null;
 let currentUser = null;
 let ticketTypesData = []; // Loaded from API
+let userQuotaData = null; // Cached quota data
 
 // Toggle date fields visibility based on ticket type
 function toggleDateFields() {
@@ -25,6 +26,73 @@ function toggleDateFields() {
         startDateInput.value = '';
         endDateInput.value = '';
     }
+
+    // Show quota info for vacation / sick-leave
+    updateQuotaInfoBanner(ticketType);
+}
+
+// Load and display quota info banner
+async function updateQuotaInfoBanner(ticketType) {
+    const banner = document.getElementById('quotaInfoBanner');
+    if (!banner) return;
+
+    const isVacation = ticketType === 'vacation';
+    const isSick = ticketType === 'sick-leave';
+
+    if (!isVacation && !isSick) {
+        banner.style.display = 'none';
+        return;
+    }
+
+    // Fetch quota if not cached
+    if (!userQuotaData && currentUser?.id) {
+        try {
+            const year = new Date().getFullYear();
+            const res = await fetch(`/api/teams/dashboard?userId=${currentUser.id}&year=${year}`);
+            if (res.ok) {
+                const result = await res.json();
+                userQuotaData = result.data?.quota || null;
+            }
+        } catch (e) {
+            console.warn('Could not load quota:', e);
+        }
+    }
+
+    if (!userQuotaData) {
+        banner.style.display = 'block';
+        banner.className = 'quota-info-banner quota-info-neutral';
+        banner.innerHTML = `<span class="quota-info-icon">&#9432;</span> <span>${t('quotaInfoNotSet')}</span>`;
+        return;
+    }
+
+    let total, used, remaining, label, colorClass;
+
+    if (isVacation) {
+        total = userQuotaData.vacation_days_total;
+        used = userQuotaData.vacation_days_used;
+        remaining = userQuotaData.vacation_days_remaining;
+        label = t('quotaInfoVacation');
+        colorClass = remaining > 5 ? 'quota-info-good' : remaining > 0 ? 'quota-info-warn' : 'quota-info-danger';
+    } else {
+        total = userQuotaData.sick_days_total;
+        used = userQuotaData.sick_days_used;
+        remaining = userQuotaData.sick_days_remaining;
+        label = t('quotaInfoSick');
+        colorClass = remaining > 2 ? 'quota-info-good' : remaining > 0 ? 'quota-info-warn' : 'quota-info-danger';
+    }
+
+    banner.style.display = 'block';
+    banner.className = `quota-info-banner ${colorClass}`;
+    banner.innerHTML = `
+        <div class="quota-info-main">
+            <span class="quota-info-label">${label}</span>
+            <span class="quota-info-value">${remaining} ${t('quotaInfoDays')} ${t('quotaInfoRemaining')}</span>
+        </div>
+        <div class="quota-info-bar-track">
+            <div class="quota-info-bar-fill" style="width:${total > 0 ? ((total - remaining) / total * 100) : 0}%"></div>
+        </div>
+        <span class="quota-info-detail">${used} ${t('quotaInfoOf')} ${total} ${t('quotaInfoDays')}</span>
+    `;
 }
 
 // Load ticket types from API
@@ -38,7 +106,7 @@ async function loadTicketTypes() {
         ticketTypesData = result.data || [];
 
         // Get current language
-        const lang = localStorage.getItem('etilog_lang') || 'en';
+        const lang = localStorage.getItem('appLanguage') || 'en';
 
         // Keep placeholder
         typeSelect.innerHTML = `<option value="">${t('placeholderType')}</option>`;
@@ -58,7 +126,7 @@ async function loadTicketTypes() {
 
 // Update ticket type labels when language changes
 function updateTicketTypeLabels() {
-    const lang = localStorage.getItem('etilog_lang') || 'en';
+    const lang = localStorage.getItem('appLanguage') || 'en';
     const typeSelect = document.getElementById('ticketType');
     if (!typeSelect) return;
 
@@ -67,12 +135,15 @@ function updateTicketTypeLabels() {
     });
 }
 
-// Override the original switchLanguage to also update ticket type labels
+// Override the original switchLanguage to also update ticket type labels + quota
 const _originalSwitchLanguage = typeof switchLanguage === 'function' ? switchLanguage : null;
 if (_originalSwitchLanguage) {
     window.switchLanguage = function(lang) {
         _originalSwitchLanguage(lang);
         updateTicketTypeLabels();
+        // Refresh quota banner with new language
+        const ticketType = document.getElementById('ticketType')?.value;
+        if (ticketType) updateQuotaInfoBanner(ticketType);
     };
 }
 
@@ -82,9 +153,6 @@ if (_originalSwitchLanguage) {
         await microsoftTeams.app.initialize();
         teamsContext = await microsoftTeams.app.getContext();
         currentUser = teamsContext.user;
-
-        console.log('Teams context:', teamsContext);
-        console.log('Current user:', currentUser);
 
         // Fetch current user info from Graph API to get displayName
         try {
@@ -96,7 +164,6 @@ if (_originalSwitchLanguage) {
                     displayName: userResult.data.name,
                     graphEmail: userResult.data.email
                 };
-                console.log('Enhanced user info from Graph:', currentUser);
             }
         } catch (error) {
             console.warn('Could not fetch user from Graph API, using Teams context only:', error);
@@ -108,9 +175,21 @@ if (_originalSwitchLanguage) {
             loadApprovers()
         ]);
 
+        // Pre-fetch quota data
+        if (currentUser?.id) {
+            try {
+                const year = new Date().getFullYear();
+                const res = await fetch(`/api/teams/dashboard?userId=${currentUser.id}&year=${year}`);
+                if (res.ok) {
+                    const result = await res.json();
+                    userQuotaData = result.data?.quota || null;
+                }
+            } catch (e) { /* ignore */ }
+        }
+
     } catch (error) {
         console.error('Error initializing Teams:', error);
-        showAlert(t('alertErrorInit'), 'error');
+        showToast(t('alertErrorInit'), 'error');
     }
 })();
 
@@ -143,7 +222,7 @@ async function loadApprovers() {
 
     } catch (error) {
         console.error('Error loading approvers:', error);
-        showAlert(t('alertErrorLoading'), 'error');
+        showToast(t('alertErrorLoading'), 'error');
     }
 }
 
@@ -178,8 +257,6 @@ document.getElementById('approvalForm').addEventListener('submit', async (e) => 
             end_date: formData.get('endDate') || null
         };
 
-        console.log('Submitting ticket:', ticketData);
-
         const response = await fetch('/api/tickets', {
             method: 'POST',
             headers: {
@@ -194,15 +271,17 @@ document.getElementById('approvalForm').addEventListener('submit', async (e) => 
         }
 
         const result = await response.json();
-        console.log('Ticket created:', result);
 
-        showAlert(t('alertSuccess'), 'success');
+        showToast(t('alertSuccess'), 'success');
 
         if (window.refreshApprovalsBadge) {
             window.refreshApprovalsBadge();
         }
 
         e.target.reset();
+        // Hide quota banner after reset
+        const banner = document.getElementById('quotaInfoBanner');
+        if (banner) banner.style.display = 'none';
 
         // Reload ticket types and approvers
         await Promise.all([
@@ -210,15 +289,12 @@ document.getElementById('approvalForm').addEventListener('submit', async (e) => 
             loadApprovers()
         ]);
 
-        setTimeout(() => {
-            if (microsoftTeams.tasks) {
-                microsoftTeams.tasks.submitTask({ success: true });
-            }
-        }, 2000);
+        // Refresh quota data after submission
+        userQuotaData = null;
 
     } catch (error) {
         console.error('Error submitting ticket:', error);
-        showAlert(t('alertError') + error.message, 'error');
+        showToast(t('alertError') + error.message, 'error');
     } finally {
         submitBtn.disabled = false;
         btnText.textContent = t('btnSubmit');
@@ -226,21 +302,30 @@ document.getElementById('approvalForm').addEventListener('submit', async (e) => 
     }
 });
 
-// Show alert message
-function showAlert(message, type = 'success') {
-    const alertContainer = document.getElementById('alertContainer');
+// Show toast notification (fixed position, styled)
+function showToast(message, type = 'success') {
+    // Remove existing toasts
+    document.querySelectorAll('.app-toast').forEach(t => t.remove());
 
-    const alert = document.createElement('div');
-    alert.className = `alert alert-${type}`;
-    alert.innerHTML = `
-        <span class="alert-icon">${type === 'success' ? '✓' : '✗'}</span>
-        <span>${message}</span>
+    const toast = document.createElement('div');
+    toast.className = `app-toast app-toast-${type}`;
+    toast.innerHTML = `
+        <span class="app-toast-icon">${type === 'success' ? '&#10004;' : '&#10006;'}</span>
+        <span class="app-toast-msg">${message}</span>
+        <button class="app-toast-close" onclick="this.parentElement.remove()">&times;</button>
     `;
+    document.body.appendChild(toast);
 
-    alertContainer.innerHTML = '';
-    alertContainer.appendChild(alert);
-
+    // Auto remove after 5 seconds
     setTimeout(() => {
-        alert.remove();
+        if (toast.parentElement) {
+            toast.classList.add('app-toast-hide');
+            setTimeout(() => toast.remove(), 300);
+        }
     }, 5000);
+}
+
+// Keep old showAlert as alias for backward compat
+function showAlert(message, type) {
+    showToast(message, type);
 }
