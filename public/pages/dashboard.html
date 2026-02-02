@@ -8,6 +8,119 @@
     <script src="https://res.cdn.office.net/teams-js/2.19.0/js/MicrosoftTeams.min.js"></script>
     <script src="/assets/js/i18n.js"></script>
     <script src="/assets/js/navigation.js"></script>
+    <style>
+        /* Quota & Holiday Overview Cards */
+        .overview-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        @media (max-width: 768px) {
+            .overview-grid { grid-template-columns: 1fr; }
+        }
+
+        .overview-card {
+            background: var(--white, #fff);
+            border-radius: 16px;
+            border: 1px solid var(--gray-200, #e5e7eb);
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .overview-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .overview-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            flex-shrink: 0;
+        }
+        .overview-icon.vacation { background: #dbeafe; color: #2563eb; }
+        .overview-icon.sick { background: #fef3c7; color: #d97706; }
+        .overview-icon.holiday { background: #dcfce7; color: #16a34a; }
+
+        .overview-info { flex: 1; min-width: 0; }
+        .overview-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--gray-500, #6b7280);
+            font-weight: 600;
+            margin-bottom: 0.15rem;
+        }
+        .overview-value {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: var(--gray-900, #111827);
+            line-height: 1.2;
+        }
+        .overview-detail {
+            font-size: 0.75rem;
+            color: var(--gray-400, #9ca3af);
+            margin-top: 0.15rem;
+        }
+
+        .overview-bar {
+            height: 5px;
+            border-radius: 3px;
+            background: var(--gray-100, #f3f4f6);
+            margin-top: 0.5rem;
+            overflow: hidden;
+        }
+        .overview-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+        .bar-green { background: #22c55e; }
+        .bar-amber { background: #f59e0b; }
+        .bar-red { background: #ef4444; }
+
+        /* Section separator */
+        .section-divider {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin: 1.5rem 0 1rem;
+        }
+        .section-divider h2 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--gray-700, #374151);
+            white-space: nowrap;
+            margin: 0;
+        }
+        .section-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--gray-200, #e5e7eb);
+        }
+
+        /* Loading skeleton for overview cards */
+        .overview-card.loading .overview-value,
+        .overview-card.loading .overview-detail {
+            background: var(--gray-100, #f3f4f6);
+            color: transparent;
+            border-radius: 4px;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
 </head>
 <body data-page="dashboard">
     <!-- Language Switcher -->
@@ -29,26 +142,62 @@
             </div>
         </div>
 
-        <!-- Stats Cards -->
+        <!-- Overview Section: Quota + Holiday -->
+        <div class="overview-grid" id="overviewGrid">
+            <div class="overview-card loading" id="vacationCard">
+                <div class="overview-icon vacation">&#127796;</div>
+                <div class="overview-info">
+                    <div class="overview-label" data-i18n="dashVacationRemaining">Vacation remaining</div>
+                    <div class="overview-value" id="vacationRemaining">-</div>
+                    <div class="overview-detail" id="vacationDetail">&nbsp;</div>
+                    <div class="overview-bar"><div class="overview-bar-fill bar-green" id="vacationBar" style="width:0%"></div></div>
+                </div>
+            </div>
+
+            <div class="overview-card loading" id="sickCard">
+                <div class="overview-icon sick">&#129298;</div>
+                <div class="overview-info">
+                    <div class="overview-label" data-i18n="dashSickRemaining">Sick days remaining</div>
+                    <div class="overview-value" id="sickRemaining">-</div>
+                    <div class="overview-detail" id="sickDetail">&nbsp;</div>
+                    <div class="overview-bar"><div class="overview-bar-fill bar-green" id="sickBar" style="width:0%"></div></div>
+                </div>
+            </div>
+
+            <div class="overview-card loading" id="holidayCard">
+                <div class="overview-icon holiday">&#127876;</div>
+                <div class="overview-info">
+                    <div class="overview-label" data-i18n="dashNextHoliday">Next holiday</div>
+                    <div class="overview-value" id="nextHolidayName">-</div>
+                    <div class="overview-detail" id="nextHolidayDate">&nbsp;</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ticket Stats Section -->
+        <div class="section-divider">
+            <h2 data-i18n="dashYourTickets">Your Tickets</h2>
+        </div>
+
         <div class="stats-grid">
             <div class="stat-card stat-pending">
-                <div class="stat-icon">⏳</div>
+                <div class="stat-icon">&#9203;</div>
                 <div class="stat-content">
                     <div class="stat-value" id="pendingCount">0</div>
                     <div class="stat-label" data-i18n="statPending">Pending</div>
                 </div>
             </div>
-            
+
             <div class="stat-card stat-approved">
-                <div class="stat-icon">✅</div>
+                <div class="stat-icon">&#9989;</div>
                 <div class="stat-content">
                     <div class="stat-value" id="approvedCount">0</div>
                     <div class="stat-label" data-i18n="statApproved">Approved</div>
                 </div>
             </div>
-            
+
             <div class="stat-card stat-rejected">
-                <div class="stat-icon">❌</div>
+                <div class="stat-icon">&#10060;</div>
                 <div class="stat-content">
                     <div class="stat-value" id="rejectedCount">0</div>
                     <div class="stat-label" data-i18n="statRejected">Rejected</div>
@@ -57,8 +206,11 @@
         </div>
 
         <!-- Recent Requests -->
-        <div class="card">
+        <div class="section-divider">
             <h2 data-i18n="recentRequests">Recent Requests</h2>
+        </div>
+
+        <div class="card" style="border-top:none;">
             <div id="requestsList" class="requests-list">
                 <div class="loading-spinner">
                     <div class="loading"></div>

@@ -1,7 +1,8 @@
 // Dashboard logic
 let teamsContext = null;
 let currentUser = null;
-let allTickets = []; // Store tickets globally for re-rendering
+let allTickets = [];
+let dashboardData = null;
 
 // Initialize
 (async function init() {
@@ -16,36 +17,43 @@ let allTickets = []; // Store tickets globally for re-rendering
     }
 })();
 
-// Load dashboard data
+// Load all dashboard data
 async function loadDashboardData() {
     try {
-        // Fetch only MY tickets (created by me) and tickets assigned to me
-        const myTicketsResponse = await fetch(`/api/tickets?createdById=${currentUser.id}`);
-        const myApprovalsResponse = await fetch(`/api/tickets?assignedApproverId=${currentUser.id}`);
+        const year = new Date().getFullYear();
 
-        if (!myTicketsResponse.ok || !myApprovalsResponse.ok) {
-            throw new Error('Failed to load tickets');
+        // Fetch dashboard overview + tickets in parallel
+        const [dashRes, myTicketsRes, myApprovalsRes] = await Promise.all([
+            fetch(`/api/teams/dashboard?userId=${currentUser.id}&year=${year}`),
+            fetch(`/api/tickets?createdById=${currentUser.id}`),
+            fetch(`/api/tickets?assignedApproverId=${currentUser.id}`)
+        ]);
+
+        if (!dashRes.ok) throw new Error('Failed to load dashboard data');
+
+        const dashResult = await dashRes.json();
+        dashboardData = dashResult.data;
+
+        // Render overview cards
+        renderOverviewCards(dashboardData);
+
+        // Update ticket stats from API
+        const stats = dashboardData.ticketStats;
+        document.getElementById('pendingCount').textContent = stats.pending;
+        document.getElementById('approvedCount').textContent = stats.approved;
+        document.getElementById('rejectedCount').textContent = stats.rejected;
+
+        // Load and render tickets
+        if (myTicketsRes.ok && myApprovalsRes.ok) {
+            const myTickets = (await myTicketsRes.json()).data || [];
+            const myApprovals = (await myApprovalsRes.json()).data || [];
+
+            allTickets = [...myTickets, ...myApprovals.filter(
+                a => !myTickets.find(t => t.id === a.id)
+            )];
+
+            renderRequests(allTickets.slice(0, 10));
         }
-
-        const myTicketsResult = await myTicketsResponse.json();
-        const myApprovalsResult = await myApprovalsResponse.json();
-
-        const myTickets = myTicketsResult.data || [];
-        const myApprovals = myApprovalsResult.data || [];
-
-        // Combine and deduplicate tickets
-        const allMyTickets = [...myTickets, ...myApprovals.filter(
-            approval => !myTickets.find(ticket => ticket.id === approval.id)
-        )];
-
-        // Store tickets globally
-        allTickets = allMyTickets;
-
-        // Update stats (only my tickets)
-        updateStats(allMyTickets);
-
-        // Render recent requests (only my tickets)
-        renderRequests(allMyTickets.slice(0, 10));
 
     } catch (error) {
         console.error('Error loading dashboard:', error);
@@ -57,17 +65,86 @@ async function loadDashboardData() {
     }
 }
 
-// Update statistics
-function updateStats(tickets) {
-    const stats = {
-        pending: tickets.filter(t => t.status === 'Pending').length,
-        approved: tickets.filter(t => t.status === 'Approved').length,
-        rejected: tickets.filter(t => t.status === 'Rejected').length
-    };
+// Render the quota + holiday overview cards
+function renderOverviewCards(data) {
+    const lang = getCurrentLang();
+    const quota = data.quota;
+    const holidays = data.nextHolidays || [];
 
-    document.getElementById('pendingCount').textContent = stats.pending;
-    document.getElementById('approvedCount').textContent = stats.approved;
-    document.getElementById('rejectedCount').textContent = stats.rejected;
+    // Vacation card
+    const vacCard = document.getElementById('vacationCard');
+    vacCard.classList.remove('loading');
+    if (quota) {
+        const vacRemaining = quota.vacation_days_remaining;
+        const vacTotal = quota.vacation_days_total;
+        const vacUsedPct = Math.round((quota.vacation_days_used / vacTotal) * 100);
+        const barClass = vacUsedPct > 90 ? 'bar-red' : vacUsedPct > 70 ? 'bar-amber' : 'bar-green';
+
+        document.getElementById('vacationRemaining').textContent = `${vacRemaining} ${t('dashDays')}`;
+        document.getElementById('vacationDetail').textContent = `${quota.vacation_days_used} / ${vacTotal} ${t('dashUsed')}`;
+        const vacBar = document.getElementById('vacationBar');
+        vacBar.className = `overview-bar-fill ${barClass}`;
+        vacBar.style.width = `${Math.min(vacUsedPct, 100)}%`;
+    } else {
+        document.getElementById('vacationRemaining').textContent = '-';
+        document.getElementById('vacationDetail').textContent = t('dashNoQuota');
+    }
+
+    // Sick days card
+    const sickCard = document.getElementById('sickCard');
+    sickCard.classList.remove('loading');
+    if (quota) {
+        const sickRemaining = quota.sick_days_remaining;
+        const sickTotal = quota.sick_days_total;
+        const sickUsedPct = Math.round((quota.sick_days_used / sickTotal) * 100);
+        const barClass = sickUsedPct > 90 ? 'bar-red' : sickUsedPct > 70 ? 'bar-amber' : 'bar-green';
+
+        document.getElementById('sickRemaining').textContent = `${sickRemaining} ${t('dashDays')}`;
+        document.getElementById('sickDetail').textContent = `${quota.sick_days_used} / ${sickTotal} ${t('dashUsed')}`;
+        const sickBar = document.getElementById('sickBar');
+        sickBar.className = `overview-bar-fill ${barClass}`;
+        sickBar.style.width = `${Math.min(sickUsedPct, 100)}%`;
+    } else {
+        document.getElementById('sickRemaining').textContent = '-';
+        document.getElementById('sickDetail').textContent = t('dashNoQuota');
+    }
+
+    // Next holiday card
+    const holCard = document.getElementById('holidayCard');
+    holCard.classList.remove('loading');
+    if (holidays.length > 0) {
+        const next = holidays[0];
+        document.getElementById('nextHolidayName').textContent = next.name;
+        document.getElementById('nextHolidayDate').textContent = formatHolidayDate(next.date);
+
+        // If there are more holidays, show count
+        if (holidays.length > 1) {
+            document.getElementById('nextHolidayDate').textContent +=
+                ` (+${holidays.length - 1} ${t('dashMoreHolidays')})`;
+        }
+    } else {
+        document.getElementById('nextHolidayName').textContent = t('dashNoUpcomingHoliday');
+        document.getElementById('nextHolidayDate').textContent = '';
+    }
+}
+
+// Format holiday date nicely
+function formatHolidayDate(dateStr) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const lang = getCurrentLang();
+    const now = new Date();
+    const diffDays = Math.ceil((date - now) / (1000 * 60 * 60 * 24));
+
+    const formatted = date.toLocaleDateString(lang === 'sk' ? 'sk-SK' : 'en-US', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'long'
+    });
+
+    if (diffDays === 0) return `${formatted} (${t('dashToday')})`;
+    if (diffDays === 1) return `${formatted} (${t('dashTomorrow')})`;
+    return `${formatted} (${t('dashInDays').replace('{n}', diffDays)})`;
 }
 
 // Render requests list
@@ -97,14 +174,14 @@ function renderRequests(tickets) {
             </div>
             <div class="request-meta">
                 <span class="priority-badge priority-${ticket.priority.toLowerCase()}">
-                    ${ticket.priority === 'Urgent' ? '🔥' : ticket.priority === 'High' ? '⚠️' : ticket.priority === 'Low' ? '📌' : '📋'} ${t('labelPriorityLabel')}: ${translatePriority(ticket.priority)}
+                    ${ticket.priority === 'Urgent' ? '&#128293;' : ticket.priority === 'High' ? '&#9888;' : ticket.priority === 'Low' ? '&#128204;' : '&#128203;'} ${t('labelPriorityLabel')}: ${translatePriority(ticket.priority)}
                 </span>
                 <span class="meta-item">
-                    <strong>👤 ${t('labelCreatedBy')}:</strong> ${ticket.created_by_name}
+                    <strong>&#128100; ${t('labelCreatedBy')}:</strong> ${ticket.created_by_name}
                 </span>
-                ${(ticket.ticket_type === 'vacation' || ticket.ticket_type === 'sick-leave') && ticket.start_date && ticket.end_date ? `
+                ${ticket.start_date && ticket.end_date ? `
                     <span class="meta-item">
-                        <strong>📅</strong> ${formatDate(ticket.start_date)} → ${formatDate(ticket.end_date)}
+                        <strong>&#128197;</strong> ${formatDate(ticket.start_date)} → ${formatDate(ticket.end_date)}
                     </span>
                 ` : ''}
             </div>
@@ -116,12 +193,7 @@ function renderRequests(tickets) {
     `).join('');
 }
 
-// Helper function
-function capitalizeFirst(str) {
-    return str.charAt(0).toUpperCase() + str.slice(1);
-}
-
-// Helper function to get type badge class
+// Helper functions
 function getTypeBadgeClass(type) {
     const classMap = {
         'vacation': 'type-vacation',
@@ -134,7 +206,6 @@ function getTypeBadgeClass(type) {
     return classMap[type?.toLowerCase()] || 'type-other';
 }
 
-// Helper function to translate ticket type
 function translateTicketType(type) {
     const typeMap = {
         'vacation': 'typeVacation',
@@ -147,7 +218,6 @@ function translateTicketType(type) {
     return t(typeMap[type?.toLowerCase()] || 'typeOther');
 }
 
-// Helper function to translate priority
 function translatePriority(priority) {
     const priorityMap = {
         'low': 'priorityLow',
@@ -158,7 +228,6 @@ function translatePriority(priority) {
     return t(priorityMap[priority?.toLowerCase()] || 'priorityMedium');
 }
 
-// Helper function to format date
 function formatDate(dateString) {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -170,11 +239,12 @@ function formatDate(dateString) {
     });
 }
 
-// Override switchLanguage to re-render dashboard with new translations
+// Override switchLanguage to re-render with new translations
 const originalSwitchLanguage = window.switchLanguage;
 window.switchLanguage = function(lang) {
     originalSwitchLanguage(lang);
-    // Re-render stats and requests with new translations
-    updateStats(allTickets);
+    if (dashboardData) {
+        renderOverviewCards(dashboardData);
+    }
     renderRequests(allTickets.slice(0, 10));
 };

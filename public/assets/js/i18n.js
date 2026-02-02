@@ -17,6 +17,21 @@ const translations = {
     loadingRequests: 'Loading requests...',
     noRequests: 'No requests found',
     viewDetails: 'View Details',
+
+    // Dashboard overview
+    dashVacationRemaining: 'Vacation remaining',
+    dashSickRemaining: 'Sick days remaining',
+    dashNextHoliday: 'Next holiday',
+    dashYourTickets: 'Your Tickets',
+    dashDays: 'days',
+    dashUsed: 'used',
+    dashNoQuota: 'Not set up yet',
+    dashNoUpcomingHoliday: 'No upcoming holidays',
+    dashMoreHolidays: 'more',
+    dashToday: 'today',
+    dashTomorrow: 'tomorrow',
+    dashInDays: 'in {n} days',
+    errorLoadingDashboard: 'Error loading dashboard',
     
     // Form labels
     labelTitle: 'Request Title',
@@ -192,6 +207,21 @@ const translations = {
     recentRequests: 'Posledné žiadosti',
     loadingRequests: 'Načítavam žiadosti...',
     noRequests: 'Neboli nájdené žiadne žiadosti',
+
+    // Dashboard overview
+    dashVacationRemaining: 'Zostatok dovolenky',
+    dashSickRemaining: 'Zostatok zdravotného voľna',
+    dashNextHoliday: 'Najbližší sviatok',
+    dashYourTickets: 'Vaše tikety',
+    dashDays: 'dní',
+    dashUsed: 'vyčerpané',
+    dashNoQuota: 'Zatiaľ nenastavené',
+    dashNoUpcomingHoliday: 'Žiadne nadchádzajúce sviatky',
+    dashMoreHolidays: 'ďalšie',
+    dashToday: 'dnes',
+    dashTomorrow: 'zajtra',
+    dashInDays: 'o {n} dní',
+    errorLoadingDashboard: 'Chyba pri načítaní dashboardu',
     viewDetails: 'Zobraziť detail',
     
     // Form labels
