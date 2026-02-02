@@ -500,13 +500,24 @@
     }
 
     function showAlert(message, type = 'success') {
-        const alertContainer = document.getElementById('alertContainer');
-        const alert = document.createElement('div');
-        alert.className = `alert alert-${type}`;
-        alert.innerHTML = `<span class="alert-icon">${type === 'success' ? '✓' : '✗'}</span><span>${message}</span>`;
-        alertContainer.innerHTML = '';
-        alertContainer.appendChild(alert);
-        setTimeout(() => alert.remove(), 5000);
+        // Remove existing toasts
+        document.querySelectorAll('.app-toast').forEach(t => t.remove());
+
+        const toast = document.createElement('div');
+        toast.className = `app-toast app-toast-${type}`;
+        toast.innerHTML = `
+            <span class="app-toast-icon">${type === 'success' ? '&#10004;' : '&#10006;'}</span>
+            <span class="app-toast-msg">${message}</span>
+            <button class="app-toast-close" onclick="this.parentElement.remove()">&times;</button>
+        `;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            if (toast.parentElement) {
+                toast.classList.add('app-toast-hide');
+                setTimeout(() => toast.remove(), 300);
+            }
+        }, 5000);
     }
     </script>
 </body>
