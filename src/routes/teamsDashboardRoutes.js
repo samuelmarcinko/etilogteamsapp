@@ -24,7 +24,7 @@ router.get('/', async (req, res) => {
   // 1. Get user's quota
   try {
     const result = await pool.query(
-      'SELECT * FROM quotas WHERE user_id = $1 AND year = $2',
+      'SELECT * FROM employee_quotas WHERE user_id = $1 AND year = $2',
       [userId, year]
     );
     const quota = result.rows[0];
