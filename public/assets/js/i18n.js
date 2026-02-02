@@ -409,6 +409,10 @@ function switchLanguage(lang) {
     navContainer.innerHTML = '';
     const currentPage = document.body.getAttribute('data-page');
     navContainer.appendChild(renderNavigation(currentPage));
+    // Re-apply badge count after nav rebuild
+    if (typeof updateNavigationBadge === 'function') {
+      updateNavigationBadge();
+    }
   }
 }
 

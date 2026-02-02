@@ -55,11 +55,28 @@ function updateNavigationBadge() {
   }
 }
 
+// Update scroll fade indicators based on scroll position
+function updateScrollFades(scrollArea) {
+  const wrapper = scrollArea.closest('.nav-wrapper');
+  if (!wrapper) return;
+
+  const scrollLeft = scrollArea.scrollLeft;
+  const maxScroll = scrollArea.scrollWidth - scrollArea.clientWidth;
+
+  wrapper.classList.toggle('fade-left', scrollLeft > 8);
+  wrapper.classList.toggle('fade-right', scrollLeft < maxScroll - 8);
+}
+
 // Render navigation
 function renderNavigation(currentPage) {
   const lang = localStorage.getItem('appLanguage') || 'en';
   const items = NAV_ITEMS[lang];
 
+  // Outer wrapper for fade indicators
+  const wrapper = document.createElement('div');
+  wrapper.className = 'nav-wrapper';
+
+  // Scrollable nav area
   const nav = document.createElement('nav');
   nav.className = 'app-nav';
   nav.innerHTML = items.map(item => `
@@ -70,7 +87,25 @@ function renderNavigation(currentPage) {
     </a>
   `).join('');
 
-  return nav;
+  // Language switcher inside the nav bar
+  const langSwitcher = document.createElement('div');
+  langSwitcher.className = 'nav-lang-switcher';
+  langSwitcher.innerHTML = `
+    <button class="lang-btn ${lang === 'en' ? 'active' : ''}" data-lang="en" onclick="switchLanguage('en')">EN</button>
+    <button class="lang-btn ${lang === 'sk' ? 'active' : ''}" data-lang="sk" onclick="switchLanguage('sk')">SK</button>
+  `;
+
+  wrapper.appendChild(nav);
+  wrapper.appendChild(langSwitcher);
+
+  // Set up scroll fade indicators after rendering
+  requestAnimationFrame(() => {
+    updateScrollFades(nav);
+    nav.addEventListener('scroll', () => updateScrollFades(nav), { passive: true });
+    window.addEventListener('resize', () => updateScrollFades(nav), { passive: true });
+  });
+
+  return wrapper;
 }
 
 // Initialize navigation on page load

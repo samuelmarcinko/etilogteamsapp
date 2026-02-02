@@ -110,31 +110,21 @@ body {
 }
 
 /* ==================================
-   LANGUAGE SWITCHER
+   LANGUAGE SWITCHER (inside nav)
    ================================== */
 
 .lang-switcher {
-  position: fixed;
-  top: 1.5rem;
-  right: 1.5rem;
-  z-index: 1000;
-  background: var(--white);
-  border-radius: 14px;
-  box-shadow: var(--shadow-md);
-  padding: 0.375rem;
-  display: flex;
-  gap: 0.375rem;
-  border: 1px solid var(--gray-200);
+  display: none;
 }
 
 .lang-btn {
-  padding: 0.5rem 1rem;
+  padding: 0.375rem 0.75rem;
   border: none;
   background: transparent;
   color: var(--gray-600);
   font-weight: 600;
-  font-size: 0.875rem;
-  border-radius: 10px;
+  font-size: 0.8125rem;
+  border-radius: 8px;
   cursor: pointer;
   transition: all var(--transition);
   letter-spacing: 0.02em;
@@ -148,7 +138,7 @@ body {
 .lang-btn.active {
   background: var(--etilog-red);
   color: white;
-  box-shadow: 0 4px 12px rgba(217, 0, 12, 0.25);
+  box-shadow: 0 2px 8px rgba(217, 0, 12, 0.25);
 }
 
 /* ==================================
@@ -178,19 +168,72 @@ body {
 }
 
 /* ==================================
-   NAVIGATION - ORIGINAL BOX STYLE
+   NAVIGATION - WITH SCROLL INDICATORS
    ================================== */
 
-.app-nav {
-  display: flex;
-  gap: 0.75rem;
-  padding: 1rem;
+.nav-wrapper {
+  position: relative;
   background: var(--white);
   border-radius: 16px;
   border: 1px solid var(--gray-200);
   box-shadow: var(--shadow-md);
   margin-bottom: 1.5rem;
+  display: flex;
+  align-items: stretch;
+}
+
+/* Fade indicators for scroll hint */
+.nav-wrapper::before,
+.nav-wrapper::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 32px;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.nav-wrapper::before {
+  left: 0;
+  border-radius: 16px 0 0 16px;
+  background: linear-gradient(to right, var(--white) 0%, transparent 100%);
+}
+
+.nav-wrapper::after {
+  right: 80px; /* keep space for lang switcher */
+  background: linear-gradient(to left, var(--white) 0%, transparent 100%);
+}
+
+.nav-wrapper.fade-left::before {
+  opacity: 1;
+}
+
+.nav-wrapper.fade-right::after {
+  opacity: 1;
+}
+
+/* Language switcher pinned inside nav bar */
+.nav-lang-switcher {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border-left: 1px solid var(--gray-200);
+  flex-shrink: 0;
+  background: var(--gray-50);
+  border-radius: 0 16px 16px 0;
+}
+
+.app-nav {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem;
   overflow-x: auto;
+  flex: 1;
+  min-width: 0;
   scrollbar-width: none;
 }
 
@@ -973,9 +1016,39 @@ body {
     grid-template-columns: 1fr;
   }
 
-  .lang-switcher {
-    top: 1rem;
-    right: 1rem;
+  /* Show thin scrollbar on mobile to hint at scrollability */
+  .app-nav {
+    scrollbar-width: thin;
+    scrollbar-color: var(--gray-300) transparent;
+    padding: 0.75rem;
+    gap: 0.5rem;
+  }
+
+  .app-nav::-webkit-scrollbar {
+    display: block;
+    height: 3px;
+  }
+
+  .app-nav::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .app-nav::-webkit-scrollbar-thumb {
+    background: var(--gray-300);
+    border-radius: 3px;
+  }
+
+  .nav-wrapper::after {
+    right: 70px;
+  }
+
+  .nav-lang-switcher {
+    padding: 0.375rem 0.5rem;
+  }
+
+  .lang-btn {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.75rem;
   }
 
   .filters-row {
