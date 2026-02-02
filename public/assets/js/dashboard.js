@@ -19,44 +19,76 @@ let dashboardData = null;
 
 // Load all dashboard data
 async function loadDashboardData() {
+    // Load overview (quotas + holidays) and tickets separately
+    // so one failure doesn't block the other
+    await Promise.all([
+        loadOverviewData(),
+        loadTicketsData()
+    ]);
+}
+
+// Load quota + holiday overview
+async function loadOverviewData() {
     try {
         const year = new Date().getFullYear();
+        const response = await fetch(`/api/teams/dashboard?userId=${currentUser.id}&year=${year}`);
 
-        // Fetch dashboard overview + tickets in parallel
-        const [dashRes, myTicketsRes, myApprovalsRes] = await Promise.all([
-            fetch(`/api/teams/dashboard?userId=${currentUser.id}&year=${year}`),
-            fetch(`/api/tickets?createdById=${currentUser.id}`),
-            fetch(`/api/tickets?assignedApproverId=${currentUser.id}`)
-        ]);
+        if (!response.ok) {
+            console.error('Dashboard API error:', response.status);
+            throw new Error('API error ' + response.status);
+        }
 
-        if (!dashRes.ok) throw new Error('Failed to load dashboard data');
-
-        const dashResult = await dashRes.json();
-        dashboardData = dashResult.data;
-
-        // Render overview cards
+        const result = await response.json();
+        dashboardData = result.data;
         renderOverviewCards(dashboardData);
 
-        // Update ticket stats from API
+        // Update ticket stats
         const stats = dashboardData.ticketStats;
         document.getElementById('pendingCount').textContent = stats.pending;
         document.getElementById('approvedCount').textContent = stats.approved;
         document.getElementById('rejectedCount').textContent = stats.rejected;
+    } catch (error) {
+        console.error('Error loading overview:', error);
+        // Remove loading animation even on error
+        document.querySelectorAll('.overview-card.loading').forEach(c => c.classList.remove('loading'));
+        document.getElementById('vacationRemaining').textContent = '-';
+        document.getElementById('sickRemaining').textContent = '-';
+        document.getElementById('nextHolidayName').textContent = '-';
+    }
+}
 
-        // Load and render tickets
-        if (myTicketsRes.ok && myApprovalsRes.ok) {
-            const myTickets = (await myTicketsRes.json()).data || [];
-            const myApprovals = (await myApprovalsRes.json()).data || [];
+// Load tickets separately
+async function loadTicketsData() {
+    try {
+        const [myTicketsRes, myApprovalsRes] = await Promise.all([
+            fetch(`/api/tickets?createdById=${currentUser.id}`),
+            fetch(`/api/tickets?assignedApproverId=${currentUser.id}`)
+        ]);
 
-            allTickets = [...myTickets, ...myApprovals.filter(
-                a => !myTickets.find(t => t.id === a.id)
-            )];
-
-            renderRequests(allTickets.slice(0, 10));
+        if (!myTicketsRes.ok || !myApprovalsRes.ok) {
+            throw new Error('Failed to load tickets');
         }
 
+        const myTickets = (await myTicketsRes.json()).data || [];
+        const myApprovals = (await myApprovalsRes.json()).data || [];
+
+        allTickets = [...myTickets, ...myApprovals.filter(
+            a => !myTickets.find(t => t.id === a.id)
+        )];
+
+        // Update stats from tickets if overview didn't load
+        if (!dashboardData) {
+            const pending = allTickets.filter(t => t.status === 'Pending').length;
+            const approved = allTickets.filter(t => t.status === 'Approved').length;
+            const rejected = allTickets.filter(t => t.status === 'Rejected').length;
+            document.getElementById('pendingCount').textContent = pending;
+            document.getElementById('approvedCount').textContent = approved;
+            document.getElementById('rejectedCount').textContent = rejected;
+        }
+
+        renderRequests(allTickets.slice(0, 10));
     } catch (error) {
-        console.error('Error loading dashboard:', error);
+        console.error('Error loading tickets:', error);
         document.getElementById('requestsList').innerHTML = `
             <div class="error-message">
                 <p>${t('errorLoadingDashboard')}: ${error.message}</p>
