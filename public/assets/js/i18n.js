@@ -187,6 +187,11 @@ const translations = {
     sickNotesColDoctor: 'Doctor',
     sickNotesColFile: 'Document',
     sickNotesHelperFile: 'Max 10MB. Supported: PDF, JPG, PNG, HEIC, WebP',
+    sickNotesViewDoc: 'View document',
+    sickNotesNoFile: 'No document',
+    sickNotesDays: 'days',
+    sickNotesDate: 'Date',
+    sickNotesClose: 'Close',
 
     // Required field
     required: '*'
@@ -378,6 +383,11 @@ const translations = {
     sickNotesColDoctor: 'Lekár',
     sickNotesColFile: 'Doklad',
     sickNotesHelperFile: 'Max 10MB. Podporované: PDF, JPG, PNG, HEIC, WebP',
+    sickNotesViewDoc: 'Zobraziť doklad',
+    sickNotesNoFile: 'Bez dokladu',
+    sickNotesDays: 'dní',
+    sickNotesDate: 'Dátum',
+    sickNotesClose: 'Zavrieť',
 
     // Required field
     required: '*'

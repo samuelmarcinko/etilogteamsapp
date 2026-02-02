@@ -97,6 +97,176 @@
         </div>
     </div>
 
+    <!-- Lightbox overlay for document preview -->
+    <div id="lightbox" class="sn-lightbox" onclick="closeLightbox(event)">
+        <div class="sn-lightbox-content">
+            <button class="sn-lightbox-close" onclick="closeLightbox(event)">&times;</button>
+            <div id="lightboxBody" class="sn-lightbox-body"></div>
+        </div>
+    </div>
+
+    <style>
+    /* Sick note cards */
+    .sn-cards { display: flex; flex-direction: column; gap: 0.75rem; }
+
+    .sn-card {
+        background: var(--white);
+        border: 1px solid var(--gray-200);
+        border-radius: 14px;
+        padding: 1.25rem;
+        display: flex;
+        gap: 1rem;
+        align-items: flex-start;
+        transition: all 0.2s ease;
+        box-shadow: var(--shadow-sm);
+    }
+    .sn-card:hover {
+        border-color: var(--gray-300);
+        box-shadow: var(--shadow);
+    }
+
+    .sn-icon {
+        width: 44px; height: 44px;
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.5rem;
+        flex-shrink: 0;
+        background: #fce7f3;
+    }
+
+    .sn-body { flex: 1; min-width: 0; }
+
+    .sn-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--gray-900);
+        margin-bottom: 0.375rem;
+    }
+
+    .sn-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .sn-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.625rem;
+        border-radius: 8px;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        background: var(--gray-50);
+        color: var(--gray-700);
+        border: 1px solid var(--gray-200);
+    }
+    .sn-tag-icon { font-size: 0.875rem; }
+
+    .sn-duration {
+        font-size: 0.8125rem;
+        color: var(--gray-500);
+        font-weight: 500;
+    }
+
+    .sn-file-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.375rem 0.75rem;
+        border-radius: 8px;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        cursor: pointer;
+        border: 1.5px solid #3b82f6;
+        background: #eff6ff;
+        color: #1d4ed8;
+        transition: all 0.15s ease;
+        margin-top: 0.25rem;
+    }
+    .sn-file-btn:hover {
+        background: #dbeafe;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(59,130,246,0.2);
+    }
+
+    .sn-no-file {
+        font-size: 0.8125rem;
+        color: var(--gray-400);
+        font-style: italic;
+        margin-top: 0.25rem;
+    }
+
+    /* Lightbox */
+    .sn-lightbox {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.7);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+        backdrop-filter: blur(4px);
+    }
+    .sn-lightbox.active { display: flex; }
+
+    .sn-lightbox-content {
+        background: var(--white);
+        border-radius: 16px;
+        max-width: 90vw;
+        max-height: 90vh;
+        overflow: auto;
+        position: relative;
+        box-shadow: 0 25px 60px rgba(0,0,0,0.3);
+    }
+
+    .sn-lightbox-close {
+        position: absolute;
+        top: 0.75rem;
+        right: 0.75rem;
+        width: 36px; height: 36px;
+        border-radius: 50%;
+        border: none;
+        background: var(--gray-100);
+        color: var(--gray-700);
+        font-size: 1.5rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        transition: all 0.15s ease;
+        line-height: 1;
+    }
+    .sn-lightbox-close:hover {
+        background: var(--etilog-red);
+        color: white;
+    }
+
+    .sn-lightbox-body { padding: 1rem; }
+    .sn-lightbox-body img {
+        max-width: 100%;
+        max-height: 80vh;
+        border-radius: 8px;
+        display: block;
+        margin: 0 auto;
+    }
+    .sn-lightbox-body iframe {
+        width: 80vw;
+        height: 80vh;
+        border: none;
+        border-radius: 8px;
+    }
+
+    @media (max-width: 768px) {
+        .sn-card { flex-direction: column; gap: 0.75rem; }
+        .sn-meta { gap: 0.375rem; }
+        .sn-lightbox-body iframe { width: 85vw; height: 70vh; }
+    }
+    </style>
+
     <script>
     // Initialize Microsoft Teams SDK
     let teamsContext = null;
@@ -132,6 +302,77 @@
         }
     })();
 
+    // Calculate days between two dates
+    function calcDays(start, end) {
+        if (!start || !end) return null;
+        const s = new Date(start);
+        const e = new Date(end);
+        const diff = Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1;
+        return diff > 0 ? diff : 1;
+    }
+
+    // Get file URL from file_path stored in DB
+    function getFileUrl(filePath) {
+        if (!filePath) return null;
+        // file_path is stored as absolute path like /home/.../uploads/sick-notes/pn-xxx.jpg
+        // We need to convert to /uploads/sick-notes/pn-xxx.jpg
+        const idx = filePath.indexOf('/uploads/');
+        if (idx !== -1) return filePath.substring(idx);
+        // fallback: just use filename
+        const parts = filePath.replace(/\\/g, '/').split('/');
+        return '/uploads/sick-notes/' + parts[parts.length - 1];
+    }
+
+    // Check if file is an image
+    function isImage(fileName) {
+        if (!fileName) return false;
+        const ext = fileName.toLowerCase().split('.').pop();
+        return ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'heic', 'heif', 'tiff', 'tif'].includes(ext);
+    }
+
+    // Check if file is a PDF
+    function isPdf(fileName) {
+        if (!fileName) return false;
+        return fileName.toLowerCase().endsWith('.pdf');
+    }
+
+    // Open lightbox
+    function openLightbox(filePath, fileName) {
+        const lightbox = document.getElementById('lightbox');
+        const body = document.getElementById('lightboxBody');
+        const url = getFileUrl(filePath);
+
+        if (isImage(fileName)) {
+            body.innerHTML = `<img src="${url}" alt="${escapeHtml(fileName)}">`;
+        } else if (isPdf(fileName)) {
+            body.innerHTML = `<iframe src="${url}" title="${escapeHtml(fileName)}"></iframe>`;
+        } else {
+            // Fallback: download link
+            body.innerHTML = `<div style="padding:2rem;text-align:center;">
+                <p style="margin-bottom:1rem;font-size:1.125rem;font-weight:600;">${escapeHtml(fileName)}</p>
+                <a href="${url}" download class="btn btn-primary">${t('sickNotesDownload')}</a>
+            </div>`;
+        }
+
+        lightbox.classList.add('active');
+    }
+
+    // Close lightbox
+    function closeLightbox(event) {
+        if (event) {
+            // Only close if clicking overlay or close button, not content
+            if (event.target.closest('.sn-lightbox-body')) return;
+        }
+        const lightbox = document.getElementById('lightbox');
+        lightbox.classList.remove('active');
+        document.getElementById('lightboxBody').innerHTML = '';
+    }
+
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeLightbox();
+    });
+
     // Load my sick notes
     async function loadSickNotes() {
         const container = document.getElementById('sickNotesList');
@@ -153,35 +394,42 @@
                 return;
             }
 
-            container.innerHTML = `
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>${t('sickNotesColTitle')}</th>
-                                <th>${t('sickNotesColFrom')}</th>
-                                <th>${t('sickNotesColTo')}</th>
-                                <th>${t('sickNotesColDoctor')}</th>
-                                <th>${t('sickNotesColFile')}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${notes.map(n => `
-                                <tr>
-                                    <td>
-                                        <strong>${escapeHtml(n.title)}</strong>
-                                        ${n.diagnosis ? `<br><small style="opacity:0.7">${escapeHtml(n.diagnosis)}</small>` : ''}
-                                    </td>
-                                    <td>${formatDate(n.start_date)}</td>
-                                    <td>${formatDate(n.end_date)}</td>
-                                    <td>${n.doctor_name ? escapeHtml(n.doctor_name) : '-'}</td>
-                                    <td>${n.file_name ? `<span style="color: #16a34a;">&#10003; ${escapeHtml(n.file_name)}</span>` : '<span style="opacity:0.5">-</span>'}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
+            container.innerHTML = `<div class="sn-cards">${notes.map(n => {
+                const days = calcDays(n.start_date, n.end_date);
+                const daysText = days ? `${days} ${t('sickNotesDays')}` : '';
+
+                let fileHtml = '';
+                if (n.file_name && n.file_path) {
+                    fileHtml = `<button class="sn-file-btn" onclick="openLightbox('${escapeAttr(n.file_path)}', '${escapeAttr(n.file_name)}')">
+                        <span>&#128196;</span> ${t('sickNotesViewDoc')}
+                    </button>`;
+                } else {
+                    fileHtml = `<span class="sn-no-file">${t('sickNotesNoFile')}</span>`;
+                }
+
+                return `
+                <div class="sn-card">
+                    <div class="sn-icon">&#129298;</div>
+                    <div class="sn-body">
+                        <div class="sn-title">${escapeHtml(n.title)}</div>
+                        <div class="sn-meta">
+                            <span class="sn-tag">
+                                <span class="sn-tag-icon">&#128197;</span>
+                                ${formatDate(n.start_date)} - ${formatDate(n.end_date)}
+                            </span>
+                            ${days ? `<span class="sn-tag" style="background:#fce7f3;color:#9f1239;border-color:#f9a8d4;">
+                                ${daysText}
+                            </span>` : ''}
+                            ${n.doctor_name ? `<span class="sn-tag">
+                                <span class="sn-tag-icon">&#129658;</span>
+                                ${escapeHtml(n.doctor_name)}
+                            </span>` : ''}
+                        </div>
+                        ${fileHtml}
+                    </div>
+                </div>`;
+            }).join('')}</div>`;
+
         } catch (error) {
             console.error('Error loading sick notes:', error);
             container.innerHTML = `<p class="empty-state" style="color: #ef4444;">${t('sickNotesErrorLoading')}</p>`;
@@ -210,7 +458,7 @@
 
             const response = await fetch('/api/teams/sick-notes', {
                 method: 'POST',
-                body: formData  // FormData with file - no Content-Type header needed
+                body: formData
             });
 
             if (!response.ok) {
@@ -224,7 +472,7 @@
 
         } catch (error) {
             console.error('Error submitting sick note:', error);
-            showAlert(t('sickNotesError') + error.message, 'error');
+            showAlert(t('sickNotesError') + ': ' + error.message, 'error');
         } finally {
             submitBtn.disabled = false;
             btnText.textContent = t('sickNotesBtnSubmit');
@@ -238,6 +486,11 @@
         const div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
+    }
+
+    function escapeAttr(str) {
+        if (!str) return '';
+        return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
     }
 
     function formatDate(dateStr) {
