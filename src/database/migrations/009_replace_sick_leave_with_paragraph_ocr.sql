@@ -20,3 +20,8 @@ UPDATE ticket_types SET sort_order = 4 WHERE key = 'purchase';
 UPDATE ticket_types SET sort_order = 5 WHERE key = 'expense';
 UPDATE ticket_types SET sort_order = 6 WHERE key = 'hr';
 UPDATE ticket_types SET sort_order = 7 WHERE key = 'other';
+
+-- Update CHECK constraint to allow paragraph and ocr ticket types
+ALTER TABLE tickets DROP CONSTRAINT IF EXISTS chk_ticket_type;
+ALTER TABLE tickets ADD CONSTRAINT chk_ticket_type
+    CHECK (ticket_type IN ('vacation', 'sick-leave', 'purchase', 'expense', 'hr', 'other', 'HR', 'Accounting', 'Other', 'paragraph', 'ocr'));
