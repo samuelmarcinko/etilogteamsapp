@@ -636,6 +636,7 @@ async function renderMyRequests(container) {
     container.innerHTML = `
         <div class="page-header">
             <div><h1>${pt('myRequestsTitle')}</h1><p>${pt('myRequestsDesc')}</p></div>
+            <button class="btn btn-primary" onclick="openNewRequestModal()">${pt('newRequest')}</button>
         </div>
         <div class="page-body">
             <div class="filters-bar">
@@ -651,6 +652,139 @@ async function renderMyRequests(container) {
             </div>
         </div>
     `;
+}
+
+// Open new request modal
+async function openNewRequestModal() {
+    // Load ticket types and users for approver dropdown
+    let ticketTypes = [];
+    let users = [];
+    try {
+        const [typesRes, usersRes] = await Promise.all([
+            apiCall('/api/ticket-types/active'),
+            apiCall('/api/admin/employees')
+        ]);
+        ticketTypes = (await typesRes.json()).data || [];
+        users = (await usersRes.json()).data || [];
+    } catch (e) {
+        console.error('Error loading form data:', e);
+    }
+
+    const typeOptions = ticketTypes.map(t =>
+        `<option value="${t.value || t.name}">${escapeHtml(t.label || t.name)}</option>`
+    ).join('');
+
+    const approverOptions = users
+        .filter(u => u.id !== portalUser.id)
+        .map(u => `<option value='${JSON.stringify({id: u.id, name: u.name, email: u.email}).replace(/'/g, "&#39;")}'>${escapeHtml(u.name)} (${escapeHtml(u.email)})</option>`)
+        .join('');
+
+    document.getElementById('modalTitle').textContent = pt('newRequestTitle');
+    document.getElementById('modalBody').innerHTML = `
+        <form id="newRequestForm">
+            <div class="form-group">
+                <label class="form-label">${pt('reqFieldTitle')}</label>
+                <input type="text" class="form-input" name="title" required placeholder="${pt('reqFieldTitlePlaceholder')}">
+            </div>
+            <div class="form-group">
+                <label class="form-label">${pt('reqFieldDescription')}</label>
+                <textarea class="form-input" name="description" required rows="3" placeholder="${pt('reqFieldDescPlaceholder')}"></textarea>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">${pt('reqFieldType')}</label>
+                    <select class="form-select" name="ticket_type" required onchange="toggleRequestDates(this.value)">
+                        <option value="">${pt('reqFieldSelectType')}</option>
+                        ${typeOptions}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">${pt('reqFieldPriority')}</label>
+                    <select class="form-select" name="priority" required>
+                        <option value="">${pt('reqFieldSelectPriority')}</option>
+                        <option value="Low">${pt('reqPriorityLow')}</option>
+                        <option value="Medium" selected>${pt('reqPriorityMedium')}</option>
+                        <option value="High">${pt('reqPriorityHigh')}</option>
+                        <option value="Urgent">${pt('reqPriorityUrgent')}</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row" id="requestDatesRow" style="display:none;">
+                <div class="form-group">
+                    <label class="form-label">${pt('reqFieldStartDate')}</label>
+                    <input type="date" class="form-input" name="start_date">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">${pt('reqFieldEndDate')}</label>
+                    <input type="date" class="form-input" name="end_date">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">${pt('reqFieldApprover')}</label>
+                <select class="form-select" name="approver" required>
+                    <option value="">${pt('reqFieldSelectApprover')}</option>
+                    ${approverOptions}
+                </select>
+            </div>
+        </form>
+    `;
+    document.getElementById('modalFooter').innerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
+        <button class="btn btn-primary" onclick="submitNewRequest()">${pt('save')}</button>
+    `;
+    openModal();
+}
+
+// Toggle date fields based on ticket type
+function toggleRequestDates(type) {
+    const row = document.getElementById('requestDatesRow');
+    if (row) {
+        const showDates = ['vacation', 'sick-leave'].includes(type?.toLowerCase());
+        row.style.display = showDates ? 'grid' : 'none';
+    }
+}
+
+// Submit new request
+async function submitNewRequest() {
+    const form = document.getElementById('newRequestForm');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
+    try {
+        const approverData = JSON.parse(form.approver.value);
+        const data = {
+            title: form.title.value,
+            description: form.description.value,
+            ticket_type: form.ticket_type.value,
+            priority: form.priority.value,
+            created_by_id: portalUser.id,
+            created_by_name: portalUser.name || portalUser.email,
+            created_by_email: portalUser.email,
+            assigned_approver_id: approverData.id,
+            assigned_approver_name: approverData.name,
+            assigned_approver_email: approverData.email,
+            start_date: form.start_date?.value || null,
+            end_date: form.end_date?.value || null
+        };
+
+        const response = await apiCall('/api/tickets', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.message || pt('reqCreateError'));
+        }
+
+        closeModal();
+        showToast(pt('reqCreated'), 'success');
+        navigateToPage('my-requests');
+    } catch (error) {
+        showToast(error.message || pt('reqCreateError'), 'error');
+    }
 }
 
 // ============================================
