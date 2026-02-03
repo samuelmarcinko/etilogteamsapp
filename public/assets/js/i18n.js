@@ -99,8 +99,8 @@ const translations = {
     quotaInfoDays: 'days',
     quotaInfoVacation: 'Vacation balance',
     quotaInfoSick: 'Sick days balance',
-    quotaInfoParagraph: 'Paragraph balance',
-    quotaInfoOcr: 'OCR balance',
+    quotaInfoParagraph: 'Paragraph leave balance',
+    quotaInfoOcr: 'Family member care balance',
     quotaInfoNotSet: 'Quota not configured',
 
     // Approvals page

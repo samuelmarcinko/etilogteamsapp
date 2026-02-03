@@ -36,10 +36,15 @@ async function updateQuotaInfoBanner(ticketType) {
     const banner = document.getElementById('quotaInfoBanner');
     if (!banner) return;
 
-    const isVacation = ticketType === 'vacation';
-    const isSick = ticketType === 'sick-leave';
+    const quotaMap = {
+        'vacation':   { totalKey: 'vacation_days_total',   usedKey: 'vacation_days_used',   remainKey: 'vacation_days_remaining',   labelKey: 'quotaInfoVacation', warnAt: 5 },
+        'sick-leave': { totalKey: 'sick_days_total',       usedKey: 'sick_days_used',       remainKey: 'sick_days_remaining',       labelKey: 'quotaInfoSick',     warnAt: 2 },
+        'paragraph':  { totalKey: 'paragraph_days_total',  usedKey: 'paragraph_days_used',  remainKey: 'paragraph_days_remaining',  labelKey: 'quotaInfoParagraph', warnAt: 2 },
+        'ocr':        { totalKey: 'ocr_days_total',        usedKey: 'ocr_days_used',        remainKey: 'ocr_days_remaining',        labelKey: 'quotaInfoOcr',      warnAt: 2 }
+    };
 
-    if (!isVacation && !isSick) {
+    const config = quotaMap[ticketType];
+    if (!config) {
         banner.style.display = 'none';
         return;
     }
@@ -65,21 +70,11 @@ async function updateQuotaInfoBanner(ticketType) {
         return;
     }
 
-    let total, used, remaining, label, colorClass;
-
-    if (isVacation) {
-        total = userQuotaData.vacation_days_total;
-        used = userQuotaData.vacation_days_used;
-        remaining = userQuotaData.vacation_days_remaining;
-        label = t('quotaInfoVacation');
-        colorClass = remaining > 5 ? 'quota-info-good' : remaining > 0 ? 'quota-info-warn' : 'quota-info-danger';
-    } else {
-        total = userQuotaData.sick_days_total;
-        used = userQuotaData.sick_days_used;
-        remaining = userQuotaData.sick_days_remaining;
-        label = t('quotaInfoSick');
-        colorClass = remaining > 2 ? 'quota-info-good' : remaining > 0 ? 'quota-info-warn' : 'quota-info-danger';
-    }
+    const total = userQuotaData[config.totalKey];
+    const used = userQuotaData[config.usedKey];
+    const remaining = userQuotaData[config.remainKey];
+    const label = t(config.labelKey);
+    const colorClass = remaining > config.warnAt ? 'quota-info-good' : remaining > 0 ? 'quota-info-warn' : 'quota-info-danger';
 
     banner.style.display = 'block';
     banner.className = `quota-info-banner ${colorClass}`;
