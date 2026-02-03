@@ -9,7 +9,7 @@ class SickNoteController {
    */
   static async create(req, res, next) {
     try {
-      const { title, description, start_date, end_date, doctor_name, diagnosis } = req.body;
+      const { title, description, start_date, end_date, doctor_name, diagnosis, document_type } = req.body;
 
       if (!title || !start_date || !end_date) {
         return res.status(400).json({
@@ -27,7 +27,8 @@ class SickNoteController {
         startDate: start_date,
         endDate: end_date,
         doctorName: doctor_name,
-        diagnosis
+        diagnosis,
+        documentType: (document_type === 'ocr') ? 'ocr' : 'paragraph'
       };
 
       // Handle file upload

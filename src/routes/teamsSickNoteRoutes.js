@@ -65,11 +65,13 @@ router.get('/', asyncHandler(async (req, res) => {
 
 // POST /api/teams/sick-notes - create sick note with file upload
 router.post('/', upload.single('file'), asyncHandler(async (req, res) => {
-  const { title, start_date, end_date, doctor_name, diagnosis, user_id, user_name, user_email } = req.body;
+  const { title, start_date, end_date, doctor_name, diagnosis, user_id, user_name, user_email, document_type } = req.body;
 
   if (!title || !start_date || !end_date || !user_id) {
     return res.status(400).json({ error: 'Title, start date, end date and user ID are required' });
   }
+
+  const docType = (document_type === 'ocr') ? 'ocr' : 'paragraph';
 
   // Ensure user exists in users table
   const existingUser = await pool.query('SELECT id FROM users WHERE user_id = $1', [user_id]);
@@ -85,8 +87,8 @@ router.post('/', upload.single('file'), asyncHandler(async (req, res) => {
   const file = req.file;
 
   const result = await pool.query(
-    `INSERT INTO sick_notes (user_id, user_name, user_email, title, start_date, end_date, doctor_name, diagnosis, file_name, file_path, file_type, file_size, status)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'active')
+    `INSERT INTO sick_notes (user_id, user_name, user_email, title, start_date, end_date, doctor_name, diagnosis, file_name, file_path, file_type, file_size, status, document_type)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'active', $13)
      RETURNING *`,
     [
       user_id,
@@ -100,7 +102,8 @@ router.post('/', upload.single('file'), asyncHandler(async (req, res) => {
       file ? file.originalname : null,
       file ? file.path : null,
       file ? file.mimetype : null,
-      file ? file.size : null
+      file ? file.size : null,
+      docType
     ]
   );
 

@@ -172,7 +172,8 @@ async function renderDashboard(container) {
     const approved = tickets.filter(t => t.status === 'Approved').length;
 
     const vacUsedPct = quota ? Math.round((parseFloat(quota.vacation_days_used) / quota.vacation_days_total) * 100) : 0;
-    const sickUsedPct = quota ? Math.round((parseFloat(quota.sick_days_used) / quota.sick_days_total) * 100) : 0;
+    const parUsedPct = quota ? Math.round((parseFloat(quota.paragraph_days_used || 0) / (quota.paragraph_days_total || 7)) * 100) : 0;
+    const ocrUsedPct = quota ? Math.round((parseFloat(quota.ocr_days_used || 0) / (quota.ocr_days_total || 7)) * 100) : 0;
 
     container.innerHTML = `
         <div class="page-header">
@@ -185,8 +186,12 @@ async function renderDashboard(container) {
                     <div><div class="stat-value">${quota ? quota.vacation_days_remaining : '-'}</div><div class="stat-label">${pt('vacationRemaining')}</div></div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon amber">&#129298;</div>
-                    <div><div class="stat-value">${quota ? quota.sick_days_remaining : '-'}</div><div class="stat-label">${pt('sickDaysRemaining')}</div></div>
+                    <div class="stat-icon" style="background:#dbeafe;color:#2563eb;">&#167;</div>
+                    <div><div class="stat-value">${quota ? quota.paragraph_days_remaining : '-'}</div><div class="stat-label">${pt('paragraphRemaining')}</div></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background:#fef3c7;color:#d97706;">&#128106;</div>
+                    <div><div class="stat-value">${quota ? quota.ocr_days_remaining : '-'}</div><div class="stat-label">${pt('ocrRemaining')}</div></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon green">&#9989;</div>
@@ -214,11 +219,20 @@ async function renderDashboard(container) {
                     </div>
                     <div class="quota-bar-container">
                         <div class="quota-bar-label">
-                            <span>${pt('sickLeave')}</span>
-                            <span>${quota ? parseFloat(quota.sick_days_used) : 0} / ${quota ? quota.sick_days_total : 5} ${pt('days')}</span>
+                            <span>${pt('sickNoteDocTypeParagraph') || 'Paragraf'}</span>
+                            <span>${quota ? parseFloat(quota.paragraph_days_used || 0) : 0} / ${quota ? (quota.paragraph_days_total || 7) : 7} ${pt('days')}</span>
                         </div>
                         <div class="quota-bar">
-                            <div class="quota-bar-fill ${sickUsedPct > 90 ? 'red' : sickUsedPct > 70 ? 'amber' : 'green'}" style="width: ${Math.min(sickUsedPct, 100)}%"></div>
+                            <div class="quota-bar-fill ${parUsedPct > 90 ? 'red' : parUsedPct > 70 ? 'amber' : 'green'}" style="width: ${Math.min(parUsedPct, 100)}%"></div>
+                        </div>
+                    </div>
+                    <div class="quota-bar-container">
+                        <div class="quota-bar-label">
+                            <span>${pt('sickNoteDocTypeOcr') || 'OČR'}</span>
+                            <span>${quota ? parseFloat(quota.ocr_days_used || 0) : 0} / ${quota ? (quota.ocr_days_total || 7) : 7} ${pt('days')}</span>
+                        </div>
+                        <div class="quota-bar">
+                            <div class="quota-bar-fill ${ocrUsedPct > 90 ? 'red' : ocrUsedPct > 70 ? 'amber' : 'green'}" style="width: ${Math.min(ocrUsedPct, 100)}%"></div>
                         </div>
                     </div>
                 </div>
@@ -267,7 +281,8 @@ async function renderMyQuotas(container) {
     const holidays = (await holidaysRes.json()).data || [];
 
     const vacUsedPct = quota ? Math.round((parseFloat(quota.vacation_days_used) / quota.vacation_days_total) * 100) : 0;
-    const sickUsedPct = quota ? Math.round((parseFloat(quota.sick_days_used) / quota.sick_days_total) * 100) : 0;
+    const parUsedPct = quota ? Math.round((parseFloat(quota.paragraph_days_used || 0) / (quota.paragraph_days_total || 7)) * 100) : 0;
+    const ocrUsedPct = quota ? Math.round((parseFloat(quota.ocr_days_used || 0) / (quota.ocr_days_total || 7)) * 100) : 0;
 
     container.innerHTML = `
         <div class="page-header">
@@ -290,16 +305,31 @@ async function renderMyQuotas(container) {
             </div>
 
             <div class="quota-card">
-                <div class="quota-icon">&#129298;</div>
+                <div class="quota-icon" style="font-size:1.5rem;">&#167;</div>
                 <div class="quota-details">
-                    <div class="quota-type">${pt('sickLeave')}</div>
+                    <div class="quota-type">${pt('sickNoteDocTypeParagraph') || 'Paragraf'}</div>
                     <div class="quota-numbers">
-                        <span>${pt('quotaTotal')}: <strong>${quota ? quota.sick_days_total : '-'} ${pt('days')}</strong></span>
-                        <span>${pt('quotaUsed')}: <strong>${quota ? parseFloat(quota.sick_days_used) : 0} ${pt('days')}</strong></span>
-                        <span>${pt('quotaRemaining')}: <strong>${quota ? quota.sick_days_remaining : '-'} ${pt('days')}</strong></span>
+                        <span>${pt('quotaTotal')}: <strong>${quota ? (quota.paragraph_days_total || 7) : '-'} ${pt('days')}</strong></span>
+                        <span>${pt('quotaUsed')}: <strong>${quota ? parseFloat(quota.paragraph_days_used || 0) : 0} ${pt('days')}</strong></span>
+                        <span>${pt('quotaRemaining')}: <strong>${quota ? quota.paragraph_days_remaining : '-'} ${pt('days')}</strong></span>
                     </div>
                     <div class="quota-bar" style="margin-top: 0.75rem;">
-                        <div class="quota-bar-fill ${sickUsedPct > 90 ? 'red' : sickUsedPct > 70 ? 'amber' : 'green'}" style="width: ${Math.min(sickUsedPct, 100)}%"></div>
+                        <div class="quota-bar-fill ${parUsedPct > 90 ? 'red' : parUsedPct > 70 ? 'amber' : 'green'}" style="width: ${Math.min(parUsedPct, 100)}%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="quota-card">
+                <div class="quota-icon">&#128106;</div>
+                <div class="quota-details">
+                    <div class="quota-type">${pt('sickNoteDocTypeOcr') || 'OČR'}</div>
+                    <div class="quota-numbers">
+                        <span>${pt('quotaTotal')}: <strong>${quota ? (quota.ocr_days_total || 7) : '-'} ${pt('days')}</strong></span>
+                        <span>${pt('quotaUsed')}: <strong>${quota ? parseFloat(quota.ocr_days_used || 0) : 0} ${pt('days')}</strong></span>
+                        <span>${pt('quotaRemaining')}: <strong>${quota ? quota.ocr_days_remaining : '-'} ${pt('days')}</strong></span>
+                    </div>
+                    <div class="quota-bar" style="margin-top: 0.75rem;">
+                        <div class="quota-bar-fill ${ocrUsedPct > 90 ? 'red' : ocrUsedPct > 70 ? 'amber' : 'green'}" style="width: ${Math.min(ocrUsedPct, 100)}%"></div>
                     </div>
                 </div>
             </div>
@@ -340,11 +370,15 @@ async function renderMySickNotes(container) {
             ${notes.length > 0 ? `
                 <table class="data-table">
                     <thead>
-                        <tr><th>${pt('sickNoteColName')}</th><th>${pt('sickNoteColFrom')}</th><th>${pt('sickNoteColTo')}</th><th>${pt('sickNoteColDoctor')}</th><th>${pt('sickNoteColFile')}</th><th></th></tr>
+                        <tr><th>${pt('colDocType') || 'Typ'}</th><th>${pt('sickNoteColName')}</th><th>${pt('sickNoteColFrom')}</th><th>${pt('sickNoteColTo')}</th><th>${pt('sickNoteColDoctor')}</th><th>${pt('sickNoteColFile')}</th><th></th></tr>
                     </thead>
                     <tbody>
-                        ${notes.map(n => `
+                        ${notes.map(n => {
+                            const docLabel = n.document_type === 'ocr' ? (pt('sickNoteDocTypeOcr') || 'OČR') : (pt('sickNoteDocTypeParagraph') || 'Paragraf');
+                            const docBadge = n.document_type === 'ocr' ? 'badge-sick' : 'badge-vacation';
+                            return `
                             <tr>
+                                <td><span class="badge ${docBadge}">${docLabel}</span></td>
                                 <td><strong>${escapeHtml(n.title)}</strong>${n.diagnosis ? `<br><small style="color:var(--gray-500)">${escapeHtml(n.diagnosis)}</small>` : ''}</td>
                                 <td>${formatDate(n.start_date)}</td>
                                 <td>${formatDate(n.end_date)}</td>
@@ -354,8 +388,8 @@ async function renderMySickNotes(container) {
                                     <button class="btn btn-ghost btn-sm" onclick="openUploadSickNoteModal(${n.id})">&#128206;</button>
                                     <button class="btn btn-ghost btn-sm" onclick="deleteSickNote(${n.id})" style="color:var(--red-500)">&#128465;</button>
                                 </td>
-                            </tr>
-                        `).join('')}
+                            </tr>`;
+                        }).join('')}
                     </tbody>
                 </table>
             ` : `<div class="empty-state"><div class="empty-icon">&#128203;</div><div class="empty-text">${pt('noSickNotes')}</div></div>`}
@@ -367,6 +401,13 @@ async function openNewSickNoteModal() {
     document.getElementById('modalTitle').textContent = pt('newSickNoteTitle');
     document.getElementById('modalBody').innerHTML = `
         <form id="sickNoteForm">
+            <div class="form-group">
+                <label class="form-label">${pt('sickNoteFieldDocType')}</label>
+                <select class="form-select" name="document_type" required>
+                    <option value="paragraph">${pt('sickNoteDocTypeParagraph')}</option>
+                    <option value="ocr">${pt('sickNoteDocTypeOcr')}</option>
+                </select>
+            </div>
             <div class="form-group">
                 <label class="form-label">${pt('sickNoteFieldTitle')}</label>
                 <input type="text" class="form-input" name="title" required placeholder="${pt('sickNoteFieldTitlePlaceholder')}">
@@ -686,7 +727,7 @@ async function renderAdminEmployees(container) {
                 <div class="card-body" style="overflow-x:auto;">
                     <table class="data-table">
                         <thead>
-                            <tr><th>${pt('colName')}</th><th>${pt('colEmail')}</th><th>${pt('colRole')}</th><th>${pt('colVacation')}</th><th>${pt('colSickDays')}</th><th>${pt('colActions')}</th></tr>
+                            <tr><th>${pt('colName')}</th><th>${pt('colEmail')}</th><th>${pt('colRole')}</th><th>${pt('colVacation')}</th><th>${pt('colParagraph')}</th><th>${pt('colOcr')}</th><th>${pt('colActions')}</th></tr>
                         </thead>
                         <tbody>
                             ${employees.map(e => `
@@ -695,10 +736,11 @@ async function renderAdminEmployees(container) {
                                     <td>${escapeHtml(e.email)}</td>
                                     <td><span class="badge badge-${e.role}">${e.role}</span></td>
                                     <td>${e.vacation_days_total !== null ? `${e.vacation_days_used}/${e.vacation_days_total}` : '<span style="color:var(--gray-400)">-</span>'}</td>
-                                    <td>${e.sick_days_total !== null ? `${e.sick_days_used}/${e.sick_days_total}` : '<span style="color:var(--gray-400)">-</span>'}</td>
+                                    <td>${e.paragraph_days_total !== null && e.paragraph_days_total !== undefined ? `${e.paragraph_days_used || 0}/${e.paragraph_days_total}` : '<span style="color:var(--gray-400)">-</span>'}</td>
+                                    <td>${e.ocr_days_total !== null && e.ocr_days_total !== undefined ? `${e.ocr_days_used || 0}/${e.ocr_days_total}` : '<span style="color:var(--gray-400)">-</span>'}</td>
                                     <td>
                                         <button class="btn btn-ghost btn-sm" onclick="toggleEmployeeRole('${e.id}', '${e.role}')" title="${pt('changeRoleTitle')}">${e.role === 'admin' ? '&#128100;' : '&#128081;'}</button>
-                                        <button class="btn btn-ghost btn-sm" onclick="editEmployeeQuota('${e.id}', '${escapeHtml(e.name)}', ${e.vacation_days_total || 20}, ${e.sick_days_total || 5})" title="${pt('editQuotaTitle')}">&#9999;</button>
+                                        <button class="btn btn-ghost btn-sm" onclick="editEmployeeQuota('${e.id}', '${escapeHtml(e.name)}', ${e.vacation_days_total || 20}, ${e.sick_days_total || 5}, ${e.paragraph_days_total || 7}, ${e.ocr_days_total || 7})" title="${pt('editQuotaTitle')}">&#9999;</button>
                                     </td>
                                 </tr>
                             `).join('')}
@@ -727,7 +769,7 @@ async function toggleEmployeeRole(userId, currentRole) {
     }
 }
 
-async function editEmployeeQuota(userId, name, vacTotal, sickTotal) {
+async function editEmployeeQuota(userId, name, vacTotal, sickTotal, paragraphTotal, ocrTotal) {
     const year = new Date().getFullYear();
     document.getElementById('modalTitle').textContent = `${pt('quotaModalTitle')} - ${name}`;
     document.getElementById('modalBody').innerHTML = `
@@ -740,6 +782,16 @@ async function editEmployeeQuota(userId, name, vacTotal, sickTotal) {
                 <div class="form-group">
                     <label class="form-label">${pt('quotaFieldSickDays')}</label>
                     <input type="number" class="form-input" name="sick_days_total" value="${sickTotal}" min="0" max="30">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">${pt('quotaFieldParagraph')}</label>
+                    <input type="number" class="form-input" name="paragraph_days_total" value="${paragraphTotal || 7}" min="0" max="30">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">${pt('quotaFieldOcr')}</label>
+                    <input type="number" class="form-input" name="ocr_days_total" value="${ocrTotal || 7}" min="0" max="30">
                 </div>
             </div>
         </form>
@@ -756,7 +808,9 @@ async function saveEmployeeQuota(userId, year) {
     const data = {
         year,
         vacation_days_total: parseInt(form.vacation_days_total.value),
-        sick_days_total: parseInt(form.sick_days_total.value)
+        sick_days_total: parseInt(form.sick_days_total.value),
+        paragraph_days_total: parseInt(form.paragraph_days_total.value),
+        ocr_days_total: parseInt(form.ocr_days_total.value)
     };
 
     try {
@@ -820,13 +874,14 @@ async function renderAdminQuotas(container) {
                 </div>
                 <div class="card-body">
                     <table class="data-table">
-                        <thead><tr><th>${pt('quotaSettingsYear')}</th><th>${pt('quotaSettingsDefaultVacation')}</th><th>${pt('quotaSettingsDefaultSick')}</th><th>${pt('quotaSettingsCarryOver')}</th></tr></thead>
+                        <thead><tr><th>${pt('quotaSettingsYear')}</th><th>${pt('quotaSettingsDefaultVacation')}</th><th>${pt('quotaSettingsDefaultParagraph')}</th><th>${pt('quotaSettingsDefaultOcr')}</th><th>${pt('quotaSettingsCarryOver')}</th></tr></thead>
                         <tbody>
                             ${settings.map(s => `
                                 <tr>
                                     <td><strong>${s.year}</strong></td>
                                     <td>${s.default_vacation_days} ${pt('days')}</td>
-                                    <td>${s.default_sick_days} ${pt('days')}</td>
+                                    <td>${s.default_paragraph_days || 7} ${pt('days')}</td>
+                                    <td>${s.default_ocr_days || 7} ${pt('days')}</td>
                                     <td>${s.carry_over_enabled ? `${pt('yes')} (${pt('quotaSettingsCarryOverMax')} ${s.max_carry_over_days} ${pt('days')})` : pt('no')}</td>
                                 </tr>
                             `).join('')}
@@ -842,7 +897,7 @@ async function renderAdminQuotas(container) {
                 <div class="card-body" style="overflow-x:auto;">
                     <table class="data-table">
                         <thead>
-                            <tr><th>${pt('colEmployee')}</th><th>${pt('colVacTotal')}</th><th>${pt('colVacUsed')}</th><th>${pt('colBalance')}</th><th>${pt('colSickTotal')}</th><th>${pt('colSickUsed')}</th><th>${pt('colBalance')}</th></tr>
+                            <tr><th>${pt('colEmployee')}</th><th>${pt('colVacTotal')}</th><th>${pt('colVacUsed')}</th><th>${pt('colBalance')}</th><th>${pt('colParagraphTotal')}</th><th>${pt('colParagraphUsed')}</th><th>${pt('colBalance')}</th><th>${pt('colOcrTotal')}</th><th>${pt('colOcrUsed')}</th><th>${pt('colBalance')}</th></tr>
                         </thead>
                         <tbody>
                             ${quotas.map(q => `
@@ -851,9 +906,12 @@ async function renderAdminQuotas(container) {
                                     <td>${q.vacation_days_total}</td>
                                     <td>${q.vacation_days_used}</td>
                                     <td><strong style="color:${q.vacation_days_remaining <= 2 ? 'var(--red-500)' : 'var(--green-600)'}">${q.vacation_days_remaining}</strong></td>
-                                    <td>${q.sick_days_total}</td>
-                                    <td>${q.sick_days_used}</td>
-                                    <td><strong style="color:${q.sick_days_remaining <= 1 ? 'var(--red-500)' : 'var(--green-600)'}">${q.sick_days_remaining}</strong></td>
+                                    <td>${q.paragraph_days_total || 7}</td>
+                                    <td>${q.paragraph_days_used || 0}</td>
+                                    <td><strong style="color:${q.paragraph_days_remaining <= 1 ? 'var(--red-500)' : 'var(--green-600)'}">${q.paragraph_days_remaining}</strong></td>
+                                    <td>${q.ocr_days_total || 7}</td>
+                                    <td>${q.ocr_days_used || 0}</td>
+                                    <td><strong style="color:${q.ocr_days_remaining <= 1 ? 'var(--red-500)' : 'var(--green-600)'}">${q.ocr_days_remaining}</strong></td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -870,6 +928,8 @@ async function openQuotaSettingsModal() {
     // Load existing settings to pre-fill
     let existingVacation = 20;
     let existingSick = 5;
+    let existingParagraph = 7;
+    let existingOcr = 7;
     try {
         const res = await apiCall('/api/quotas/settings');
         const allSettings = (await res.json()).data || [];
@@ -877,6 +937,8 @@ async function openQuotaSettingsModal() {
         if (current) {
             existingVacation = current.default_vacation_days;
             existingSick = current.default_sick_days;
+            existingParagraph = current.default_paragraph_days || 7;
+            existingOcr = current.default_ocr_days || 7;
         }
     } catch (e) { /* use defaults */ }
 
@@ -897,6 +959,16 @@ async function openQuotaSettingsModal() {
                     <input type="number" class="form-input" name="default_sick_days" value="${existingSick}" min="0" max="30">
                 </div>
             </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">${pt('quotaSettingsDefaultParagraph')}</label>
+                    <input type="number" class="form-input" name="default_paragraph_days" value="${existingParagraph}" min="0" max="30">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">${pt('quotaSettingsDefaultOcr')}</label>
+                    <input type="number" class="form-input" name="default_ocr_days" value="${existingOcr}" min="0" max="30">
+                </div>
+            </div>
         </form>
     `;
     document.getElementById('modalFooter').innerHTML = `
@@ -911,7 +983,9 @@ async function saveQuotaSettings() {
     const data = {
         year: parseInt(form.year.value),
         default_vacation_days: parseInt(form.default_vacation_days.value),
-        default_sick_days: parseInt(form.default_sick_days.value)
+        default_sick_days: parseInt(form.default_sick_days.value),
+        default_paragraph_days: parseInt(form.default_paragraph_days.value),
+        default_ocr_days: parseInt(form.default_ocr_days.value)
     };
 
     try {
@@ -947,19 +1021,23 @@ async function renderAdminSickNotes(container) {
                     ${notes.length > 0 ? `
                         <table class="data-table">
                             <thead>
-                                <tr><th>${pt('colEmployeeName')}</th><th>${pt('colName')}</th><th>${pt('sickNoteColFrom')}</th><th>${pt('sickNoteColTo')}</th><th>${pt('sickNoteColDoctor')}</th><th>${pt('colDocument')}</th></tr>
+                                <tr><th>${pt('colEmployeeName')}</th><th>${pt('colDocType')}</th><th>${pt('colName')}</th><th>${pt('sickNoteColFrom')}</th><th>${pt('sickNoteColTo')}</th><th>${pt('sickNoteColDoctor')}</th><th>${pt('colDocument')}</th></tr>
                             </thead>
                             <tbody>
-                                ${notes.map(n => `
+                                ${notes.map(n => {
+                                    const docLabel = n.document_type === 'ocr' ? (pt('sickNoteDocTypeOcr') || 'OČR') : (pt('sickNoteDocTypeParagraph') || 'Paragraf');
+                                    const docBadge = n.document_type === 'ocr' ? 'badge-sick' : 'badge-vacation';
+                                    return `
                                     <tr>
                                         <td><strong>${escapeHtml(n.user_name)}</strong><br><small style="color:var(--gray-500)">${escapeHtml(n.user_email)}</small></td>
+                                        <td><span class="badge ${docBadge}">${docLabel}</span></td>
                                         <td>${escapeHtml(n.title)}${n.diagnosis ? `<br><small style="color:var(--gray-500)">${escapeHtml(n.diagnosis)}</small>` : ''}</td>
                                         <td>${formatDate(n.start_date)}</td>
                                         <td>${formatDate(n.end_date)}</td>
                                         <td>${n.doctor_name ? escapeHtml(n.doctor_name) : '-'}</td>
                                         <td>${n.file_name ? `<a href="#" onclick="previewSickNoteFile(${n.id}, '${escapeHtml(n.file_name)}')" style="color:var(--blue-600);cursor:pointer;">&#128065; ${escapeHtml(n.file_name)}</a>` : '<span style="color:var(--gray-400)">-</span>'}</td>
-                                    </tr>
-                                `).join('')}
+                                    </tr>`;
+                                }).join('')}
                             </tbody>
                         </table>
                     ` : `<div class="empty-state"><div class="empty-icon">&#128203;</div><div class="empty-text">${pt('noSickNotes')}</div></div>`}

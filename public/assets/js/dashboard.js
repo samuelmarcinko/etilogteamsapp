@@ -52,7 +52,8 @@ async function loadOverviewData() {
         // Remove loading animation even on error
         document.querySelectorAll('.overview-card.loading').forEach(c => c.classList.remove('loading'));
         document.getElementById('vacationRemaining').textContent = '-';
-        document.getElementById('sickRemaining').textContent = '-';
+        document.getElementById('paragraphRemaining').textContent = '-';
+        document.getElementById('ocrRemaining').textContent = '-';
         document.getElementById('nextHolidayName').textContent = '-';
     }
 }
@@ -122,23 +123,42 @@ function renderOverviewCards(data) {
         document.getElementById('vacationDetail').textContent = t('dashNoQuota');
     }
 
-    // Sick days card
-    const sickCard = document.getElementById('sickCard');
-    sickCard.classList.remove('loading');
+    // Paragraph card
+    const paragraphCard = document.getElementById('paragraphCard');
+    paragraphCard.classList.remove('loading');
     if (quota) {
-        const sickRemaining = quota.sick_days_remaining;
-        const sickTotal = quota.sick_days_total;
-        const sickUsedPct = Math.round((quota.sick_days_used / sickTotal) * 100);
-        const barClass = sickUsedPct > 90 ? 'bar-red' : sickUsedPct > 70 ? 'bar-amber' : 'bar-green';
+        const parRemaining = quota.paragraph_days_remaining;
+        const parTotal = quota.paragraph_days_total;
+        const parUsedPct = parTotal > 0 ? Math.round((quota.paragraph_days_used / parTotal) * 100) : 0;
+        const parBarClass = parUsedPct > 90 ? 'bar-red' : parUsedPct > 70 ? 'bar-amber' : 'bar-green';
 
-        document.getElementById('sickRemaining').textContent = `${sickRemaining} ${t('dashDays')}`;
-        document.getElementById('sickDetail').textContent = `${quota.sick_days_used} / ${sickTotal} ${t('dashUsed')}`;
-        const sickBar = document.getElementById('sickBar');
-        sickBar.className = `overview-bar-fill ${barClass}`;
-        sickBar.style.width = `${Math.min(sickUsedPct, 100)}%`;
+        document.getElementById('paragraphRemaining').textContent = `${parRemaining} ${t('dashDays')}`;
+        document.getElementById('paragraphDetail').textContent = `${quota.paragraph_days_used} / ${parTotal} ${t('dashUsed')}`;
+        const parBar = document.getElementById('paragraphBar');
+        parBar.className = `overview-bar-fill ${parBarClass}`;
+        parBar.style.width = `${Math.min(parUsedPct, 100)}%`;
     } else {
-        document.getElementById('sickRemaining').textContent = '-';
-        document.getElementById('sickDetail').textContent = t('dashNoQuota');
+        document.getElementById('paragraphRemaining').textContent = '-';
+        document.getElementById('paragraphDetail').textContent = t('dashNoQuota');
+    }
+
+    // OCR card
+    const ocrCard = document.getElementById('ocrCard');
+    ocrCard.classList.remove('loading');
+    if (quota) {
+        const ocrRemaining = quota.ocr_days_remaining;
+        const ocrTotal = quota.ocr_days_total;
+        const ocrUsedPct = ocrTotal > 0 ? Math.round((quota.ocr_days_used / ocrTotal) * 100) : 0;
+        const ocrBarClass = ocrUsedPct > 90 ? 'bar-red' : ocrUsedPct > 70 ? 'bar-amber' : 'bar-green';
+
+        document.getElementById('ocrRemaining').textContent = `${ocrRemaining} ${t('dashDays')}`;
+        document.getElementById('ocrDetail').textContent = `${quota.ocr_days_used} / ${ocrTotal} ${t('dashUsed')}`;
+        const ocrBar = document.getElementById('ocrBar');
+        ocrBar.className = `overview-bar-fill ${ocrBarClass}`;
+        ocrBar.style.width = `${Math.min(ocrUsedPct, 100)}%`;
+    } else {
+        document.getElementById('ocrRemaining').textContent = '-';
+        document.getElementById('ocrDetail').textContent = t('dashNoQuota');
     }
 
     // Next holiday card

@@ -9,8 +9,8 @@ class SickNote {
       `INSERT INTO sick_notes (
         user_id, user_name, user_email, title, description,
         start_date, end_date, doctor_name, diagnosis,
-        file_path, file_name, file_type, file_size
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        file_path, file_name, file_type, file_size, document_type
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *`,
       [
         data.userId, data.userName, data.userEmail,
@@ -18,7 +18,8 @@ class SickNote {
         data.startDate, data.endDate,
         data.doctorName || null, data.diagnosis || null,
         data.filePath || null, data.fileName || null,
-        data.fileType || null, data.fileSize || null
+        data.fileType || null, data.fileSize || null,
+        data.documentType || 'paragraph'
       ]
     );
     return result.rows[0];

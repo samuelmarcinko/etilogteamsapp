@@ -6,7 +6,7 @@ const NAV_ITEMS = {
     { id: 'my-requests', icon: '📋', label: 'My Requests', url: '/pages/my-requests.html' },
     { id: 'upcoming-time-off', icon: '📅', label: 'Team Calendar', url: '/pages/upcoming-time-off.html' },
     { id: 'approvals', icon: '✅', label: 'Approvals', url: '/pages/approvals.html' },
-    { id: 'sick-notes', icon: '🏥', label: 'My Sick Notes', url: '/pages/sick-notes.html' }
+    { id: 'sick-notes', icon: '🏥', label: 'Paragraphs & OCR', url: '/pages/sick-notes.html' }
   ],
   sk: [
     { id: 'dashboard', icon: '📊', label: 'Nástenka', url: '/pages/dashboard.html' },
@@ -14,7 +14,7 @@ const NAV_ITEMS = {
     { id: 'my-requests', icon: '📋', label: 'Moje žiadosti', url: '/pages/my-requests.html' },
     { id: 'upcoming-time-off', icon: '📅', label: 'Teamový kalendár', url: '/pages/upcoming-time-off.html' },
     { id: 'approvals', icon: '✅', label: 'Schvaľovanie', url: '/pages/approvals.html' },
-    { id: 'sick-notes', icon: '🏥', label: 'Moje PN-ky', url: '/pages/sick-notes.html' }
+    { id: 'sick-notes', icon: '🏥', label: 'Paragrafy & OČR', url: '/pages/sick-notes.html' }
   ]
 };
 

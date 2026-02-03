@@ -18,8 +18,8 @@
         <div class="header">
             <img src="/assets/images/logo.png" alt="ETILOG Logo" class="logo">
             <div class="header-content">
-                <h1 data-i18n="sickNotesTitle">My Sick Notes</h1>
-                <p data-i18n="sickNotesSubtitle">Upload and manage your sick note documents</p>
+                <h1 data-i18n="sickNotesTitle">Paragraphs & OCR</h1>
+                <p data-i18n="sickNotesSubtitle">Upload and manage your paragraph and OCR documents</p>
             </div>
         </div>
 
@@ -28,8 +28,20 @@
 
         <!-- Upload Form Card -->
         <div class="card">
-            <h3 class="card-title" data-i18n="sickNotesUploadTitle">Upload New Sick Note</h3>
+            <h3 class="card-title" data-i18n="sickNotesUploadTitle">Upload New Document</h3>
             <form id="sickNoteForm">
+                <!-- Document Type -->
+                <div class="form-group">
+                    <label class="form-label" for="snDocType">
+                        <span data-i18n="sickNotesLabelDocType">Document Type</span>
+                        <span class="required">*</span>
+                    </label>
+                    <select id="snDocType" name="document_type" class="form-input" required>
+                        <option value="paragraph" data-i18n="sickNotesDocTypeParagraph">Paragraph</option>
+                        <option value="ocr" data-i18n="sickNotesDocTypeOcr">OCR</option>
+                    </select>
+                </div>
+
                 <!-- Title -->
                 <div class="form-group">
                     <label class="form-label" for="snTitle">
@@ -87,7 +99,7 @@
 
         <!-- My Sick Notes List -->
         <div class="card">
-            <h3 class="card-title" data-i18n="sickNotesListTitle">My Sick Notes</h3>
+            <h3 class="card-title" data-i18n="sickNotesListTitle">My Documents</h3>
             <div id="sickNotesList">
                 <div class="loading-container">
                     <div class="loading"></div>
@@ -407,12 +419,21 @@
                     fileHtml = `<span class="sn-no-file">${t('sickNotesNoFile')}</span>`;
                 }
 
+                const docTypeLabel = n.document_type === 'ocr' ? t('sickNotesDocTypeOcr') : t('sickNotesDocTypeParagraph');
+                const docTypeStyle = n.document_type === 'ocr'
+                    ? 'background:#fef3c7;color:#92400e;border-color:#fcd34d;'
+                    : 'background:#dbeafe;color:#1e40af;border-color:#93c5fd;';
+                const docIcon = n.document_type === 'ocr' ? '&#128106;' : '&#167;';
+
                 return `
                 <div class="sn-card">
-                    <div class="sn-icon">&#129298;</div>
+                    <div class="sn-icon" style="${n.document_type === 'ocr' ? 'background:#fef3c7;' : 'background:#dbeafe;'}">${docIcon}</div>
                     <div class="sn-body">
                         <div class="sn-title">${escapeHtml(n.title)}</div>
                         <div class="sn-meta">
+                            <span class="sn-tag" style="${docTypeStyle}">
+                                ${docTypeLabel}
+                            </span>
                             <span class="sn-tag">
                                 <span class="sn-tag-icon">&#128197;</span>
                                 ${formatDate(n.start_date)} - ${formatDate(n.end_date)}

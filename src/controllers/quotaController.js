@@ -20,7 +20,11 @@ class QuotaController {
           vacation_days_used: parseFloat(quota.vacation_days_used),
           sick_days_used: parseFloat(quota.sick_days_used),
           vacation_days_remaining: quota.vacation_days_total - parseFloat(quota.vacation_days_used),
-          sick_days_remaining: quota.sick_days_total - parseFloat(quota.sick_days_used)
+          sick_days_remaining: quota.sick_days_total - parseFloat(quota.sick_days_used),
+          paragraph_days_used: parseFloat(quota.paragraph_days_used || 0),
+          paragraph_days_remaining: (quota.paragraph_days_total || 7) - parseFloat(quota.paragraph_days_used || 0),
+          ocr_days_used: parseFloat(quota.ocr_days_used || 0),
+          ocr_days_remaining: (quota.ocr_days_total || 7) - parseFloat(quota.ocr_days_used || 0)
         }
       });
     } catch (error) {
@@ -45,7 +49,11 @@ class QuotaController {
           vacation_days_used: parseFloat(quota.vacation_days_used),
           sick_days_used: parseFloat(quota.sick_days_used),
           vacation_days_remaining: quota.vacation_days_total - parseFloat(quota.vacation_days_used),
-          sick_days_remaining: quota.sick_days_total - parseFloat(quota.sick_days_used)
+          sick_days_remaining: quota.sick_days_total - parseFloat(quota.sick_days_used),
+          paragraph_days_used: parseFloat(quota.paragraph_days_used || 0),
+          paragraph_days_remaining: (quota.paragraph_days_total || 7) - parseFloat(quota.paragraph_days_used || 0),
+          ocr_days_used: parseFloat(quota.ocr_days_used || 0),
+          ocr_days_remaining: (quota.ocr_days_total || 7) - parseFloat(quota.ocr_days_used || 0)
         }
       });
     } catch (error) {
@@ -70,7 +78,11 @@ class QuotaController {
           vacation_days_used: parseFloat(q.vacation_days_used),
           sick_days_used: parseFloat(q.sick_days_used),
           vacation_days_remaining: q.vacation_days_total - parseFloat(q.vacation_days_used),
-          sick_days_remaining: q.sick_days_total - parseFloat(q.sick_days_used)
+          sick_days_remaining: q.sick_days_total - parseFloat(q.sick_days_used),
+          paragraph_days_used: parseFloat(q.paragraph_days_used || 0),
+          paragraph_days_remaining: (q.paragraph_days_total || 7) - parseFloat(q.paragraph_days_used || 0),
+          ocr_days_used: parseFloat(q.ocr_days_used || 0),
+          ocr_days_remaining: (q.ocr_days_total || 7) - parseFloat(q.ocr_days_used || 0)
         }))
       });
     } catch (error) {
@@ -85,7 +97,7 @@ class QuotaController {
   static async updateUserQuota(req, res, next) {
     try {
       const { userId } = req.params;
-      const { vacation_days_total, sick_days_total } = req.body;
+      const { vacation_days_total, sick_days_total, paragraph_days_total, ocr_days_total } = req.body;
       const year = parseInt(req.body.year) || new Date().getFullYear();
 
       // Ensure quota exists first
@@ -94,7 +106,9 @@ class QuotaController {
       const updated = await Quota.updateTotals(
         userId, year,
         vacation_days_total,
-        sick_days_total
+        sick_days_total,
+        paragraph_days_total,
+        ocr_days_total
       );
 
       res.json({
@@ -126,7 +140,7 @@ class QuotaController {
    */
   static async updateSettings(req, res, next) {
     try {
-      const { year, default_vacation_days, default_sick_days, carry_over_enabled, max_carry_over_days } = req.body;
+      const { year, default_vacation_days, default_sick_days, carry_over_enabled, max_carry_over_days, default_paragraph_days, default_ocr_days } = req.body;
 
       if (!year) {
         return res.status(400).json({ error: 'Bad Request', message: 'Year is required' });
@@ -137,7 +151,9 @@ class QuotaController {
         default_vacation_days || 20,
         default_sick_days || 5,
         carry_over_enabled || false,
-        max_carry_over_days || 0
+        max_carry_over_days || 0,
+        default_paragraph_days || 7,
+        default_ocr_days || 7
       );
 
       res.json({

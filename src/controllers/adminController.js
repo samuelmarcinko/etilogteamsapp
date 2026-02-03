@@ -71,7 +71,9 @@ class AdminController {
       // Get DB users with roles and quotas
       const dbUsers = await pool.query(
         `SELECT u.*, eq.vacation_days_total, eq.vacation_days_used,
-                eq.sick_days_total, eq.sick_days_used
+                eq.sick_days_total, eq.sick_days_used,
+                eq.paragraph_days_total, eq.paragraph_days_used,
+                eq.ocr_days_total, eq.ocr_days_used
          FROM users u
          LEFT JOIN employee_quotas eq ON u.user_id = eq.user_id AND eq.year = $1
          ORDER BY u.display_name`,
@@ -90,7 +92,11 @@ class AdminController {
           vacation_days_total: dbUser?.vacation_days_total || null,
           vacation_days_used: dbUser?.vacation_days_used || 0,
           sick_days_total: dbUser?.sick_days_total || null,
-          sick_days_used: dbUser?.sick_days_used || 0
+          sick_days_used: dbUser?.sick_days_used || 0,
+          paragraph_days_total: dbUser?.paragraph_days_total || null,
+          paragraph_days_used: parseFloat(dbUser?.paragraph_days_used || 0),
+          ocr_days_total: dbUser?.ocr_days_total || null,
+          ocr_days_used: parseFloat(dbUser?.ocr_days_used || 0)
         };
       });
 

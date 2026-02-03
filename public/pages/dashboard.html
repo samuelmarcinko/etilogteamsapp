@@ -12,7 +12,7 @@
         /* Quota & Holiday Overview Cards */
         .overview-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: 1fr 1fr;
             gap: 1rem;
             margin-bottom: 1.5rem;
         }
@@ -148,13 +148,23 @@
                 </div>
             </div>
 
-            <div class="overview-card loading" id="sickCard">
-                <div class="overview-icon sick">&#129298;</div>
+            <div class="overview-card loading" id="paragraphCard">
+                <div class="overview-icon" style="background:#dbeafe;color:#2563eb;">&#167;</div>
                 <div class="overview-info">
-                    <div class="overview-label" data-i18n="dashSickRemaining">Sick days remaining</div>
-                    <div class="overview-value" id="sickRemaining">-</div>
-                    <div class="overview-detail" id="sickDetail">&nbsp;</div>
-                    <div class="overview-bar"><div class="overview-bar-fill bar-green" id="sickBar" style="width:0%"></div></div>
+                    <div class="overview-label" data-i18n="dashParagraphRemaining">Paragraphs remaining</div>
+                    <div class="overview-value" id="paragraphRemaining">-</div>
+                    <div class="overview-detail" id="paragraphDetail">&nbsp;</div>
+                    <div class="overview-bar"><div class="overview-bar-fill bar-green" id="paragraphBar" style="width:0%"></div></div>
+                </div>
+            </div>
+
+            <div class="overview-card loading" id="ocrCard">
+                <div class="overview-icon" style="background:#fef3c7;color:#d97706;">&#128106;</div>
+                <div class="overview-info">
+                    <div class="overview-label" data-i18n="dashOcrRemaining">OCR remaining</div>
+                    <div class="overview-value" id="ocrRemaining">-</div>
+                    <div class="overview-detail" id="ocrDetail">&nbsp;</div>
+                    <div class="overview-bar"><div class="overview-bar-fill bar-green" id="ocrBar" style="width:0%"></div></div>
                 </div>
             </div>
 

@@ -35,7 +35,13 @@ router.get('/', async (req, res) => {
         vacation_days_remaining: quota.vacation_days_total - parseFloat(quota.vacation_days_used),
         sick_days_total: quota.sick_days_total,
         sick_days_used: parseFloat(quota.sick_days_used),
-        sick_days_remaining: quota.sick_days_total - parseFloat(quota.sick_days_used)
+        sick_days_remaining: quota.sick_days_total - parseFloat(quota.sick_days_used),
+        paragraph_days_total: quota.paragraph_days_total || 7,
+        paragraph_days_used: parseFloat(quota.paragraph_days_used || 0),
+        paragraph_days_remaining: (quota.paragraph_days_total || 7) - parseFloat(quota.paragraph_days_used || 0),
+        ocr_days_total: quota.ocr_days_total || 7,
+        ocr_days_used: parseFloat(quota.ocr_days_used || 0),
+        ocr_days_remaining: (quota.ocr_days_total || 7) - parseFloat(quota.ocr_days_used || 0)
       };
     }
   } catch (e) {
