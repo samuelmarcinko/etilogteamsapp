@@ -72,9 +72,18 @@ function renderNavigation(currentPage) {
   const lang = localStorage.getItem('appLanguage') || 'en';
   const items = NAV_ITEMS[lang];
 
+  const portalLabel = lang === 'sk' ? 'Web rozhranie' : 'Web Portal';
+
   // Outer wrapper for fade indicators
   const wrapper = document.createElement('div');
   wrapper.className = 'nav-wrapper';
+
+  // Portal link button
+  const portalLink = document.createElement('a');
+  portalLink.href = 'https://teams.etilog.com/login';
+  portalLink.target = '_blank';
+  portalLink.className = 'nav-portal-link';
+  portalLink.innerHTML = `<span class="nav-portal-icon">&#127760;</span><span>${portalLabel}</span>`;
 
   // Scrollable nav area
   const nav = document.createElement('nav');
@@ -95,6 +104,7 @@ function renderNavigation(currentPage) {
     <button class="lang-btn ${lang === 'sk' ? 'active' : ''}" data-lang="sk" onclick="switchLanguage('sk')">SK</button>
   `;
 
+  wrapper.appendChild(portalLink);
   wrapper.appendChild(nav);
   wrapper.appendChild(langSwitcher);
 

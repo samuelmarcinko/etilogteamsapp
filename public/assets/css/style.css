@@ -215,6 +215,33 @@ body {
   opacity: 1;
 }
 
+/* Portal link button in nav bar */
+.nav-portal-link {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  border-right: 1px solid var(--gray-200);
+  flex-shrink: 0;
+  background: var(--gray-50);
+  border-radius: 16px 0 0 16px;
+  text-decoration: none;
+  color: var(--gray-600);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.nav-portal-link:hover {
+  background: var(--etilog-red-light);
+  color: var(--etilog-red);
+}
+
+.nav-portal-icon {
+  font-size: 0.875rem;
+}
+
 /* Language switcher pinned inside nav bar */
 .nav-lang-switcher {
   display: flex;
