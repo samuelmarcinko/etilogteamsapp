@@ -657,22 +657,25 @@ async function renderMyRequests(container) {
 // Open new request modal
 async function openNewRequestModal() {
     // Load ticket types and users for approver dropdown
-    let ticketTypes = [];
     let users = [];
+    window._loadedTicketTypes = [];
     try {
         const [typesRes, usersRes] = await Promise.all([
             apiCall('/api/ticket-types/active'),
             apiCall('/api/admin/employees')
         ]);
-        ticketTypes = (await typesRes.json()).data || [];
+        window._loadedTicketTypes = (await typesRes.json()).data || [];
         users = (await usersRes.json()).data || [];
     } catch (e) {
         console.error('Error loading form data:', e);
     }
 
-    const typeOptions = ticketTypes.map(t =>
-        `<option value="${t.value || t.name}">${escapeHtml(t.label || t.name)}</option>`
-    ).join('');
+    const ticketTypes = window._loadedTicketTypes;
+    const lang = localStorage.getItem('etilog_portal_lang') || 'sk';
+    const typeOptions = ticketTypes.map(t => {
+        const label = lang === 'sk' ? (t.label_sk || t.key) : (t.label_en || t.key);
+        return `<option value="${t.key}">${escapeHtml(label)}</option>`;
+    }).join('');
 
     const approverOptions = users
         .filter(u => u.id !== portalUser.id)
@@ -739,7 +742,9 @@ async function openNewRequestModal() {
 function toggleRequestDates(type) {
     const row = document.getElementById('requestDatesRow');
     if (row) {
-        const showDates = ['vacation', 'sick-leave'].includes(type?.toLowerCase());
+        const types = window._loadedTicketTypes || [];
+        const matched = types.find(t => t.key === type);
+        const showDates = matched ? matched.requires_dates : false;
         row.style.display = showDates ? 'grid' : 'none';
     }
 }
