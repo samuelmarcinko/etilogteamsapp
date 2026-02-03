@@ -21,7 +21,9 @@ class AdminController {
             COUNT(CASE WHEN status = 'Approved' THEN 1 END) as approved,
             COUNT(CASE WHEN status = 'Rejected' THEN 1 END) as rejected,
             COUNT(CASE WHEN ticket_type = 'vacation' AND status = 'Approved' THEN 1 END) as approved_vacations,
-            COUNT(CASE WHEN ticket_type = 'sick-leave' AND status = 'Approved' THEN 1 END) as approved_sick_leaves
+            COUNT(CASE WHEN ticket_type = 'sick-leave' AND status = 'Approved' THEN 1 END) as approved_sick_leaves,
+            COUNT(CASE WHEN ticket_type = 'paragraph' AND status = 'Approved' THEN 1 END) as approved_paragraphs,
+            COUNT(CASE WHEN ticket_type = 'ocr' AND status = 'Approved' THEN 1 END) as approved_ocr
           FROM tickets
           WHERE EXTRACT(YEAR FROM created_at) = $1
         `, [year]),
@@ -29,6 +31,8 @@ class AdminController {
           SELECT
             COALESCE(SUM(vacation_days_used), 0) as total_vacation_used,
             COALESCE(SUM(sick_days_used), 0) as total_sick_used,
+            COALESCE(SUM(paragraph_days_used), 0) as total_paragraph_used,
+            COALESCE(SUM(ocr_days_used), 0) as total_ocr_used,
             COUNT(*) as employees_with_quotas
           FROM employee_quotas WHERE year = $1
         `, [year]),

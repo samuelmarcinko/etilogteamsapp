@@ -18,8 +18,9 @@ class TicketService {
         throw new Error('Creator information is required');
       }
 
-      // Quota check for vacation and sick-leave requests
-      if ((ticketData.ticketType === 'vacation' || ticketData.ticketType === 'sick-leave') &&
+      // Quota check for types that require dates and have quotas
+      const quotaTypes = ['vacation', 'sick-leave', 'paragraph', 'ocr'];
+      if (quotaTypes.includes(ticketData.ticketType) &&
           ticketData.startDate && ticketData.endDate) {
         try {
           const year = new Date(ticketData.startDate).getFullYear();
@@ -30,11 +31,23 @@ class TicketService {
 
           if (!hasEnough) {
             const quota = await Quota.getOrCreate(ticketData.createdBy.id, year);
-            const type = ticketData.ticketType === 'vacation' ? 'dovolenky' : 'sick days';
-            const col = ticketData.ticketType === 'vacation' ? 'vacation' : 'sick';
+            const typeLabels = {
+              'vacation': 'dovolenky',
+              'sick-leave': 'PN',
+              'paragraph': 'Paragraf',
+              'ocr': 'OČR'
+            };
+            const colPrefixes = {
+              'vacation': 'vacation',
+              'sick-leave': 'sick',
+              'paragraph': 'paragraph',
+              'ocr': 'ocr'
+            };
+            const label = typeLabels[ticketData.ticketType] || ticketData.ticketType;
+            const col = colPrefixes[ticketData.ticketType] || 'sick';
             const remaining = quota[`${col}_days_total`] - parseFloat(quota[`${col}_days_used`]);
             throw new Error(
-              `Nedostatok dni ${type}. Pozadovane: ${workingDays} pracovnych dni, zostatok: ${remaining} dni.`
+              `Nedostatok dni ${label}. Pozadovane: ${workingDays} pracovnych dni, zostatok: ${remaining} dni.`
             );
           }
         } catch (quotaError) {
@@ -125,8 +138,9 @@ class TicketService {
       // Update ticket status
       const updatedTicket = await Ticket.updateStatus(ticketId, 'Approved', approver);
 
-      // Deduct quota days for vacation/sick-leave
-      if ((ticket.ticket_type === 'vacation' || ticket.ticket_type === 'sick-leave') &&
+      // Deduct quota days for types with quotas (vacation, sick-leave, paragraph, ocr)
+      const quotaTypes = ['vacation', 'sick-leave', 'paragraph', 'ocr'];
+      if (quotaTypes.includes(ticket.ticket_type) &&
           ticket.start_date && ticket.end_date) {
         try {
           const year = new Date(ticket.start_date).getFullYear();
