@@ -74,18 +74,27 @@ function renderNavigation(currentPage) {
 
   const portalLabel = lang === 'sk' ? 'Web rozhranie' : 'Web Portal';
 
-  // Outer wrapper for fade indicators
+  // Top-level container for everything
+  const container = document.createElement('div');
+
+  // Utility bar (portal link + language switcher) - outside nav, top-left
+  const utilityBar = document.createElement('div');
+  utilityBar.className = 'nav-utility-bar';
+  utilityBar.innerHTML = `
+    <a href="https://teams.etilog.com/login" target="_blank" class="nav-portal-link">
+      <span class="nav-portal-icon">&#127760;</span>${portalLabel}
+    </a>
+    <div class="nav-lang-switcher">
+      <button class="lang-btn ${lang === 'en' ? 'active' : ''}" data-lang="en" onclick="switchLanguage('en')">EN</button>
+      <button class="lang-btn ${lang === 'sk' ? 'active' : ''}" data-lang="sk" onclick="switchLanguage('sk')">SK</button>
+    </div>
+  `;
+
+  // Outer wrapper for nav with fade indicators
   const wrapper = document.createElement('div');
   wrapper.className = 'nav-wrapper';
 
-  // Portal link button
-  const portalLink = document.createElement('a');
-  portalLink.href = 'https://teams.etilog.com/login';
-  portalLink.target = '_blank';
-  portalLink.className = 'nav-portal-link';
-  portalLink.innerHTML = `<span class="nav-portal-icon">&#127760;</span><span>${portalLabel}</span>`;
-
-  // Scrollable nav area
+  // Scrollable nav area - only navigation items
   const nav = document.createElement('nav');
   nav.className = 'app-nav';
   nav.innerHTML = items.map(item => `
@@ -96,17 +105,10 @@ function renderNavigation(currentPage) {
     </a>
   `).join('');
 
-  // Language switcher inside the nav bar
-  const langSwitcher = document.createElement('div');
-  langSwitcher.className = 'nav-lang-switcher';
-  langSwitcher.innerHTML = `
-    <button class="lang-btn ${lang === 'en' ? 'active' : ''}" data-lang="en" onclick="switchLanguage('en')">EN</button>
-    <button class="lang-btn ${lang === 'sk' ? 'active' : ''}" data-lang="sk" onclick="switchLanguage('sk')">SK</button>
-  `;
-
-  wrapper.appendChild(portalLink);
   wrapper.appendChild(nav);
-  wrapper.appendChild(langSwitcher);
+
+  container.appendChild(utilityBar);
+  container.appendChild(wrapper);
 
   // Set up scroll fade indicators after rendering
   requestAnimationFrame(() => {
@@ -115,7 +117,7 @@ function renderNavigation(currentPage) {
     window.addEventListener('resize', () => updateScrollFades(nav), { passive: true });
   });
 
-  return wrapper;
+  return container;
 }
 
 // Initialize navigation on page load
