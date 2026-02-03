@@ -250,6 +250,8 @@ function getTypeBadgeClass(type) {
     const classMap = {
         'vacation': 'type-vacation',
         'sick-leave': 'type-sick-leave',
+        'paragraph': 'type-paragraph',
+        'ocr': 'type-ocr',
         'purchase': 'type-purchase',
         'expense': 'type-expense',
         'hr': 'type-hr',
@@ -262,6 +264,8 @@ function translateTicketType(type) {
     const typeMap = {
         'vacation': 'typeVacation',
         'sick-leave': 'typeSickLeave',
+        'paragraph': 'typeParagraph',
+        'ocr': 'typeOcr',
         'purchase': 'typePurchase',
         'expense': 'typeExpense',
         'hr': 'typeHr',

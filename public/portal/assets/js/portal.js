@@ -252,7 +252,7 @@ async function renderDashboard(container) {
                                 ${tickets.slice(0, 10).map(t => `
                                     <tr>
                                         <td>${escapeHtml(t.title)}</td>
-                                        <td><span class="badge badge-${t.ticket_type === 'vacation' ? 'vacation' : t.ticket_type === 'sick-leave' ? 'sick' : 'user'}">${translateType(t.ticket_type)}</span></td>
+                                        <td><span class="badge badge-${{'vacation':'vacation','sick-leave':'sick','paragraph':'paragraph','ocr':'ocr'}[t.ticket_type] || 'user'}">${translateType(t.ticket_type)}</span></td>
                                         <td><span class="badge badge-${t.status.toLowerCase()}">${translateStatus(t.status)}</span></td>
                                         <td>${formatDate(t.created_at)}</td>
                                     </tr>
@@ -1249,7 +1249,7 @@ function renderAdminTicketsTable(tickets) {
                     <tr>
                         <td><code>${t.ticket_id}</code></td>
                         <td>${escapeHtml(t.title)}</td>
-                        <td><span class="badge badge-${t.ticket_type === 'vacation' ? 'vacation' : t.ticket_type === 'sick-leave' ? 'sick' : 'user'}">${translateType(t.ticket_type)}</span></td>
+                        <td><span class="badge badge-${{'vacation':'vacation','sick-leave':'sick','paragraph':'paragraph','ocr':'ocr'}[t.ticket_type] || 'user'}">${translateType(t.ticket_type)}</span></td>
                         <td>${escapeHtml(t.created_by_name)}</td>
                         <td>${t.assigned_approver_name ? escapeHtml(t.assigned_approver_name) : '-'}</td>
                         <td><span class="badge badge-${t.status.toLowerCase()}">${translateStatus(t.status)}</span></td>
@@ -1488,7 +1488,7 @@ function renderTicketsTable(tickets) {
                         ${tickets.map(t => `
                             <tr>
                                 <td><strong>${escapeHtml(t.title)}</strong>${t.rejection_reason ? `<br><small style="color:var(--red-500)">${pt('reason')}: ${escapeHtml(t.rejection_reason)}</small>` : ''}</td>
-                                <td><span class="badge badge-${t.ticket_type === 'vacation' ? 'vacation' : t.ticket_type === 'sick-leave' ? 'sick' : 'user'}">${translateType(t.ticket_type)}</span></td>
+                                <td><span class="badge badge-${{'vacation':'vacation','sick-leave':'sick','paragraph':'paragraph','ocr':'ocr'}[t.ticket_type] || 'user'}">${translateType(t.ticket_type)}</span></td>
                                 <td>${t.assigned_approver_name ? escapeHtml(t.assigned_approver_name) : '-'}</td>
                                 <td><span class="badge badge-${t.status.toLowerCase()}">${translateStatus(t.status)}</span></td>
                                 <td>${formatDate(t.created_at)}${t.start_date ? `<br><small>${formatDate(t.start_date)} - ${formatDate(t.end_date)}</small>` : ''}</td>

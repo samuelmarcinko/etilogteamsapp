@@ -188,7 +188,7 @@
                         <span class="meta-item">
                             <strong>📅 ${t('labelDate')}:</strong> ${new Date(ticket.updated_at).toLocaleDateString()}
                         </span>
-                        ${(ticket.ticket_type === 'vacation' || ticket.ticket_type === 'sick-leave') && ticket.start_date && ticket.end_date ? `
+                        ${['vacation', 'sick-leave', 'paragraph', 'ocr'].includes(ticket.ticket_type) && ticket.start_date && ticket.end_date ? `
                             <span class="meta-item">
                                 <strong>📅</strong> ${formatDate(ticket.start_date)} → ${formatDate(ticket.end_date)}
                             </span>
@@ -212,6 +212,8 @@
             const typeMap = {
                 'vacation': 'typeVacation',
                 'sick-leave': 'typeSickLeave',
+                'paragraph': 'typeParagraph',
+                'ocr': 'typeOcr',
                 'purchase': 'typePurchase',
                 'expense': 'typeExpense',
                 'hr': 'typeHr',
@@ -235,6 +237,8 @@
             const classMap = {
                 'vacation': 'type-vacation',
                 'sick-leave': 'type-sick-leave',
+                'paragraph': 'type-paragraph',
+                'ocr': 'type-ocr',
                 'purchase': 'type-purchase',
                 'expense': 'type-expense',
                 'hr': 'type-hr',
@@ -305,7 +309,7 @@
                             <span class="meta-item">
                                 <strong>👤 ${t('labelCreatedBy')}:</strong> ${ticket.created_by_name}
                             </span>
-                            ${(ticket.ticket_type === 'vacation' || ticket.ticket_type === 'sick-leave') && ticket.start_date && ticket.end_date ? `
+                            ${['vacation', 'sick-leave', 'paragraph', 'ocr'].includes(ticket.ticket_type) && ticket.start_date && ticket.end_date ? `
                                 <span class="meta-item">
                                     <strong>📅</strong> ${formatDate(ticket.start_date)} → ${formatDate(ticket.end_date)}
                                 </span>

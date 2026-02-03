@@ -60,6 +60,8 @@ const translations = {
     // Request types
     typeVacation: 'Vacation',
     typeSickLeave: 'Sick Leave',
+    typeParagraph: 'Paragraph Leave',
+    typeOcr: 'Family Member Care',
     typePurchase: 'Purchase',
     typeExpense: 'Expense',
     typeHr: 'HR Matters',
@@ -271,6 +273,8 @@ const translations = {
     // Request types
     typeVacation: 'Dovolenka',
     typeSickLeave: 'PN-ka',
+    typeParagraph: 'Paragraf',
+    typeOcr: 'OČR',
     typePurchase: 'Nákup',
     typeExpense: 'Výdavky',
     typeHr: 'HR záležitosti',
