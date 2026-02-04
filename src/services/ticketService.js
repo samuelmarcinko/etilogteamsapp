@@ -201,6 +201,18 @@ class TicketService {
       throw error;
     }
   }
+
+  /**
+   * Get approvals performed by a user
+   */
+  static async getApprovalsByUser(userId) {
+    try {
+      return await Ticket.findApprovalsByUserId(userId);
+    } catch (error) {
+      console.error('Error getting approvals by user:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = TicketService;
