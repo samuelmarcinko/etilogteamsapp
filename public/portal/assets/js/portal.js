@@ -137,6 +137,7 @@ async function renderPage(page) {
             case 'my-quotas': await renderMyQuotas(content); break;
             case 'my-sick-notes': await renderMySickNotes(content); break;
             case 'my-requests': await renderMyRequests(content); break;
+            case 'my-approvals': await renderMyApprovals(content); break;
             case 'admin-dashboard': await renderAdminDashboard(content); break;
             case 'admin-employees': await renderAdminEmployees(content); break;
             case 'admin-quotas': await renderAdminQuotas(content); break;
@@ -563,52 +564,7 @@ async function previewSickNoteFile(event, id, fileName) {
 
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
-        const ext = fileName.toLowerCase().split('.').pop();
-        const isImage = ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'tiff', 'tif', 'heic', 'heif'].includes(ext);
-        const isPdf = ext === 'pdf';
-
-        const overlay = document.createElement('div');
-        overlay.id = 'fileLightbox';
-        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
-        overlay.onclick = (e) => { if (e.target === overlay) { overlay.remove(); window.URL.revokeObjectURL(url); } };
-
-        const wrapper = document.createElement('div');
-        wrapper.style.cssText = 'position:relative;max-width:90vw;max-height:90vh;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 25px 50px rgba(0,0,0,0.3);';
-
-        const header = document.createElement('div');
-        header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--gray-50,#f9fafb);border-bottom:1px solid var(--gray-200,#e5e7eb);';
-        header.innerHTML = `
-            <span style="font-weight:600;font-size:14px;color:#374151;">${escapeHtml(fileName)}</span>
-            <div style="display:flex;gap:8px;">
-                <button onclick="event.stopPropagation();const a=document.createElement('a');a.href='${url}';a.download='${escapeHtml(fileName)}';a.click();" style="padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;font-size:13px;" title="${pt('download')}">&#11015; ${pt('download')}</button>
-                <button onclick="event.stopPropagation();document.getElementById('fileLightbox').remove();" style="padding:6px 10px;border:none;border-radius:6px;background:#ef4444;color:#fff;cursor:pointer;font-size:16px;line-height:1;" title="${pt('close')}">&#10005;</button>
-            </div>
-        `;
-        wrapper.appendChild(header);
-
-        const content = document.createElement('div');
-        content.style.cssText = 'display:flex;align-items:center;justify-content:center;max-height:calc(90vh - 52px);overflow:auto;';
-
-        if (isImage) {
-            const img = document.createElement('img');
-            img.src = url;
-            img.style.cssText = 'max-width:88vw;max-height:calc(90vh - 60px);object-fit:contain;';
-            content.appendChild(img);
-        } else if (isPdf) {
-            const iframe = document.createElement('iframe');
-            iframe.src = url;
-            iframe.style.cssText = 'width:88vw;height:calc(90vh - 60px);border:none;';
-            content.appendChild(iframe);
-        } else {
-            content.innerHTML = `<div style="padding:40px;text-align:center;"><p style="margin-bottom:16px;">${pt('previewNotAvailable')}</p><a href="${url}" download="${escapeHtml(fileName)}" style="color:var(--blue-600,#2563eb);">&#11015; ${pt('downloadFile')}</a></div>`;
-        }
-
-        wrapper.appendChild(content);
-        overlay.appendChild(wrapper);
-        document.body.appendChild(overlay);
-
-        const escHandler = (e) => { if (e.key === 'Escape') { overlay.remove(); window.URL.revokeObjectURL(url); document.removeEventListener('keydown', escHandler); } };
-        document.addEventListener('keydown', escHandler);
+        showFileLightbox(url, fileName);
 
     } catch (error) {
         showToast(pt('fileLoadError') + ': ' + error.message, 'error');
@@ -735,6 +691,11 @@ async function openNewRequestModal() {
                     ${approverOptions}
                 </select>
             </div>
+            <div class="form-group">
+                <label class="form-label">${pt('attachmentsOptional')}</label>
+                <input type="file" class="form-input" name="attachments" multiple accept=".jpg,.jpeg,.png,.pdf,.docx,.xlsx">
+                <p class="helper-text">${pt('attachmentsHelper')}</p>
+            </div>
         </form>
     `;
     document.getElementById('modalFooter').innerHTML = `
@@ -765,24 +726,30 @@ async function submitNewRequest() {
 
     try {
         const approverData = JSON.parse(form.approver.value);
-        const data = {
-            title: form.title.value,
-            description: form.description.value,
-            ticket_type: form.ticket_type.value,
-            priority: form.priority.value,
-            created_by_id: portalUser.id,
-            created_by_name: portalUser.name || portalUser.email,
-            created_by_email: portalUser.email,
-            assigned_approver_id: approverData.id,
-            assigned_approver_name: approverData.name,
-            assigned_approver_email: approverData.email,
-            start_date: form.start_date?.value || null,
-            end_date: form.end_date?.value || null
-        };
+        const data = new FormData();
+        data.append('title', form.title.value);
+        data.append('description', form.description.value);
+        data.append('ticket_type', form.ticket_type.value);
+        data.append('priority', form.priority.value);
+        data.append('created_by_id', portalUser.id);
+        data.append('created_by_name', portalUser.name || portalUser.email);
+        data.append('created_by_email', portalUser.email);
+        data.append('assigned_approver_id', approverData.id);
+        data.append('assigned_approver_name', approverData.name);
+        data.append('assigned_approver_email', approverData.email);
+        data.append('start_date', form.start_date?.value || '');
+        data.append('end_date', form.end_date?.value || '');
+
+        const attachments = form.attachments?.files || [];
+        Array.from(attachments).forEach(file => {
+            if (file && file.size) {
+                data.append('attachments', file);
+            }
+        });
 
         const response = await apiCall('/api/tickets', {
             method: 'POST',
-            body: JSON.stringify(data)
+            body: data
         });
 
         if (!response.ok) {
@@ -796,6 +763,59 @@ async function submitNewRequest() {
     } catch (error) {
         showToast(error.message || pt('reqCreateError'), 'error');
     }
+}
+
+// ============================================
+// MY APPROVALS
+// ============================================
+
+async function renderMyApprovals(container) {
+    const response = await apiCall('/api/tickets/approvals/me');
+    const approvals = (await response.json()).data || [];
+
+    container.innerHTML = `
+        <div class="page-header">
+            <div><h1>${pt('myApprovalsTitle')}</h1><p>${pt('myApprovalsDesc')}</p></div>
+        </div>
+        <div class="page-body">
+            ${approvals.length ? `
+                <div class="portal-card">
+                    <div class="card-body" style="overflow-x:auto;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>${pt('colName')}</th>
+                                    <th>${pt('colType')}</th>
+                                    <th>${pt('colDecision')}</th>
+                                    <th>${pt('colDecisionDate')}</th>
+                                    <th>${pt('colAttachments')}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${approvals.map(a => `
+                                    <tr>
+                                        <td>
+                                            <strong>${escapeHtml(a.title)}</strong>
+                                            <br><small style="color:var(--gray-500)">${escapeHtml(a.created_by_name || '')}</small>
+                                            ${a.action_rejection_reason ? `<br><small style="color:var(--red-500)">${pt('reason')}: ${escapeHtml(a.action_rejection_reason)}</small>` : ''}
+                                        </td>
+                                        <td><span class="badge badge-${{'vacation':'vacation','sick-leave':'sick','paragraph':'paragraph','ocr':'ocr'}[a.ticket_type] || 'user'}">${translateType(a.ticket_type)}</span></td>
+                                        <td><span class="badge badge-${a.action.toLowerCase()}">${translateStatus(a.action)}</span></td>
+                                        <td>${formatDate(a.action_timestamp)}</td>
+                                        <td>
+                                            <button class="btn btn-ghost btn-sm" onclick="openTicketAttachments('${a.ticket_id}', '${escapeHtml(a.title)}')">
+                                                &#128206; ${pt('attachments')}
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            ` : `<div class="empty-state"><div class="empty-icon">&#128203;</div><div class="empty-text">${pt('noTickets')}</div></div>`}
+        </div>
+    `;
 }
 
 // ============================================
@@ -1480,7 +1500,7 @@ function renderTicketsTable(tickets) {
             <div class="card-body" style="overflow-x:auto;">
                 <table class="data-table">
                     <thead>
-                        <tr><th>${pt('colName')}</th><th>${pt('colType')}</th><th>${pt('colApprover')}</th><th>${pt('colStatus')}</th><th>${pt('colDate')}</th></tr>
+                        <tr><th>${pt('colName')}</th><th>${pt('colType')}</th><th>${pt('colApprover')}</th><th>${pt('colStatus')}</th><th>${pt('colDate')}</th><th>${pt('colAttachments')}</th></tr>
                     </thead>
                     <tbody>
                         ${tickets.map(t => `
@@ -1490,6 +1510,11 @@ function renderTicketsTable(tickets) {
                                 <td>${t.assigned_approver_name ? escapeHtml(t.assigned_approver_name) : '-'}</td>
                                 <td><span class="badge badge-${t.status.toLowerCase()}">${translateStatus(t.status)}</span></td>
                                 <td>${formatDate(t.created_at)}${t.start_date ? `<br><small>${formatDate(t.start_date)} - ${formatDate(t.end_date)}</small>` : ''}</td>
+                                <td>
+                                    <button class="btn btn-ghost btn-sm" onclick="openTicketAttachments('${t.ticket_id}', '${escapeHtml(t.title)}')">
+                                        &#128206; ${pt('attachments')}
+                                    </button>
+                                </td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -1497,6 +1522,145 @@ function renderTicketsTable(tickets) {
             </div>
         </div>
     `;
+}
+
+async function openTicketAttachments(ticketId, title) {
+    document.getElementById('modalTitle').textContent = `${pt('attachments')}${title ? ` - ${title}` : ''}`;
+    document.getElementById('modalBody').innerHTML = `<div class="empty-state"><div class="empty-icon">&#128206;</div><div class="empty-text">${pt('loading')}</div></div>`;
+    document.getElementById('modalFooter').innerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">${pt('close')}</button>
+    `;
+    openModal();
+
+    try {
+        const response = await apiCall(`/api/tickets/${ticketId}/attachments`);
+        if (!response.ok) throw new Error(pt('fileLoadError'));
+        const result = await response.json();
+        const attachments = result.data || [];
+
+        if (!attachments.length) {
+            document.getElementById('modalBody').innerHTML = `<div class="empty-state"><div class="empty-icon">&#128206;</div><div class="empty-text">${pt('noAttachments')}</div></div>`;
+            return;
+        }
+
+        document.getElementById('modalBody').innerHTML = `
+            <div class="attachments-list">
+                ${attachments.map(att => `
+                    <div class="attachment-row" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray-100,#f3f4f6);">
+                        <div>
+                            <div style="font-weight:600;">${escapeHtml(att.file_name)}</div>
+                            <div style="color:var(--gray-500);font-size:12px;">${att.file_type || ''}</div>
+                        </div>
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn btn-secondary btn-sm" onclick="previewTicketAttachment('${ticketId}', ${att.attachment_id}, '${escapeHtml(att.file_name)}')">${pt('viewAttachments')}</button>
+                            <a class="btn btn-primary btn-sm" href="/api/tickets/${ticketId}/attachments/${att.attachment_id}" target="_blank" rel="noopener">${pt('download')}</a>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    } catch (error) {
+        document.getElementById('modalBody').innerHTML = `<div class="empty-state"><div class="empty-icon">&#9888;</div><div class="empty-text">${pt('fileLoadError')}: ${error.message}</div></div>`;
+    }
+}
+
+async function previewTicketAttachment(ticketId, attachmentId, fileName) {
+    try {
+        const response = await apiCall(`/api/tickets/${ticketId}/attachments/${attachmentId}`);
+        if (!response.ok) throw new Error(pt('fileNotFound'));
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        showFileLightbox(url, fileName);
+    } catch (error) {
+        showToast(pt('fileLoadError') + ': ' + error.message, 'error');
+    }
+}
+
+function showFileLightbox(url, fileName) {
+    const existing = document.getElementById('fileLightbox');
+    if (existing) existing.remove();
+
+    const ext = fileName.toLowerCase().split('.').pop();
+    const isImage = ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'tiff', 'tif', 'heic', 'heif'].includes(ext);
+    const isPdf = ext === 'pdf';
+
+    const overlay = document.createElement('div');
+    overlay.id = 'fileLightbox';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+
+    const cleanup = () => {
+        overlay.remove();
+        window.URL.revokeObjectURL(url);
+        document.removeEventListener('keydown', escHandler);
+    };
+
+    overlay.onclick = (e) => { if (e.target === overlay) { cleanup(); } };
+
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'position:relative;max-width:90vw;max-height:90vh;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 25px 50px rgba(0,0,0,0.3);';
+
+    const header = document.createElement('div');
+    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--gray-50,#f9fafb);border-bottom:1px solid var(--gray-200,#e5e7eb);';
+
+    const title = document.createElement('span');
+    title.style.cssText = 'font-weight:600;font-size:14px;color:#374151;';
+    title.textContent = fileName;
+
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;gap:8px;';
+
+    const downloadBtn = document.createElement('button');
+    downloadBtn.type = 'button';
+    downloadBtn.style.cssText = 'padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;font-size:13px;';
+    downloadBtn.title = pt('download');
+    downloadBtn.innerHTML = `&#11015; ${pt('download')}`;
+    downloadBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        a.click();
+    });
+
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.style.cssText = 'padding:6px 10px;border:none;border-radius:6px;background:#ef4444;color:#fff;cursor:pointer;font-size:16px;line-height:1;';
+    closeBtn.title = pt('close');
+    closeBtn.innerHTML = '&#10005;';
+    closeBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        cleanup();
+    });
+
+    actions.appendChild(downloadBtn);
+    actions.appendChild(closeBtn);
+    header.appendChild(title);
+    header.appendChild(actions);
+    wrapper.appendChild(header);
+
+    const content = document.createElement('div');
+    content.style.cssText = 'display:flex;align-items:center;justify-content:center;max-height:calc(90vh - 52px);overflow:auto;';
+
+    if (isImage) {
+        const img = document.createElement('img');
+        img.src = url;
+        img.style.cssText = 'max-width:88vw;max-height:calc(90vh - 60px);object-fit:contain;';
+        content.appendChild(img);
+    } else if (isPdf) {
+        const iframe = document.createElement('iframe');
+        iframe.src = url;
+        iframe.style.cssText = 'width:88vw;height:calc(90vh - 60px);border:none;';
+        content.appendChild(iframe);
+    } else {
+        content.innerHTML = `<div style="padding:40px;text-align:center;"><p style="margin-bottom:16px;">${pt('previewNotAvailable')}</p><a href="${url}" download="${escapeHtml(fileName)}" style="color:var(--blue-600,#2563eb);">&#11015; ${pt('downloadFile')}</a></div>`;
+    }
+
+    wrapper.appendChild(content);
+    overlay.appendChild(wrapper);
+    document.body.appendChild(overlay);
+
+    const escHandler = (e) => { if (e.key === 'Escape') { cleanup(); } };
+    document.addEventListener('keydown', escHandler);
 }
 
 function escapeHtml(str) {

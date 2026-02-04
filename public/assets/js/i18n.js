@@ -81,6 +81,8 @@ const translations = {
     // Helper texts
     helperDescription: 'Provide all relevant information',
     helperApprover: 'Select the person who should approve this request',
+    labelAttachments: 'Attachments (optional)',
+    helperAttachments: 'Allowed: JPG, JPEG, PNG, PDF, DOCX, XLSX (max 10MB)',
     
     // Button
     btnSubmit: 'Submit Request',
@@ -116,6 +118,9 @@ const translations = {
     approvalsHistory: 'Approval History',
     loadingHistory: 'Loading history...',
     noHistoryFound: 'No approval history found',
+    attachments: 'Attachments',
+    viewAttachments: 'View attachments',
+    noAttachments: 'No attachments',
     errorLoadingHistory: 'Error loading history',
     filterStatus: 'Status',
     filterStatusAll: '-- All --',
@@ -294,6 +299,8 @@ const translations = {
     // Helper texts
     helperDescription: 'Uveďte všetky relevantné informácie',
     helperApprover: 'Vyberte osobu, ktorá má žiadosť schváliť',
+    labelAttachments: 'Prílohy (voliteľné)',
+    helperAttachments: 'Povolené: JPG, JPEG, PNG, PDF, DOCX, XLSX (max 10MB)',
     
     // Button
     btnSubmit: 'Odoslať žiadosť',
@@ -329,6 +336,9 @@ const translations = {
     approvalsHistory: 'História schválení',
     loadingHistory: 'Načítavam históriu...',
     noHistoryFound: 'Nenašla sa žiadna história schválení',
+    attachments: 'Prílohy',
+    viewAttachments: 'Zobraziť prílohy',
+    noAttachments: 'Žiadne prílohy',
     errorLoadingHistory: 'Chyba pri načítaní histórie',
     filterStatus: 'Stav',
     filterStatusAll: '-- Všetky --',
