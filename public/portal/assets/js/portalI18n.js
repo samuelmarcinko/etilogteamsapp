@@ -11,6 +11,7 @@ const portalTranslations = {
     navMyQuotas: 'Moje kvóty',
     navMySickNotes: 'Paragrafy & OČR',
     navMyRequests: 'Moje žiadosti',
+    navMyApprovals: 'Moje schválenia',
     navAdmin: 'Administrácia',
     navAdminDashboard: 'Admin Dashboard',
     navEmployees: 'Zamestnanci',
@@ -36,6 +37,7 @@ const portalTranslations = {
     noFile: 'Žiadny',
     none: '-',
     reason: 'Dôvod',
+    loading: 'Načítavam...',
 
     // Errors
     profileLoadFailed: 'Nepodarilo sa načítať profil. Skúste sa znovu prihlásiť.',
@@ -52,6 +54,11 @@ const portalTranslations = {
     fileLoadError: 'Chyba pri načítaní súboru',
     previewNotAvailable: 'Náhľad nie je dostupný pre tento typ súboru.',
     downloadFile: 'Stiahnuť súbor',
+    attachments: 'Prílohy',
+    attachmentsOptional: 'Prílohy (voliteľné)',
+    attachmentsHelper: 'Povolené: JPG, JPEG, PNG, PDF, DOCX, XLSX (max 10MB)',
+    viewAttachments: 'Zobraziť prílohy',
+    noAttachments: 'Žiadne prílohy',
 
     // Ticket types
     typeVacation: 'Dovolenka',
@@ -164,7 +171,14 @@ const portalTranslations = {
     filterApproved: 'Schválené',
     filterRejected: 'Zamietnuté',
     colApprover: 'Schvaľovateľ',
+    colAttachments: 'Prílohy',
     noTickets: 'Žiadne tikety',
+
+    // My Approvals
+    myApprovalsTitle: 'Moje schválenia',
+    myApprovalsDesc: 'Zoznam tiketov, ktoré ste schválili alebo zamietli',
+    colDecision: 'Rozhodnutie',
+    colDecisionDate: 'Dátum rozhodnutia',
 
     // Admin Dashboard
     adminDashboardTitle: 'Admin Dashboard',
@@ -285,6 +299,7 @@ const portalTranslations = {
     navMyQuotas: 'My Quotas',
     navMySickNotes: 'Paragraphs & FMC',
     navMyRequests: 'My Requests',
+    navMyApprovals: 'My Approvals',
     navAdmin: 'Administration',
     navAdminDashboard: 'Admin Dashboard',
     navEmployees: 'Employees',
@@ -310,6 +325,7 @@ const portalTranslations = {
     noFile: 'None',
     none: '-',
     reason: 'Reason',
+    loading: 'Loading...',
 
     // Errors
     profileLoadFailed: 'Failed to load profile. Please try logging in again.',
@@ -326,6 +342,11 @@ const portalTranslations = {
     fileLoadError: 'Error loading file',
     previewNotAvailable: 'Preview is not available for this file type.',
     downloadFile: 'Download file',
+    attachments: 'Attachments',
+    attachmentsOptional: 'Attachments (optional)',
+    attachmentsHelper: 'Allowed: JPG, JPEG, PNG, PDF, DOCX, XLSX (max 10MB)',
+    viewAttachments: 'View attachments',
+    noAttachments: 'No attachments',
 
     // Ticket types
     typeVacation: 'Vacation',
@@ -438,7 +459,14 @@ const portalTranslations = {
     filterApproved: 'Approved',
     filterRejected: 'Rejected',
     colApprover: 'Approver',
+    colAttachments: 'Attachments',
     noTickets: 'No tickets',
+
+    // My Approvals
+    myApprovalsTitle: 'My Approvals',
+    myApprovalsDesc: 'Tickets you approved or rejected',
+    colDecision: 'Decision',
+    colDecisionDate: 'Decision date',
 
     // Admin Dashboard
     adminDashboardTitle: 'Admin Dashboard',
@@ -656,6 +684,7 @@ function updateSidebarLanguage() {
     'my-quotas': pt('navMyQuotas'),
     'my-sick-notes': pt('navMySickNotes'),
     'my-requests': pt('navMyRequests'),
+    'my-approvals': pt('navMyApprovals'),
     'admin-dashboard': pt('navAdminDashboard'),
     'admin-employees': pt('navEmployees'),
     'admin-quotas': pt('navQuotas'),
