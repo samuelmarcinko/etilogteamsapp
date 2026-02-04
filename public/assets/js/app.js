@@ -237,27 +237,30 @@ document.getElementById('approvalForm').addEventListener('submit', async (e) => 
         const formData = new FormData(e.target);
         const approverData = JSON.parse(formData.get('approver'));
 
-        const ticketData = {
-            title: formData.get('title'),
-            description: formData.get('description'),
-            ticket_type: formData.get('ticketType'),
-            priority: formData.get('priority'),
-            created_by_id: currentUser?.id || 'unknown',
-            created_by_name: currentUser?.displayName || currentUser?.userPrincipalName || 'Unknown User',
-            created_by_email: currentUser?.userPrincipalName || 'unknown@etilog.com',
-            assigned_approver_id: approverData.id,
-            assigned_approver_name: approverData.name,
-            assigned_approver_email: approverData.email,
-            start_date: formData.get('startDate') || null,
-            end_date: formData.get('endDate') || null
-        };
+        const ticketData = new FormData();
+        ticketData.append('title', formData.get('title'));
+        ticketData.append('description', formData.get('description'));
+        ticketData.append('ticket_type', formData.get('ticketType'));
+        ticketData.append('priority', formData.get('priority'));
+        ticketData.append('created_by_id', currentUser?.id || 'unknown');
+        ticketData.append('created_by_name', currentUser?.displayName || currentUser?.userPrincipalName || 'Unknown User');
+        ticketData.append('created_by_email', currentUser?.userPrincipalName || 'unknown@etilog.com');
+        ticketData.append('assigned_approver_id', approverData.id);
+        ticketData.append('assigned_approver_name', approverData.name);
+        ticketData.append('assigned_approver_email', approverData.email);
+        ticketData.append('start_date', formData.get('startDate') || '');
+        ticketData.append('end_date', formData.get('endDate') || '');
+
+        const attachments = formData.getAll('attachments');
+        attachments.forEach(file => {
+            if (file && file.size) {
+                ticketData.append('attachments', file);
+            }
+        });
 
         const response = await fetch('/api/tickets', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(ticketData)
+            body: ticketData
         });
 
         if (!response.ok) {

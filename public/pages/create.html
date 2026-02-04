@@ -132,6 +132,22 @@
                     <p class="helper-text" data-i18n="helperApprover">Select the person who should approve this request</p>
                 </div>
 
+                <!-- Attachments -->
+                <div class="form-group">
+                    <label class="form-label" for="attachments">
+                        <span data-i18n="labelAttachments">Attachments (optional)</span>
+                    </label>
+                    <input
+                        type="file"
+                        id="attachments"
+                        name="attachments"
+                        class="form-input"
+                        accept=".jpg,.jpeg,.png,.pdf,.docx,.xlsx"
+                        multiple
+                    >
+                    <p class="helper-text" data-i18n="helperAttachments">Allowed: JPG, PNG, PDF, DOCX, XLSX (max 10MB)</p>
+                </div>
+
                 <!-- Submit Button -->
                 <button type="submit" class="btn btn-primary btn-block" id="submitBtn">
                     <span id="btnText" data-i18n="btnSubmit">Submit Request</span>
