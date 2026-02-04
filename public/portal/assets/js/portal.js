@@ -383,7 +383,7 @@ async function renderMySickNotes(container) {
                                 <td>${formatDate(n.start_date)}</td>
                                 <td>${formatDate(n.end_date)}</td>
                                 <td>${n.doctor_name ? escapeHtml(n.doctor_name) : '-'}</td>
-                                <td>${n.file_name ? `<a href="#" onclick="previewSickNoteFile(${n.id}, '${escapeHtml(n.file_name)}')" style="color:var(--blue-600)">&#128065; ${escapeHtml(n.file_name)}</a>` : `<span style="color:var(--gray-400)">${pt('noFile')}</span>`}</td>
+                                <td>${n.file_name ? `<a href="#" onclick="return previewSickNoteFile(event, ${n.id}, '${escapeHtml(n.file_name)}')" style="color:var(--blue-600)">&#128065; ${escapeHtml(n.file_name)}</a>` : `<span style="color:var(--gray-400)">${pt('noFile')}</span>`}</td>
                                 <td>
                                     <button class="btn btn-ghost btn-sm" onclick="openUploadSickNoteModal(${n.id})">&#128206;</button>
                                     <button class="btn btn-ghost btn-sm" onclick="deleteSickNote(${n.id})" style="color:var(--red-500)">&#128465;</button>
@@ -552,7 +552,11 @@ async function downloadSickNoteFile(id) {
     }
 }
 
-async function previewSickNoteFile(id, fileName) {
+async function previewSickNoteFile(event, id, fileName) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
     try {
         const response = await apiCall(`/api/sick-notes/${id}/file`);
         if (!response.ok) throw new Error(pt('fileNotFound'));
@@ -609,6 +613,8 @@ async function previewSickNoteFile(id, fileName) {
     } catch (error) {
         showToast(pt('fileLoadError') + ': ' + error.message, 'error');
     }
+
+    return false;
 }
 
 async function deleteSickNote(id) {
@@ -1166,7 +1172,7 @@ async function renderAdminSickNotes(container) {
                                         <td>${formatDate(n.start_date)}</td>
                                         <td>${formatDate(n.end_date)}</td>
                                         <td>${n.doctor_name ? escapeHtml(n.doctor_name) : '-'}</td>
-                                        <td>${n.file_name ? `<a href="#" onclick="previewSickNoteFile(${n.id}, '${escapeHtml(n.file_name)}')" style="color:var(--blue-600);cursor:pointer;">&#128065; ${escapeHtml(n.file_name)}</a>` : '<span style="color:var(--gray-400)">-</span>'}</td>
+                                        <td>${n.file_name ? `<a href="#" onclick="return previewSickNoteFile(event, ${n.id}, '${escapeHtml(n.file_name)}')" style="color:var(--blue-600);cursor:pointer;">&#128065; ${escapeHtml(n.file_name)}</a>` : '<span style="color:var(--gray-400)">-</span>'}</td>
                                     </tr>`;
                                 }).join('')}
                             </tbody>
