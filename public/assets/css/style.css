@@ -848,6 +848,33 @@ body {
   border-top: 1px solid var(--gray-200);
 }
 
+.btn-attachment {
+  background: var(--white);
+  color: var(--gray-700);
+  padding: 0.65rem 1.1rem;
+  border: 1px solid var(--gray-200);
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.08);
+}
+
+.btn-attachment:hover {
+  border-color: var(--etilog-red);
+  color: var(--etilog-red);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.18);
+}
+
+.btn-attachment:active {
+  transform: translateY(0);
+}
+
 .btn-success {
   flex: 1;
   background: linear-gradient(135deg, #22c55e, #16a34a);
