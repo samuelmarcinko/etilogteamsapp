@@ -21,7 +21,7 @@ const translations = {
     // Dashboard overview
     dashVacationRemaining: 'Vacation remaining',
     dashParagraphRemaining: 'Paragraphs remaining',
-    dashOcrRemaining: 'OCR remaining',
+    dashOcrRemaining: 'FMC remaining',
     dashSickRemaining: 'Sick days remaining',
     dashNextHoliday: 'Next holiday',
     dashYourTickets: 'Your Tickets',
@@ -167,14 +167,14 @@ const translations = {
     loadingCalendar: 'Loading calendar...',
     labelDate: 'Date',
 
-    // Sick Notes page (Paragraphs & OCR)
-    sickNotesTitle: 'Paragraphs & OCR',
-    sickNotesSubtitle: 'Upload and manage your paragraph and OCR documents',
+    // Sick Notes page (Paragraphs & FMC)
+    sickNotesTitle: 'Paragraphs & FMC',
+    sickNotesSubtitle: 'Upload and manage your paragraph and FMC documents',
     sickNotesUploadTitle: 'Upload New Document',
     sickNotesListTitle: 'My Documents',
     sickNotesLabelDocType: 'Document Type',
     sickNotesDocTypeParagraph: 'Paragraph',
-    sickNotesDocTypeOcr: 'OCR',
+    sickNotesDocTypeOcr: 'Family Member Care',
     sickNotesLabelTitle: 'Title',
     sickNotesPlaceholderTitle: 'e.g. Paragraph - flu',
     sickNotesLabelDoctor: 'Doctor',

@@ -6,7 +6,7 @@ const NAV_ITEMS = {
     { id: 'my-requests', icon: '📋', label: 'My Requests', url: '/pages/my-requests.html' },
     { id: 'upcoming-time-off', icon: '📅', label: 'Team Calendar', url: '/pages/upcoming-time-off.html' },
     { id: 'approvals', icon: '✅', label: 'Approvals', url: '/pages/approvals.html' },
-    { id: 'sick-notes', icon: '🏥', label: 'Paragraphs & OCR', url: '/pages/sick-notes.html' }
+    { id: 'sick-notes', icon: '🏥', label: 'Paragraphs & FMC', url: '/pages/sick-notes.html' }
   ],
   sk: [
     { id: 'dashboard', icon: '📊', label: 'Nástenka', url: '/pages/dashboard.html' },
