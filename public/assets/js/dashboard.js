@@ -3,6 +3,20 @@ let teamsContext = null;
 let currentUser = null;
 let allTickets = [];
 let dashboardData = null;
+let ticketTypeMap = new Map();
+
+async function loadTicketTypes() {
+    try {
+        const response = await fetch('/api/ticket-types/active');
+        if (!response.ok) throw new Error('Failed to load ticket types');
+        const result = await response.json();
+        const types = result.data || [];
+        ticketTypeMap = new Map(types.map(type => [type.key.toLowerCase(), type]));
+    } catch (error) {
+        console.warn('Failed to load ticket types:', error);
+        ticketTypeMap = new Map();
+    }
+}
 
 // Initialize
 (async function init() {
@@ -11,6 +25,7 @@ let dashboardData = null;
         teamsContext = await microsoftTeams.app.getContext();
         currentUser = teamsContext.user;
 
+        await loadTicketTypes();
         await loadDashboardData();
     } catch (error) {
         console.error('Error initializing:', error);
@@ -261,6 +276,12 @@ function getTypeBadgeClass(type) {
 }
 
 function translateTicketType(type) {
+    const key = type?.toLowerCase();
+    const fromApi = ticketTypeMap.get(key);
+    if (fromApi) {
+        const lang = getCurrentLang();
+        return lang === 'sk' ? (fromApi.label_sk || fromApi.key) : (fromApi.label_en || fromApi.key);
+    }
     const typeMap = {
         'vacation': 'typeVacation',
         'sick-leave': 'typeSickLeave',
@@ -271,7 +292,7 @@ function translateTicketType(type) {
         'hr': 'typeHr',
         'other': 'typeOther'
     };
-    return t(typeMap[type?.toLowerCase()] || 'typeOther');
+    return t(typeMap[key] || 'typeOther');
 }
 
 function translatePriority(priority) {
