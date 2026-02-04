@@ -70,9 +70,29 @@
         let userTickets = [];
         let filteredTickets = [];
         let attachmentCounts = new Map();
+        let ticketTypeMap = new Map();
+
+        async function loadTicketTypes() {
+            try {
+                const response = await fetch('/api/ticket-types/active');
+                if (!response.ok) throw new Error('Failed to load ticket types');
+                const result = await response.json();
+                const types = result.data || [];
+                ticketTypeMap = new Map(types.map(type => [type.key.toLowerCase(), type]));
+            } catch (error) {
+                console.warn('Failed to load ticket types:', error);
+                ticketTypeMap = new Map();
+            }
+        }
 
         // Helper function to translate ticket type
         function translateType(type) {
+            const key = type?.toLowerCase();
+            const fromApi = ticketTypeMap.get(key);
+            if (fromApi) {
+                const lang = getCurrentLang();
+                return lang === 'sk' ? (fromApi.label_sk || fromApi.key) : (fromApi.label_en || fromApi.key);
+            }
             const typeMap = {
                 'vacation': 'typeVacation',
                 'sick-leave': 'typeSickLeave',
@@ -83,11 +103,12 @@
                 'hr': 'typeHr',
                 'other': 'typeOther'
             };
-            return t(typeMap[type.toLowerCase()] || 'typeOther');
+            return t(typeMap[key] || 'typeOther');
         }
 
         // Helper function to get type badge class
         function getTypeBadgeClass(type) {
+            const key = type?.toLowerCase();
             const classMap = {
                 'vacation': 'type-vacation',
                 'sick-leave': 'type-sick-leave',
@@ -98,7 +119,7 @@
                 'hr': 'type-hr',
                 'other': 'type-other'
             };
-            return classMap[type.toLowerCase()] || 'type-other';
+            return classMap[key] || 'type-other';
         }
 
         // Helper function to format date
@@ -357,6 +378,7 @@
             const userId = context.user.id;
 
             try {
+                await loadTicketTypes();
                 const response = await fetch(`/api/tickets?createdById=${userId}`);
                 const result = await response.json();
                 userTickets = result.data || [];
