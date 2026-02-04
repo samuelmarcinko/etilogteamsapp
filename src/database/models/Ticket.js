@@ -170,6 +170,26 @@ class Ticket {
   }
 
   /**
+   * Get approvals performed by a user
+   */
+  static async findApprovalsByUserId(userId) {
+    const result = await pool.query(
+      `SELECT
+         t.*,
+         a.action,
+         a.rejection_reason AS action_rejection_reason,
+         a.timestamp AS action_timestamp
+       FROM ticket_actions a
+       JOIN tickets t ON t.ticket_id = a.ticket_id
+       WHERE a.performed_by_id = $1
+         AND a.action IN ('Approved', 'Rejected')
+       ORDER BY a.timestamp DESC`,
+      [userId]
+    );
+    return result.rows;
+  }
+
+  /**
    * Delete a ticket (for testing purposes)
    */
   static async delete(ticketId) {
