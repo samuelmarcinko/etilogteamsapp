@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETILOG - Prihlásenie</title>
+    <link rel="stylesheet" href="/portal/assets/css/portal.css">
+</head>
+<body class="login-body">
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <img src="/assets/images/logo.png" alt="ETILOG" class="login-logo">
+                <h1>ETILOG Portal</h1>
+                <p>Prihláste sa svojím pracovným účtom Microsoft</p>
+            </div>
+
+            <div id="loginContent">
+                <button id="loginBtn" class="btn-microsoft" onclick="signIn()">
+                    <svg width="20" height="20" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+                        <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+                        <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+                        <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+                    </svg>
+                    Prihlásiť sa cez Microsoft
+                </button>
+            </div>
+
+            <div id="loginLoading" style="display: none;">
+                <div class="login-spinner"></div>
+                <p>Prihlasovanie...</p>
+
+            </div>
+
+            <div id="loginError" class="login-error" style="display: none;"></div>
+
+            <div class="login-footer">
+                <p>ETILOG Teams App &bull; Interné použitie</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- MSAL.js 2.0 Browser - local copy -->
+    <script src="/portal/assets/js/msal-browser.min.js"></script>
+    <script src="/portal/assets/js/authConfig.js"></script>
+    <script src="/portal/assets/js/auth.js"></script>
+</body>
+</html>

@@ -17,6 +17,23 @@ const translations = {
     loadingRequests: 'Loading requests...',
     noRequests: 'No requests found',
     viewDetails: 'View Details',
+
+    // Dashboard overview
+    dashVacationRemaining: 'Vacation remaining',
+    dashParagraphRemaining: 'Paragraphs remaining',
+    dashOcrRemaining: 'FMC remaining',
+    dashSickRemaining: 'Sick days remaining',
+    dashNextHoliday: 'Next holiday',
+    dashYourTickets: 'Your Tickets',
+    dashDays: 'days',
+    dashUsed: 'used',
+    dashNoQuota: 'Not set up yet',
+    dashNoUpcomingHoliday: 'No upcoming holidays',
+    dashMoreHolidays: 'more',
+    dashToday: 'today',
+    dashTomorrow: 'tomorrow',
+    dashInDays: 'in {n} days',
+    errorLoadingDashboard: 'Error loading dashboard',
     
     // Form labels
     labelTitle: 'Request Title',
@@ -43,6 +60,8 @@ const translations = {
     // Request types
     typeVacation: 'Vacation',
     typeSickLeave: 'Sick Leave',
+    typeParagraph: 'Paragraph Leave',
+    typeOcr: 'Family Member Care',
     typePurchase: 'Purchase',
     typeExpense: 'Expense',
     typeHr: 'HR Matters',
@@ -62,6 +81,8 @@ const translations = {
     // Helper texts
     helperDescription: 'Provide all relevant information',
     helperApprover: 'Select the person who should approve this request',
+    labelAttachments: 'Attachments (optional)',
+    helperAttachments: 'Allowed: JPG, JPEG, PNG, PDF, DOCX, XLSX (max 10MB)',
     
     // Button
     btnSubmit: 'Submit Request',
@@ -70,11 +91,21 @@ const translations = {
     btnReject: 'Reject',
     
     // Alerts
-    alertSuccess: '✓ Request successfully created and sent for approval!',
-    alertError: '✗ ',
+    alertSuccess: 'Request successfully created and sent for approval!',
+    alertError: 'Error: ',
     alertErrorLoading: 'Error loading approvers list',
     alertErrorInit: 'Error initializing Teams SDK',
     alertErrorSubmit: 'Error creating request',
+
+    // Quota info on create form
+    quotaInfoRemaining: 'remaining',
+    quotaInfoOf: 'of',
+    quotaInfoDays: 'days',
+    quotaInfoVacation: 'Vacation balance',
+    quotaInfoSick: 'Sick days balance',
+    quotaInfoParagraph: 'Paragraph leave balance',
+    quotaInfoOcr: 'Family member care balance',
+    quotaInfoNotSet: 'Quota not configured',
 
     // Approvals page
     approvalsTitle: 'Pending Approvals',
@@ -87,6 +118,9 @@ const translations = {
     approvalsHistory: 'Approval History',
     loadingHistory: 'Loading history...',
     noHistoryFound: 'No approval history found',
+    attachments: 'Attachments',
+    viewAttachments: 'View attachments',
+    noAttachments: 'No attachments',
     errorLoadingHistory: 'Error loading history',
     filterStatus: 'Status',
     filterStatusAll: '-- All --',
@@ -138,6 +172,49 @@ const translations = {
     loadingCalendar: 'Loading calendar...',
     labelDate: 'Date',
 
+    // Sick Notes page (Paragraphs & FMC)
+    sickNotesTitle: 'Paragraphs & FMC',
+    sickNotesSubtitle: 'Upload and manage your paragraph and FMC documents',
+    sickNotesUploadTitle: 'Upload New Document',
+    sickNotesListTitle: 'My Documents',
+    sickNotesLabelDocType: 'Document Type',
+    sickNotesDocTypeParagraph: 'Paragraph',
+    sickNotesDocTypeOcr: 'Family Member Care',
+    sickNotesLabelTitle: 'Title',
+    sickNotesPlaceholderTitle: 'e.g. Paragraph - flu',
+    sickNotesLabelDoctor: 'Doctor',
+    sickNotesPlaceholderDoctor: 'e.g. MUDr. Novák',
+    sickNotesLabelDiagnosis: 'Diagnosis',
+    sickNotesPlaceholderDiagnosis: 'e.g. Acute respiratory infection',
+    sickNotesLabelDateFrom: 'Date from',
+    sickNotesLabelDateTo: 'Date to',
+    sickNotesLabelFile: 'Document',
+    sickNotesFileHint: 'PDF, JPG, PNG, HEIC (max 10MB)',
+    sickNotesBtnSubmit: 'Upload Document',
+    sickNotesBtnSubmitting: 'Uploading...',
+    sickNotesEmpty: 'No documents found',
+    sickNotesLoading: 'Loading documents...',
+    sickNotesSuccess: 'Document uploaded successfully!',
+    sickNotesError: 'Error uploading document',
+    sickNotesDownload: 'Download',
+    sickNotesStatus: 'Status',
+    sickNotesStatusActive: 'Active',
+    sickNotesStatusCompleted: 'Completed',
+    sickNotesNoNotes: 'No documents found',
+    sickNotesErrorLoading: 'Error loading documents',
+    sickNotesErrorSubmit: 'Error creating document',
+    sickNotesColTitle: 'Title',
+    sickNotesColFrom: 'From',
+    sickNotesColTo: 'To',
+    sickNotesColDoctor: 'Doctor',
+    sickNotesColFile: 'Document',
+    sickNotesHelperFile: 'Max 10MB. Supported: PDF, JPG, PNG, HEIC, WebP',
+    sickNotesViewDoc: 'View document',
+    sickNotesNoFile: 'No document',
+    sickNotesDays: 'days',
+    sickNotesDate: 'Date',
+    sickNotesClose: 'Close',
+
     // Required field
     required: '*'
   },
@@ -157,6 +234,23 @@ const translations = {
     recentRequests: 'Posledné žiadosti',
     loadingRequests: 'Načítavam žiadosti...',
     noRequests: 'Neboli nájdené žiadne žiadosti',
+
+    // Dashboard overview
+    dashVacationRemaining: 'Zostatok dovolenky',
+    dashParagraphRemaining: 'Zostatok paragrafov',
+    dashOcrRemaining: 'Zostatok OČR',
+    dashSickRemaining: 'Zostatok zdravotného voľna',
+    dashNextHoliday: 'Najbližší sviatok',
+    dashYourTickets: 'Vaše tikety',
+    dashDays: 'dní',
+    dashUsed: 'vyčerpané',
+    dashNoQuota: 'Zatiaľ nenastavené',
+    dashNoUpcomingHoliday: 'Žiadne nadchádzajúce sviatky',
+    dashMoreHolidays: 'ďalšie',
+    dashToday: 'dnes',
+    dashTomorrow: 'zajtra',
+    dashInDays: 'o {n} dní',
+    errorLoadingDashboard: 'Chyba pri načítaní dashboardu',
     viewDetails: 'Zobraziť detail',
     
     // Form labels
@@ -184,6 +278,8 @@ const translations = {
     // Request types
     typeVacation: 'Dovolenka',
     typeSickLeave: 'PN-ka',
+    typeParagraph: 'Paragraf',
+    typeOcr: 'OČR',
     typePurchase: 'Nákup',
     typeExpense: 'Výdavky',
     typeHr: 'HR záležitosti',
@@ -203,6 +299,8 @@ const translations = {
     // Helper texts
     helperDescription: 'Uveďte všetky relevantné informácie',
     helperApprover: 'Vyberte osobu, ktorá má žiadosť schváliť',
+    labelAttachments: 'Prílohy (voliteľné)',
+    helperAttachments: 'Povolené: JPG, JPEG, PNG, PDF, DOCX, XLSX (max 10MB)',
     
     // Button
     btnSubmit: 'Odoslať žiadosť',
@@ -211,11 +309,21 @@ const translations = {
     btnReject: 'Zamietnuť',
     
     // Alerts
-    alertSuccess: '✓ Žiadosť bola úspešne vytvorená a odoslaná na schválenie!',
-    alertError: '✗ ',
+    alertSuccess: 'Žiadosť bola úspešne vytvorená a odoslaná na schválenie!',
+    alertError: 'Chyba: ',
     alertErrorLoading: 'Chyba pri načítaní zoznamu schvaľovateľov',
     alertErrorInit: 'Chyba pri inicializácii Teams SDK',
     alertErrorSubmit: 'Chyba pri vytváraní žiadosti',
+
+    // Quota info on create form
+    quotaInfoRemaining: 'zostáva',
+    quotaInfoOf: 'z',
+    quotaInfoDays: 'dní',
+    quotaInfoVacation: 'Zostatok dovolenky',
+    quotaInfoSick: 'Zostatok sick days',
+    quotaInfoParagraph: 'Zostatok paragrafov',
+    quotaInfoOcr: 'Zostatok OČR',
+    quotaInfoNotSet: 'Kvóta nenastavená',
 
     // Approvals page
     approvalsTitle: 'Čakajúce schválenia',
@@ -228,6 +336,9 @@ const translations = {
     approvalsHistory: 'História schválení',
     loadingHistory: 'Načítavam históriu...',
     noHistoryFound: 'Nenašla sa žiadna história schválení',
+    attachments: 'Prílohy',
+    viewAttachments: 'Zobraziť prílohy',
+    noAttachments: 'Žiadne prílohy',
     errorLoadingHistory: 'Chyba pri načítaní histórie',
     filterStatus: 'Stav',
     filterStatusAll: '-- Všetky --',
@@ -279,6 +390,49 @@ const translations = {
     loadingCalendar: 'Načítavam kalendár...',
     labelDate: 'Dátum',
 
+    // Sick Notes page (Paragrafy & OČR)
+    sickNotesTitle: 'Paragrafy & OČR',
+    sickNotesSubtitle: 'Nahrajte a spravujte vaše doklady paragrafov a OČR',
+    sickNotesUploadTitle: 'Nahrať nový doklad',
+    sickNotesListTitle: 'Moje doklady',
+    sickNotesLabelDocType: 'Typ dokladu',
+    sickNotesDocTypeParagraph: 'Paragraf',
+    sickNotesDocTypeOcr: 'OČR',
+    sickNotesLabelTitle: 'Názov',
+    sickNotesPlaceholderTitle: 'Napr. Paragraf - chrípka',
+    sickNotesLabelDoctor: 'Lekár',
+    sickNotesPlaceholderDoctor: 'Napr. MUDr. Novák',
+    sickNotesLabelDiagnosis: 'Diagnóza',
+    sickNotesPlaceholderDiagnosis: 'Napr. Akútna respiračná infekcia',
+    sickNotesLabelDateFrom: 'Dátum od',
+    sickNotesLabelDateTo: 'Dátum do',
+    sickNotesLabelFile: 'Doklad',
+    sickNotesFileHint: 'PDF, JPG, PNG, HEIC (max 10MB)',
+    sickNotesBtnSubmit: 'Nahrať doklad',
+    sickNotesBtnSubmitting: 'Nahrávam...',
+    sickNotesEmpty: 'Neboli nájdené žiadne doklady',
+    sickNotesLoading: 'Načítavam doklady...',
+    sickNotesSuccess: 'Doklad bol úspešne nahraný!',
+    sickNotesError: 'Chyba pri nahrávaní dokladu',
+    sickNotesDownload: 'Stiahnuť',
+    sickNotesStatus: 'Stav',
+    sickNotesStatusActive: 'Aktívna',
+    sickNotesStatusCompleted: 'Ukončená',
+    sickNotesNoNotes: 'Neboli nájdené žiadne doklady',
+    sickNotesErrorLoading: 'Chyba pri načítaní dokladov',
+    sickNotesErrorSubmit: 'Chyba pri vytváraní dokladu',
+    sickNotesColTitle: 'Názov',
+    sickNotesColFrom: 'Od',
+    sickNotesColTo: 'Do',
+    sickNotesColDoctor: 'Lekár',
+    sickNotesColFile: 'Doklad',
+    sickNotesHelperFile: 'Max 10MB. Podporované: PDF, JPG, PNG, HEIC, WebP',
+    sickNotesViewDoc: 'Zobraziť doklad',
+    sickNotesNoFile: 'Bez dokladu',
+    sickNotesDays: 'dní',
+    sickNotesDate: 'Dátum',
+    sickNotesClose: 'Zavrieť',
+
     // Required field
     required: '*'
   }
@@ -309,6 +463,10 @@ function switchLanguage(lang) {
     navContainer.innerHTML = '';
     const currentPage = document.body.getAttribute('data-page');
     navContainer.appendChild(renderNavigation(currentPage));
+    // Re-apply badge count after nav rebuild
+    if (typeof updateNavigationBadge === 'function') {
+      updateNavigationBadge();
+    }
   }
 }
 

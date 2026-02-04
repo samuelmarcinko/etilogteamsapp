@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETILOG Portal</title>
+    <link rel="stylesheet" href="/portal/assets/css/portal.css">
+</head>
+<body>
+    <button class="mobile-toggle" onclick="toggleSidebar()">&#9776;</button>
+
+    <!-- Language Switcher -->
+    <div class="portal-lang-switcher">
+        <button class="portal-lang-btn" data-lang="sk" onclick="switchPortalLang('sk')">SK</button>
+        <button class="portal-lang-btn" data-lang="en" onclick="switchPortalLang('en')">EN</button>
+    </div>
+
+    <div class="portal-layout">
+        <!-- SIDEBAR -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <img src="/assets/images/logo.png" alt="ETILOG">
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="nav-section-title">Hlavné menu</div>
+                <a href="#dashboard" class="sidebar-link active" data-page="dashboard">
+                    <span class="nav-icon">&#128200;</span> Dashboard
+                </a>
+                <a href="#my-quotas" class="sidebar-link" data-page="my-quotas">
+                    <span class="nav-icon">&#128197;</span> Moje kvóty
+                </a>
+                <a href="#my-sick-notes" class="sidebar-link" data-page="my-sick-notes">
+                    <span class="nav-icon">&#128203;</span> Paragrafy & OČR
+                </a>
+                <a href="#my-requests" class="sidebar-link" data-page="my-requests">
+                    <span class="nav-icon">&#128196;</span> Moje žiadosti
+                </a>
+                <a href="#my-approvals" class="sidebar-link" data-page="my-approvals">
+                    <span class="nav-icon">&#9989;</span> Moje schválenia
+                </a>
+
+                <!-- Admin section (hidden by default) -->
+                <div id="adminNav" style="display: none;">
+                    <div class="nav-section-title">Administrácia</div>
+                    <a href="#admin-dashboard" class="sidebar-link" data-page="admin-dashboard">
+                        <span class="nav-icon">&#9881;</span> Admin Dashboard
+                    </a>
+                    <a href="#admin-employees" class="sidebar-link" data-page="admin-employees">
+                        <span class="nav-icon">&#128101;</span> Zamestnanci
+                    </a>
+                    <a href="#admin-quotas" class="sidebar-link" data-page="admin-quotas">
+                        <span class="nav-icon">&#128202;</span> Kvóty
+                    </a>
+                    <a href="#admin-sick-notes" class="sidebar-link" data-page="admin-sick-notes">
+                        <span class="nav-icon">&#128209;</span> Paragrafy & OČR
+                    </a>
+                    <a href="#admin-tickets" class="sidebar-link" data-page="admin-tickets">
+                        <span class="nav-icon">&#127915;</span> Všetky tikety
+                    </a>
+                    <a href="#admin-ticket-types" class="sidebar-link" data-page="admin-ticket-types">
+                        <span class="nav-icon">&#9881;</span> Typy tiketov
+                    </a>
+                </div>
+            </nav>
+
+            <div class="sidebar-user">
+                <div class="user-avatar" id="userAvatar">?</div>
+                <div class="user-info">
+                    <div class="user-name" id="userName">Načítavam...</div>
+                    <div class="user-role" id="userRoleBadge">user</div>
+                </div>
+                <button class="btn-logout" onclick="handleLogout()" title="Odhlásiť sa">&#10151;</button>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content" id="mainContent">
+            <div class="page-loading" id="pageLoading">
+                <div class="spinner"></div>
+            </div>
+            <div id="pageContent"></div>
+        </main>
+    </div>
+
+    <!-- TOAST -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- MODAL -->
+    <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+        <div class="modal" id="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">Modal</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+            <div class="modal-footer" id="modalFooter"></div>
+        </div>
+    </div>
+
+    <!-- MSAL.js 2.0 Browser - local copy -->
+    <script src="/portal/assets/js/msal-browser.min.js"></script>
+    <script src="/portal/assets/js/authConfig.js"></script>
+    <script src="/portal/assets/js/auth.js"></script>
+    <script src="/portal/assets/js/portalI18n.js"></script>
+    <script src="/portal/assets/js/portal.js"></script>
+</body>
+</html>

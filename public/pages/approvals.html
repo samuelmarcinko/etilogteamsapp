@@ -10,11 +10,6 @@
     <script src="/assets/js/navigation.js"></script>
 </head>
 <body data-page="approvals">
-    <div class="lang-switcher">
-        <button class="lang-btn active" data-lang="en" onclick="switchLanguage('en')">EN</button>
-        <button class="lang-btn" data-lang="sk" onclick="switchLanguage('sk')">SK</button>
-    </div>
-
     <div class="container">
         <div id="navContainer"></div>
 
@@ -96,6 +91,17 @@
         </div>
     </div>
 
+    <!-- Attachments Modal -->
+    <div id="attachmentsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; justify-content: center; align-items: center;">
+        <div style="background: white; padding: 24px; border-radius: 12px; max-width: 620px; width: 92%; box-shadow: 0 10px 25px rgba(0,0,0,0.3); max-height: 80vh; overflow: auto;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                <h3 id="attachmentsModalTitle" style="margin: 0; color: #1f2937; font-size: 18px;"></h3>
+                <button onclick="closeAttachmentsModal()" style="padding:6px 10px;border:none;border-radius:6px;background:#ef4444;color:#fff;cursor:pointer;font-size:16px;line-height:1;">&#10005;</button>
+            </div>
+            <div id="attachmentsModalBody" style="margin-top: 16px;"></div>
+        </div>
+    </div>
+
     <script>
         // Global context variable
         let teamsContext = null;
@@ -104,6 +110,21 @@
         let pendingTickets = [];
         let historyTickets = [];
         let filteredHistoryTickets = [];
+        let attachmentCounts = new Map();
+        let ticketTypeMap = new Map();
+
+        async function loadTicketTypes() {
+            try {
+                const response = await fetch('/api/ticket-types/active');
+                if (!response.ok) throw new Error('Failed to load ticket types');
+                const result = await response.json();
+                const types = result.data || [];
+                ticketTypeMap = new Map(types.map(type => [type.key.toLowerCase(), type]));
+            } catch (error) {
+                console.warn('Failed to load ticket types:', error);
+                ticketTypeMap = new Map();
+            }
+        }
 
         // Switch between tabs
         function switchTab(tabName) {
@@ -154,6 +175,7 @@
                 // Filter only Approved and Rejected tickets
                 historyTickets = allTickets.filter(t => t.status === 'Approved' || t.status === 'Rejected');
                 filteredHistoryTickets = historyTickets;
+                await loadAttachmentCounts(historyTickets);
                 renderHistory();
             } catch (error) {
                 console.error('Error loading history:', error);
@@ -193,7 +215,7 @@
                         <span class="meta-item">
                             <strong>📅 ${t('labelDate')}:</strong> ${new Date(ticket.updated_at).toLocaleDateString()}
                         </span>
-                        ${(ticket.ticket_type === 'vacation' || ticket.ticket_type === 'sick-leave') && ticket.start_date && ticket.end_date ? `
+                        ${['vacation', 'sick-leave', 'paragraph', 'ocr'].includes(ticket.ticket_type) && ticket.start_date && ticket.end_date ? `
                             <span class="meta-item">
                                 <strong>📅</strong> ${formatDate(ticket.start_date)} → ${formatDate(ticket.end_date)}
                             </span>
@@ -208,21 +230,36 @@
                             <strong>❌ ${t('labelRejectionReason')}:</strong> ${ticket.rejection_reason}
                         </div>
                     ` : ''}
+                    ${attachmentCounts.get(ticket.ticket_id) ? `
+                        <div class="request-actions">
+                            <button class="btn-attachment" onclick="openAttachmentsModal('${ticket.ticket_id}', '${ticket.title.replace(/'/g, '&#39;')}')">
+                                &#128206; ${t('attachments')}
+                            </button>
+                        </div>
+                    ` : ''}
                 </div>
             `).join('');
         }
 
         // Helper functions for translations
         function translateTicketType(type) {
+            const key = type?.toLowerCase();
+            const fromApi = ticketTypeMap.get(key);
+            if (fromApi) {
+                const lang = getCurrentLang();
+                return lang === 'sk' ? (fromApi.label_sk || fromApi.key) : (fromApi.label_en || fromApi.key);
+            }
             const typeMap = {
                 'vacation': 'typeVacation',
                 'sick-leave': 'typeSickLeave',
+                'paragraph': 'typeParagraph',
+                'ocr': 'typeOcr',
                 'purchase': 'typePurchase',
                 'expense': 'typeExpense',
                 'hr': 'typeHr',
                 'other': 'typeOther'
             };
-            return t(typeMap[type?.toLowerCase()] || 'typeOther');
+            return t(typeMap[key] || 'typeOther');
         }
 
         function translatePriority(priority) {
@@ -237,15 +274,18 @@
 
         // Helper function to get type badge class
         function getTypeBadgeClass(type) {
+            const key = type?.toLowerCase();
             const classMap = {
                 'vacation': 'type-vacation',
                 'sick-leave': 'type-sick-leave',
+                'paragraph': 'type-paragraph',
+                'ocr': 'type-ocr',
                 'purchase': 'type-purchase',
                 'expense': 'type-expense',
                 'hr': 'type-hr',
                 'other': 'type-other'
             };
-            return classMap[type?.toLowerCase()] || 'type-other';
+            return classMap[key] || 'type-other';
         }
 
         // Helper function to format date
@@ -310,7 +350,7 @@
                             <span class="meta-item">
                                 <strong>👤 ${t('labelCreatedBy')}:</strong> ${ticket.created_by_name}
                             </span>
-                            ${(ticket.ticket_type === 'vacation' || ticket.ticket_type === 'sick-leave') && ticket.start_date && ticket.end_date ? `
+                            ${['vacation', 'sick-leave', 'paragraph', 'ocr'].includes(ticket.ticket_type) && ticket.start_date && ticket.end_date ? `
                                 <span class="meta-item">
                                     <strong>📅</strong> ${formatDate(ticket.start_date)} → ${formatDate(ticket.end_date)}
                                 </span>
@@ -321,6 +361,11 @@
                             <p class="request-description">${ticket.description}</p>
                         </div>
                         <div class="request-actions">
+                            ${attachmentCounts.get(ticket.ticket_id) ? `
+                                <button class="btn-attachment" onclick="openAttachmentsModal('${ticket.ticket_id}', '${ticket.title.replace(/'/g, '&#39;')}')">
+                                    &#128206; ${t('attachments')}
+                                </button>
+                            ` : ''}
                             <button class="btn-success" data-action="approve" data-ticket-id="${ticket.ticket_id}">
                                 ✓ ${t('btnApprove')}
                             </button>
@@ -341,14 +386,31 @@
             const userId = currentUser.id;
 
             try {
+                await loadTicketTypes();
                 const response = await fetch(`/api/tickets?assignedApproverId=${userId}&status=Pending`);
                 const result = await response.json();
                 pendingTickets = result.data || [];
+                await loadAttachmentCounts(pendingTickets);
                 renderPendingTickets();
             } catch (error) {
                 document.getElementById('approvalsList').innerHTML = `<div class="error-message"><p>${t('errorLoadingApprovals')}</p></div>`;
             }
         })();
+
+        async function loadAttachmentCounts(tickets) {
+            if (!tickets.length) return;
+            const entries = await Promise.all(tickets.map(async (ticket) => {
+                try {
+                    const response = await fetch(`/api/tickets/${ticket.ticket_id}/attachments`);
+                    if (!response.ok) return [ticket.ticket_id, 0];
+                    const result = await response.json();
+                    return [ticket.ticket_id, (result.data || []).length];
+                } catch (error) {
+                    return [ticket.ticket_id, 0];
+                }
+            }));
+            entries.forEach(([ticketId, count]) => attachmentCounts.set(ticketId, count));
+        }
 
         // Event delegation for approve/reject buttons
         document.getElementById('approvalsList').addEventListener('click', function(e) {
@@ -366,6 +428,122 @@
                 rejectTicket(ticketId);
             }
         });
+
+        function closeAttachmentsModal() {
+            document.getElementById('attachmentsModal').style.display = 'none';
+        }
+
+        async function openAttachmentsModal(ticketId, title) {
+            const modal = document.getElementById('attachmentsModal');
+            const body = document.getElementById('attachmentsModalBody');
+            document.getElementById('attachmentsModalTitle').textContent = `${t('attachments')}: ${title}`;
+            body.innerHTML = `<p>${t('loadingHistory')}</p>`;
+            modal.style.display = 'flex';
+
+            try {
+                const response = await fetch(`/api/tickets/${ticketId}/attachments`);
+                const result = await response.json();
+                const attachments = result.data || [];
+
+                if (!attachments.length) {
+                    body.innerHTML = `<p>${t('noAttachments')}</p>`;
+                    return;
+                }
+
+                body.innerHTML = `
+                    <div style="display:flex;flex-direction:column;gap:12px;">
+                        ${attachments.map(att => `
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:10px;border-bottom:1px solid #e5e7eb;">
+                                <div>
+                                    <div style="font-weight:600;">${att.file_name}</div>
+                                    <div style="color:#6b7280;font-size:12px;">${att.file_type || ''}</div>
+                                </div>
+                                <div style="display:flex;gap:8px;">
+                                    <button class="btn btn-secondary" onclick="previewTicketAttachment('${ticketId}', ${att.attachment_id}, '${att.file_name.replace(/'/g, '&#39;')}')">${t('viewAttachments')}</button>
+                                    <a class="btn btn-primary" href="/api/tickets/${ticketId}/attachments/${att.attachment_id}" target="_blank" rel="noopener">${t('download')}</a>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } catch (error) {
+                body.innerHTML = `<p>${t('errorLoadingApprovals')}</p>`;
+            }
+        }
+
+        async function previewTicketAttachment(ticketId, attachmentId, fileName) {
+            try {
+                const response = await fetch(`/api/tickets/${ticketId}/attachments/${attachmentId}`);
+                if (!response.ok) throw new Error('File not found');
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                showFileLightbox(url, fileName);
+            } catch (error) {
+                console.error('Failed to preview attachment:', error);
+            }
+        }
+
+        function showFileLightbox(url, fileName) {
+            const existing = document.getElementById('fileLightbox');
+            if (existing) existing.remove();
+
+            const ext = fileName.toLowerCase().split('.').pop();
+            const isImage = ['jpg', 'jpeg', 'png'].includes(ext);
+            const isPdf = ext === 'pdf';
+
+            const overlay = document.createElement('div');
+            overlay.id = 'fileLightbox';
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:11000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+
+            const cleanup = () => {
+                overlay.remove();
+                window.URL.revokeObjectURL(url);
+                document.removeEventListener('keydown', escHandler);
+            };
+
+            overlay.onclick = (e) => { if (e.target === overlay) cleanup(); };
+
+            const wrapper = document.createElement('div');
+            wrapper.style.cssText = 'position:relative;max-width:90vw;max-height:90vh;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 25px 50px rgba(0,0,0,0.3);';
+
+            const header = document.createElement('div');
+            header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#f9fafb;border-bottom:1px solid #e5e7eb;';
+            const title = document.createElement('span');
+            title.style.cssText = 'font-weight:600;font-size:14px;color:#374151;';
+            title.textContent = fileName;
+            const closeBtn = document.createElement('button');
+            closeBtn.type = 'button';
+            closeBtn.style.cssText = 'padding:6px 10px;border:none;border-radius:6px;background:#ef4444;color:#fff;cursor:pointer;font-size:16px;line-height:1;';
+            closeBtn.innerHTML = '&#10005;';
+            closeBtn.addEventListener('click', cleanup);
+            header.appendChild(title);
+            header.appendChild(closeBtn);
+
+            const content = document.createElement('div');
+            content.style.cssText = 'display:flex;align-items:center;justify-content:center;max-height:calc(90vh - 52px);overflow:auto;';
+
+            if (isImage) {
+                const img = document.createElement('img');
+                img.src = url;
+                img.style.cssText = 'max-width:88vw;max-height:calc(90vh - 60px);object-fit:contain;';
+                content.appendChild(img);
+            } else if (isPdf) {
+                const iframe = document.createElement('iframe');
+                iframe.src = url;
+                iframe.style.cssText = 'width:88vw;height:calc(90vh - 60px);border:none;';
+                content.appendChild(iframe);
+            } else {
+                content.innerHTML = `<div style="padding:40px;text-align:center;"><p>${t('previewNotAvailable')}</p><a href="${url}" download="${fileName}" style="color:#2563eb;">${t('download')}</a></div>`;
+            }
+
+            wrapper.appendChild(header);
+            wrapper.appendChild(content);
+            overlay.appendChild(wrapper);
+            document.body.appendChild(overlay);
+
+            const escHandler = (e) => { if (e.key === 'Escape') cleanup(); };
+            document.addEventListener('keydown', escHandler);
+        }
 
         // Approve ticket
         async function approveTicket(ticketId) {

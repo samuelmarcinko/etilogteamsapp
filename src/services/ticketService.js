@@ -1,5 +1,7 @@
 const Ticket = require('../database/models/Ticket');
 const CardService = require('./cardService');
+const Quota = require('../database/models/Quota');
+const Holiday = require('../database/models/Holiday');
 
 class TicketService {
   /**
@@ -14,6 +16,47 @@ class TicketService {
 
       if (!ticketData.createdBy || !ticketData.createdBy.id) {
         throw new Error('Creator information is required');
+      }
+
+      // Quota check for types that require dates and have quotas
+      const quotaTypes = ['vacation', 'sick-leave', 'paragraph', 'ocr'];
+      if (quotaTypes.includes(ticketData.ticketType) &&
+          ticketData.startDate && ticketData.endDate) {
+        try {
+          const year = new Date(ticketData.startDate).getFullYear();
+          const workingDays = await Holiday.countWorkingDays(ticketData.startDate, ticketData.endDate);
+          const hasEnough = await Quota.hasEnoughDays(
+            ticketData.createdBy.id, year, ticketData.ticketType, workingDays
+          );
+
+          if (!hasEnough) {
+            const quota = await Quota.getOrCreate(ticketData.createdBy.id, year);
+            const typeLabels = {
+              'vacation': 'dovolenky',
+              'sick-leave': 'PN',
+              'paragraph': 'Paragraf',
+              'ocr': 'OČR'
+            };
+            const colPrefixes = {
+              'vacation': 'vacation',
+              'sick-leave': 'sick',
+              'paragraph': 'paragraph',
+              'ocr': 'ocr'
+            };
+            const label = typeLabels[ticketData.ticketType] || ticketData.ticketType;
+            const col = colPrefixes[ticketData.ticketType] || 'sick';
+            const remaining = quota[`${col}_days_total`] - parseFloat(quota[`${col}_days_used`]);
+            throw new Error(
+              `Nedostatok dni ${label}. Pozadovane: ${workingDays} pracovnych dni, zostatok: ${remaining} dni.`
+            );
+          }
+        } catch (quotaError) {
+          // Re-throw quota errors, but don't block on DB errors
+          if (quotaError.message.includes('Nedostatok')) {
+            throw quotaError;
+          }
+          console.warn('Quota check failed, allowing ticket creation:', quotaError.message);
+        }
       }
 
       // Create ticket in database
@@ -95,6 +138,21 @@ class TicketService {
       // Update ticket status
       const updatedTicket = await Ticket.updateStatus(ticketId, 'Approved', approver);
 
+      // Deduct quota days for types with quotas (vacation, sick-leave, paragraph, ocr)
+      const quotaTypes = ['vacation', 'sick-leave', 'paragraph', 'ocr'];
+      if (quotaTypes.includes(ticket.ticket_type) &&
+          ticket.start_date && ticket.end_date) {
+        try {
+          const year = new Date(ticket.start_date).getFullYear();
+          const workingDays = await Holiday.countWorkingDays(ticket.start_date, ticket.end_date);
+          await Quota.getOrCreate(ticket.created_by_id, year);
+          await Quota.addUsedDays(ticket.created_by_id, year, ticket.ticket_type, workingDays);
+          console.log(`Deducted ${workingDays} ${ticket.ticket_type} days for user ${ticket.created_by_id}`);
+        } catch (quotaError) {
+          console.error('Failed to deduct quota days:', quotaError);
+        }
+      }
+
       return updatedTicket;
     } catch (error) {
       console.error('Error approving ticket:', error);
@@ -140,6 +198,18 @@ class TicketService {
       return actions;
     } catch (error) {
       console.error('Error getting audit log:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get approvals performed by a user
+   */
+  static async getApprovalsByUser(userId) {
+    try {
+      return await Ticket.findApprovalsByUserId(userId);
+    } catch (error) {
+      console.error('Error getting approvals by user:', error);
       throw error;
     }
   }

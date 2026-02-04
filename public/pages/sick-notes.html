@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETILOG Approval System</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <script src="https://res.cdn.office.net/teams-js/2.19.0/js/MicrosoftTeams.min.js"></script>
+    <script src="/assets/js/i18n.js"></script>
+    <script src="/assets/js/navigation.js"></script>
+</head>
+<body data-page="sick-notes">
+    <div class="container">
+        <!-- Navigation -->
+        <div id="navContainer"></div>
+
+        <!-- Header -->
+        <div class="header">
+            <img src="/assets/images/logo.png" alt="ETILOG Logo" class="logo">
+            <div class="header-content">
+                <h1 data-i18n="sickNotesTitle">Paragraphs & FMC</h1>
+                <p data-i18n="sickNotesSubtitle">Upload and manage your paragraph and FMC documents</p>
+            </div>
+        </div>
+
+        <!-- Alert Container -->
+        <div id="alertContainer"></div>
+
+        <!-- Upload Form Card -->
+        <div class="card">
+            <h3 class="card-title" data-i18n="sickNotesUploadTitle">Upload New Document</h3>
+            <form id="sickNoteForm">
+                <!-- Document Type -->
+                <div class="form-group">
+                    <label class="form-label" for="snDocType">
+                        <span data-i18n="sickNotesLabelDocType">Document Type</span>
+                        <span class="required">*</span>
+                    </label>
+                    <select id="snDocType" name="document_type" class="form-input" required>
+                        <option value="paragraph" data-i18n="sickNotesDocTypeParagraph">Paragraph</option>
+                        <option value="ocr" data-i18n="sickNotesDocTypeOcr">Family Member Care</option>
+                    </select>
+                </div>
+
+                <!-- Title -->
+                <div class="form-group">
+                    <label class="form-label" for="snTitle">
+                        <span data-i18n="sickNotesLabelTitle">Title</span>
+                        <span class="required">*</span>
+                    </label>
+                    <input type="text" id="snTitle" name="title" class="form-input"
+                           data-i18n-placeholder="sickNotesPlaceholderTitle" required>
+                </div>
+
+                <!-- Date Range -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="snStartDate">
+                            <span data-i18n="labelStartDate">Start Date</span>
+                            <span class="required">*</span>
+                        </label>
+                        <input type="date" id="snStartDate" name="start_date" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="snEndDate">
+                            <span data-i18n="labelEndDate">End Date</span>
+                            <span class="required">*</span>
+                        </label>
+                        <input type="date" id="snEndDate" name="end_date" class="form-input" required>
+                    </div>
+                </div>
+
+                <!-- Doctor Name (optional) -->
+                <div class="form-group">
+                    <label class="form-label" for="snDoctor">
+                        <span data-i18n="sickNotesLabelDoctor">Doctor Name</span>
+                    </label>
+                    <input type="text" id="snDoctor" name="doctor_name" class="form-input"
+                           data-i18n-placeholder="sickNotesPlaceholderDoctor">
+                </div>
+
+                <!-- File Upload -->
+                <div class="form-group">
+                    <label class="form-label" for="snFile">
+                        <span data-i18n="sickNotesLabelFile">Document (PDF, JPG, PNG, HEIC)</span>
+                    </label>
+                    <input type="file" id="snFile" name="file" class="form-input"
+                           accept=".pdf,.jpg,.jpeg,.png,.heic,.heif,.webp,.bmp,.tiff,.tif">
+                    <p class="helper-text" data-i18n="sickNotesHelperFile">Max 10MB. Supported: PDF, JPG, PNG, HEIC, WebP</p>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="btn btn-primary btn-block" id="submitBtn">
+                    <span id="btnText" data-i18n="sickNotesBtnSubmit">Upload Sick Note</span>
+                    <span id="btnLoader" class="loading" style="display: none;"></span>
+                </button>
+            </form>
+        </div>
+
+        <!-- My Sick Notes List -->
+        <div class="card">
+            <h3 class="card-title" data-i18n="sickNotesListTitle">My Documents</h3>
+            <div id="sickNotesList">
+                <div class="loading-container">
+                    <div class="loading"></div>
+                    <p data-i18n="sickNotesLoading">Loading sick notes...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lightbox overlay for document preview -->
+    <div id="lightbox" class="sn-lightbox" onclick="closeLightbox(event)">
+        <div class="sn-lightbox-content">
+            <button class="sn-lightbox-close" onclick="closeLightbox(event)">&times;</button>
+            <div id="lightboxBody" class="sn-lightbox-body"></div>
+        </div>
+    </div>
+
+    <style>
+    /* Sick note cards */
+    .sn-cards { display: flex; flex-direction: column; gap: 0.75rem; }
+
+    .sn-card {
+        background: var(--white);
+        border: 1px solid var(--gray-200);
+        border-radius: 14px;
+        padding: 1.25rem;
+        display: flex;
+        gap: 1rem;
+        align-items: flex-start;
+        transition: all 0.2s ease;
+        box-shadow: var(--shadow-sm);
+    }
+    .sn-card:hover {
+        border-color: var(--gray-300);
+        box-shadow: var(--shadow);
+    }
+
+    .sn-icon {
+        width: 44px; height: 44px;
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.5rem;
+        flex-shrink: 0;
+        background: #fce7f3;
+    }
+
+    .sn-body { flex: 1; min-width: 0; }
+
+    .sn-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--gray-900);
+        margin-bottom: 0.375rem;
+    }
+
+    .sn-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .sn-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.625rem;
+        border-radius: 8px;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        background: var(--gray-50);
+        color: var(--gray-700);
+        border: 1px solid var(--gray-200);
+    }
+    .sn-tag-icon { font-size: 0.875rem; }
+
+    .sn-duration {
+        font-size: 0.8125rem;
+        color: var(--gray-500);
+        font-weight: 500;
+    }
+
+    .sn-file-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.375rem 0.75rem;
+        border-radius: 8px;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        cursor: pointer;
+        border: 1.5px solid #3b82f6;
+        background: #eff6ff;
+        color: #1d4ed8;
+        transition: all 0.15s ease;
+        margin-top: 0.25rem;
+    }
+    .sn-file-btn:hover {
+        background: #dbeafe;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(59,130,246,0.2);
+    }
+
+    .sn-no-file {
+        font-size: 0.8125rem;
+        color: var(--gray-400);
+        font-style: italic;
+        margin-top: 0.25rem;
+    }
+
+    /* Lightbox */
+    .sn-lightbox {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.7);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+        backdrop-filter: blur(4px);
+    }
+    .sn-lightbox.active { display: flex; }
+
+    .sn-lightbox-content {
+        background: var(--white);
+        border-radius: 16px;
+        max-width: 90vw;
+        max-height: 90vh;
+        overflow: auto;
+        position: relative;
+        box-shadow: 0 25px 60px rgba(0,0,0,0.3);
+    }
+
+    .sn-lightbox-close {
+        position: absolute;
+        top: 0.75rem;
+        right: 0.75rem;
+        width: 36px; height: 36px;
+        border-radius: 50%;
+        border: none;
+        background: var(--gray-100);
+        color: var(--gray-700);
+        font-size: 1.5rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        transition: all 0.15s ease;
+        line-height: 1;
+    }
+    .sn-lightbox-close:hover {
+        background: var(--etilog-red);
+        color: white;
+    }
+
+    .sn-lightbox-body { padding: 1rem; }
+    .sn-lightbox-body img {
+        max-width: 100%;
+        max-height: 80vh;
+        border-radius: 8px;
+        display: block;
+        margin: 0 auto;
+    }
+    .sn-lightbox-body iframe {
+        width: 80vw;
+        height: 80vh;
+        border: none;
+        border-radius: 8px;
+    }
+
+    @media (max-width: 768px) {
+        .sn-card { flex-direction: column; gap: 0.75rem; }
+        .sn-meta { gap: 0.375rem; }
+        .sn-lightbox-body iframe { width: 85vw; height: 70vh; }
+    }
+    </style>
+
+    <script>
+    // Initialize Microsoft Teams SDK
+    let teamsContext = null;
+    let currentUser = null;
+
+    (async function init() {
+        try {
+            await microsoftTeams.app.initialize();
+            teamsContext = await microsoftTeams.app.getContext();
+            currentUser = teamsContext.user;
+
+            // Fetch enhanced user info
+            try {
+                const userResponse = await fetch(`/api/users/${currentUser.id}`);
+                if (userResponse.ok) {
+                    const userResult = await userResponse.json();
+                    currentUser = {
+                        ...currentUser,
+                        displayName: userResult.data.name,
+                        graphEmail: userResult.data.email
+                    };
+                }
+            } catch (e) {
+                console.warn('Could not fetch user from Graph API:', e);
+            }
+
+            // Load existing sick notes
+            await loadSickNotes();
+
+        } catch (error) {
+            console.error('Error initializing Teams:', error);
+            showAlert(t('alertErrorInit'), 'error');
+        }
+    })();
+
+    // Calculate days between two dates
+    function calcDays(start, end) {
+        if (!start || !end) return null;
+        const s = new Date(start);
+        const e = new Date(end);
+        const diff = Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1;
+        return diff > 0 ? diff : 1;
+    }
+
+    // Get file URL from file_path stored in DB
+    function getFileUrl(filePath) {
+        if (!filePath) return null;
+        // file_path is stored as absolute path like /home/.../uploads/sick-notes/pn-xxx.jpg
+        // We need to convert to /uploads/sick-notes/pn-xxx.jpg
+        const idx = filePath.indexOf('/uploads/');
+        if (idx !== -1) return filePath.substring(idx);
+        // fallback: just use filename
+        const parts = filePath.replace(/\\/g, '/').split('/');
+        return '/uploads/sick-notes/' + parts[parts.length - 1];
+    }
+
+    // Check if file is an image
+    function isImage(fileName) {
+        if (!fileName) return false;
+        const ext = fileName.toLowerCase().split('.').pop();
+        return ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'heic', 'heif', 'tiff', 'tif'].includes(ext);
+    }
+
+    // Check if file is a PDF
+    function isPdf(fileName) {
+        if (!fileName) return false;
+        return fileName.toLowerCase().endsWith('.pdf');
+    }
+
+    // Open lightbox
+    function openLightbox(filePath, fileName) {
+        const lightbox = document.getElementById('lightbox');
+        const body = document.getElementById('lightboxBody');
+        const url = getFileUrl(filePath);
+
+        if (isImage(fileName)) {
+            body.innerHTML = `<img src="${url}" alt="${escapeHtml(fileName)}">`;
+        } else if (isPdf(fileName)) {
+            body.innerHTML = `<iframe src="${url}" title="${escapeHtml(fileName)}"></iframe>`;
+        } else {
+            // Fallback: download link
+            body.innerHTML = `<div style="padding:2rem;text-align:center;">
+                <p style="margin-bottom:1rem;font-size:1.125rem;font-weight:600;">${escapeHtml(fileName)}</p>
+                <a href="${url}" download class="btn btn-primary">${t('sickNotesDownload')}</a>
+            </div>`;
+        }
+
+        lightbox.classList.add('active');
+    }
+
+    // Close lightbox
+    function closeLightbox(event) {
+        if (event) {
+            // Only close if clicking overlay or close button, not content
+            if (event.target.closest('.sn-lightbox-body')) return;
+        }
+        const lightbox = document.getElementById('lightbox');
+        lightbox.classList.remove('active');
+        document.getElementById('lightboxBody').innerHTML = '';
+    }
+
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeLightbox();
+    });
+
+    // Load my sick notes
+    async function loadSickNotes() {
+        const container = document.getElementById('sickNotesList');
+        try {
+            const userId = currentUser?.id;
+            if (!userId) {
+                container.innerHTML = `<p class="empty-state">${t('sickNotesNoNotes')}</p>`;
+                return;
+            }
+
+            const response = await fetch(`/api/teams/sick-notes?userId=${userId}`);
+            if (!response.ok) throw new Error('Failed to load sick notes');
+
+            const result = await response.json();
+            const notes = result.data || [];
+
+            if (notes.length === 0) {
+                container.innerHTML = `<p class="empty-state">${t('sickNotesNoNotes')}</p>`;
+                return;
+            }
+
+            container.innerHTML = `<div class="sn-cards">${notes.map(n => {
+                const days = calcDays(n.start_date, n.end_date);
+                const daysText = days ? `${days} ${t('sickNotesDays')}` : '';
+
+                let fileHtml = '';
+                if (n.file_name && n.file_path) {
+                    fileHtml = `<button class="sn-file-btn" onclick="openLightbox('${escapeAttr(n.file_path)}', '${escapeAttr(n.file_name)}')">
+                        <span>&#128196;</span> ${t('sickNotesViewDoc')}
+                    </button>`;
+                } else {
+                    fileHtml = `<span class="sn-no-file">${t('sickNotesNoFile')}</span>`;
+                }
+
+                const docTypeLabel = n.document_type === 'ocr' ? t('sickNotesDocTypeOcr') : t('sickNotesDocTypeParagraph');
+                const docTypeStyle = n.document_type === 'ocr'
+                    ? 'background:#fef3c7;color:#92400e;border-color:#fcd34d;'
+                    : 'background:#dbeafe;color:#1e40af;border-color:#93c5fd;';
+                const docIcon = n.document_type === 'ocr' ? '&#128106;' : '&#167;';
+
+                return `
+                <div class="sn-card">
+                    <div class="sn-icon" style="${n.document_type === 'ocr' ? 'background:#fef3c7;' : 'background:#dbeafe;'}">${docIcon}</div>
+                    <div class="sn-body">
+                        <div class="sn-title">${escapeHtml(n.title)}</div>
+                        <div class="sn-meta">
+                            <span class="sn-tag" style="${docTypeStyle}">
+                                ${docTypeLabel}
+                            </span>
+                            <span class="sn-tag">
+                                <span class="sn-tag-icon">&#128197;</span>
+                                ${formatDate(n.start_date)} - ${formatDate(n.end_date)}
+                            </span>
+                            ${days ? `<span class="sn-tag" style="background:#fce7f3;color:#9f1239;border-color:#f9a8d4;">
+                                ${daysText}
+                            </span>` : ''}
+                            ${n.doctor_name ? `<span class="sn-tag">
+                                <span class="sn-tag-icon">&#129658;</span>
+                                ${escapeHtml(n.doctor_name)}
+                            </span>` : ''}
+                        </div>
+                        ${fileHtml}
+                    </div>
+                </div>`;
+            }).join('')}</div>`;
+
+        } catch (error) {
+            console.error('Error loading sick notes:', error);
+            container.innerHTML = `<p class="empty-state" style="color: #ef4444;">${t('sickNotesErrorLoading')}</p>`;
+        }
+    }
+
+    // Handle form submission
+    document.getElementById('sickNoteForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const submitBtn = document.getElementById('submitBtn');
+        const btnText = document.getElementById('btnText');
+        const btnLoader = document.getElementById('btnLoader');
+
+        submitBtn.disabled = true;
+        btnText.textContent = t('sickNotesBtnSubmitting');
+        btnLoader.style.display = 'inline-block';
+
+        try {
+            const formData = new FormData(e.target);
+
+            // Add user info from Teams context
+            formData.append('user_id', currentUser?.id || 'unknown');
+            formData.append('user_name', currentUser?.displayName || currentUser?.userPrincipalName || 'Unknown');
+            formData.append('user_email', currentUser?.userPrincipalName || currentUser?.graphEmail || 'unknown@etilog.com');
+
+            const response = await fetch('/api/teams/sick-notes', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.message || t('sickNotesErrorSubmit'));
+            }
+
+            showAlert(t('sickNotesSuccess'), 'success');
+            e.target.reset();
+            await loadSickNotes();
+
+        } catch (error) {
+            console.error('Error submitting sick note:', error);
+            showAlert(t('sickNotesError') + ': ' + error.message, 'error');
+        } finally {
+            submitBtn.disabled = false;
+            btnText.textContent = t('sickNotesBtnSubmit');
+            btnLoader.style.display = 'none';
+        }
+    });
+
+    // Helpers
+    function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    function escapeAttr(str) {
+        if (!str) return '';
+        return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+
+    function formatDate(dateStr) {
+        if (!dateStr) return '-';
+        const d = new Date(dateStr);
+        return d.toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+
+    function showAlert(message, type = 'success') {
+        // Remove existing toasts
+        document.querySelectorAll('.app-toast').forEach(t => t.remove());
+
+        const toast = document.createElement('div');
+        toast.className = `app-toast app-toast-${type}`;
+        toast.innerHTML = `
+            <span class="app-toast-icon">${type === 'success' ? '&#10004;' : '&#10006;'}</span>
+            <span class="app-toast-msg">${message}</span>
+            <button class="app-toast-close" onclick="this.parentElement.remove()">&times;</button>
+        `;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            if (toast.parentElement) {
+                toast.classList.add('app-toast-hide');
+                setTimeout(() => toast.remove(), 300);
+            }
+        }, 5000);
+    }
+    </script>
+</body>
+</html>

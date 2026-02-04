@@ -10,12 +10,6 @@
     <script src="/assets/js/navigation.js"></script>
 </head>
 <body data-page="create">
-    <!-- Language Switcher -->
-    <div class="lang-switcher">
-        <button class="lang-btn active" data-lang="en" onclick="switchLanguage('en')">EN</button>
-        <button class="lang-btn" data-lang="sk" onclick="switchLanguage('sk')">SK</button>
-    </div>
-
     <div class="container">
         <!-- Navigation -->
         <div id="navContainer"></div>
@@ -76,12 +70,6 @@
                         </label>
                         <select id="ticketType" name="ticketType" class="form-select" required onchange="toggleDateFields()">
                             <option value="" data-i18n="placeholderType">-- Select type --</option>
-                            <option value="vacation" data-i18n="typeVacation">Vacation</option>
-                            <option value="sick-leave" data-i18n="typeSickLeave">Sick Leave</option>
-                            <option value="purchase" data-i18n="typePurchase">Purchase</option>
-                            <option value="expense" data-i18n="typeExpense">Expense</option>
-                            <option value="hr" data-i18n="typeHr">HR Matters</option>
-                            <option value="other" data-i18n="typeOther">Other</option>
                         </select>
                     </div>
 
@@ -99,6 +87,9 @@
                         </select>
                     </div>
                 </div>
+
+                <!-- Quota Info Banner (shown when vacation/sick selected) -->
+                <div id="quotaInfoBanner" style="display:none;"></div>
 
                 <!-- Date Range (for Vacation and Sick Leave) -->
                 <div id="dateRangeContainer" class="form-row" style="display: none;">
@@ -139,6 +130,22 @@
                         <option value="" data-i18n="placeholderLoading">-- Loading users... --</option>
                     </select>
                     <p class="helper-text" data-i18n="helperApprover">Select the person who should approve this request</p>
+                </div>
+
+                <!-- Attachments -->
+                <div class="form-group">
+                    <label class="form-label" for="attachments">
+                        <span data-i18n="labelAttachments">Attachments (optional)</span>
+                    </label>
+                    <input
+                        type="file"
+                        id="attachments"
+                        name="attachments"
+                        class="form-input"
+                        accept=".jpg,.jpeg,.png,.pdf,.docx,.xlsx"
+                        multiple
+                    >
+                    <p class="helper-text" data-i18n="helperAttachments">Allowed: JPG, PNG, PDF, DOCX, XLSX (max 10MB)</p>
                 </div>
 
                 <!-- Submit Button -->

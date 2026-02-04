@@ -1,5 +1,6 @@
 const { TeamsActivityHandler, CardFactory, MessageFactory } = require('botbuilder');
 const Ticket = require('../database/models/Ticket');
+const TicketService = require('../services/ticketService');
 const {
   createApprovalCard,
   createApprovedCard,
@@ -113,8 +114,8 @@ class TeamsBot extends TeamsActivityHandler {
    */
   async handleApproval(context, ticket, approver) {
     try {
-      // Update ticket status
-      await Ticket.updateStatus(ticket.ticket_id, 'Approved', approver);
+      // Update ticket status and deduct quota days (vacation/sick-leave)
+      await TicketService.approveTicket(ticket.ticket_id, approver);
 
       // Update the card to show approved status
       const approvedCard = createApprovedCard(ticket, approver);
@@ -138,8 +139,8 @@ class TeamsBot extends TeamsActivityHandler {
    */
   async handleRejection(context, ticket, rejector, rejectionReason) {
     try {
-      // Update ticket status
-      await Ticket.updateStatus(ticket.ticket_id, 'Rejected', rejector, rejectionReason);
+      // Update ticket status via service layer
+      await TicketService.rejectTicket(ticket.ticket_id, rejector, rejectionReason);
 
       // Update the card to show rejected status
       const rejectedCard = createRejectedCard(ticket, rejector, rejectionReason);

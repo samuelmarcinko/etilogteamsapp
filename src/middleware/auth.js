@@ -37,24 +37,27 @@ async function verifyToken(req, res, next) {
 
     const token = authHeader.substring(7);
 
-    // Verify token
+    const clientId = process.env.CLIENT_ID || process.env.MICROSOFT_APP_ID;
+    const tenantId = process.env.TENANT_ID;
+
+    // Verify token - accept both v1.0 and v2.0 tokens, and API URIs
     jwt.verify(
       token,
       getKey,
       {
-        audience: process.env.CLIENT_ID || process.env.MICROSOFT_APP_ID,
+        audience: [clientId, `api://${clientId}`],
         issuer: [
-          `https://login.microsoftonline.com/${process.env.TENANT_ID}/v2.0`,
-          `https://sts.windows.net/${process.env.TENANT_ID}/`
+          `https://login.microsoftonline.com/${tenantId}/v2.0`,
+          `https://sts.windows.net/${tenantId}/`
         ],
         algorithms: ['RS256']
       },
       (err, decoded) => {
         if (err) {
-          console.error('Token verification failed:', err);
+          console.error('Token verification failed:', err.message);
           return res.status(401).json({
             error: 'Unauthorized',
-            message: 'Invalid token'
+            message: 'Invalid token: ' + err.message
           });
         }
 
@@ -118,14 +121,17 @@ async function optionalAuth(req, res, next) {
 
     const token = authHeader.substring(7);
 
+    const clientId = process.env.CLIENT_ID || process.env.MICROSOFT_APP_ID;
+    const tenantId = process.env.TENANT_ID;
+
     jwt.verify(
       token,
       getKey,
       {
-        audience: process.env.CLIENT_ID || process.env.MICROSOFT_APP_ID,
+        audience: [clientId, `api://${clientId}`],
         issuer: [
-          `https://login.microsoftonline.com/${process.env.TENANT_ID}/v2.0`,
-          `https://sts.windows.net/${process.env.TENANT_ID}/`
+          `https://login.microsoftonline.com/${tenantId}/v2.0`,
+          `https://sts.windows.net/${tenantId}/`
         ],
         algorithms: ['RS256']
       },

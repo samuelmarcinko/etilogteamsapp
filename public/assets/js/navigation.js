@@ -5,14 +5,16 @@ const NAV_ITEMS = {
     { id: 'create', icon: '➕', label: 'Create Request', url: '/pages/create.html' },
     { id: 'my-requests', icon: '📋', label: 'My Requests', url: '/pages/my-requests.html' },
     { id: 'upcoming-time-off', icon: '📅', label: 'Team Calendar', url: '/pages/upcoming-time-off.html' },
-    { id: 'approvals', icon: '✅', label: 'Approvals', url: '/pages/approvals.html' }
+    { id: 'approvals', icon: '✅', label: 'Approvals', url: '/pages/approvals.html' },
+    { id: 'sick-notes', icon: '🏥', label: 'Paragraphs & FMC', url: '/pages/sick-notes.html' }
   ],
   sk: [
     { id: 'dashboard', icon: '📊', label: 'Nástenka', url: '/pages/dashboard.html' },
     { id: 'create', icon: '➕', label: 'Vytvoriť žiadosť', url: '/pages/create.html' },
     { id: 'my-requests', icon: '📋', label: 'Moje žiadosti', url: '/pages/my-requests.html' },
     { id: 'upcoming-time-off', icon: '📅', label: 'Teamový kalendár', url: '/pages/upcoming-time-off.html' },
-    { id: 'approvals', icon: '✅', label: 'Schvaľovanie', url: '/pages/approvals.html' }
+    { id: 'approvals', icon: '✅', label: 'Schvaľovanie', url: '/pages/approvals.html' },
+    { id: 'sick-notes', icon: '🏥', label: 'Paragrafy & OČR', url: '/pages/sick-notes.html' }
   ]
 };
 
@@ -53,11 +55,46 @@ function updateNavigationBadge() {
   }
 }
 
+// Update scroll fade indicators based on scroll position
+function updateScrollFades(scrollArea) {
+  const wrapper = scrollArea.closest('.nav-wrapper');
+  if (!wrapper) return;
+
+  const scrollLeft = scrollArea.scrollLeft;
+  const maxScroll = scrollArea.scrollWidth - scrollArea.clientWidth;
+
+  wrapper.classList.toggle('fade-left', scrollLeft > 8);
+  wrapper.classList.toggle('fade-right', scrollLeft < maxScroll - 8);
+}
+
 // Render navigation
 function renderNavigation(currentPage) {
   const lang = localStorage.getItem('appLanguage') || 'en';
   const items = NAV_ITEMS[lang];
 
+  const portalLabel = lang === 'sk' ? 'Web rozhranie' : 'Web Portal';
+
+  // Top-level container for everything
+  const container = document.createElement('div');
+
+  // Utility bar (portal link + language switcher) - outside nav, top-left
+  const utilityBar = document.createElement('div');
+  utilityBar.className = 'nav-utility-bar';
+  utilityBar.innerHTML = `
+    <a href="https://teams.etilog.com/login" target="_blank" class="nav-portal-link">
+      <span class="nav-portal-icon">&#127760;</span>${portalLabel}
+    </a>
+    <div class="nav-lang-switcher">
+      <button class="lang-btn ${lang === 'en' ? 'active' : ''}" data-lang="en" onclick="switchLanguage('en')">EN</button>
+      <button class="lang-btn ${lang === 'sk' ? 'active' : ''}" data-lang="sk" onclick="switchLanguage('sk')">SK</button>
+    </div>
+  `;
+
+  // Outer wrapper for nav with fade indicators
+  const wrapper = document.createElement('div');
+  wrapper.className = 'nav-wrapper';
+
+  // Scrollable nav area - only navigation items
   const nav = document.createElement('nav');
   nav.className = 'app-nav';
   nav.innerHTML = items.map(item => `
@@ -68,7 +105,19 @@ function renderNavigation(currentPage) {
     </a>
   `).join('');
 
-  return nav;
+  wrapper.appendChild(nav);
+
+  container.appendChild(utilityBar);
+  container.appendChild(wrapper);
+
+  // Set up scroll fade indicators after rendering
+  requestAnimationFrame(() => {
+    updateScrollFades(nav);
+    nav.addEventListener('scroll', () => updateScrollFades(nav), { passive: true });
+    window.addEventListener('resize', () => updateScrollFades(nav), { passive: true });
+  });
+
+  return container;
 }
 
 // Initialize navigation on page load
