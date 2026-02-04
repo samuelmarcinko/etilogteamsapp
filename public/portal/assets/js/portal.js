@@ -383,7 +383,7 @@ async function renderMySickNotes(container) {
                                 <td>${formatDate(n.start_date)}</td>
                                 <td>${formatDate(n.end_date)}</td>
                                 <td>${n.doctor_name ? escapeHtml(n.doctor_name) : '-'}</td>
-                                <td>${n.file_name ? `<a href="#" onclick="previewSickNoteFile(${n.id}, '${escapeHtml(n.file_name)}')" style="color:var(--blue-600)">&#128065; ${escapeHtml(n.file_name)}</a>` : `<span style="color:var(--gray-400)">${pt('noFile')}</span>`}</td>
+                                <td>${n.file_name ? `<a href="#" onclick="return previewSickNoteFile(event, ${n.id}, '${escapeHtml(n.file_name)}')" style="color:var(--blue-600)">&#128065; ${escapeHtml(n.file_name)}</a>` : `<span style="color:var(--gray-400)">${pt('noFile')}</span>`}</td>
                                 <td>
                                     <button class="btn btn-ghost btn-sm" onclick="openUploadSickNoteModal(${n.id})">&#128206;</button>
                                     <button class="btn btn-ghost btn-sm" onclick="deleteSickNote(${n.id})" style="color:var(--red-500)">&#128465;</button>
@@ -552,7 +552,11 @@ async function downloadSickNoteFile(id) {
     }
 }
 
-async function previewSickNoteFile(id, fileName) {
+async function previewSickNoteFile(event, id, fileName) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
     try {
         const response = await apiCall(`/api/sick-notes/${id}/file`);
         if (!response.ok) throw new Error(pt('fileNotFound'));
@@ -609,6 +613,8 @@ async function previewSickNoteFile(id, fileName) {
     } catch (error) {
         showToast(pt('fileLoadError') + ': ' + error.message, 'error');
     }
+
+    return false;
 }
 
 async function deleteSickNote(id) {
@@ -912,15 +918,11 @@ async function editEmployeeQuota(userId, name, vacTotal, sickTotal, paragraphTot
     const year = new Date().getFullYear();
     document.getElementById('modalTitle').textContent = `${pt('quotaModalTitle')} - ${name}`;
     document.getElementById('modalBody').innerHTML = `
-        <form id="quotaForm">
+        <form id="quotaForm" data-sick-total="${sickTotal}">
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">${pt('quotaFieldVacation')}</label>
                     <input type="number" class="form-input" name="vacation_days_total" value="${vacTotal}" min="0" max="50">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">${pt('quotaFieldSickDays')}</label>
-                    <input type="number" class="form-input" name="sick_days_total" value="${sickTotal}" min="0" max="30">
                 </div>
             </div>
             <div class="form-row">
@@ -947,7 +949,7 @@ async function saveEmployeeQuota(userId, year) {
     const data = {
         year,
         vacation_days_total: parseInt(form.vacation_days_total.value),
-        sick_days_total: parseInt(form.sick_days_total.value),
+        sick_days_total: parseInt(form.dataset.sickTotal),
         paragraph_days_total: parseInt(form.paragraph_days_total.value),
         ocr_days_total: parseInt(form.ocr_days_total.value)
     };
@@ -1083,7 +1085,7 @@ async function openQuotaSettingsModal() {
 
     document.getElementById('modalTitle').textContent = pt('quotaSettings');
     document.getElementById('modalBody').innerHTML = `
-        <form id="quotaSettingsForm">
+        <form id="quotaSettingsForm" data-default-sick="${existingSick}">
             <div class="form-group">
                 <label class="form-label">${pt('quotaSettingsYear')}</label>
                 <input type="number" class="form-input" name="year" value="${year}" min="2024" max="2030">
@@ -1092,10 +1094,6 @@ async function openQuotaSettingsModal() {
                 <div class="form-group">
                     <label class="form-label">${pt('quotaSettingsDefaultVacation')}</label>
                     <input type="number" class="form-input" name="default_vacation_days" value="${existingVacation}" min="0" max="50">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">${pt('quotaSettingsDefaultSick')}</label>
-                    <input type="number" class="form-input" name="default_sick_days" value="${existingSick}" min="0" max="30">
                 </div>
             </div>
             <div class="form-row">
@@ -1122,7 +1120,7 @@ async function saveQuotaSettings() {
     const data = {
         year: parseInt(form.year.value),
         default_vacation_days: parseInt(form.default_vacation_days.value),
-        default_sick_days: parseInt(form.default_sick_days.value),
+        default_sick_days: parseInt(form.dataset.defaultSick),
         default_paragraph_days: parseInt(form.default_paragraph_days.value),
         default_ocr_days: parseInt(form.default_ocr_days.value)
     };
@@ -1174,7 +1172,7 @@ async function renderAdminSickNotes(container) {
                                         <td>${formatDate(n.start_date)}</td>
                                         <td>${formatDate(n.end_date)}</td>
                                         <td>${n.doctor_name ? escapeHtml(n.doctor_name) : '-'}</td>
-                                        <td>${n.file_name ? `<a href="#" onclick="previewSickNoteFile(${n.id}, '${escapeHtml(n.file_name)}')" style="color:var(--blue-600);cursor:pointer;">&#128065; ${escapeHtml(n.file_name)}</a>` : '<span style="color:var(--gray-400)">-</span>'}</td>
+                                        <td>${n.file_name ? `<a href="#" onclick="return previewSickNoteFile(event, ${n.id}, '${escapeHtml(n.file_name)}')" style="color:var(--blue-600);cursor:pointer;">&#128065; ${escapeHtml(n.file_name)}</a>` : '<span style="color:var(--gray-400)">-</span>'}</td>
                                     </tr>`;
                                 }).join('')}
                             </tbody>
