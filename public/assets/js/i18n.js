@@ -33,6 +33,8 @@ const translations = {
     dashToday: 'today',
     dashTomorrow: 'tomorrow',
     dashInDays: 'in {n} days',
+    dashAllHolidays: 'All holidays',
+    dashHolidaysTitle: 'Public Holidays',
     errorLoadingDashboard: 'Error loading dashboard',
     
     // Form labels
@@ -250,6 +252,8 @@ const translations = {
     dashToday: 'dnes',
     dashTomorrow: 'zajtra',
     dashInDays: 'o {n} dní',
+    dashAllHolidays: 'Všetky sviatky',
+    dashHolidaysTitle: 'Štátne sviatky',
     errorLoadingDashboard: 'Chyba pri načítaní dashboardu',
     viewDetails: 'Zobraziť detail',
     
