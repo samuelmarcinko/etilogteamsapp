@@ -1,5 +1,8 @@
 const TicketService = require('../services/ticketService');
 const NotificationService = require('../services/notificationService');
+const TicketAttachment = require('../database/models/TicketAttachment');
+const fs = require('fs');
+const path = require('path');
 
 class TicketController {
   /**
@@ -51,6 +54,10 @@ class TicketController {
 
       // Create ticket
       const ticket = await TicketService.createTicket(ticketData);
+
+      if (req.files && req.files.length) {
+        await TicketAttachment.createMany(ticket.ticket_id, req.files, createdBy);
+      }
 
       // Send notification to approver (don't wait for it)
       if (ticket.assigned_approver_id) {
@@ -272,6 +279,80 @@ class TicketController {
         count: tickets.length,
         data: tickets
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get approvals performed by current user
+   * GET /api/tickets/approvals/me
+   */
+  static async getMyApprovals(req, res, next) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({
+          error: 'Unauthorized',
+          message: 'Authentication required'
+        });
+      }
+
+      const tickets = await TicketService.getApprovalsByUser(req.user.id);
+
+      res.json({
+        success: true,
+        count: tickets.length,
+        data: tickets
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * List ticket attachments
+   * GET /api/tickets/:ticketId/attachments
+   */
+  static async listAttachments(req, res, next) {
+    try {
+      const { ticketId } = req.params;
+      const attachments = await TicketAttachment.findByTicketId(ticketId);
+      res.json({
+        success: true,
+        count: attachments.length,
+        data: attachments
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Download ticket attachment
+   * GET /api/tickets/:ticketId/attachments/:attachmentId
+   */
+  static async downloadAttachment(req, res, next) {
+    try {
+      const { ticketId, attachmentId } = req.params;
+      const attachment = await TicketAttachment.findById(attachmentId);
+
+      if (!attachment || attachment.ticket_id !== ticketId) {
+        return res.status(404).json({
+          error: 'Not Found',
+          message: 'Attachment not found'
+        });
+      }
+
+      if (!fs.existsSync(attachment.file_path)) {
+        return res.status(404).json({
+          error: 'Not Found',
+          message: 'File not found on disk'
+        });
+      }
+
+      res.setHeader('Content-Type', attachment.file_type || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(attachment.file_name)}"`);
+      return res.sendFile(path.resolve(attachment.file_path));
     } catch (error) {
       next(error);
     }

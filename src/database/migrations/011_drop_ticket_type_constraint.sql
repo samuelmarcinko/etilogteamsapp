@@ -1,0 +1,1 @@
+ALTER TABLE tickets DROP CONSTRAINT IF EXISTS chk_ticket_type;
