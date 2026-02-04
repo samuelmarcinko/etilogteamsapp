@@ -110,6 +110,7 @@
         let pendingTickets = [];
         let historyTickets = [];
         let filteredHistoryTickets = [];
+        let attachmentCounts = new Map();
 
         // Switch between tabs
         function switchTab(tabName) {
@@ -160,6 +161,7 @@
                 // Filter only Approved and Rejected tickets
                 historyTickets = allTickets.filter(t => t.status === 'Approved' || t.status === 'Rejected');
                 filteredHistoryTickets = historyTickets;
+                await loadAttachmentCounts(historyTickets);
                 renderHistory();
             } catch (error) {
                 console.error('Error loading history:', error);
@@ -214,11 +216,13 @@
                             <strong>❌ ${t('labelRejectionReason')}:</strong> ${ticket.rejection_reason}
                         </div>
                     ` : ''}
-                    <div class="request-actions">
-                        <button class="btn-secondary" onclick="openAttachmentsModal('${ticket.ticket_id}', '${ticket.title.replace(/'/g, '&#39;')}')">
-                            &#128206; ${t('attachments')}
-                        </button>
-                    </div>
+                    ${attachmentCounts.get(ticket.ticket_id) ? `
+                        <div class="request-actions">
+                            <button class="btn-attachment" onclick="openAttachmentsModal('${ticket.ticket_id}', '${ticket.title.replace(/'/g, '&#39;')}')">
+                                &#128206; ${t('attachments')}
+                            </button>
+                        </div>
+                    ` : ''}
                 </div>
             `).join('');
         }
@@ -336,9 +340,11 @@
                             <p class="request-description">${ticket.description}</p>
                         </div>
                         <div class="request-actions">
-                            <button class="btn-secondary" onclick="openAttachmentsModal('${ticket.ticket_id}', '${ticket.title.replace(/'/g, '&#39;')}')">
-                                &#128206; ${t('attachments')}
-                            </button>
+                            ${attachmentCounts.get(ticket.ticket_id) ? `
+                                <button class="btn-attachment" onclick="openAttachmentsModal('${ticket.ticket_id}', '${ticket.title.replace(/'/g, '&#39;')}')">
+                                    &#128206; ${t('attachments')}
+                                </button>
+                            ` : ''}
                             <button class="btn-success" data-action="approve" data-ticket-id="${ticket.ticket_id}">
                                 ✓ ${t('btnApprove')}
                             </button>
@@ -362,11 +368,27 @@
                 const response = await fetch(`/api/tickets?assignedApproverId=${userId}&status=Pending`);
                 const result = await response.json();
                 pendingTickets = result.data || [];
+                await loadAttachmentCounts(pendingTickets);
                 renderPendingTickets();
             } catch (error) {
                 document.getElementById('approvalsList').innerHTML = `<div class="error-message"><p>${t('errorLoadingApprovals')}</p></div>`;
             }
         })();
+
+        async function loadAttachmentCounts(tickets) {
+            if (!tickets.length) return;
+            const entries = await Promise.all(tickets.map(async (ticket) => {
+                try {
+                    const response = await fetch(`/api/tickets/${ticket.ticket_id}/attachments`);
+                    if (!response.ok) return [ticket.ticket_id, 0];
+                    const result = await response.json();
+                    return [ticket.ticket_id, (result.data || []).length];
+                } catch (error) {
+                    return [ticket.ticket_id, 0];
+                }
+            }));
+            entries.forEach(([ticketId, count]) => attachmentCounts.set(ticketId, count));
+        }
 
         // Event delegation for approve/reject buttons
         document.getElementById('approvalsList').addEventListener('click', function(e) {

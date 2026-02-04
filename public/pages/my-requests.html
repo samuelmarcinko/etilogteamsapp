@@ -69,6 +69,7 @@
         // Global variables
         let userTickets = [];
         let filteredTickets = [];
+        let attachmentCounts = new Map();
 
         // Helper function to translate ticket type
         function translateType(type) {
@@ -193,11 +194,13 @@
                                 <strong>❌ ${t('labelRejectionReason')}:</strong> ${ticket.rejection_reason}
                             </div>
                         ` : ''}
-                        <div class="request-actions">
-                            <button class="btn-secondary" onclick="openAttachmentsModal('${ticket.ticket_id}', '${ticket.title.replace(/'/g, '&#39;')}')">
-                                &#128206; ${t('attachments')}
-                            </button>
-                        </div>
+                        ${attachmentCounts.get(ticket.ticket_id) ? `
+                            <div class="request-actions">
+                                <button class="btn-attachment" onclick="openAttachmentsModal('${ticket.ticket_id}', '${ticket.title.replace(/'/g, '&#39;')}')">
+                                    &#128206; ${t('attachments')}
+                                </button>
+                            </div>
+                        ` : ''}
                     </div>
                 `).join('');
             }
@@ -357,6 +360,7 @@
                 const response = await fetch(`/api/tickets?createdById=${userId}`);
                 const result = await response.json();
                 userTickets = result.data || [];
+                await loadAttachmentCounts(userTickets);
                 filteredTickets = userTickets;
                 populateApproverFilter();
                 renderTickets();
@@ -368,6 +372,21 @@
                 document.getElementById('myRequestsList').innerHTML = `<div class="error-message"><p>${t('errorLoadingRequests')}</p></div>`;
             }
         })();
+
+        async function loadAttachmentCounts(tickets) {
+            if (!tickets.length) return;
+            const entries = await Promise.all(tickets.map(async (ticket) => {
+                try {
+                    const response = await fetch(`/api/tickets/${ticket.ticket_id}/attachments`);
+                    if (!response.ok) return [ticket.ticket_id, 0];
+                    const result = await response.json();
+                    return [ticket.ticket_id, (result.data || []).length];
+                } catch (error) {
+                    return [ticket.ticket_id, 0];
+                }
+            }));
+            entries.forEach(([ticketId, count]) => attachmentCounts.set(ticketId, count));
+        }
     </script>
 </body>
 </html>
