@@ -264,7 +264,7 @@
                                     <div style="color:#6b7280;font-size:12px;">${att.file_type || ''}</div>
                                 </div>
                                 <div style="display:flex;gap:8px;">
-                                    <button class="btn-secondary" onclick="previewTicketAttachment('${ticketId}', ${att.attachment_id}, '${att.file_name.replace(/'/g, '&#39;')}')">${t('viewAttachments')}</button>
+                                    <button class="btn btn-secondary" onclick="previewTicketAttachment('${ticketId}', ${att.attachment_id}, '${att.file_name.replace(/'/g, '&#39;')}')">${t('viewAttachments')}</button>
                                     <a class="btn btn-primary" href="/api/tickets/${ticketId}/attachments/${att.attachment_id}" target="_blank" rel="noopener">${t('download')}</a>
                                 </div>
                             </div>

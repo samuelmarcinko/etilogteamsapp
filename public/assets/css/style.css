@@ -853,7 +853,7 @@ body {
   color: var(--gray-700);
   padding: 0.65rem 1.1rem;
   border: 1px solid var(--gray-200);
-  border-radius: 999px;
+  border-radius: 20px;
   font-size: 0.875rem;
   font-weight: 700;
   cursor: pointer;
