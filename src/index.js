@@ -1,4 +1,5 @@
 const express = require('express');
+const compression = require('compression');
 const path = require('path');
 require('dotenv').config();
 
@@ -7,30 +8,54 @@ const TeamsBot = require('./bot/teamsBot');
 const apiRoutes = require('./routes');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const ReminderService = require('./services/reminderService');
+const logger = require('./utils/logger');
 
 // Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 3978;
 
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Compression middleware (before static files - reduces payload 2-5x)
+app.use(compression({
+  level: 6,
+  threshold: 1024,
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) return false;
+    return compression.filter(req, res);
+  }
+}));
 
-// Serve static files from public directory
-app.use(express.static(path.join(__dirname, '../public')));
-app.use('/assets', express.static(path.join(__dirname, '../public/assets')));
+// Middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Static file cache configuration (1 day for assets, 1 hour for HTML)
+const staticOptions = {
+  maxAge: '1d',
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+    } else if (filePath.match(/\.(js|css)$/)) {
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+    } else if (filePath.match(/\.(png|jpg|jpeg|gif|ico|svg|woff|woff2)$/)) {
+      res.setHeader('Cache-Control', 'public, max-age=604800');
+    }
+  }
+};
+
+// Serve static files from public directory with caching
+app.use(express.static(path.join(__dirname, '../public'), staticOptions));
+app.use('/assets', express.static(path.join(__dirname, '../public/assets'), staticOptions));
 
 // Serve portal static files
-app.use('/portal', express.static(path.join(__dirname, '../public/portal')));
+app.use('/portal', express.static(path.join(__dirname, '../public/portal'), staticOptions));
 
-// Serve uploaded files (protected - requires auth token in query for downloads)
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Serve uploaded files (no cache - dynamic content)
+app.use('/uploads', express.static(path.join(__dirname, '../uploads'), { maxAge: 0 }));
 
-// Request logging
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-  next();
-});
+// Request logging (only in debug mode)
+app.use(logger.requestLogger);
 
 // Create bot instance
 const bot = new TeamsBot();
@@ -59,7 +84,7 @@ app.use('/api', apiRoutes);
 // Manual reminder trigger endpoint (for testing)
 app.post('/api/reminders/trigger', async (req, res) => {
   try {
-    console.log('🔄 Manual reminder trigger requested');
+    logger.info('Manual reminder trigger requested');
     await reminderService.triggerManualCheck();
     res.json({
       success: true,
@@ -67,7 +92,7 @@ app.post('/api/reminders/trigger', async (req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Error triggering reminder:', error);
+    logger.error('Error triggering reminder', { error: error.message });
     res.status(500).json({
       success: false,
       message: 'Failed to trigger reminder check',
@@ -97,33 +122,23 @@ app.use(errorHandler);
 
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`
-╔═══════════════════════════════════════════════════════════╗
-║                                                           ║
-║   🎫 Teams Approval App                                   ║
-║                                                           ║
-║   Server running on port ${PORT}                           ║
-║   Environment: ${process.env.NODE_ENV || 'development'}                              ║
-║                                                           ║
-║   Endpoints:                                              ║
-║   - Bot Messages:  POST /api/messages                     ║
-║   - API:          /api/*                                  ║
-║   - Health Check: GET /api/health                         ║
-║   - Web UI:       GET /                                   ║
-║                                                           ║
-╚═══════════════════════════════════════════════════════════╝
-  `);
+  logger.info(`Teams Approval App started`, {
+    port: PORT,
+    env: process.env.NODE_ENV || 'development',
+    compression: 'enabled',
+    caching: 'enabled'
+  });
 });
 
 // Graceful shutdown
 process.on('SIGINT', () => {
-  console.log('\n🛑 Shutting down gracefully...');
+  logger.info('Shutting down gracefully (SIGINT)');
   reminderService.stop();
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
-  console.log('\n🛑 Shutting down gracefully...');
+  logger.info('Shutting down gracefully (SIGTERM)');
   reminderService.stop();
   process.exit(0);
 });

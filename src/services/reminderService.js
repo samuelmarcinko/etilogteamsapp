@@ -2,6 +2,13 @@ const cron = require('node-cron');
 const axios = require('axios');
 const Ticket = require('../database/models/Ticket');
 const { createReminderCard } = require('../cards/approvalCard');
+const logger = require('../utils/logger');
+
+// Bot token cache (shared with notificationService pattern)
+let botTokenCache = { token: null, expiresAt: 0 };
+
+// Axios instance with timeout
+const httpClient = axios.create({ timeout: 15000 });
 
 class ReminderService {
   constructor() {
@@ -14,20 +21,18 @@ class ReminderService {
    */
   start() {
     if (this.isRunning) {
-      console.log('⏰ Reminder service is already running');
+      logger.debug('Reminder service is already running');
       return;
     }
 
     // Schedule to run once daily at 9:00 AM
-    // Cron format: minute hour day month dayOfWeek
-    // 0 9 * * * = At 09:00 AM every day
     this.cronJob = cron.schedule('0 9 * * *', async () => {
-      console.log('⏰ Running daily reminder check for pending approvals...');
+      logger.info('Running daily reminder check for pending approvals');
       await this.checkAndSendReminders();
     });
 
     this.isRunning = true;
-    console.log('✅ Reminder service started - will send reminders daily at 9:00 AM');
+    logger.info('Reminder service started', { schedule: 'daily at 9:00 AM' });
   }
 
   /**
@@ -37,7 +42,7 @@ class ReminderService {
     if (this.cronJob) {
       this.cronJob.stop();
       this.isRunning = false;
-      console.log('🛑 Reminder service stopped');
+      logger.info('Reminder service stopped');
     }
   }
 
@@ -50,7 +55,7 @@ class ReminderService {
       const pendingTickets = await Ticket.findAll({ status: 'Pending' });
 
       if (pendingTickets.length === 0) {
-        console.log('✅ No pending tickets found');
+        logger.debug('No pending tickets found');
         return;
       }
 
@@ -69,7 +74,7 @@ class ReminderService {
           const approverId = ticket.assigned_approver_id;
 
           if (!approverId) {
-            console.log(`⚠️ Ticket ${ticket.ticket_id} has no assigned approver`);
+            logger.warn('Ticket has no assigned approver', { ticketId: ticket.ticket_id });
             continue;
           }
 
@@ -88,29 +93,33 @@ class ReminderService {
       const approverIds = Object.keys(ticketsByApprover);
 
       if (approverIds.length === 0) {
-        console.log('✅ No pending tickets older than 24 hours');
+        logger.debug('No pending tickets older than 24 hours');
         return;
       }
 
-      console.log(`📧 Sending reminders to ${approverIds.length} approver(s)`);
+      logger.info('Sending reminders', { approverCount: approverIds.length });
 
       for (const approverId of approverIds) {
         const { approverName, tickets } = ticketsByApprover[approverId];
         await this.sendReminderToApprover(approverId, approverName, tickets);
       }
 
-      console.log('✅ Reminder check completed');
+      logger.info('Reminder check completed');
     } catch (error) {
-      console.error('❌ Error checking and sending reminders:', error);
+      logger.error('Error checking and sending reminders', { error: error.message });
     }
   }
 
   /**
-   * Get Bot Framework access token
+   * Get Bot Framework access token (with caching)
    */
   async getBotToken() {
+    const now = Date.now();
+    if (botTokenCache.token && botTokenCache.expiresAt > now + 60000) {
+      return botTokenCache.token;
+    }
+
     try {
-      // Use tenant-specific endpoint (same as NotificationService does)
       const tokenEndpoint = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
       const params = new URLSearchParams();
       params.append('grant_type', 'client_credentials');
@@ -118,10 +127,17 @@ class ReminderService {
       params.append('client_secret', process.env.MICROSOFT_APP_PASSWORD);
       params.append('scope', 'https://api.botframework.com/.default');
 
-      const response = await axios.post(tokenEndpoint, params);
-      return response.data.access_token;
+      const response = await httpClient.post(tokenEndpoint, params);
+      const { access_token, expires_in } = response.data;
+
+      botTokenCache = {
+        token: access_token,
+        expiresAt: now + (expires_in * 1000)
+      };
+
+      return access_token;
     } catch (error) {
-      console.error('Error getting bot token:', error.response?.data || error.message);
+      logger.error('Error getting bot token', { error: error.response?.data || error.message });
       throw error;
     }
   }
@@ -131,7 +147,7 @@ class ReminderService {
    */
   async sendReminderToApprover(approverId, approverName, tickets) {
     try {
-      console.log(`📤 Sending reminder to ${approverName} (${tickets.length} ticket(s))`);
+      logger.debug('Sending reminder', { approver: approverName, ticketCount: tickets.length });
 
       // Get Bot Framework token
       const token = await this.getBotToken();
@@ -147,21 +163,13 @@ class ReminderService {
           name: 'ETILOG Approval Bot'
         },
         isGroup: false,
-        members: [
-          {
-            id: approverId
-          }
-        ],
+        members: [{ id: approverId }],
         tenantId: process.env.TENANT_ID,
-        channelData: {
-          tenant: {
-            id: process.env.TENANT_ID
-          }
-        }
+        channelData: { tenant: { id: process.env.TENANT_ID } }
       };
 
       // Create conversation
-      const conversationResponse = await axios.post(
+      const conversationResponse = await httpClient.post(
         `${serviceUrl}v3/conversations`,
         conversationParams,
         {
@@ -181,18 +189,14 @@ class ReminderService {
           id: process.env.MICROSOFT_APP_ID,
           name: 'ETILOG Approval Bot'
         },
-        conversation: {
-          id: conversationId
-        },
-        attachments: [
-          {
-            contentType: 'application/vnd.microsoft.card.adaptive',
-            content: reminderCard
-          }
-        ]
+        conversation: { id: conversationId },
+        attachments: [{
+          contentType: 'application/vnd.microsoft.card.adaptive',
+          content: reminderCard
+        }]
       };
 
-      await axios.post(
+      await httpClient.post(
         `${serviceUrl}v3/conversations/${conversationId}/activities`,
         message,
         {
@@ -203,9 +207,9 @@ class ReminderService {
         }
       );
 
-      console.log(`✅ Reminder sent to ${approverName}`);
+      logger.debug('Reminder sent', { approver: approverName });
     } catch (error) {
-      console.error(`❌ Error sending reminder to ${approverName}:`, error.response?.data || error.message);
+      logger.error('Error sending reminder', { approver: approverName, error: error.response?.data || error.message });
     }
   }
 
@@ -213,7 +217,7 @@ class ReminderService {
    * Manually trigger reminder check (for testing)
    */
   async triggerManualCheck() {
-    console.log('🔄 Manual reminder check triggered');
+    logger.info('Manual reminder check triggered');
     await this.checkAndSendReminders();
   }
 }

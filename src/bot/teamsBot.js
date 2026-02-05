@@ -7,6 +7,7 @@ const {
   createRejectedCard,
   createNotificationCard
 } = require('../cards/approvalCard');
+const logger = require('../utils/logger');
 
 class TeamsBot extends TeamsActivityHandler {
   constructor() {
@@ -104,7 +105,7 @@ class TeamsBot extends TeamsActivityHandler {
 
       return this.createInvokeResponse(400, 'Unknown action');
     } catch (error) {
-      console.error('Error handling adaptive card action:', error);
+      logger.error('Error handling adaptive card action', { error: error.message });
       return this.createInvokeResponse(500, 'Internal server error');
     }
   }
@@ -129,7 +130,7 @@ class TeamsBot extends TeamsActivityHandler {
 
       return this.createInvokeResponse(200, 'Ticket approved successfully');
     } catch (error) {
-      console.error('Error approving ticket:', error);
+      logger.error('Error approving ticket from bot', { error: error.message });
       return this.createInvokeResponse(500, 'Failed to approve ticket');
     }
   }
@@ -154,7 +155,7 @@ class TeamsBot extends TeamsActivityHandler {
 
       return this.createInvokeResponse(200, 'Ticket rejected successfully');
     } catch (error) {
-      console.error('Error rejecting ticket:', error);
+      logger.error('Error rejecting ticket from bot', { error: error.message });
       return this.createInvokeResponse(500, 'Failed to reject ticket');
     }
   }
@@ -187,7 +188,7 @@ class TeamsBot extends TeamsActivityHandler {
         }
       );
     } catch (error) {
-      console.error('Error sending notification to creator:', error);
+      logger.error('Error sending notification to creator', { error: error.message });
     }
   }
 

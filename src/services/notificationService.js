@@ -1,11 +1,26 @@
 const axios = require('axios');
 require('dotenv').config();
+const logger = require('../utils/logger');
+
+// Token cache for reducing auth requests
+const tokenCache = {
+  graph: { token: null, expiresAt: 0 },
+  bot: { token: null, expiresAt: 0 }
+};
+
+// Axios instance with timeout for faster failure detection
+const httpClient = axios.create({ timeout: 10000 });
 
 class NotificationService {
   /**
-   * Get Graph API access token
+   * Get Graph API access token (with caching)
    */
   static async getGraphToken() {
+    const now = Date.now();
+    if (tokenCache.graph.token && tokenCache.graph.expiresAt > now + 60000) {
+      return tokenCache.graph.token;
+    }
+
     const tokenEndpoint = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
     const params = new URLSearchParams();
     params.append('client_id', process.env.MICROSOFT_APP_ID);
@@ -13,8 +28,42 @@ class NotificationService {
     params.append('scope', 'https://graph.microsoft.com/.default');
     params.append('grant_type', 'client_credentials');
 
-    const response = await axios.post(tokenEndpoint, params);
-    return response.data.access_token;
+    const response = await httpClient.post(tokenEndpoint, params);
+    const { access_token, expires_in } = response.data;
+
+    tokenCache.graph = {
+      token: access_token,
+      expiresAt: now + (expires_in * 1000)
+    };
+
+    return access_token;
+  }
+
+  /**
+   * Get Bot Framework token (with caching)
+   */
+  static async getBotToken() {
+    const now = Date.now();
+    if (tokenCache.bot.token && tokenCache.bot.expiresAt > now + 60000) {
+      return tokenCache.bot.token;
+    }
+
+    const tokenEndpoint = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
+    const params = new URLSearchParams();
+    params.append('grant_type', 'client_credentials');
+    params.append('client_id', process.env.MICROSOFT_APP_ID);
+    params.append('client_secret', process.env.MICROSOFT_APP_PASSWORD);
+    params.append('scope', 'https://api.botframework.com/.default');
+
+    const response = await httpClient.post(tokenEndpoint, params);
+    const { access_token, expires_in } = response.data;
+
+    tokenCache.bot = {
+      token: access_token,
+      expiresAt: now + (expires_in * 1000)
+    };
+
+    return access_token;
   }
 
   /**
@@ -50,7 +99,7 @@ class NotificationService {
       }
 
       // Send notification via Graph API
-      await axios.post(
+      await httpClient.post(
         `https://graph.microsoft.com/v1.0/users/${userId}/teamwork/sendActivityNotification`,
         notification,
         {
@@ -63,7 +112,7 @@ class NotificationService {
 
       return { success: true };
     } catch (error) {
-      console.error('Error sending notification:', error.response?.data || error.message);
+      logger.error('Error sending notification', { error: error.response?.data || error.message });
       // Don't throw - notification failure shouldn't break the main flow
       return { success: false, error: error.message };
     }
@@ -86,9 +135,9 @@ class NotificationService {
         deepLink
       );
 
-      console.log(`✓ Notification sent to approver: ${ticket.assigned_approver_name}`);
+      logger.debug('Notification sent to approver', { approver: ticket.assigned_approver_name });
     } catch (error) {
-      console.error('Error notifying approver:', error);
+      logger.error('Error notifying approver', { error: error.message });
     }
   }
 
@@ -109,9 +158,9 @@ class NotificationService {
         deepLink
       );
 
-      console.log(`✓ Approval notification sent to creator: ${ticket.created_by_name}`);
+      logger.debug('Approval notification sent to creator', { creator: ticket.created_by_name });
     } catch (error) {
-      console.error('Error notifying creator (approved):', error);
+      logger.error('Error notifying creator (approved)', { error: error.message });
     }
   }
 
@@ -132,11 +181,12 @@ class NotificationService {
         deepLink
       );
 
-      console.log(`✓ Rejection notification sent to creator: ${ticket.created_by_name}`);
+      logger.debug('Rejection notification sent to creator', { creator: ticket.created_by_name });
     } catch (error) {
-      console.error('Error notifying creator (rejected):', error);
+      logger.error('Error notifying creator (rejected)', { error: error.message });
     }
   }
+
   /**
    * Notify approver that a previously approved ticket was cancelled by the creator
    * Sends a proactive Bot message (AdaptiveCard) to the approver's chat
@@ -158,9 +208,9 @@ class NotificationService {
       // 2. Send proactive Bot message with AdaptiveCard
       await this.sendCancellationBotMessage(ticket, cancellerName, reason);
 
-      console.log(`✓ Cancellation notification sent to approver: ${ticket.assigned_approver_name}`);
+      logger.debug('Cancellation notification sent to approver', { approver: ticket.assigned_approver_name });
     } catch (error) {
-      console.error('Error notifying approver (cancelled):', error);
+      logger.error('Error notifying approver (cancelled)', { error: error.message });
     }
   }
 
@@ -169,18 +219,7 @@ class NotificationService {
    */
   static async sendCancellationBotMessage(ticket, cancellerName, reason) {
     try {
-      const axios = require('axios');
-
-      // Get Bot Framework token
-      const tokenEndpoint = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
-      const params = new URLSearchParams();
-      params.append('grant_type', 'client_credentials');
-      params.append('client_id', process.env.MICROSOFT_APP_ID);
-      params.append('client_secret', process.env.MICROSOFT_APP_PASSWORD);
-      params.append('scope', 'https://api.botframework.com/.default');
-
-      const tokenResponse = await axios.post(tokenEndpoint, params);
-      const token = tokenResponse.data.access_token;
+      const token = await this.getBotToken();
 
       // Build AdaptiveCard
       const card = {
@@ -234,7 +273,7 @@ class NotificationService {
         channelData: { tenant: { id: process.env.TENANT_ID } }
       };
 
-      const conversationResponse = await axios.post(
+      const conversationResponse = await httpClient.post(
         `${serviceUrl}v3/conversations`,
         conversationParams,
         { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } }
@@ -243,7 +282,7 @@ class NotificationService {
       const conversationId = conversationResponse.data.id;
 
       // Send the message
-      await axios.post(
+      await httpClient.post(
         `${serviceUrl}v3/conversations/${conversationId}/activities`,
         {
           type: 'message',
@@ -254,7 +293,7 @@ class NotificationService {
         { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } }
       );
     } catch (error) {
-      console.error('Error sending cancellation bot message:', error.response?.data || error.message);
+      logger.error('Error sending cancellation bot message', { error: error.response?.data || error.message });
     }
   }
 }

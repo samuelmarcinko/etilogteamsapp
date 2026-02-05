@@ -2,6 +2,7 @@ const Ticket = require('../database/models/Ticket');
 const CardService = require('./cardService');
 const Quota = require('../database/models/Quota');
 const Holiday = require('../database/models/Holiday');
+const logger = require('../utils/logger');
 
 class TicketService {
   /**
@@ -55,7 +56,7 @@ class TicketService {
           if (quotaError.message.includes('Nedostatok')) {
             throw quotaError;
           }
-          console.warn('Quota check failed, allowing ticket creation:', quotaError.message);
+          logger.warn('Quota check failed, allowing ticket creation', { error: quotaError.message });
         }
       }
 
@@ -81,14 +82,14 @@ class TicketService {
             );
           }
         } catch (cardError) {
-          console.error('Error sending approval card:', cardError);
+          logger.error('Error sending approval card', { error: cardError.message });
           // Continue even if card sending fails
         }
       }
 
       return ticket;
     } catch (error) {
-      console.error('Error creating ticket:', error);
+      logger.error('Error creating ticket', { error: error.message });
       throw error;
     }
   }
@@ -104,7 +105,7 @@ class TicketService {
       }
       return ticket;
     } catch (error) {
-      console.error('Error getting ticket:', error);
+      logger.error('Error getting ticket', { error: error.message });
       throw error;
     }
   }
@@ -116,7 +117,7 @@ class TicketService {
     try {
       return await Ticket.findAll(filters);
     } catch (error) {
-      console.error('Error getting tickets:', error);
+      logger.error('Error getting tickets', { error: error.message });
       throw error;
     }
   }
@@ -147,15 +148,15 @@ class TicketService {
           const workingDays = await Holiday.countWorkingDays(ticket.start_date, ticket.end_date);
           await Quota.getOrCreate(ticket.created_by_id, year);
           await Quota.addUsedDays(ticket.created_by_id, year, ticket.ticket_type, workingDays);
-          console.log(`Deducted ${workingDays} ${ticket.ticket_type} days for user ${ticket.created_by_id}`);
+          logger.debug('Quota deducted', { days: workingDays, type: ticket.ticket_type, userId: ticket.created_by_id });
         } catch (quotaError) {
-          console.error('Failed to deduct quota days:', quotaError);
+          logger.error('Failed to deduct quota days', { error: quotaError.message });
         }
       }
 
       return updatedTicket;
     } catch (error) {
-      console.error('Error approving ticket:', error);
+      logger.error('Error approving ticket', { error: error.message });
       throw error;
     }
   }
@@ -184,7 +185,7 @@ class TicketService {
 
       return updatedTicket;
     } catch (error) {
-      console.error('Error rejecting ticket:', error);
+      logger.error('Error rejecting ticket', { error: error.message });
       throw error;
     }
   }
@@ -227,15 +228,15 @@ class TicketService {
           const year = new Date(ticket.start_date).getFullYear();
           const workingDays = await Holiday.countWorkingDays(ticket.start_date, ticket.end_date);
           await Quota.removeUsedDays(ticket.created_by_id, year, ticket.ticket_type, workingDays);
-          console.log(`Returned ${workingDays} ${ticket.ticket_type} days to user ${ticket.created_by_id}`);
+          logger.debug('Quota returned', { days: workingDays, type: ticket.ticket_type, userId: ticket.created_by_id });
         } catch (quotaError) {
-          console.error('Failed to return quota days:', quotaError);
+          logger.error('Failed to return quota days', { error: quotaError.message });
         }
       }
 
       return { ticket: updatedTicket, wasApproved };
     } catch (error) {
-      console.error('Error cancelling ticket:', error);
+      logger.error('Error cancelling ticket', { error: error.message });
       throw error;
     }
   }
@@ -248,7 +249,7 @@ class TicketService {
       const actions = await Ticket.getActions(ticketId);
       return actions;
     } catch (error) {
-      console.error('Error getting audit log:', error);
+      logger.error('Error getting audit log', { error: error.message });
       throw error;
     }
   }
@@ -260,7 +261,7 @@ class TicketService {
     try {
       return await Ticket.findApprovalsByUserId(userId);
     } catch (error) {
-      console.error('Error getting approvals by user:', error);
+      logger.error('Error getting approvals by user', { error: error.message });
       throw error;
     }
   }
