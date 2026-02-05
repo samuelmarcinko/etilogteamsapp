@@ -889,7 +889,7 @@ function renderPendingApprovals(tickets) {
                 </div>
                 ${t.description ? `<div class="approval-card-desc">${escapeHtml(t.description)}</div>` : ''}
                 <div class="approval-card-actions">
-                    <button class="btn btn-ghost btn-sm" onclick="openTicketAttachments('${t.ticket_id}', '${escapeHtml(t.title)}')">&#128206; ${pt('colAttachments')}</button>
+                    ${t.attachment_count > 0 ? `<button class="btn btn-ghost btn-sm" onclick="openTicketAttachments('${t.ticket_id}', '${escapeHtml(t.title)}')">&#128206; ${pt('colAttachments')} (${t.attachment_count})</button>` : ''}
                     <button class="btn-reject" onclick="openPortalRejectModal('${t.ticket_id}')">&#10005; ${pt('btnReject')}</button>
                     <button class="btn-approve" onclick="portalApproveTicket('${t.ticket_id}')">&#10003; ${pt('btnApprove')}</button>
                 </div>
@@ -928,9 +928,7 @@ function renderApprovalHistory(approvals) {
                                 <td><span class="badge badge-${a.action.toLowerCase()}">${translateStatus(a.action)}</span></td>
                                 <td>${formatDate(a.action_timestamp)}</td>
                                 <td>
-                                    <button class="btn btn-ghost btn-sm" onclick="openTicketAttachments('${a.ticket_id}', '${escapeHtml(a.title)}')">
-                                        &#128206; ${pt('attachments')}
-                                    </button>
+                                    ${a.attachment_count > 0 ? `<button class="btn btn-ghost btn-sm" onclick="openTicketAttachments('${a.ticket_id}', '${escapeHtml(a.title)}')">&#128206; ${pt('attachments')} (${a.attachment_count})</button>` : '<span style="color:var(--gray-300)">—</span>'}
                                 </td>
                             </tr>
                         `).join('')}
@@ -1690,9 +1688,7 @@ function renderTicketsTable(tickets) {
                                 <td><span class="badge badge-${t.status.toLowerCase()}">${translateStatus(t.status)}</span></td>
                                 <td>${formatDate(t.created_at)}${t.start_date ? `<br><small>${formatDate(t.start_date)} - ${formatDate(t.end_date)}</small>` : ''}</td>
                                 <td>
-                                    <button class="btn btn-ghost btn-sm" onclick="openTicketAttachments('${t.ticket_id}', '${escapeHtml(t.title)}')">
-                                        &#128206; ${pt('attachments')}
-                                    </button>
+                                    ${t.attachment_count > 0 ? `<button class="btn btn-ghost btn-sm" onclick="openTicketAttachments('${t.ticket_id}', '${escapeHtml(t.title)}')">&#128206; ${pt('attachments')} (${t.attachment_count})</button>` : '<span style="color:var(--gray-300)">—</span>'}
                                 </td>
                             </tr>
                         `).join('')}

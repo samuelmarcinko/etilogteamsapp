@@ -57,29 +57,33 @@ class Ticket {
    * Get all tickets (with optional filters)
    */
   static async findAll(filters = {}) {
-    let query = 'SELECT * FROM tickets WHERE 1=1';
+    let query = `SELECT t.*, COALESCE(ac.cnt, 0)::int AS attachment_count
+      FROM tickets t
+      LEFT JOIN (SELECT ticket_id, COUNT(*) AS cnt FROM ticket_attachments GROUP BY ticket_id) ac
+        ON ac.ticket_id = t.ticket_id
+      WHERE 1=1`;
     const values = [];
     let paramCount = 1;
 
     if (filters.status) {
-      query += ` AND status = $${paramCount}`;
+      query += ` AND t.status = $${paramCount}`;
       values.push(filters.status);
       paramCount++;
     }
 
     if (filters.createdById) {
-      query += ` AND created_by_id = $${paramCount}`;
+      query += ` AND t.created_by_id = $${paramCount}`;
       values.push(filters.createdById);
       paramCount++;
     }
 
     if (filters.assignedApproverId) {
-      query += ` AND assigned_approver_id = $${paramCount}`;
+      query += ` AND t.assigned_approver_id = $${paramCount}`;
       values.push(filters.assignedApproverId);
       paramCount++;
     }
 
-    query += ' ORDER BY created_at DESC';
+    query += ' ORDER BY t.created_at DESC';
 
     const result = await pool.query(query, values);
     return result.rows;
@@ -178,9 +182,12 @@ class Ticket {
          t.*,
          a.action,
          a.rejection_reason AS action_rejection_reason,
-         a.timestamp AS action_timestamp
+         a.timestamp AS action_timestamp,
+         COALESCE(ac.cnt, 0)::int AS attachment_count
        FROM ticket_actions a
        JOIN tickets t ON t.ticket_id = a.ticket_id
+       LEFT JOIN (SELECT ticket_id, COUNT(*) AS cnt FROM ticket_attachments GROUP BY ticket_id) ac
+         ON ac.ticket_id = t.ticket_id
        WHERE a.performed_by_id = $1
          AND a.action IN ('Approved', 'Rejected')
        ORDER BY a.timestamp DESC`,
