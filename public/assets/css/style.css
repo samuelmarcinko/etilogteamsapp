@@ -31,6 +31,8 @@
   --status-approved-text: #065f46;
   --status-rejected-bg: #fee2e2;
   --status-rejected-text: #991b1b;
+  --status-cancelled-bg: #f1f5f9;
+  --status-cancelled-text: #475569;
 
   /* Modern Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
@@ -716,6 +718,11 @@ body {
 .status-rejected {
   background: var(--status-rejected-bg);
   color: var(--status-rejected-text);
+}
+
+.status-cancelled {
+  background: #f1f5f9;
+  color: #475569;
 }
 
 /* Type Badge */

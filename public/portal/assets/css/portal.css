@@ -552,6 +552,7 @@ body {
 .badge-sick { background: var(--red-100); color: var(--etilog-red); }
 .badge-paragraph { background: #dbeafe; color: #1e3a8a; }
 .badge-ocr { background: #fef3c7; color: #78350f; }
+.badge-cancelled { background: var(--gray-100); color: var(--gray-600); }
 
 /* ============================================
    TABS

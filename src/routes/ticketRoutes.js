@@ -85,6 +85,9 @@ router.post('/:ticketId/approve', asyncHandler(TicketController.approveTicket));
 // Reject ticket
 router.post('/:ticketId/reject', asyncHandler(TicketController.rejectTicket));
 
+// Cancel ticket (by creator)
+router.post('/:ticketId/cancel', asyncHandler(TicketController.cancelTicket));
+
 // Get audit log
 router.get('/:ticketId/audit', asyncHandler(TicketController.getAuditLog));
 

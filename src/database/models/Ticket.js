@@ -92,29 +92,24 @@ class Ticket {
   /**
    * Update ticket status
    */
-  static async updateStatus(ticketId, status, performedBy, rejectionReason = null) {
-    // If rejected, also update rejection_reason column
-    const query = status === 'Rejected' ? `
-      UPDATE tickets
-      SET status = $1, rejection_reason = $2, updated_at = CURRENT_TIMESTAMP
-      WHERE ticket_id = $3
-      RETURNING *
-    ` : `
-      UPDATE tickets
-      SET status = $1, updated_at = CURRENT_TIMESTAMP
-      WHERE ticket_id = $2
-      RETURNING *
-    `;
+  static async updateStatus(ticketId, status, performedBy, reason = null) {
+    let query, values;
 
-    const values = status === 'Rejected'
-      ? [status, rejectionReason, ticketId]
-      : [status, ticketId];
+    if (status === 'Rejected') {
+      query = `UPDATE tickets SET status = $1, rejection_reason = $2, updated_at = CURRENT_TIMESTAMP WHERE ticket_id = $3 RETURNING *`;
+      values = [status, reason, ticketId];
+    } else if (status === 'Cancelled') {
+      query = `UPDATE tickets SET status = $1, cancellation_reason = $2, updated_at = CURRENT_TIMESTAMP WHERE ticket_id = $3 RETURNING *`;
+      values = [status, reason, ticketId];
+    } else {
+      query = `UPDATE tickets SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE ticket_id = $2 RETURNING *`;
+      values = [status, ticketId];
+    }
 
     const result = await pool.query(query, values);
 
     // Log the action
-    const action = status === 'Approved' ? 'Approved' : 'Rejected';
-    await this.logAction(ticketId, action, performedBy, rejectionReason);
+    await this.logAction(ticketId, status, performedBy, reason);
 
     return result.rows[0];
   }

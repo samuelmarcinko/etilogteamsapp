@@ -190,6 +190,57 @@ class TicketService {
   }
 
   /**
+   * Cancel ticket by creator
+   */
+  static async cancelTicket(ticketId, canceller, cancellationReason) {
+    try {
+      const ticket = await Ticket.findById(ticketId);
+      if (!ticket) {
+        throw new Error('Ticket not found');
+      }
+
+      // Only Pending or Approved tickets can be cancelled
+      if (ticket.status !== 'Pending' && ticket.status !== 'Approved') {
+        throw new Error('Only pending or approved tickets can be cancelled');
+      }
+
+      // Only the creator can cancel their own ticket
+      if (ticket.created_by_id !== canceller.id) {
+        throw new Error('Only the ticket creator can cancel this request');
+      }
+
+      const wasApproved = ticket.status === 'Approved';
+
+      // Update ticket status to Cancelled
+      const updatedTicket = await Ticket.updateStatus(
+        ticketId,
+        'Cancelled',
+        canceller,
+        cancellationReason
+      );
+
+      // If ticket was approved and has quota types, return the days
+      const quotaTypes = ['vacation', 'sick-leave', 'paragraph', 'ocr'];
+      if (wasApproved && quotaTypes.includes(ticket.ticket_type) &&
+          ticket.start_date && ticket.end_date) {
+        try {
+          const year = new Date(ticket.start_date).getFullYear();
+          const workingDays = await Holiday.countWorkingDays(ticket.start_date, ticket.end_date);
+          await Quota.removeUsedDays(ticket.created_by_id, year, ticket.ticket_type, workingDays);
+          console.log(`Returned ${workingDays} ${ticket.ticket_type} days to user ${ticket.created_by_id}`);
+        } catch (quotaError) {
+          console.error('Failed to return quota days:', quotaError);
+        }
+      }
+
+      return { ticket: updatedTicket, wasApproved };
+    } catch (error) {
+      console.error('Error cancelling ticket:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get ticket audit log
    */
   static async getTicketAuditLog(ticketId) {

@@ -72,6 +72,7 @@ const portalTranslations = {
     statusPending: 'Čakajúca',
     statusApproved: 'Schválená',
     statusRejected: 'Zamietnutá',
+    statusCancelled: 'Zrušená',
 
     // Dashboard
     dashboardTitle: 'Dashboard',
@@ -195,6 +196,15 @@ const portalTranslations = {
     rejectSuccess: 'Žiadosť bola zamietnutá',
     rejectFailed: 'Chyba pri zamietnutí',
     rejectReasonRequired: 'Dôvod zamietnutia je povinný',
+    btnCancelTicket: 'Zrušiť žiadosť',
+    cancelModalTitle: 'Zrušiť žiadosť',
+    cancelModalDesc: 'Naozaj chcete zrušiť túto žiadosť? Ak bola schválená, kvóta bude vrátená. Schvaľovateľ bude o zrušení informovaný.',
+    cancelReasonLabel: 'Dôvod zrušenia',
+    cancelReasonPlaceholder: 'Napíšte dôvod prečo žiadosť rušíte...',
+    cancelReasonRequired: 'Dôvod zrušenia je povinný',
+    cancelSuccess: 'Žiadosť bola úspešne zrušená',
+    cancelFailed: 'Chyba pri rušení žiadosti',
+    cancelReason: 'Dôvod zrušenia',
     colCreatedBy: 'Žiadateľ',
     colPriority: 'Priorita',
     colDates: 'Dátumy',
@@ -385,6 +395,7 @@ const portalTranslations = {
     statusPending: 'Pending',
     statusApproved: 'Approved',
     statusRejected: 'Rejected',
+    statusCancelled: 'Cancelled',
 
     // Dashboard
     dashboardTitle: 'Dashboard',
@@ -508,6 +519,15 @@ const portalTranslations = {
     rejectSuccess: 'Request rejected',
     rejectFailed: 'Error rejecting request',
     rejectReasonRequired: 'Rejection reason is required',
+    btnCancelTicket: 'Cancel request',
+    cancelModalTitle: 'Cancel request',
+    cancelModalDesc: 'Are you sure you want to cancel this request? If it was approved, the quota will be returned. The approver will be notified.',
+    cancelReasonLabel: 'Cancellation reason',
+    cancelReasonPlaceholder: 'Enter the reason for cancellation...',
+    cancelReasonRequired: 'Cancellation reason is required',
+    cancelSuccess: 'Request cancelled successfully',
+    cancelFailed: 'Error cancelling request',
+    cancelReason: 'Cancellation reason',
     colCreatedBy: 'Requested by',
     colPriority: 'Priority',
     colDates: 'Dates',
@@ -695,6 +715,7 @@ function translateStatus(status) {
     'Pending': pt('statusPending'),
     'Approved': pt('statusApproved'),
     'Rejected': pt('statusRejected'),
+    'Cancelled': pt('statusCancelled'),
     'active': pt('statusActive') || 'Active',
     'archived': pt('statusArchived') || 'Archived'
   };

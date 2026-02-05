@@ -626,6 +626,7 @@ async function renderMyRequests(container) {
                     <option value="Pending">${pt('filterPending')}</option>
                     <option value="Approved">${pt('filterApproved')}</option>
                     <option value="Rejected">${pt('filterRejected')}</option>
+                    <option value="Cancelled">${pt('statusCancelled')}</option>
                 </select>
                 <select class="form-select" id="myReqTypeFilter" onchange="applyMyRequestsFilter()">
                     <option value="">${pt('filterAllTypes')}</option>
@@ -1692,18 +1693,25 @@ function renderTicketsTable(tickets) {
             <div class="card-body" style="overflow-x:auto;">
                 <table class="data-table">
                     <thead>
-                        <tr><th>${pt('colName')}</th><th>${pt('colType')}</th><th>${pt('colApprover')}</th><th>${pt('colStatus')}</th><th>${pt('colDate')}</th><th>${pt('colAttachments')}</th></tr>
+                        <tr><th>${pt('colName')}</th><th>${pt('colType')}</th><th>${pt('colApprover')}</th><th>${pt('colStatus')}</th><th>${pt('colDate')}</th><th>${pt('colAttachments')}</th><th>${pt('colActions')}</th></tr>
                     </thead>
                     <tbody>
                         ${tickets.map(t => `
                             <tr>
-                                <td><strong>${escapeHtml(t.title)}</strong>${t.rejection_reason ? `<br><small style="color:var(--red-500)">${pt('reason')}: ${escapeHtml(t.rejection_reason)}</small>` : ''}</td>
+                                <td>
+                                    <strong>${escapeHtml(t.title)}</strong>
+                                    ${t.rejection_reason ? `<br><small style="color:var(--red-500)">${pt('reason')}: ${escapeHtml(t.rejection_reason)}</small>` : ''}
+                                    ${t.status === 'Cancelled' && t.cancellation_reason ? `<br><small style="color:var(--gray-500)">${pt('cancelReason')}: ${escapeHtml(t.cancellation_reason)}</small>` : ''}
+                                </td>
                                 <td><span class="badge badge-${{'vacation':'vacation','sick-leave':'sick','paragraph':'paragraph','ocr':'ocr'}[t.ticket_type] || 'user'}">${translateType(t.ticket_type)}</span></td>
                                 <td>${t.assigned_approver_name ? escapeHtml(t.assigned_approver_name) : '-'}</td>
                                 <td><span class="badge badge-${t.status.toLowerCase()}">${translateStatus(t.status)}</span></td>
                                 <td>${formatDate(t.created_at)}${t.start_date ? `<br><small>${formatDate(t.start_date)} - ${formatDate(t.end_date)}</small>` : ''}</td>
                                 <td>
                                     ${t.attachment_count > 0 ? `<button class="btn btn-ghost btn-sm" onclick="openTicketAttachments('${t.ticket_id}', '${escapeHtml(t.title)}')">&#128206; ${pt('attachments')} (${t.attachment_count})</button>` : '<span style="color:var(--gray-300)">—</span>'}
+                                </td>
+                                <td>
+                                    ${(t.status === 'Pending' || t.status === 'Approved') ? `<button class="btn-icon danger" onclick="openCancelTicketModal('${t.ticket_id}', '${escapeHtml(t.title)}')" title="${pt('btnCancelTicket')}">&#10005;</button>` : '<span style="color:var(--gray-300)">—</span>'}
                                 </td>
                             </tr>
                         `).join('')}
@@ -1712,6 +1720,51 @@ function renderTicketsTable(tickets) {
             </div>
         </div>
     `;
+}
+
+// Cancel ticket modal & logic
+let _pendingCancelTicketId = null;
+
+function openCancelTicketModal(ticketId, title) {
+    _pendingCancelTicketId = ticketId;
+    document.getElementById('modalTitle').textContent = `${pt('cancelModalTitle')} - ${title}`;
+    document.getElementById('modalBody').innerHTML = `
+        <p style="margin-bottom:1rem;color:var(--gray-600);font-size:0.9rem;">${pt('cancelModalDesc')}</p>
+        <div class="form-group">
+            <label class="form-label">${pt('cancelReasonLabel')}</label>
+            <textarea id="cancelReasonInput" class="form-textarea" rows="3" placeholder="${pt('cancelReasonPlaceholder')}" required></textarea>
+        </div>
+    `;
+    document.getElementById('modalFooter').innerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
+        <button class="btn btn-danger" onclick="submitCancelTicket()">&#10005; ${pt('btnCancelTicket')}</button>
+    `;
+    openModal();
+    setTimeout(() => document.getElementById('cancelReasonInput')?.focus(), 200);
+}
+
+async function submitCancelTicket() {
+    const reason = document.getElementById('cancelReasonInput')?.value?.trim();
+    if (!reason) {
+        showToast(pt('cancelReasonRequired'), 'error');
+        return;
+    }
+    try {
+        const response = await apiCall(`/api/tickets/${_pendingCancelTicketId}/cancel`, {
+            method: 'POST',
+            body: JSON.stringify({ cancellationReason: reason })
+        });
+        if (!response.ok) {
+            const err = await response.json().catch(() => null);
+            throw new Error(err?.message || pt('cancelFailed'));
+        }
+        closeModal();
+        showToast(pt('cancelSuccess'), 'success');
+        _pendingCancelTicketId = null;
+        navigateToPage('my-requests');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
 }
 
 async function openTicketAttachments(ticketId, title) {
