@@ -67,8 +67,8 @@
                 <textarea id="cancelReasonInput" rows="3" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-family:inherit;font-size:0.9rem;resize:vertical;"></textarea>
                 <div id="cancelReasonError" style="color:#ef4444;font-size:0.8rem;margin-top:4px;display:none;"></div>
                 <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
-                    <button onclick="closeCancelModal()" class="btn btn-secondary" style="padding:8px 16px;border-radius:8px;font-size:0.85rem;">${t('rejectModalCancel')}</button>
-                    <button onclick="submitCancelTicket()" class="btn" style="padding:8px 16px;border-radius:8px;font-size:0.85rem;background:#ef4444;color:#fff;border:none;font-weight:600;cursor:pointer;">&#10005; <span id="cancelSubmitLabel"></span></button>
+                    <button id="cancelModalCancelBtn" onclick="closeCancelModal()" class="btn btn-secondary" style="padding:8px 16px;border-radius:8px;font-size:0.85rem;"></button>
+                    <button id="cancelModalSubmitBtn" onclick="submitCancelTicket()" class="btn" style="padding:8px 16px;border-radius:8px;font-size:0.85rem;background:#ef4444;color:#fff;border:none;font-weight:600;cursor:pointer;"></button>
                 </div>
             </div>
         </div>
@@ -92,6 +92,8 @@
         let attachmentCounts = new Map();
         let ticketTypeMap = new Map();
         let currentUserId = null;
+        let currentUserName = '';
+        let currentUserEmail = '';
         let cancelTicketId = null;
 
         async function loadTicketTypes() {
@@ -412,7 +414,8 @@
             document.getElementById('cancelReasonInput').placeholder = t('cancelReasonPlaceholder');
             document.getElementById('cancelReasonInput').value = '';
             document.getElementById('cancelReasonError').style.display = 'none';
-            document.getElementById('cancelSubmitLabel').textContent = t('btnCancelTicket');
+            document.getElementById('cancelModalCancelBtn').textContent = t('rejectModalCancel');
+            document.getElementById('cancelModalSubmitBtn').innerHTML = `&#10005; ${t('btnCancelTicket')}`;
             document.getElementById('cancelModal').style.display = 'flex';
         }
 
@@ -423,12 +426,18 @@
 
         async function submitCancelTicket() {
             const reason = document.getElementById('cancelReasonInput').value.trim();
+            const errEl = document.getElementById('cancelReasonError');
+            errEl.style.display = 'none';
+
             if (!reason) {
-                const errEl = document.getElementById('cancelReasonError');
                 errEl.textContent = t('cancelReasonRequired');
                 errEl.style.display = 'block';
                 return;
             }
+
+            // Disable submit button to prevent double-clicks
+            const submitBtn = document.getElementById('cancelModalSubmitBtn');
+            submitBtn.disabled = true;
 
             try {
                 const response = await fetch(`/api/tickets/${cancelTicketId}/cancel`, {
@@ -436,9 +445,9 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         cancellationReason: reason,
-                        userId: currentUserId,
-                        userName: '',
-                        userEmail: ''
+                        canceller_id: currentUserId,
+                        canceller_name: currentUserName || '',
+                        canceller_email: currentUserEmail || ''
                     })
                 });
 
@@ -456,11 +465,28 @@
                 await loadAttachmentCounts(userTickets);
                 applyFilters();
 
-                // Show success (simple alert for Teams app)
-                alert(t('cancelSuccess'));
+                // Show success notification
+                showNotification(t('cancelSuccess'), 'success');
             } catch (error) {
-                alert(error.message || t('cancelFailed'));
+                errEl.textContent = error.message || t('cancelFailed');
+                errEl.style.display = 'block';
+            } finally {
+                submitBtn.disabled = false;
             }
+        }
+
+        // Simple notification for Teams app (no alert() in iframes)
+        function showNotification(message, type) {
+            const existing = document.getElementById('teamsNotification');
+            if (existing) existing.remove();
+            const div = document.createElement('div');
+            div.id = 'teamsNotification';
+            div.style.cssText = `position:fixed;top:16px;right:16px;z-index:20000;padding:12px 20px;border-radius:10px;font-size:0.9rem;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,0.15);transition:opacity 0.3s;`;
+            div.style.background = type === 'success' ? '#dcfce7' : '#fee2e2';
+            div.style.color = type === 'success' ? '#065f46' : '#991b1b';
+            div.textContent = message;
+            document.body.appendChild(div);
+            setTimeout(() => { div.style.opacity = '0'; setTimeout(() => div.remove(), 300); }, 3000);
         }
 
         // Load user's requests
@@ -469,6 +495,8 @@
             const context = await microsoftTeams.app.getContext();
             const userId = context.user.id;
             currentUserId = userId;
+            currentUserName = context.user.displayName || context.user.userPrincipalName || '';
+            currentUserEmail = context.user.userPrincipalName || '';
 
             try {
                 await loadTicketTypes();
