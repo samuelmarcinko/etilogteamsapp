@@ -591,9 +591,15 @@ async function deleteSickNote(id) {
 // MY REQUESTS
 // ============================================
 
+let _myRequestsCache = [];
+
 async function renderMyRequests(container) {
     const response = await apiCall(`/api/tickets?createdById=${portalUser.id}`);
-    const tickets = (await response.json()).data || [];
+    _myRequestsCache = (await response.json()).data || [];
+
+    const years = [...new Set(_myRequestsCache.map(t => new Date(t.created_at).getFullYear()))].sort((a, b) => b - a);
+    const types = [...new Set(_myRequestsCache.map(t => t.ticket_type))];
+    const lang = localStorage.getItem('etilog_portal_lang') || 'sk';
 
     container.innerHTML = `
         <div class="page-header">
@@ -602,18 +608,47 @@ async function renderMyRequests(container) {
         </div>
         <div class="page-body">
             <div class="filters-bar">
-                <select class="form-select" onchange="filterMyRequests(this.value)" id="myReqFilter">
+                <input type="text" class="form-input filter-search" id="myReqSearch" placeholder="${pt('filterSearch')}" oninput="applyMyRequestsFilter()">
+                <select class="form-select" id="myReqStatusFilter" onchange="applyMyRequestsFilter()">
                     <option value="">${pt('filterAllStatuses')}</option>
                     <option value="Pending">${pt('filterPending')}</option>
                     <option value="Approved">${pt('filterApproved')}</option>
                     <option value="Rejected">${pt('filterRejected')}</option>
                 </select>
+                <select class="form-select" id="myReqTypeFilter" onchange="applyMyRequestsFilter()">
+                    <option value="">${pt('filterAllTypes')}</option>
+                    ${types.map(t => `<option value="${t}">${translateType(t)}</option>`).join('')}
+                </select>
+                <select class="form-select" id="myReqYearFilter" onchange="applyMyRequestsFilter()">
+                    <option value="">${pt('filterAllYears')}</option>
+                    ${years.map(y => `<option value="${y}">${y}</option>`).join('')}
+                </select>
             </div>
             <div id="myRequestsList">
-                ${renderTicketsTable(tickets)}
+                ${renderTicketsTable(_myRequestsCache)}
             </div>
         </div>
     `;
+}
+
+function applyMyRequestsFilter() {
+    const search = (document.getElementById('myReqSearch')?.value || '').toLowerCase();
+    const status = document.getElementById('myReqStatusFilter')?.value || '';
+    const type = document.getElementById('myReqTypeFilter')?.value || '';
+    const year = document.getElementById('myReqYearFilter')?.value || '';
+
+    let filtered = _myRequestsCache;
+    if (status) filtered = filtered.filter(t => t.status === status);
+    if (type) filtered = filtered.filter(t => t.ticket_type === type);
+    if (year) filtered = filtered.filter(t => new Date(t.created_at).getFullYear() === parseInt(year));
+    if (search) filtered = filtered.filter(t =>
+        (t.title || '').toLowerCase().includes(search) ||
+        (t.description || '').toLowerCase().includes(search) ||
+        (t.ticket_id || '').toLowerCase().includes(search) ||
+        (t.assigned_approver_name || '').toLowerCase().includes(search)
+    );
+
+    document.getElementById('myRequestsList').innerHTML = renderTicketsTable(filtered);
 }
 
 // Open new request modal
@@ -769,53 +804,197 @@ async function submitNewRequest() {
 // MY APPROVALS
 // ============================================
 
+let _pendingApprovalsCache = [];
+let _approvalHistoryCache = [];
+let _currentApprovalTab = 'pending';
+
 async function renderMyApprovals(container) {
-    const response = await apiCall('/api/tickets/approvals/me');
-    const approvals = (await response.json()).data || [];
+    // Fetch both pending tickets assigned to me AND my approval history
+    const [pendingRes, historyRes] = await Promise.all([
+        apiCall(`/api/tickets?assignedApproverId=${portalUser.id}&status=Pending`),
+        apiCall('/api/tickets/approvals/me')
+    ]);
+    _pendingApprovalsCache = (await pendingRes.json()).data || [];
+    _approvalHistoryCache = (await historyRes.json()).data || [];
+
+    const pendingCount = _pendingApprovalsCache.length;
 
     container.innerHTML = `
         <div class="page-header">
             <div><h1>${pt('myApprovalsTitle')}</h1><p>${pt('myApprovalsDesc')}</p></div>
         </div>
         <div class="page-body">
-            ${approvals.length ? `
-                <div class="portal-card">
-                    <div class="card-body" style="overflow-x:auto;">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>${pt('colName')}</th>
-                                    <th>${pt('colType')}</th>
-                                    <th>${pt('colDecision')}</th>
-                                    <th>${pt('colDecisionDate')}</th>
-                                    <th>${pt('colAttachments')}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${approvals.map(a => `
-                                    <tr>
-                                        <td>
-                                            <strong>${escapeHtml(a.title)}</strong>
-                                            <br><small style="color:var(--gray-500)">${escapeHtml(a.created_by_name || '')}</small>
-                                            ${a.action_rejection_reason ? `<br><small style="color:var(--red-500)">${pt('reason')}: ${escapeHtml(a.action_rejection_reason)}</small>` : ''}
-                                        </td>
-                                        <td><span class="badge badge-${{'vacation':'vacation','sick-leave':'sick','paragraph':'paragraph','ocr':'ocr'}[a.ticket_type] || 'user'}">${translateType(a.ticket_type)}</span></td>
-                                        <td><span class="badge badge-${a.action.toLowerCase()}">${translateStatus(a.action)}</span></td>
-                                        <td>${formatDate(a.action_timestamp)}</td>
-                                        <td>
-                                            <button class="btn btn-ghost btn-sm" onclick="openTicketAttachments('${a.ticket_id}', '${escapeHtml(a.title)}')">
-                                                &#128206; ${pt('attachments')}
-                                            </button>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
+            <div class="portal-tabs">
+                <button class="portal-tab active" onclick="switchApprovalTab('pending', this)">
+                    ${pt('tabPendingApprovals')}
+                    ${pendingCount > 0 ? `<span class="tab-count pending-count">${pendingCount}</span>` : ''}
+                </button>
+                <button class="portal-tab" onclick="switchApprovalTab('history', this)">
+                    ${pt('tabApprovalHistory')}
+                </button>
+            </div>
+            <div id="approvalTabContent">
+                ${renderPendingApprovals(_pendingApprovalsCache)}
+            </div>
+        </div>
+
+        <!-- Reject Modal -->
+        <div class="reject-modal-overlay" id="portalRejectOverlay" onclick="if(event.target===this)closePortalRejectModal()">
+            <div class="reject-modal">
+                <h3>${pt('rejectModalTitle')}</h3>
+                <textarea id="portalRejectReason" placeholder="${pt('rejectModalPlaceholder')}"></textarea>
+                <div class="reject-modal-actions">
+                    <button class="btn btn-secondary" onclick="closePortalRejectModal()">${pt('cancel')}</button>
+                    <button class="btn-reject" onclick="submitPortalReject()">${pt('rejectModalSubmit')}</button>
                 </div>
-            ` : `<div class="empty-state"><div class="empty-icon">&#128203;</div><div class="empty-text">${pt('noTickets')}</div></div>`}
+            </div>
         </div>
     `;
+    _currentApprovalTab = 'pending';
+}
+
+function switchApprovalTab(tab, btn) {
+    _currentApprovalTab = tab;
+    document.querySelectorAll('.portal-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    const content = document.getElementById('approvalTabContent');
+    if (tab === 'pending') {
+        content.innerHTML = renderPendingApprovals(_pendingApprovalsCache);
+    } else {
+        content.innerHTML = renderApprovalHistory(_approvalHistoryCache);
+    }
+}
+
+function renderPendingApprovals(tickets) {
+    if (!tickets.length) {
+        return `<div class="empty-state"><div class="empty-icon">&#9989;</div><div class="empty-text">${pt('noPendingApprovals')}</div></div>`;
+    }
+    return tickets.map(t => {
+        const priorityColors = { 'Low': '#6b7280', 'Medium': '#2563eb', 'High': '#f59e0b', 'Urgent': '#ef4444' };
+        const priorityColor = priorityColors[t.priority] || '#6b7280';
+        return `
+            <div class="approval-card">
+                <div class="approval-card-header">
+                    <div>
+                        <div class="approval-card-title">${escapeHtml(t.title)}</div>
+                        <small style="color:var(--gray-400)">${t.ticket_id}</small>
+                    </div>
+                    <span class="badge badge-${{'vacation':'vacation','sick-leave':'sick','paragraph':'paragraph','ocr':'ocr'}[t.ticket_type] || 'user'}">${translateType(t.ticket_type)}</span>
+                </div>
+                <div class="approval-card-meta">
+                    <span><strong>${pt('colCreatedBy')}:</strong> ${escapeHtml(t.created_by_name || '')}</span>
+                    <span><strong>${pt('colPriority')}:</strong> <span style="color:${priorityColor};font-weight:600">${t.priority}</span></span>
+                    <span><strong>${pt('colDate')}:</strong> ${formatDate(t.created_at)}</span>
+                    ${t.start_date && t.end_date ? `<span><strong>${pt('colDates')}:</strong> ${formatDate(t.start_date)} &rarr; ${formatDate(t.end_date)}</span>` : ''}
+                </div>
+                ${t.description ? `<div class="approval-card-desc">${escapeHtml(t.description)}</div>` : ''}
+                <div class="approval-card-actions">
+                    <button class="btn btn-ghost btn-sm" onclick="openTicketAttachments('${t.ticket_id}', '${escapeHtml(t.title)}')">&#128206; ${pt('colAttachments')}</button>
+                    <button class="btn-reject" onclick="openPortalRejectModal('${t.ticket_id}')">&#10005; ${pt('btnReject')}</button>
+                    <button class="btn-approve" onclick="portalApproveTicket('${t.ticket_id}')">&#10003; ${pt('btnApprove')}</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderApprovalHistory(approvals) {
+    if (!approvals.length) {
+        return `<div class="empty-state"><div class="empty-icon">&#128203;</div><div class="empty-text">${pt('noApprovalHistory')}</div></div>`;
+    }
+    return `
+        <div class="portal-card">
+            <div class="card-body" style="overflow-x:auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>${pt('colName')}</th>
+                            <th>${pt('colType')}</th>
+                            <th>${pt('colCreatedBy')}</th>
+                            <th>${pt('colDecision')}</th>
+                            <th>${pt('colDecisionDate')}</th>
+                            <th>${pt('colAttachments')}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${approvals.map(a => `
+                            <tr>
+                                <td>
+                                    <strong>${escapeHtml(a.title)}</strong>
+                                    ${a.action_rejection_reason ? `<br><small style="color:var(--red-500)">${pt('reason')}: ${escapeHtml(a.action_rejection_reason)}</small>` : ''}
+                                </td>
+                                <td><span class="badge badge-${{'vacation':'vacation','sick-leave':'sick','paragraph':'paragraph','ocr':'ocr'}[a.ticket_type] || 'user'}">${translateType(a.ticket_type)}</span></td>
+                                <td>${escapeHtml(a.created_by_name || '-')}</td>
+                                <td><span class="badge badge-${a.action.toLowerCase()}">${translateStatus(a.action)}</span></td>
+                                <td>${formatDate(a.action_timestamp)}</td>
+                                <td>
+                                    <button class="btn btn-ghost btn-sm" onclick="openTicketAttachments('${a.ticket_id}', '${escapeHtml(a.title)}')">
+                                        &#128206; ${pt('attachments')}
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+// Portal approve ticket
+async function portalApproveTicket(ticketId) {
+    if (!confirm(pt('approveConfirm'))) return;
+    try {
+        const response = await apiCall(`/api/tickets/${ticketId}/approve`, { method: 'POST' });
+        if (!response.ok) {
+            const err = await response.json().catch(() => null);
+            throw new Error(err?.message || pt('approveFailed'));
+        }
+        showToast(pt('approveSuccess'), 'success');
+        navigateToPage('my-approvals');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+// Portal reject modal
+let _pendingRejectTicketId = null;
+
+function openPortalRejectModal(ticketId) {
+    _pendingRejectTicketId = ticketId;
+    document.getElementById('portalRejectOverlay').classList.add('active');
+    const textarea = document.getElementById('portalRejectReason');
+    textarea.value = '';
+    textarea.focus();
+}
+
+function closePortalRejectModal() {
+    document.getElementById('portalRejectOverlay').classList.remove('active');
+    _pendingRejectTicketId = null;
+}
+
+async function submitPortalReject() {
+    const reason = document.getElementById('portalRejectReason').value.trim();
+    if (!reason) {
+        showToast(pt('rejectReasonRequired'), 'error');
+        return;
+    }
+    try {
+        const response = await apiCall(`/api/tickets/${_pendingRejectTicketId}/reject`, {
+            method: 'POST',
+            body: JSON.stringify({ rejectionReason: reason })
+        });
+        if (!response.ok) {
+            const err = await response.json().catch(() => null);
+            throw new Error(err?.message || pt('rejectFailed'));
+        }
+        closePortalRejectModal();
+        showToast(pt('rejectSuccess'), 'success');
+        navigateToPage('my-approvals');
+    } catch (error) {
+        closePortalRejectModal();
+        showToast(error.message, 'error');
+    }
 }
 
 // ============================================
