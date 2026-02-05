@@ -252,7 +252,7 @@ async function renderDashboard(container) {
                             <tbody>
                                 ${tickets.slice(0, 10).map(t => `
                                     <tr>
-                                        <td>${escapeHtml(t.title)}</td>
+                                        <td><strong>${escapeHtml(t.title)}</strong></td>
                                         <td><span class="badge badge-${{'vacation':'vacation','sick-leave':'sick','paragraph':'paragraph','ocr':'ocr'}[t.ticket_type] || 'user'}">${translateType(t.ticket_type)}</span></td>
                                         <td><span class="badge badge-${t.status.toLowerCase()}">${translateStatus(t.status)}</span></td>
                                         <td>${formatDate(t.created_at)}</td>
@@ -392,10 +392,12 @@ async function renderMySickNotes(container) {
                                         <td><span class="badge ${docBadge}">${docLabel}</span></td>
                                         <td>${formatDate(n.start_date)}${n.end_date && n.end_date !== n.start_date ? ` - ${formatDate(n.end_date)}` : ''}</td>
                                         <td>${n.doctor_name ? escapeHtml(n.doctor_name) : '<span style="color:var(--gray-300)">—</span>'}</td>
-                                        <td>${n.file_name ? `<button class="btn btn-ghost btn-sm" onclick="return previewSickNoteFile(event, ${n.id}, '${escapeHtml(n.file_name)}')">&#128065; ${escapeHtml(n.file_name)}</button>` : '<span style="color:var(--gray-300)">—</span>'}</td>
-                                        <td style="white-space:nowrap">
-                                            <button class="btn btn-ghost btn-sm" onclick="openUploadSickNoteModal(${n.id})" title="${pt('upload')}">&#128206;</button>
-                                            <button class="btn btn-ghost btn-sm" onclick="deleteSickNote(${n.id})" style="color:var(--red-500)" title="${pt('delete')}">&#128465;</button>
+                                        <td>${n.file_name ? `<button class="btn-file-link" onclick="return previewSickNoteFile(event, ${n.id}, '${escapeHtml(n.file_name)}')">&#128065; ${escapeHtml(n.file_name)}</button>` : '<span style="color:var(--gray-300)">—</span>'}</td>
+                                        <td>
+                                            <div class="table-actions">
+                                                <button class="btn-icon primary" onclick="openUploadSickNoteModal(${n.id})" title="${pt('upload')}">&#128206;</button>
+                                                <button class="btn-icon danger" onclick="deleteSickNote(${n.id})" title="${pt('delete')}">&#128465;</button>
+                                            </div>
                                         </td>
                                     </tr>`;
                                 }).join('')}
@@ -1091,8 +1093,10 @@ async function renderAdminEmployees(container) {
                                     <td>${e.paragraph_days_total !== null && e.paragraph_days_total !== undefined ? `${e.paragraph_days_used || 0}/${e.paragraph_days_total}` : '<span style="color:var(--gray-400)">-</span>'}</td>
                                     <td>${e.ocr_days_total !== null && e.ocr_days_total !== undefined ? `${e.ocr_days_used || 0}/${e.ocr_days_total}` : '<span style="color:var(--gray-400)">-</span>'}</td>
                                     <td>
-                                        <button class="btn btn-ghost btn-sm" onclick="toggleEmployeeRole('${e.id}', '${e.role}')" title="${pt('changeRoleTitle')}">${e.role === 'admin' ? '&#128100;' : '&#128081;'}</button>
-                                        <button class="btn btn-ghost btn-sm" onclick="editEmployeeQuota('${e.id}', '${escapeHtml(e.name)}', ${e.vacation_days_total || 20}, ${e.sick_days_total || 5}, ${e.paragraph_days_total || 7}, ${e.ocr_days_total || 7})" title="${pt('editQuotaTitle')}">&#9999;</button>
+                                        <div class="table-actions">
+                                            <button class="btn-icon" onclick="toggleEmployeeRole('${e.id}', '${e.role}')" title="${pt('changeRoleTitle')}">${e.role === 'admin' ? '&#128100;' : '&#128081;'}</button>
+                                            <button class="btn-icon primary" onclick="editEmployeeQuota('${e.id}', '${escapeHtml(e.name)}', ${e.vacation_days_total || 20}, ${e.sick_days_total || 5}, ${e.paragraph_days_total || 7}, ${e.ocr_days_total || 7})" title="${pt('editQuotaTitle')}">&#9999;</button>
+                                        </div>
                                     </td>
                                 </tr>
                             `).join('')}
@@ -1365,21 +1369,20 @@ async function renderAdminSickNotes(container) {
                     ${notes.length > 0 ? `
                         <table class="data-table">
                             <thead>
-                                <tr><th>${pt('colEmployeeName')}</th><th>${pt('colDocType')}</th><th>${pt('colName')}</th><th>${pt('sickNoteColFrom')}</th><th>${pt('sickNoteColTo')}</th><th>${pt('sickNoteColDoctor')}</th><th>${pt('colDocument')}</th></tr>
+                                <tr><th>${pt('colEmployeeName')}</th><th>${pt('colDocType')}</th><th>${pt('colName')}</th><th>${pt('colDate')}</th><th>${pt('sickNoteColDoctor')}</th><th>${pt('colDocument')}</th></tr>
                             </thead>
                             <tbody>
                                 ${notes.map(n => {
                                     const docLabel = n.document_type === 'ocr' ? (pt('sickNoteDocTypeOcr') || 'OČR') : (pt('sickNoteDocTypeParagraph') || 'Paragraf');
-                                    const docBadge = n.document_type === 'ocr' ? 'badge-sick' : 'badge-vacation';
+                                    const docBadge = n.document_type === 'ocr' ? 'badge-sick' : 'badge-paragraph';
                                     return `
                                     <tr>
                                         <td><strong>${escapeHtml(n.user_name)}</strong><br><small style="color:var(--gray-500)">${escapeHtml(n.user_email)}</small></td>
                                         <td><span class="badge ${docBadge}">${docLabel}</span></td>
-                                        <td>${escapeHtml(n.title)}${n.diagnosis ? `<br><small style="color:var(--gray-500)">${escapeHtml(n.diagnosis)}</small>` : ''}</td>
-                                        <td>${formatDate(n.start_date)}</td>
-                                        <td>${formatDate(n.end_date)}</td>
-                                        <td>${n.doctor_name ? escapeHtml(n.doctor_name) : '-'}</td>
-                                        <td>${n.file_name ? `<a href="#" onclick="return previewSickNoteFile(event, ${n.id}, '${escapeHtml(n.file_name)}')" style="color:var(--blue-600);cursor:pointer;">&#128065; ${escapeHtml(n.file_name)}</a>` : '<span style="color:var(--gray-400)">-</span>'}</td>
+                                        <td><strong>${escapeHtml(n.title)}</strong>${n.diagnosis ? `<br><small style="color:var(--gray-500)">${escapeHtml(n.diagnosis)}</small>` : ''}</td>
+                                        <td>${formatDate(n.start_date)}${n.end_date && n.end_date !== n.start_date ? ` - ${formatDate(n.end_date)}` : ''}</td>
+                                        <td>${n.doctor_name ? escapeHtml(n.doctor_name) : '<span style="color:var(--gray-300)">—</span>'}</td>
+                                        <td>${n.file_name ? `<button class="btn-file-link" onclick="return previewSickNoteFile(event, ${n.id}, '${escapeHtml(n.file_name)}')">&#128065; ${escapeHtml(n.file_name)}</button>` : '<span style="color:var(--gray-300)">—</span>'}</td>
                                     </tr>`;
                                 }).join('')}
                             </tbody>
@@ -1505,9 +1508,11 @@ async function renderAdminTicketTypes(container) {
                                         <td>${t.requires_dates ? '<span style="color:var(--green-600)">&#10003;</span>' : '<span style="color:var(--gray-400)">&#10005;</span>'}</td>
                                         <td>${t.is_active ? '<span class="badge badge-approved">' + pt('yes') + '</span>' : '<span class="badge badge-rejected">' + pt('no') + '</span>'}</td>
                                         <td>
-                                            <button class="btn btn-ghost btn-sm" onclick="editTicketType(${t.id}, '${escapeHtml(t.key)}', '${escapeHtml(t.label_sk)}', '${escapeHtml(t.label_en)}', ${t.requires_dates}, ${t.sort_order})" title="${pt('edit')}">&#9999;</button>
-                                            <button class="btn btn-ghost btn-sm" onclick="toggleTicketTypeActive(${t.id}, ${t.is_active})" title="${pt('ticketTypesToggleActive')}">${t.is_active ? '&#128683;' : '&#9989;'}</button>
-                                            <button class="btn btn-ghost btn-sm" onclick="deleteTicketType(${t.id})" style="color:var(--red-500)" title="${pt('delete')}">&#128465;</button>
+                                            <div class="table-actions">
+                                                <button class="btn-icon primary" onclick="editTicketType(${t.id}, '${escapeHtml(t.key)}', '${escapeHtml(t.label_sk)}', '${escapeHtml(t.label_en)}', ${t.requires_dates}, ${t.sort_order})" title="${pt('edit')}">&#9999;</button>
+                                                <button class="btn-icon ${t.is_active ? '' : 'success'}" onclick="toggleTicketTypeActive(${t.id}, ${t.is_active})" title="${pt('ticketTypesToggleActive')}">${t.is_active ? '&#128683;' : '&#9989;'}</button>
+                                                <button class="btn-icon danger" onclick="deleteTicketType(${t.id})" title="${pt('delete')}">&#128465;</button>
+                                            </div>
                                         </td>
                                     </tr>
                                 `).join('')}
