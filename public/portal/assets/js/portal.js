@@ -369,30 +369,40 @@ async function renderMySickNotes(container) {
         </div>
         <div class="page-body">
             ${notes.length > 0 ? `
-                <table class="data-table">
-                    <thead>
-                        <tr><th>${pt('colDocType') || 'Typ'}</th><th>${pt('sickNoteColName')}</th><th>${pt('sickNoteColFrom')}</th><th>${pt('sickNoteColTo')}</th><th>${pt('sickNoteColDoctor')}</th><th>${pt('sickNoteColFile')}</th><th></th></tr>
-                    </thead>
-                    <tbody>
-                        ${notes.map(n => {
-                            const docLabel = n.document_type === 'ocr' ? (pt('sickNoteDocTypeOcr') || 'OČR') : (pt('sickNoteDocTypeParagraph') || 'Paragraf');
-                            const docBadge = n.document_type === 'ocr' ? 'badge-sick' : 'badge-vacation';
-                            return `
-                            <tr>
-                                <td><span class="badge ${docBadge}">${docLabel}</span></td>
-                                <td><strong>${escapeHtml(n.title)}</strong>${n.diagnosis ? `<br><small style="color:var(--gray-500)">${escapeHtml(n.diagnosis)}</small>` : ''}</td>
-                                <td>${formatDate(n.start_date)}</td>
-                                <td>${formatDate(n.end_date)}</td>
-                                <td>${n.doctor_name ? escapeHtml(n.doctor_name) : '-'}</td>
-                                <td>${n.file_name ? `<a href="#" onclick="return previewSickNoteFile(event, ${n.id}, '${escapeHtml(n.file_name)}')" style="color:var(--blue-600)">&#128065; ${escapeHtml(n.file_name)}</a>` : `<span style="color:var(--gray-400)">${pt('noFile')}</span>`}</td>
-                                <td>
-                                    <button class="btn btn-ghost btn-sm" onclick="openUploadSickNoteModal(${n.id})">&#128206;</button>
-                                    <button class="btn btn-ghost btn-sm" onclick="deleteSickNote(${n.id})" style="color:var(--red-500)">&#128465;</button>
-                                </td>
-                            </tr>`;
-                        }).join('')}
-                    </tbody>
-                </table>
+                <div class="portal-card">
+                    <div class="card-body" style="overflow-x:auto;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>${pt('sickNoteColName')}</th>
+                                    <th>${pt('colDocType') || 'Typ'}</th>
+                                    <th>${pt('colDate')}</th>
+                                    <th>${pt('sickNoteColDoctor')}</th>
+                                    <th>${pt('sickNoteColFile')}</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${notes.map(n => {
+                                    const docLabel = n.document_type === 'ocr' ? (pt('sickNoteDocTypeOcr') || 'OČR') : (pt('sickNoteDocTypeParagraph') || 'Paragraf');
+                                    const docBadge = n.document_type === 'ocr' ? 'badge-sick' : 'badge-paragraph';
+                                    return `
+                                    <tr>
+                                        <td><strong>${escapeHtml(n.title)}</strong>${n.diagnosis ? `<br><small style="color:var(--gray-500)">${escapeHtml(n.diagnosis)}</small>` : ''}</td>
+                                        <td><span class="badge ${docBadge}">${docLabel}</span></td>
+                                        <td>${formatDate(n.start_date)}${n.end_date && n.end_date !== n.start_date ? ` - ${formatDate(n.end_date)}` : ''}</td>
+                                        <td>${n.doctor_name ? escapeHtml(n.doctor_name) : '<span style="color:var(--gray-300)">—</span>'}</td>
+                                        <td>${n.file_name ? `<button class="btn btn-ghost btn-sm" onclick="return previewSickNoteFile(event, ${n.id}, '${escapeHtml(n.file_name)}')">&#128065; ${escapeHtml(n.file_name)}</button>` : '<span style="color:var(--gray-300)">—</span>'}</td>
+                                        <td style="white-space:nowrap">
+                                            <button class="btn btn-ghost btn-sm" onclick="openUploadSickNoteModal(${n.id})" title="${pt('upload')}">&#128206;</button>
+                                            <button class="btn btn-ghost btn-sm" onclick="deleteSickNote(${n.id})" style="color:var(--red-500)" title="${pt('delete')}">&#128465;</button>
+                                        </td>
+                                    </tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             ` : `<div class="empty-state"><div class="empty-icon">&#128203;</div><div class="empty-text">${pt('noSickNotes')}</div></div>`}
         </div>
     `;
