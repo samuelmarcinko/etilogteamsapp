@@ -33,6 +33,8 @@ const translations = {
     dashToday: 'today',
     dashTomorrow: 'tomorrow',
     dashInDays: 'in {n} days',
+    dashAllHolidays: 'All holidays',
+    dashHolidaysTitle: 'Public Holidays',
     errorLoadingDashboard: 'Error loading dashboard',
     
     // Form labels
@@ -77,6 +79,7 @@ const translations = {
     statusPending: 'Pending',
     statusApproved: 'Approved',
     statusRejected: 'Rejected',
+    statusCancelled: 'Cancelled',
     
     // Helper texts
     helperDescription: 'Provide all relevant information',
@@ -137,6 +140,17 @@ const translations = {
     filterApprover: 'Filter by Approver',
     filterApproverAll: '-- All Approvers --',
     filterClear: 'Clear Filters',
+
+    // Cancel ticket
+    btnCancelTicket: 'Cancel Request',
+    cancelModalTitle: 'Cancel Request',
+    cancelModalDesc: 'Are you sure you want to cancel this request? If it was approved, the quota will be returned. The approver will be notified.',
+    cancelReasonLabel: 'Cancellation reason',
+    cancelReasonPlaceholder: 'Enter the reason for cancellation...',
+    cancelReasonRequired: 'Cancellation reason is required',
+    cancelSuccess: 'Request cancelled successfully!',
+    cancelFailed: 'Failed to cancel request',
+    cancelReason: 'Cancellation reason',
 
     // Confirm dialogs
     confirmApprove: 'Are you sure you want to approve this request?',
@@ -250,6 +264,8 @@ const translations = {
     dashToday: 'dnes',
     dashTomorrow: 'zajtra',
     dashInDays: 'o {n} dní',
+    dashAllHolidays: 'Všetky sviatky',
+    dashHolidaysTitle: 'Štátne sviatky',
     errorLoadingDashboard: 'Chyba pri načítaní dashboardu',
     viewDetails: 'Zobraziť detail',
     
@@ -295,6 +311,7 @@ const translations = {
     statusPending: 'Čaká na schválenie',
     statusApproved: 'Schválené',
     statusRejected: 'Zamietnuté',
+    statusCancelled: 'Zrušená',
     
     // Helper texts
     helperDescription: 'Uveďte všetky relevantné informácie',
@@ -355,6 +372,17 @@ const translations = {
     filterApprover: 'Filtrovať podľa schvaľovateľa',
     filterApproverAll: '-- Všetci schvaľovatelia --',
     filterClear: 'Zrušiť filtre',
+
+    // Cancel ticket
+    btnCancelTicket: 'Zrušiť žiadosť',
+    cancelModalTitle: 'Zrušiť žiadosť',
+    cancelModalDesc: 'Naozaj chcete zrušiť túto žiadosť? Ak bola schválená, kvóta bude vrátená. Schvaľovateľ bude o zrušení informovaný.',
+    cancelReasonLabel: 'Dôvod zrušenia',
+    cancelReasonPlaceholder: 'Napíšte dôvod prečo žiadosť rušíte...',
+    cancelReasonRequired: 'Dôvod zrušenia je povinný',
+    cancelSuccess: 'Žiadosť bola úspešne zrušená!',
+    cancelFailed: 'Nepodarilo sa zrušiť žiadosť',
+    cancelReason: 'Dôvod zrušenia',
 
     // Confirm dialogs
     confirmApprove: 'Naozaj chcete schváliť túto žiadosť?',

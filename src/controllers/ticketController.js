@@ -224,6 +224,59 @@ class TicketController {
   }
 
   /**
+   * Cancel ticket by creator
+   * POST /api/tickets/:ticketId/cancel
+   */
+  static async cancelTicket(req, res, next) {
+    try {
+      const { ticketId } = req.params;
+      const { cancellationReason } = req.body;
+
+      if (!cancellationReason || !cancellationReason.trim()) {
+        return res.status(400).json({
+          error: 'Bad Request',
+          message: 'Cancellation reason is required'
+        });
+      }
+
+      // Get canceller info from authenticated user or request body
+      const canceller = req.user ? {
+        id: req.user.id,
+        name: req.user.name,
+        email: req.user.email
+      } : {
+        id: req.body.canceller_id || 'unknown',
+        name: req.body.canceller_name || 'Unknown User',
+        email: req.body.canceller_email || 'unknown@example.com'
+      };
+
+      const result = await TicketService.cancelTicket(ticketId, canceller, cancellationReason.trim());
+
+      // If ticket was approved (quota was deducted), notify the approver via bot
+      if (result.wasApproved && result.ticket.assigned_approver_id) {
+        NotificationService.notifyApproverCancelled(result.ticket, canceller.name, cancellationReason.trim()).catch(err => {
+          console.error('Failed to send cancellation notification to approver:', err);
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Ticket cancelled successfully',
+        data: result.ticket
+      });
+    } catch (error) {
+      if (error.message === 'Ticket not found') {
+        return res.status(404).json({ error: 'Not Found', message: error.message });
+      }
+      if (error.message === 'Only pending or approved tickets can be cancelled' ||
+          error.message === 'Only the ticket creator can cancel this request') {
+        return res.status(400).json({ error: 'Bad Request', message: error.message });
+      }
+      next(error);
+    }
+  }
+
+  /**
    * Get ticket audit log
    * GET /api/tickets/:ticketId/audit
    */

@@ -316,6 +316,89 @@ function formatDate(dateString) {
     });
 }
 
+// ========================================
+// HOLIDAYS MODAL
+// ========================================
+
+const publicHolidays = {
+    SK: [
+        { date: '01-01', sk: 'Deň vzniku Slovenskej republiky', en: 'Day of the Establishment of the Slovak Republic' },
+        { date: '01-06', sk: 'Zjavenie Pána (Traja králi)', en: 'Epiphany' },
+        { date: '03-28', sk: 'Veľký piatok', en: 'Good Friday' },
+        { date: '03-31', sk: 'Veľkonočný pondelok', en: 'Easter Monday' },
+        { date: '05-01', sk: 'Sviatok práce', en: 'Labour Day' },
+        { date: '05-08', sk: 'Deň víťazstva nad fašizmom', en: 'Victory over Fascism Day' },
+        { date: '07-05', sk: 'Sviatok svätého Cyrila a Metoda', en: 'Saints Cyril and Methodius Day' },
+        { date: '08-29', sk: 'Výročie SNP', en: 'Slovak National Uprising Anniversary' },
+        { date: '09-01', sk: 'Deň Ústavy Slovenskej republiky', en: 'Constitution Day' },
+        { date: '09-15', sk: 'Sedembolestná Panna Mária', en: 'Our Lady of Sorrows' },
+        { date: '11-01', sk: 'Sviatok všetkých svätých', en: 'All Saints\' Day' },
+        { date: '11-17', sk: 'Deň boja za slobodu a demokraciu', en: 'Struggle for Freedom and Democracy Day' },
+        { date: '12-24', sk: 'Štedrý deň', en: 'Christmas Eve' },
+        { date: '12-25', sk: 'Prvý sviatok vianočný', en: 'Christmas Day' },
+        { date: '12-26', sk: 'Druhý sviatok vianočný', en: 'St. Stephen\'s Day' }
+    ],
+    DE: [
+        { date: '01-01', sk: 'Nový rok', en: 'New Year\'s Day' },
+        { date: '03-28', sk: 'Veľký piatok', en: 'Good Friday' },
+        { date: '03-31', sk: 'Veľkonočný pondelok', en: 'Easter Monday' },
+        { date: '05-01', sk: 'Sviatok práce', en: 'Labour Day' },
+        { date: '05-29', sk: 'Nanebovstúpenie Pána', en: 'Ascension Day' },
+        { date: '06-09', sk: 'Svätodušný pondelok', en: 'Whit Monday' },
+        { date: '10-03', sk: 'Deň nemeckého zjednotenia', en: 'German Unity Day' },
+        { date: '12-25', sk: 'Prvý sviatok vianočný', en: 'Christmas Day' },
+        { date: '12-26', sk: 'Druhý sviatok vianočný', en: 'St. Stephen\'s Day' }
+    ]
+};
+
+let currentHolidayCountry = 'SK';
+
+function openHolidaysModal() {
+    document.getElementById('holidaysModalOverlay').classList.add('active');
+    document.getElementById('holidaysModalTitle').textContent = t('dashHolidaysTitle');
+    renderHolidaysList('SK');
+}
+
+function closeHolidaysModal() {
+    document.getElementById('holidaysModalOverlay').classList.remove('active');
+}
+
+function switchHolidayCountry(country) {
+    currentHolidayCountry = country;
+    document.querySelectorAll('.holidays-country-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.textContent.includes(country === 'SK' ? 'Slovensko' : 'Deutschland'));
+    });
+    renderHolidaysList(country);
+}
+
+function renderHolidaysList(country) {
+    const lang = getCurrentLang();
+    const year = new Date().getFullYear();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const holidays = publicHolidays[country] || [];
+    const container = document.getElementById('holidaysList');
+
+    container.innerHTML = holidays.map(h => {
+        const dateObj = new Date(`${year}-${h.date}`);
+        const isPast = dateObj < today;
+        const dateStr = dateObj.toLocaleDateString(lang === 'sk' ? 'sk-SK' : 'en-US', {
+            day: 'numeric',
+            month: 'short'
+        });
+        const dayName = dateObj.toLocaleDateString(lang === 'sk' ? 'sk-SK' : 'en-US', { weekday: 'short' });
+        const name = lang === 'sk' ? h.sk : h.en;
+
+        return `
+            <div class="holiday-item ${isPast ? 'holiday-past' : ''}">
+                <span class="holiday-date">${dayName}, ${dateStr}</span>
+                <span class="holiday-name">${name}</span>
+            </div>
+        `;
+    }).join('');
+}
+
 // Override switchLanguage to re-render with new translations
 const originalSwitchLanguage = window.switchLanguage;
 window.switchLanguage = function(lang) {

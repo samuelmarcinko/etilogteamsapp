@@ -252,7 +252,7 @@ async function renderDashboard(container) {
                             <tbody>
                                 ${tickets.slice(0, 10).map(t => `
                                     <tr>
-                                        <td>${escapeHtml(t.title)}</td>
+                                        <td><strong>${escapeHtml(t.title)}</strong></td>
                                         <td><span class="badge badge-${{'vacation':'vacation','sick-leave':'sick','paragraph':'paragraph','ocr':'ocr'}[t.ticket_type] || 'user'}">${translateType(t.ticket_type)}</span></td>
                                         <td><span class="badge badge-${t.status.toLowerCase()}">${translateStatus(t.status)}</span></td>
                                         <td>${formatDate(t.created_at)}</td>
@@ -369,30 +369,42 @@ async function renderMySickNotes(container) {
         </div>
         <div class="page-body">
             ${notes.length > 0 ? `
-                <table class="data-table">
-                    <thead>
-                        <tr><th>${pt('colDocType') || 'Typ'}</th><th>${pt('sickNoteColName')}</th><th>${pt('sickNoteColFrom')}</th><th>${pt('sickNoteColTo')}</th><th>${pt('sickNoteColDoctor')}</th><th>${pt('sickNoteColFile')}</th><th></th></tr>
-                    </thead>
-                    <tbody>
-                        ${notes.map(n => {
-                            const docLabel = n.document_type === 'ocr' ? (pt('sickNoteDocTypeOcr') || 'OČR') : (pt('sickNoteDocTypeParagraph') || 'Paragraf');
-                            const docBadge = n.document_type === 'ocr' ? 'badge-sick' : 'badge-vacation';
-                            return `
-                            <tr>
-                                <td><span class="badge ${docBadge}">${docLabel}</span></td>
-                                <td><strong>${escapeHtml(n.title)}</strong>${n.diagnosis ? `<br><small style="color:var(--gray-500)">${escapeHtml(n.diagnosis)}</small>` : ''}</td>
-                                <td>${formatDate(n.start_date)}</td>
-                                <td>${formatDate(n.end_date)}</td>
-                                <td>${n.doctor_name ? escapeHtml(n.doctor_name) : '-'}</td>
-                                <td>${n.file_name ? `<a href="#" onclick="return previewSickNoteFile(event, ${n.id}, '${escapeHtml(n.file_name)}')" style="color:var(--blue-600)">&#128065; ${escapeHtml(n.file_name)}</a>` : `<span style="color:var(--gray-400)">${pt('noFile')}</span>`}</td>
-                                <td>
-                                    <button class="btn btn-ghost btn-sm" onclick="openUploadSickNoteModal(${n.id})">&#128206;</button>
-                                    <button class="btn btn-ghost btn-sm" onclick="deleteSickNote(${n.id})" style="color:var(--red-500)">&#128465;</button>
-                                </td>
-                            </tr>`;
-                        }).join('')}
-                    </tbody>
-                </table>
+                <div class="portal-card">
+                    <div class="card-body" style="overflow-x:auto;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>${pt('sickNoteColName')}</th>
+                                    <th>${pt('colDocType') || 'Typ'}</th>
+                                    <th>${pt('colDate')}</th>
+                                    <th>${pt('sickNoteColDoctor')}</th>
+                                    <th>${pt('sickNoteColFile')}</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${notes.map(n => {
+                                    const docLabel = n.document_type === 'ocr' ? (pt('sickNoteDocTypeOcr') || 'OČR') : (pt('sickNoteDocTypeParagraph') || 'Paragraf');
+                                    const docBadge = n.document_type === 'ocr' ? 'badge-sick' : 'badge-paragraph';
+                                    return `
+                                    <tr>
+                                        <td><strong>${escapeHtml(n.title)}</strong>${n.diagnosis ? `<br><small style="color:var(--gray-500)">${escapeHtml(n.diagnosis)}</small>` : ''}</td>
+                                        <td><span class="badge ${docBadge}">${docLabel}</span></td>
+                                        <td>${formatDate(n.start_date)}${n.end_date && n.end_date !== n.start_date ? ` - ${formatDate(n.end_date)}` : ''}</td>
+                                        <td>${n.doctor_name ? escapeHtml(n.doctor_name) : '<span style="color:var(--gray-300)">—</span>'}</td>
+                                        <td>${n.file_name ? `<button class="btn-file-link" onclick="return previewSickNoteFile(event, ${n.id}, '${escapeHtml(n.file_name)}')">&#128065; ${escapeHtml(n.file_name)}</button>` : '<span style="color:var(--gray-300)">—</span>'}</td>
+                                        <td>
+                                            <div class="table-actions">
+                                                <button class="btn-icon primary" onclick="openUploadSickNoteModal(${n.id})" title="${pt('upload')}">&#128206;</button>
+                                                <button class="btn-icon danger" onclick="deleteSickNote(${n.id})" title="${pt('delete')}">&#128465;</button>
+                                            </div>
+                                        </td>
+                                    </tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             ` : `<div class="empty-state"><div class="empty-icon">&#128203;</div><div class="empty-text">${pt('noSickNotes')}</div></div>`}
         </div>
     `;
@@ -591,9 +603,15 @@ async function deleteSickNote(id) {
 // MY REQUESTS
 // ============================================
 
+let _myRequestsCache = [];
+
 async function renderMyRequests(container) {
     const response = await apiCall(`/api/tickets?createdById=${portalUser.id}`);
-    const tickets = (await response.json()).data || [];
+    _myRequestsCache = (await response.json()).data || [];
+
+    const years = [...new Set(_myRequestsCache.map(t => new Date(t.created_at).getFullYear()))].sort((a, b) => b - a);
+    const types = [...new Set(_myRequestsCache.map(t => t.ticket_type))];
+    const lang = localStorage.getItem('etilog_portal_lang') || 'sk';
 
     container.innerHTML = `
         <div class="page-header">
@@ -602,18 +620,48 @@ async function renderMyRequests(container) {
         </div>
         <div class="page-body">
             <div class="filters-bar">
-                <select class="form-select" onchange="filterMyRequests(this.value)" id="myReqFilter">
+                <input type="text" class="form-input filter-search" id="myReqSearch" placeholder="${pt('filterSearch')}" oninput="applyMyRequestsFilter()">
+                <select class="form-select" id="myReqStatusFilter" onchange="applyMyRequestsFilter()">
                     <option value="">${pt('filterAllStatuses')}</option>
                     <option value="Pending">${pt('filterPending')}</option>
                     <option value="Approved">${pt('filterApproved')}</option>
                     <option value="Rejected">${pt('filterRejected')}</option>
+                    <option value="Cancelled">${pt('statusCancelled')}</option>
+                </select>
+                <select class="form-select" id="myReqTypeFilter" onchange="applyMyRequestsFilter()">
+                    <option value="">${pt('filterAllTypes')}</option>
+                    ${types.map(t => `<option value="${t}">${translateType(t)}</option>`).join('')}
+                </select>
+                <select class="form-select" id="myReqYearFilter" onchange="applyMyRequestsFilter()">
+                    <option value="">${pt('filterAllYears')}</option>
+                    ${years.map(y => `<option value="${y}">${y}</option>`).join('')}
                 </select>
             </div>
             <div id="myRequestsList">
-                ${renderTicketsTable(tickets)}
+                ${renderTicketsTable(_myRequestsCache)}
             </div>
         </div>
     `;
+}
+
+function applyMyRequestsFilter() {
+    const search = (document.getElementById('myReqSearch')?.value || '').toLowerCase();
+    const status = document.getElementById('myReqStatusFilter')?.value || '';
+    const type = document.getElementById('myReqTypeFilter')?.value || '';
+    const year = document.getElementById('myReqYearFilter')?.value || '';
+
+    let filtered = _myRequestsCache;
+    if (status) filtered = filtered.filter(t => t.status === status);
+    if (type) filtered = filtered.filter(t => t.ticket_type === type);
+    if (year) filtered = filtered.filter(t => new Date(t.created_at).getFullYear() === parseInt(year));
+    if (search) filtered = filtered.filter(t =>
+        (t.title || '').toLowerCase().includes(search) ||
+        (t.description || '').toLowerCase().includes(search) ||
+        (t.ticket_id || '').toLowerCase().includes(search) ||
+        (t.assigned_approver_name || '').toLowerCase().includes(search)
+    );
+
+    document.getElementById('myRequestsList').innerHTML = renderTicketsTable(filtered);
 }
 
 // Open new request modal
@@ -769,53 +817,195 @@ async function submitNewRequest() {
 // MY APPROVALS
 // ============================================
 
+let _pendingApprovalsCache = [];
+let _approvalHistoryCache = [];
+let _currentApprovalTab = 'pending';
+
 async function renderMyApprovals(container) {
-    const response = await apiCall('/api/tickets/approvals/me');
-    const approvals = (await response.json()).data || [];
+    // Fetch both pending tickets assigned to me AND my approval history
+    const [pendingRes, historyRes] = await Promise.all([
+        apiCall(`/api/tickets?assignedApproverId=${portalUser.id}&status=Pending`),
+        apiCall('/api/tickets/approvals/me')
+    ]);
+    _pendingApprovalsCache = (await pendingRes.json()).data || [];
+    _approvalHistoryCache = (await historyRes.json()).data || [];
+
+    const pendingCount = _pendingApprovalsCache.length;
 
     container.innerHTML = `
         <div class="page-header">
             <div><h1>${pt('myApprovalsTitle')}</h1><p>${pt('myApprovalsDesc')}</p></div>
         </div>
         <div class="page-body">
-            ${approvals.length ? `
-                <div class="portal-card">
-                    <div class="card-body" style="overflow-x:auto;">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>${pt('colName')}</th>
-                                    <th>${pt('colType')}</th>
-                                    <th>${pt('colDecision')}</th>
-                                    <th>${pt('colDecisionDate')}</th>
-                                    <th>${pt('colAttachments')}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${approvals.map(a => `
-                                    <tr>
-                                        <td>
-                                            <strong>${escapeHtml(a.title)}</strong>
-                                            <br><small style="color:var(--gray-500)">${escapeHtml(a.created_by_name || '')}</small>
-                                            ${a.action_rejection_reason ? `<br><small style="color:var(--red-500)">${pt('reason')}: ${escapeHtml(a.action_rejection_reason)}</small>` : ''}
-                                        </td>
-                                        <td><span class="badge badge-${{'vacation':'vacation','sick-leave':'sick','paragraph':'paragraph','ocr':'ocr'}[a.ticket_type] || 'user'}">${translateType(a.ticket_type)}</span></td>
-                                        <td><span class="badge badge-${a.action.toLowerCase()}">${translateStatus(a.action)}</span></td>
-                                        <td>${formatDate(a.action_timestamp)}</td>
-                                        <td>
-                                            <button class="btn btn-ghost btn-sm" onclick="openTicketAttachments('${a.ticket_id}', '${escapeHtml(a.title)}')">
-                                                &#128206; ${pt('attachments')}
-                                            </button>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
+            <div class="portal-tabs">
+                <button class="portal-tab active" onclick="switchApprovalTab('pending', this)">
+                    ${pt('tabPendingApprovals')}
+                    ${pendingCount > 0 ? `<span class="tab-count pending-count">${pendingCount}</span>` : ''}
+                </button>
+                <button class="portal-tab" onclick="switchApprovalTab('history', this)">
+                    ${pt('tabApprovalHistory')}
+                </button>
+            </div>
+            <div id="approvalTabContent">
+                ${renderPendingApprovals(_pendingApprovalsCache)}
+            </div>
+        </div>
+
+        <!-- Reject Modal -->
+        <div class="reject-modal-overlay" id="portalRejectOverlay" onclick="if(event.target===this)closePortalRejectModal()">
+            <div class="reject-modal">
+                <h3>${pt('rejectModalTitle')}</h3>
+                <textarea id="portalRejectReason" placeholder="${pt('rejectModalPlaceholder')}"></textarea>
+                <div class="reject-modal-actions">
+                    <button class="btn btn-secondary" onclick="closePortalRejectModal()">${pt('cancel')}</button>
+                    <button class="btn-reject" onclick="submitPortalReject()">${pt('rejectModalSubmit')}</button>
                 </div>
-            ` : `<div class="empty-state"><div class="empty-icon">&#128203;</div><div class="empty-text">${pt('noTickets')}</div></div>`}
+            </div>
         </div>
     `;
+    _currentApprovalTab = 'pending';
+}
+
+function switchApprovalTab(tab, btn) {
+    _currentApprovalTab = tab;
+    document.querySelectorAll('.portal-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    const content = document.getElementById('approvalTabContent');
+    if (tab === 'pending') {
+        content.innerHTML = renderPendingApprovals(_pendingApprovalsCache);
+    } else {
+        content.innerHTML = renderApprovalHistory(_approvalHistoryCache);
+    }
+}
+
+function renderPendingApprovals(tickets) {
+    if (!tickets.length) {
+        return `<div class="empty-state"><div class="empty-icon">&#9989;</div><div class="empty-text">${pt('noPendingApprovals')}</div></div>`;
+    }
+    return tickets.map(t => {
+        const priorityColors = { 'Low': '#6b7280', 'Medium': '#2563eb', 'High': '#f59e0b', 'Urgent': '#ef4444' };
+        const priorityColor = priorityColors[t.priority] || '#6b7280';
+        return `
+            <div class="approval-card">
+                <div class="approval-card-header">
+                    <div>
+                        <div class="approval-card-title">${escapeHtml(t.title)}</div>
+                        <small style="color:var(--gray-400)">${t.ticket_id}</small>
+                    </div>
+                    <span class="badge badge-${{'vacation':'vacation','sick-leave':'sick','paragraph':'paragraph','ocr':'ocr'}[t.ticket_type] || 'user'}">${translateType(t.ticket_type)}</span>
+                </div>
+                <div class="approval-card-meta">
+                    <span><strong>${pt('colCreatedBy')}:</strong> ${escapeHtml(t.created_by_name || '')}</span>
+                    <span><strong>${pt('colPriority')}:</strong> <span style="color:${priorityColor};font-weight:600">${t.priority}</span></span>
+                    <span><strong>${pt('colDate')}:</strong> ${formatDate(t.created_at)}</span>
+                    ${t.start_date && t.end_date ? `<span><strong>${pt('colDates')}:</strong> ${formatDate(t.start_date)} &rarr; ${formatDate(t.end_date)}</span>` : ''}
+                </div>
+                ${t.description ? `<div class="approval-card-desc">${escapeHtml(t.description)}</div>` : ''}
+                <div class="approval-card-actions">
+                    ${t.attachment_count > 0 ? `<button class="btn btn-ghost btn-sm" onclick="openTicketAttachments('${t.ticket_id}', '${escapeHtml(t.title)}')">&#128206; ${pt('colAttachments')} (${t.attachment_count})</button>` : ''}
+                    <button class="btn-reject" onclick="openPortalRejectModal('${t.ticket_id}')">&#10005; ${pt('btnReject')}</button>
+                    <button class="btn-approve" onclick="portalApproveTicket('${t.ticket_id}')">&#10003; ${pt('btnApprove')}</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderApprovalHistory(approvals) {
+    if (!approvals.length) {
+        return `<div class="empty-state"><div class="empty-icon">&#128203;</div><div class="empty-text">${pt('noApprovalHistory')}</div></div>`;
+    }
+    return `
+        <div class="portal-card">
+            <div class="card-body" style="overflow-x:auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>${pt('colName')}</th>
+                            <th>${pt('colType')}</th>
+                            <th>${pt('colCreatedBy')}</th>
+                            <th>${pt('colDecision')}</th>
+                            <th>${pt('colDecisionDate')}</th>
+                            <th>${pt('colAttachments')}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${approvals.map(a => `
+                            <tr>
+                                <td>
+                                    <strong>${escapeHtml(a.title)}</strong>
+                                    ${a.action_rejection_reason ? `<br><small style="color:var(--red-500)">${pt('reason')}: ${escapeHtml(a.action_rejection_reason)}</small>` : ''}
+                                </td>
+                                <td><span class="badge badge-${{'vacation':'vacation','sick-leave':'sick','paragraph':'paragraph','ocr':'ocr'}[a.ticket_type] || 'user'}">${translateType(a.ticket_type)}</span></td>
+                                <td>${escapeHtml(a.created_by_name || '-')}</td>
+                                <td><span class="badge badge-${a.action.toLowerCase()}">${translateStatus(a.action)}</span></td>
+                                <td>${formatDate(a.action_timestamp)}</td>
+                                <td>
+                                    ${a.attachment_count > 0 ? `<button class="btn btn-ghost btn-sm" onclick="openTicketAttachments('${a.ticket_id}', '${escapeHtml(a.title)}')">&#128206; ${pt('attachments')} (${a.attachment_count})</button>` : '<span style="color:var(--gray-300)">—</span>'}
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+// Portal approve ticket
+async function portalApproveTicket(ticketId) {
+    if (!confirm(pt('approveConfirm'))) return;
+    try {
+        const response = await apiCall(`/api/tickets/${ticketId}/approve`, { method: 'POST' });
+        if (!response.ok) {
+            const err = await response.json().catch(() => null);
+            throw new Error(err?.message || pt('approveFailed'));
+        }
+        showToast(pt('approveSuccess'), 'success');
+        navigateToPage('my-approvals');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+// Portal reject modal
+let _pendingRejectTicketId = null;
+
+function openPortalRejectModal(ticketId) {
+    _pendingRejectTicketId = ticketId;
+    document.getElementById('portalRejectOverlay').classList.add('active');
+    const textarea = document.getElementById('portalRejectReason');
+    textarea.value = '';
+    textarea.focus();
+}
+
+function closePortalRejectModal() {
+    document.getElementById('portalRejectOverlay').classList.remove('active');
+    _pendingRejectTicketId = null;
+}
+
+async function submitPortalReject() {
+    const reason = document.getElementById('portalRejectReason').value.trim();
+    if (!reason) {
+        showToast(pt('rejectReasonRequired'), 'error');
+        return;
+    }
+    try {
+        const response = await apiCall(`/api/tickets/${_pendingRejectTicketId}/reject`, {
+            method: 'POST',
+            body: JSON.stringify({ rejectionReason: reason })
+        });
+        if (!response.ok) {
+            const err = await response.json().catch(() => null);
+            throw new Error(err?.message || pt('rejectFailed'));
+        }
+        closePortalRejectModal();
+        showToast(pt('rejectSuccess'), 'success');
+        navigateToPage('my-approvals');
+    } catch (error) {
+        closePortalRejectModal();
+        showToast(error.message, 'error');
+    }
 }
 
 // ============================================
@@ -904,8 +1094,10 @@ async function renderAdminEmployees(container) {
                                     <td>${e.paragraph_days_total !== null && e.paragraph_days_total !== undefined ? `${e.paragraph_days_used || 0}/${e.paragraph_days_total}` : '<span style="color:var(--gray-400)">-</span>'}</td>
                                     <td>${e.ocr_days_total !== null && e.ocr_days_total !== undefined ? `${e.ocr_days_used || 0}/${e.ocr_days_total}` : '<span style="color:var(--gray-400)">-</span>'}</td>
                                     <td>
-                                        <button class="btn btn-ghost btn-sm" onclick="toggleEmployeeRole('${e.id}', '${e.role}')" title="${pt('changeRoleTitle')}">${e.role === 'admin' ? '&#128100;' : '&#128081;'}</button>
-                                        <button class="btn btn-ghost btn-sm" onclick="editEmployeeQuota('${e.id}', '${escapeHtml(e.name)}', ${e.vacation_days_total || 20}, ${e.sick_days_total || 5}, ${e.paragraph_days_total || 7}, ${e.ocr_days_total || 7})" title="${pt('editQuotaTitle')}">&#9999;</button>
+                                        <div class="table-actions">
+                                            <button class="btn-icon" onclick="toggleEmployeeRole('${e.id}', '${e.role}')" title="${pt('changeRoleTitle')}">${e.role === 'admin' ? '&#128100;' : '&#128081;'}</button>
+                                            <button class="btn-icon primary" onclick="editEmployeeQuota('${e.id}', '${escapeHtml(e.name)}', ${e.vacation_days_total || 20}, ${e.sick_days_total || 5}, ${e.paragraph_days_total || 7}, ${e.ocr_days_total || 7})" title="${pt('editQuotaTitle')}">&#9999;</button>
+                                        </div>
                                     </td>
                                 </tr>
                             `).join('')}
@@ -1178,21 +1370,20 @@ async function renderAdminSickNotes(container) {
                     ${notes.length > 0 ? `
                         <table class="data-table">
                             <thead>
-                                <tr><th>${pt('colEmployeeName')}</th><th>${pt('colDocType')}</th><th>${pt('colName')}</th><th>${pt('sickNoteColFrom')}</th><th>${pt('sickNoteColTo')}</th><th>${pt('sickNoteColDoctor')}</th><th>${pt('colDocument')}</th></tr>
+                                <tr><th>${pt('colEmployeeName')}</th><th>${pt('colDocType')}</th><th>${pt('colName')}</th><th>${pt('colDate')}</th><th>${pt('sickNoteColDoctor')}</th><th>${pt('colDocument')}</th></tr>
                             </thead>
                             <tbody>
                                 ${notes.map(n => {
                                     const docLabel = n.document_type === 'ocr' ? (pt('sickNoteDocTypeOcr') || 'OČR') : (pt('sickNoteDocTypeParagraph') || 'Paragraf');
-                                    const docBadge = n.document_type === 'ocr' ? 'badge-sick' : 'badge-vacation';
+                                    const docBadge = n.document_type === 'ocr' ? 'badge-sick' : 'badge-paragraph';
                                     return `
                                     <tr>
                                         <td><strong>${escapeHtml(n.user_name)}</strong><br><small style="color:var(--gray-500)">${escapeHtml(n.user_email)}</small></td>
                                         <td><span class="badge ${docBadge}">${docLabel}</span></td>
-                                        <td>${escapeHtml(n.title)}${n.diagnosis ? `<br><small style="color:var(--gray-500)">${escapeHtml(n.diagnosis)}</small>` : ''}</td>
-                                        <td>${formatDate(n.start_date)}</td>
-                                        <td>${formatDate(n.end_date)}</td>
-                                        <td>${n.doctor_name ? escapeHtml(n.doctor_name) : '-'}</td>
-                                        <td>${n.file_name ? `<a href="#" onclick="return previewSickNoteFile(event, ${n.id}, '${escapeHtml(n.file_name)}')" style="color:var(--blue-600);cursor:pointer;">&#128065; ${escapeHtml(n.file_name)}</a>` : '<span style="color:var(--gray-400)">-</span>'}</td>
+                                        <td><strong>${escapeHtml(n.title)}</strong>${n.diagnosis ? `<br><small style="color:var(--gray-500)">${escapeHtml(n.diagnosis)}</small>` : ''}</td>
+                                        <td>${formatDate(n.start_date)}${n.end_date && n.end_date !== n.start_date ? ` - ${formatDate(n.end_date)}` : ''}</td>
+                                        <td>${n.doctor_name ? escapeHtml(n.doctor_name) : '<span style="color:var(--gray-300)">—</span>'}</td>
+                                        <td>${n.file_name ? `<button class="btn-file-link" onclick="return previewSickNoteFile(event, ${n.id}, '${escapeHtml(n.file_name)}')">&#128065; ${escapeHtml(n.file_name)}</button>` : '<span style="color:var(--gray-300)">—</span>'}</td>
                                     </tr>`;
                                 }).join('')}
                             </tbody>
@@ -1318,9 +1509,11 @@ async function renderAdminTicketTypes(container) {
                                         <td>${t.requires_dates ? '<span style="color:var(--green-600)">&#10003;</span>' : '<span style="color:var(--gray-400)">&#10005;</span>'}</td>
                                         <td>${t.is_active ? '<span class="badge badge-approved">' + pt('yes') + '</span>' : '<span class="badge badge-rejected">' + pt('no') + '</span>'}</td>
                                         <td>
-                                            <button class="btn btn-ghost btn-sm" onclick="editTicketType(${t.id}, '${escapeHtml(t.key)}', '${escapeHtml(t.label_sk)}', '${escapeHtml(t.label_en)}', ${t.requires_dates}, ${t.sort_order})" title="${pt('edit')}">&#9999;</button>
-                                            <button class="btn btn-ghost btn-sm" onclick="toggleTicketTypeActive(${t.id}, ${t.is_active})" title="${pt('ticketTypesToggleActive')}">${t.is_active ? '&#128683;' : '&#9989;'}</button>
-                                            <button class="btn btn-ghost btn-sm" onclick="deleteTicketType(${t.id})" style="color:var(--red-500)" title="${pt('delete')}">&#128465;</button>
+                                            <div class="table-actions">
+                                                <button class="btn-icon primary" onclick="editTicketType(${t.id}, '${escapeHtml(t.key)}', '${escapeHtml(t.label_sk)}', '${escapeHtml(t.label_en)}', ${t.requires_dates}, ${t.sort_order})" title="${pt('edit')}">&#9999;</button>
+                                                <button class="btn-icon ${t.is_active ? '' : 'success'}" onclick="toggleTicketTypeActive(${t.id}, ${t.is_active})" title="${pt('ticketTypesToggleActive')}">${t.is_active ? '&#128683;' : '&#9989;'}</button>
+                                                <button class="btn-icon danger" onclick="deleteTicketType(${t.id})" title="${pt('delete')}">&#128465;</button>
+                                            </div>
                                         </td>
                                     </tr>
                                 `).join('')}
@@ -1500,20 +1693,25 @@ function renderTicketsTable(tickets) {
             <div class="card-body" style="overflow-x:auto;">
                 <table class="data-table">
                     <thead>
-                        <tr><th>${pt('colName')}</th><th>${pt('colType')}</th><th>${pt('colApprover')}</th><th>${pt('colStatus')}</th><th>${pt('colDate')}</th><th>${pt('colAttachments')}</th></tr>
+                        <tr><th>${pt('colName')}</th><th>${pt('colType')}</th><th>${pt('colApprover')}</th><th>${pt('colStatus')}</th><th>${pt('colDate')}</th><th>${pt('colAttachments')}</th><th>${pt('colActions')}</th></tr>
                     </thead>
                     <tbody>
                         ${tickets.map(t => `
                             <tr>
-                                <td><strong>${escapeHtml(t.title)}</strong>${t.rejection_reason ? `<br><small style="color:var(--red-500)">${pt('reason')}: ${escapeHtml(t.rejection_reason)}</small>` : ''}</td>
+                                <td>
+                                    <strong>${escapeHtml(t.title)}</strong>
+                                    ${t.rejection_reason ? `<br><small style="color:var(--red-500)">${pt('reason')}: ${escapeHtml(t.rejection_reason)}</small>` : ''}
+                                    ${t.status === 'Cancelled' && t.cancellation_reason ? `<br><small style="color:var(--gray-500)">${pt('cancelReason')}: ${escapeHtml(t.cancellation_reason)}</small>` : ''}
+                                </td>
                                 <td><span class="badge badge-${{'vacation':'vacation','sick-leave':'sick','paragraph':'paragraph','ocr':'ocr'}[t.ticket_type] || 'user'}">${translateType(t.ticket_type)}</span></td>
                                 <td>${t.assigned_approver_name ? escapeHtml(t.assigned_approver_name) : '-'}</td>
                                 <td><span class="badge badge-${t.status.toLowerCase()}">${translateStatus(t.status)}</span></td>
                                 <td>${formatDate(t.created_at)}${t.start_date ? `<br><small>${formatDate(t.start_date)} - ${formatDate(t.end_date)}</small>` : ''}</td>
                                 <td>
-                                    <button class="btn btn-ghost btn-sm" onclick="openTicketAttachments('${t.ticket_id}', '${escapeHtml(t.title)}')">
-                                        &#128206; ${pt('attachments')}
-                                    </button>
+                                    ${t.attachment_count > 0 ? `<button class="btn btn-ghost btn-sm" onclick="openTicketAttachments('${t.ticket_id}', '${escapeHtml(t.title)}')">&#128206; ${pt('attachments')} (${t.attachment_count})</button>` : '<span style="color:var(--gray-300)">—</span>'}
+                                </td>
+                                <td>
+                                    ${(t.status === 'Pending' || t.status === 'Approved') ? `<button class="btn-icon danger" onclick="openCancelTicketModal('${t.ticket_id}', '${escapeHtml(t.title)}')" title="${pt('btnCancelTicket')}">&#10005;</button>` : '<span style="color:var(--gray-300)">—</span>'}
                                 </td>
                             </tr>
                         `).join('')}
@@ -1522,6 +1720,51 @@ function renderTicketsTable(tickets) {
             </div>
         </div>
     `;
+}
+
+// Cancel ticket modal & logic
+let _pendingCancelTicketId = null;
+
+function openCancelTicketModal(ticketId, title) {
+    _pendingCancelTicketId = ticketId;
+    document.getElementById('modalTitle').textContent = `${pt('cancelModalTitle')} - ${title}`;
+    document.getElementById('modalBody').innerHTML = `
+        <p style="margin-bottom:1rem;color:var(--gray-600);font-size:0.9rem;">${pt('cancelModalDesc')}</p>
+        <div class="form-group">
+            <label class="form-label">${pt('cancelReasonLabel')}</label>
+            <textarea id="cancelReasonInput" class="form-textarea" rows="3" placeholder="${pt('cancelReasonPlaceholder')}" required></textarea>
+        </div>
+    `;
+    document.getElementById('modalFooter').innerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
+        <button class="btn btn-danger" onclick="submitCancelTicket()">&#10005; ${pt('btnCancelTicket')}</button>
+    `;
+    openModal();
+    setTimeout(() => document.getElementById('cancelReasonInput')?.focus(), 200);
+}
+
+async function submitCancelTicket() {
+    const reason = document.getElementById('cancelReasonInput')?.value?.trim();
+    if (!reason) {
+        showToast(pt('cancelReasonRequired'), 'error');
+        return;
+    }
+    try {
+        const response = await apiCall(`/api/tickets/${_pendingCancelTicketId}/cancel`, {
+            method: 'POST',
+            body: JSON.stringify({ cancellationReason: reason })
+        });
+        if (!response.ok) {
+            const err = await response.json().catch(() => null);
+            throw new Error(err?.message || pt('cancelFailed'));
+        }
+        closeModal();
+        showToast(pt('cancelSuccess'), 'success');
+        _pendingCancelTicketId = null;
+        navigateToPage('my-requests');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
 }
 
 async function openTicketAttachments(ticketId, title) {

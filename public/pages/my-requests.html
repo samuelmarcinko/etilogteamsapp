@@ -54,6 +54,26 @@
         </div>
     </div>
 
+    <!-- Cancel Ticket Modal -->
+    <div id="cancelModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; justify-content: center; align-items: center;">
+        <div style="background: white; padding: 24px; border-radius: 12px; max-width: 480px; width: 92%; box-shadow: 0 10px 25px rgba(0,0,0,0.3);">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                <h3 id="cancelModalTitle" style="margin: 0; color: #1f2937; font-size: 18px;"></h3>
+                <button onclick="closeCancelModal()" style="padding:6px 10px;border:none;border-radius:6px;background:#ef4444;color:#fff;cursor:pointer;font-size:16px;line-height:1;">&#10005;</button>
+            </div>
+            <div style="margin-top: 16px;">
+                <p style="margin-bottom: 12px; color: #6b7280; font-size: 0.9rem;" id="cancelModalDesc"></p>
+                <label style="display:block;font-weight:600;font-size:0.85rem;color:#374151;margin-bottom:6px;" id="cancelReasonLbl"></label>
+                <textarea id="cancelReasonInput" rows="3" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-family:inherit;font-size:0.9rem;resize:vertical;"></textarea>
+                <div id="cancelReasonError" style="color:#ef4444;font-size:0.8rem;margin-top:4px;display:none;"></div>
+                <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+                    <button id="cancelModalCancelBtn" onclick="closeCancelModal()" class="btn btn-secondary" style="padding:8px 16px;border-radius:8px;font-size:0.85rem;"></button>
+                    <button id="cancelModalSubmitBtn" onclick="submitCancelTicket()" class="btn" style="padding:8px 16px;border-radius:8px;font-size:0.85rem;background:#ef4444;color:#fff;border:none;font-weight:600;cursor:pointer;"></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Attachments Modal -->
     <div id="attachmentsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; justify-content: center; align-items: center;">
         <div style="background: white; padding: 24px; border-radius: 12px; max-width: 620px; width: 92%; box-shadow: 0 10px 25px rgba(0,0,0,0.3); max-height: 80vh; overflow: auto;">
@@ -71,6 +91,10 @@
         let filteredTickets = [];
         let attachmentCounts = new Map();
         let ticketTypeMap = new Map();
+        let currentUserId = null;
+        let currentUserName = '';
+        let currentUserEmail = '';
+        let cancelTicketId = null;
 
         async function loadTicketTypes() {
             try {
@@ -215,13 +239,23 @@
                                 <strong>❌ ${t('labelRejectionReason')}:</strong> ${ticket.rejection_reason}
                             </div>
                         ` : ''}
-                        ${attachmentCounts.get(ticket.ticket_id) ? `
-                            <div class="request-actions">
+                        ${ticket.status === 'Cancelled' && ticket.cancellation_reason ? `
+                            <div class="rejection-reason" style="background:#f3f4f6;border-left-color:#6b7280;">
+                                <strong>${t('cancelReason')}:</strong> ${ticket.cancellation_reason}
+                            </div>
+                        ` : ''}
+                        <div class="request-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                            ${attachmentCounts.get(ticket.ticket_id) ? `
                                 <button class="btn-attachment" onclick="openAttachmentsModal('${ticket.ticket_id}', '${ticket.title.replace(/'/g, '&#39;')}')">
                                     &#128206; ${t('attachments')}
                                 </button>
-                            </div>
-                        ` : ''}
+                            ` : ''}
+                            ${(ticket.status === 'Pending' || ticket.status === 'Approved') ? `
+                                <button class="btn btn-sm" style="background:#ef4444;color:#fff;border:none;font-weight:600;cursor:pointer;padding:6px 12px;border-radius:6px;font-size:0.8rem;" onclick="openCancelModal('${ticket.ticket_id}', '${ticket.title.replace(/'/g, '&#39;')}')">
+                                    &#10005; ${t('btnCancelTicket')}
+                                </button>
+                            ` : ''}
+                        </div>
                     </div>
                 `).join('');
             }
@@ -371,11 +405,98 @@
             document.addEventListener('keydown', escHandler);
         }
 
+        // Cancel modal functions
+        function openCancelModal(ticketId, title) {
+            cancelTicketId = ticketId;
+            document.getElementById('cancelModalTitle').textContent = `${t('cancelModalTitle')} - ${title}`;
+            document.getElementById('cancelModalDesc').textContent = t('cancelModalDesc');
+            document.getElementById('cancelReasonLbl').textContent = t('cancelReasonLabel');
+            document.getElementById('cancelReasonInput').placeholder = t('cancelReasonPlaceholder');
+            document.getElementById('cancelReasonInput').value = '';
+            document.getElementById('cancelReasonError').style.display = 'none';
+            document.getElementById('cancelModalCancelBtn').textContent = t('rejectModalCancel');
+            document.getElementById('cancelModalSubmitBtn').innerHTML = `&#10005; ${t('btnCancelTicket')}`;
+            document.getElementById('cancelModal').style.display = 'flex';
+        }
+
+        function closeCancelModal() {
+            document.getElementById('cancelModal').style.display = 'none';
+            cancelTicketId = null;
+        }
+
+        async function submitCancelTicket() {
+            const reason = document.getElementById('cancelReasonInput').value.trim();
+            const errEl = document.getElementById('cancelReasonError');
+            errEl.style.display = 'none';
+
+            if (!reason) {
+                errEl.textContent = t('cancelReasonRequired');
+                errEl.style.display = 'block';
+                return;
+            }
+
+            // Disable submit button to prevent double-clicks
+            const submitBtn = document.getElementById('cancelModalSubmitBtn');
+            submitBtn.disabled = true;
+
+            try {
+                const response = await fetch(`/api/tickets/${cancelTicketId}/cancel`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        cancellationReason: reason,
+                        canceller_id: currentUserId,
+                        canceller_name: currentUserName || '',
+                        canceller_email: currentUserEmail || ''
+                    })
+                });
+
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.message || t('cancelFailed'));
+                }
+
+                closeCancelModal();
+
+                // Reload tickets
+                const ticketsResponse = await fetch(`/api/tickets?createdById=${currentUserId}`);
+                const ticketsResult = await ticketsResponse.json();
+                userTickets = ticketsResult.data || [];
+                await loadAttachmentCounts(userTickets);
+                applyFilters();
+
+                // Show success notification
+                showNotification(t('cancelSuccess'), 'success');
+            } catch (error) {
+                errEl.textContent = error.message || t('cancelFailed');
+                errEl.style.display = 'block';
+            } finally {
+                submitBtn.disabled = false;
+            }
+        }
+
+        // Simple notification for Teams app (no alert() in iframes)
+        function showNotification(message, type) {
+            const existing = document.getElementById('teamsNotification');
+            if (existing) existing.remove();
+            const div = document.createElement('div');
+            div.id = 'teamsNotification';
+            div.style.cssText = `position:fixed;top:16px;right:16px;z-index:20000;padding:12px 20px;border-radius:10px;font-size:0.9rem;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,0.15);transition:opacity 0.3s;`;
+            div.style.background = type === 'success' ? '#dcfce7' : '#fee2e2';
+            div.style.color = type === 'success' ? '#065f46' : '#991b1b';
+            div.textContent = message;
+            document.body.appendChild(div);
+            setTimeout(() => { div.style.opacity = '0'; setTimeout(() => div.remove(), 300); }, 3000);
+        }
+
         // Load user's requests
         (async function() {
             await microsoftTeams.app.initialize();
             const context = await microsoftTeams.app.getContext();
             const userId = context.user.id;
+            currentUserId = userId;
+            currentUserName = context.user.displayName || context.user.userPrincipalName || '';
+            currentUserEmail = context.user.userPrincipalName || '';
 
             try {
                 await loadTicketTypes();
