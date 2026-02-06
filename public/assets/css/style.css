@@ -427,6 +427,38 @@ body {
   margin-bottom: 1.75rem;
 }
 
+/* Two-column form row for shorter fields */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+}
+
+.form-row .form-group {
+  margin-bottom: 0;
+}
+
+/* Three-column row variant */
+.form-row-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+}
+
+.form-row-3 .form-group {
+  margin-bottom: 0;
+}
+
+/* Responsive: stack on mobile */
+@media (max-width: 540px) {
+  .form-row,
+  .form-row-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
 .form-label {
   display: block;
   font-weight: 600;

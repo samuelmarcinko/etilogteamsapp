@@ -30,29 +30,29 @@
         <div class="card">
             <h3 class="card-title" data-i18n="sickNotesUploadTitle">Upload New Document</h3>
             <form id="sickNoteForm">
-                <!-- Document Type -->
-                <div class="form-group">
-                    <label class="form-label" for="snDocType">
-                        <span data-i18n="sickNotesLabelDocType">Document Type</span>
-                        <span class="required">*</span>
-                    </label>
-                    <select id="snDocType" name="document_type" class="form-input" required>
-                        <option value="paragraph" data-i18n="sickNotesDocTypeParagraph">Paragraph</option>
-                        <option value="ocr" data-i18n="sickNotesDocTypeOcr">Family Member Care</option>
-                    </select>
+                <!-- Document Type + Title (side by side) -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="snDocType">
+                            <span data-i18n="sickNotesLabelDocType">Document Type</span>
+                            <span class="required">*</span>
+                        </label>
+                        <select id="snDocType" name="document_type" class="form-input" required>
+                            <option value="paragraph" data-i18n="sickNotesDocTypeParagraph">Paragraph</option>
+                            <option value="ocr" data-i18n="sickNotesDocTypeOcr">Family Member Care</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="snTitle">
+                            <span data-i18n="sickNotesLabelTitle">Title</span>
+                            <span class="required">*</span>
+                        </label>
+                        <input type="text" id="snTitle" name="title" class="form-input"
+                               data-i18n-placeholder="sickNotesPlaceholderTitle" required>
+                    </div>
                 </div>
 
-                <!-- Title -->
-                <div class="form-group">
-                    <label class="form-label" for="snTitle">
-                        <span data-i18n="sickNotesLabelTitle">Title</span>
-                        <span class="required">*</span>
-                    </label>
-                    <input type="text" id="snTitle" name="title" class="form-input"
-                           data-i18n-placeholder="sickNotesPlaceholderTitle" required>
-                </div>
-
-                <!-- Date Range -->
+                <!-- Date Range + Doctor (side by side) -->
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label" for="snStartDate">
@@ -70,23 +70,23 @@
                     </div>
                 </div>
 
-                <!-- Doctor Name (optional) -->
-                <div class="form-group">
-                    <label class="form-label" for="snDoctor">
-                        <span data-i18n="sickNotesLabelDoctor">Doctor Name</span>
-                    </label>
-                    <input type="text" id="snDoctor" name="doctor_name" class="form-input"
-                           data-i18n-placeholder="sickNotesPlaceholderDoctor">
-                </div>
-
-                <!-- File Upload -->
-                <div class="form-group">
-                    <label class="form-label" for="snFile">
-                        <span data-i18n="sickNotesLabelFile">Document (PDF, JPG, PNG, HEIC)</span>
-                    </label>
-                    <input type="file" id="snFile" name="file" class="form-input"
-                           accept=".pdf,.jpg,.jpeg,.png,.heic,.heif,.webp,.bmp,.tiff,.tif">
-                    <p class="helper-text" data-i18n="sickNotesHelperFile">Max 10MB. Supported: PDF, JPG, PNG, HEIC, WebP</p>
+                <!-- Doctor Name + File Upload (side by side) -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="snDoctor">
+                            <span data-i18n="sickNotesLabelDoctor">Doctor Name</span>
+                        </label>
+                        <input type="text" id="snDoctor" name="doctor_name" class="form-input"
+                               data-i18n-placeholder="sickNotesPlaceholderDoctor">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="snFile">
+                            <span data-i18n="sickNotesLabelFile">Document</span>
+                        </label>
+                        <input type="file" id="snFile" name="file" class="form-input"
+                               accept=".pdf,.jpg,.jpeg,.png,.heic,.heif,.webp,.bmp,.tiff,.tif">
+                        <p class="helper-text" data-i18n="sickNotesHelperFile">PDF, JPG, PNG, HEIC (max 10MB)</p>
+                    </div>
                 </div>
 
                 <!-- Submit Button -->
