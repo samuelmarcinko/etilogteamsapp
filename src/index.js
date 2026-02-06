@@ -28,13 +28,20 @@ app.use(compression({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Static file cache configuration (1 day for assets, 1 hour for HTML)
+// Static file cache configuration
+// TEMPORARILY DISABLED - set to true when app is in final state
+const ENABLE_CACHE = false;
+
 const staticOptions = {
-  maxAge: '1d',
-  etag: true,
+  maxAge: ENABLE_CACHE ? '1d' : 0,
+  etag: ENABLE_CACHE,
   lastModified: true,
   setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.html')) {
+    if (!ENABLE_CACHE) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    } else if (filePath.endsWith('.html')) {
       res.setHeader('Cache-Control', 'public, max-age=3600');
     } else if (filePath.match(/\.(js|css)$/)) {
       res.setHeader('Cache-Control', 'public, max-age=86400');
@@ -126,7 +133,7 @@ app.listen(PORT, '0.0.0.0', () => {
     port: PORT,
     env: process.env.NODE_ENV || 'development',
     compression: 'enabled',
-    caching: 'enabled'
+    caching: ENABLE_CACHE ? 'enabled' : 'disabled'
   });
 });
 
