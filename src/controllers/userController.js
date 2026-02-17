@@ -1,21 +1,29 @@
 const GraphService = require('../services/graphService');
+const User = require('../database/models/User');
+const logger = require('../utils/logger');
 
 class UserController {
   /**
-   * Get all users
+   * Get all users (filters out hidden users)
    * GET /api/users
    */
   static async getUsers(req, res, next) {
     try {
       const users = await GraphService.getUsers();
 
+      // Filter out hidden users
+      const hiddenIds = await User.getHiddenUserIds();
+      const visibleUsers = hiddenIds.length > 0
+        ? users.filter(u => !hiddenIds.includes(u.id))
+        : users;
+
       res.json({
         success: true,
-        count: users.length,
-        data: users
+        count: visibleUsers.length,
+        data: visibleUsers
       });
     } catch (error) {
-      console.error('Error in getUsers:', error);
+      logger.error('Error in getUsers', { error: error.message });
       next(error);
     }
   }
@@ -34,7 +42,7 @@ class UserController {
         data: user
       });
     } catch (error) {
-      console.error('Error in getUserById:', error);
+      logger.error('Error in getUserById', { error: error.message });
       if (error.message.includes('not found')) {
         return res.status(404).json({
           error: 'Not Found',
@@ -62,13 +70,19 @@ class UserController {
 
       const users = await GraphService.searchUsers(q);
 
+      // Filter out hidden users
+      const hiddenIds = await User.getHiddenUserIds();
+      const visibleUsers = hiddenIds.length > 0
+        ? users.filter(u => !hiddenIds.includes(u.id))
+        : users;
+
       res.json({
         success: true,
-        count: users.length,
-        data: users
+        count: visibleUsers.length,
+        data: visibleUsers
       });
     } catch (error) {
-      console.error('Error in searchUsers:', error);
+      logger.error('Error in searchUsers', { error: error.message });
       next(error);
     }
   }

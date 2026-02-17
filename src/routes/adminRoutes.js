@@ -15,6 +15,7 @@ router.get('/me', asyncHandler(AdminController.getMyProfile));
 router.get('/stats', requireDbRole('admin'), asyncHandler(AdminController.getStats));
 router.get('/employees', requireDbRole('admin'), asyncHandler(AdminController.getEmployees));
 router.put('/employees/:userId/role', requireDbRole('admin'), asyncHandler(AdminController.updateEmployeeRole));
+router.put('/employees/:userId/visibility', requireDbRole('admin'), asyncHandler(AdminController.toggleEmployeeVisibility));
 router.get('/tickets', requireDbRole('admin'), asyncHandler(AdminController.getAllTickets));
 
 module.exports = router;

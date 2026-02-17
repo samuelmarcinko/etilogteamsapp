@@ -93,6 +93,7 @@ class AdminController {
           name: gu.name,
           email: gu.email,
           role: dbUser?.role || 'user',
+          hidden: dbUser?.hidden || false,
           vacation_days_total: dbUser?.vacation_days_total || null,
           vacation_days_used: dbUser?.vacation_days_used || 0,
           sick_days_total: dbUser?.sick_days_total || null,
@@ -145,6 +146,35 @@ class AdminController {
         success: true,
         message: `Role updated to ${role}`,
         data: updated
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Toggle employee visibility (hidden/visible)
+   * PUT /api/admin/employees/:userId/visibility
+   */
+  static async toggleEmployeeVisibility(req, res, next) {
+    try {
+      const { userId } = req.params;
+
+      // Ensure user exists in DB first
+      const graphUser = await GraphService.getUserById(userId);
+      await User.upsert({
+        userId: graphUser.id,
+        email: graphUser.email,
+        displayName: graphUser.name,
+        role: 'user'
+      });
+
+      const updated = await User.toggleHidden(userId);
+
+      res.json({
+        success: true,
+        message: updated.hidden ? 'User hidden from approver list' : 'User visible in approver list',
+        data: { hidden: updated.hidden }
       });
     } catch (error) {
       next(error);

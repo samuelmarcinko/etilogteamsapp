@@ -1082,19 +1082,21 @@ async function renderAdminEmployees(container) {
                 <div class="card-body" style="overflow-x:auto;">
                     <table class="data-table">
                         <thead>
-                            <tr><th>${pt('colName')}</th><th>${pt('colEmail')}</th><th>${pt('colRole')}</th><th>${pt('colVacation')}</th><th>${pt('colParagraph')}</th><th>${pt('colOcr')}</th><th>${pt('colActions')}</th></tr>
+                            <tr><th>${pt('colName')}</th><th>${pt('colEmail')}</th><th>${pt('colRole')}</th><th>${pt('colVisibility')}</th><th>${pt('colVacation')}</th><th>${pt('colParagraph')}</th><th>${pt('colOcr')}</th><th>${pt('colActions')}</th></tr>
                         </thead>
                         <tbody>
                             ${employees.map(e => `
-                                <tr>
+                                <tr${e.hidden ? ' style="opacity: 0.5;"' : ''}>
                                     <td><strong>${escapeHtml(e.name)}</strong></td>
                                     <td>${escapeHtml(e.email)}</td>
                                     <td><span class="badge badge-${e.role}">${e.role}</span></td>
+                                    <td><span class="badge badge-${e.hidden ? 'hidden' : 'visible'}">${e.hidden ? pt('hiddenLabel') : pt('visibleLabel')}</span></td>
                                     <td>${e.vacation_days_total !== null ? `${e.vacation_days_used}/${e.vacation_days_total}` : '<span style="color:var(--gray-400)">-</span>'}</td>
                                     <td>${e.paragraph_days_total !== null && e.paragraph_days_total !== undefined ? `${e.paragraph_days_used || 0}/${e.paragraph_days_total}` : '<span style="color:var(--gray-400)">-</span>'}</td>
                                     <td>${e.ocr_days_total !== null && e.ocr_days_total !== undefined ? `${e.ocr_days_used || 0}/${e.ocr_days_total}` : '<span style="color:var(--gray-400)">-</span>'}</td>
                                     <td>
                                         <div class="table-actions">
+                                            <button class="btn-icon" onclick="toggleEmployeeVisibility('${e.id}', ${e.hidden})" title="${e.hidden ? pt('showUserTitle') : pt('hideUserTitle')}">${e.hidden ? '&#128065;' : '&#128683;'}</button>
                                             <button class="btn-icon" onclick="toggleEmployeeRole('${e.id}', '${e.role}')" title="${pt('changeRoleTitle')}">${e.role === 'admin' ? '&#128100;' : '&#128081;'}</button>
                                             <button class="btn-icon primary" onclick="editEmployeeQuota('${e.id}', '${escapeHtml(e.name)}', ${e.vacation_days_total || 20}, ${e.sick_days_total || 5}, ${e.paragraph_days_total || 7}, ${e.ocr_days_total || 7})" title="${pt('editQuotaTitle')}">&#9999;</button>
                                         </div>
@@ -1107,6 +1109,23 @@ async function renderAdminEmployees(container) {
             </div>
         </div>
     `;
+}
+
+async function toggleEmployeeVisibility(userId, isHidden) {
+    const action = isHidden ? pt('showUserConfirm') : pt('hideUserConfirm');
+    if (!confirm(action)) return;
+
+    try {
+        const response = await apiCall(`/api/admin/employees/${userId}/visibility`, {
+            method: 'PUT'
+        });
+        if (!response.ok) throw new Error(pt('changeFailed'));
+        const result = await response.json();
+        showToast(result.data.hidden ? pt('userHidden') : pt('userVisible'), 'success');
+        navigateToPage('admin-employees');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
 }
 
 async function toggleEmployeeRole(userId, currentRole) {
