@@ -108,6 +108,15 @@ app.post('/api/reminders/trigger', async (req, res) => {
   }
 });
 
+// Health check endpoint (for Docker/Traefik healthchecks)
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
 // Root endpoint
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
