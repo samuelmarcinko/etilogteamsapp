@@ -81,7 +81,7 @@ function renderNavigation(currentPage) {
   const utilityBar = document.createElement('div');
   utilityBar.className = 'nav-utility-bar';
   utilityBar.innerHTML = `
-    <a href="https://teams.etilog.com/login" target="_blank" class="nav-portal-link">
+    <a href="https://portal.etilog.com/login" target="_blank" class="nav-portal-link">
       <span class="nav-portal-icon">&#127760;</span>${portalLabel}
     </a>
     <div class="nav-lang-switcher">

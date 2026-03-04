@@ -1,7 +1,7 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
   "manifestVersion": "1.16",
-  "version": "1.0.6",
+  "version": "1.0.8",
   "id": "39cb02be-f50d-4e06-afda-ec0ce359e2a8",
   "packageName": "com.etilog.approval",
   "developer": {
