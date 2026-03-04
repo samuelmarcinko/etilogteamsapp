@@ -36,12 +36,12 @@ services:
       - "traefik.enable=true"
 
       # HTTP Router (redirect to HTTPS)
-      - "traefik.http.routers.teams-app-http.rule=Host(`teams.etilog.com`)"
+      - "traefik.http.routers.teams-app-http.rule=Host(`portal.etilog.com`)"
       - "traefik.http.routers.teams-app-http.entrypoints=web"
       - "traefik.http.routers.teams-app-http.middlewares=https-redirect@docker"
 
       # HTTPS Router
-      - "traefik.http.routers.teams-app.rule=Host(`teams.etilog.com`)"
+      - "traefik.http.routers.teams-app.rule=Host(`portal.etilog.com`)"
       - "traefik.http.routers.teams-app.entrypoints=websecure"
       - "traefik.http.routers.teams-app.tls=true"
       - "traefik.http.routers.teams-app.tls.certresolver=le"
@@ -65,14 +65,14 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_NAME:-teams_approval}
-      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_USER: ${DB_USER:-approval_user}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - teams-app-db-data:/var/lib/postgresql/data
     networks:
       - teams-app-internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-teams_approval}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-approval_user} -d ${DB_NAME:-teams_approval}"]
       interval: 10s
       timeout: 5s
       retries: 5
