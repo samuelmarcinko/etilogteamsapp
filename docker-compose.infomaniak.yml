@@ -25,6 +25,8 @@ services:
       - NODE_ENV=production
       - DB_HOST=teams-app-db
       - DB_PORT=5432
+    volumes:
+      - teams-app-uploads:/app/uploads
     depends_on:
       teams-app-db:
         condition: service_healthy
@@ -86,6 +88,8 @@ services:
 volumes:
   teams-app-db-data:
     name: teams-app-db-data
+  teams-app-uploads:
+    name: teams-app-uploads
 
 # ==========================================
 # Networks
