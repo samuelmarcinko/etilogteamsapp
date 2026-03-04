@@ -81,7 +81,7 @@ app.get('/api/auth/config', (req, res) => {
   res.json({
     clientId: process.env.CLIENT_ID || process.env.MICROSOFT_APP_ID,
     tenantId: process.env.TENANT_ID,
-    redirectUri: (process.env.APP_BASE_URL || 'https://teams.etilog.com') + '/portal/'
+    redirectUri: (process.env.APP_BASE_URL || 'https://portal.etilog.com') + '/portal/'
   });
 });
 
