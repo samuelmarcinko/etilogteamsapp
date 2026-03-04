@@ -44,9 +44,9 @@ USER nodeuser
 # Expose the application port
 EXPOSE 3978
 
-# Health check
+# Health check (use 127.0.0.1 instead of localhost to avoid IPv6 issues)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3978/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3978/health || exit 1
 
 # Start the application
 CMD ["node", "src/index.js"]
