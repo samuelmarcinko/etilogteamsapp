@@ -9,8 +9,10 @@ services:
     command: sh -c "npm install && npm start"
     volumes:
       - .:/app
+      - ./uploads:/app/uploads
     environment:
       - NODE_ENV=production
+      - UPLOAD_DIR=/app/uploads
     env_file:
       - .env
     networks:

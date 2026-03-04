@@ -2,17 +2,17 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 const SickNoteController = require('../controllers/sickNoteController');
 const { verifyToken } = require('../middleware/auth');
 const { attachDbRole, requireDbRole } = require('../middleware/portalAuth');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { getUploadPath, ensureUploadDirectories } = require('../config/uploadConfig');
 
-// Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, '../../uploads/sick-notes');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+// Ensure upload directories exist
+ensureUploadDirectories();
+
+// Get upload directory for sick notes
+const uploadsDir = getUploadPath('sickNotes');
 
 // Multer config for file uploads
 const storage = multer.diskStorage({

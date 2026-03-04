@@ -25,8 +25,10 @@ services:
       - NODE_ENV=production
       - DB_HOST=teams-app-db
       - DB_PORT=5432
+      - UPLOAD_DIR=/app/uploads
     volumes:
-      - teams-app-uploads:/app/uploads
+      # Host mount for persistent file storage - accessible directly on VPS
+      - /srv/stacks/apps/teams-app/uploads:/app/uploads
     depends_on:
       teams-app-db:
         condition: service_healthy
@@ -88,8 +90,7 @@ services:
 volumes:
   teams-app-db-data:
     name: teams-app-db-data
-  teams-app-uploads:
-    name: teams-app-uploads
+  # Note: uploads are stored directly on host at /srv/stacks/apps/teams-app/uploads
 
 # ==========================================
 # Networks

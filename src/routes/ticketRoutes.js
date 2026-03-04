@@ -2,16 +2,16 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 const TicketController = require('../controllers/ticketController');
 const { optionalAuth } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { getUploadPath, ensureUploadDirectories } = require('../config/uploadConfig');
 
-// Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, '../../uploads/ticket-attachments');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+// Ensure upload directories exist
+ensureUploadDirectories();
+
+// Get upload directory for ticket attachments
+const uploadsDir = getUploadPath('ticketAttachments');
 
 // Multer config for ticket attachments
 const storage = multer.diskStorage({

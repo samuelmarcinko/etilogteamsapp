@@ -33,3 +33,7 @@ build/
 # Temporary files
 tmp/
 temp/
+
+# Uploaded files (stored on VPS, not in repo)
+uploads/*
+!uploads/.gitkeep
