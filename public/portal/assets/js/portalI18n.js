@@ -251,6 +251,7 @@ const portalTranslations = {
     roleChanged: 'Rola zmenená na',
     changeRoleTitle: 'Zmeniť rolu',
     editQuotaTitle: 'Upraviť kvótu',
+    editQuota: 'Upraviť kvóty',
 
     // Admin Quota Modal
     quotaModalTitle: 'Kvóty',
@@ -589,6 +590,7 @@ const portalTranslations = {
     roleChanged: 'Role changed to',
     changeRoleTitle: 'Change role',
     editQuotaTitle: 'Edit quota',
+    editQuota: 'Edit quotas',
 
     // Admin Quota Modal
     quotaModalTitle: 'Quotas',

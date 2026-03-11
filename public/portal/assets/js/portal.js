@@ -1269,7 +1269,7 @@ async function renderAdminQuotas(container) {
                 <div class="card-body" style="overflow-x:auto;">
                     <table class="data-table">
                         <thead>
-                            <tr><th>${pt('colEmployee')}</th><th>${pt('colVacTotal')}</th><th>${pt('colVacUsed')}</th><th>${pt('colBalance')}</th><th>${pt('colParagraphTotal')}</th><th>${pt('colParagraphUsed')}</th><th>${pt('colBalance')}</th><th>${pt('colOcrTotal')}</th><th>${pt('colOcrUsed')}</th><th>${pt('colBalance')}</th></tr>
+                            <tr><th>${pt('colEmployee')}</th><th>${pt('colVacTotal')}</th><th>${pt('colVacUsed')}</th><th>${pt('colBalance')}</th><th>${pt('colParagraphTotal')}</th><th>${pt('colParagraphUsed')}</th><th>${pt('colBalance')}</th><th>${pt('colOcrTotal')}</th><th>${pt('colOcrUsed')}</th><th>${pt('colBalance')}</th><th>${pt('colActions')}</th></tr>
                         </thead>
                         <tbody>
                             ${quotas.map(q => `
@@ -1284,6 +1284,7 @@ async function renderAdminQuotas(container) {
                                     <td>${q.ocr_days_total || 7}</td>
                                     <td>${q.ocr_days_used || 0}</td>
                                     <td><strong style="color:${q.ocr_days_remaining <= 1 ? 'var(--red-500)' : 'var(--green-600)'}">${q.ocr_days_remaining}</strong></td>
+                                    <td><button class="btn-icon primary" onclick="editUserQuotas('${q.user_id}', '${escapeHtml(q.display_name || '')}', ${q.vacation_days_total}, ${q.paragraph_days_total || 7}, ${q.ocr_days_total || 7})" title="${pt('editQuota')}">&#9999;</button></td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -1370,79 +1371,72 @@ async function saveQuotaSettings() {
     }
 }
 
+// Edit individual user quotas
+async function editUserQuotas(userId, userName, vacTotal, paragraphTotal, ocrTotal) {
+    const year = new Date().getFullYear();
+    document.getElementById('modalTitle').textContent = `${pt('editQuota')} - ${userName}`;
+    document.getElementById('modalBody').innerHTML = `
+        <form id="userQuotaForm">
+            <div class="form-group">
+                <label class="form-label">${pt('quotaFieldVacation')}</label>
+                <input type="number" class="form-input" name="vacation_days_total" value="${vacTotal}" min="0" max="50">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">${pt('quotaFieldParagraph')}</label>
+                    <input type="number" class="form-input" name="paragraph_days_total" value="${paragraphTotal}" min="0" max="30">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">${pt('quotaFieldOcr')}</label>
+                    <input type="number" class="form-input" name="ocr_days_total" value="${ocrTotal}" min="0" max="30">
+                </div>
+            </div>
+        </form>
+    `;
+    document.getElementById('modalFooter').innerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
+        <button class="btn btn-primary" onclick="saveUserQuotas('${userId}', ${year})">${pt('save')}</button>
+    `;
+    openModal();
+}
+
+async function saveUserQuotas(userId, year) {
+    const form = document.getElementById('userQuotaForm');
+    const data = {
+        year,
+        vacation_days_total: parseInt(form.vacation_days_total.value),
+        paragraph_days_total: parseInt(form.paragraph_days_total.value),
+        ocr_days_total: parseInt(form.ocr_days_total.value)
+    };
+
+    try {
+        const response = await apiCall(`/api/quotas/user/${userId}`, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+        if (!response.ok) throw new Error(pt('saveFailed'));
+        showToast(pt('quotaSaved'), 'success');
+        closeModal();
+        navigateToPage('admin-quotas');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
 // ============================================
 // ADMIN SICK NOTES
 // ============================================
 
 async function renderAdminSickNotes(container) {
     const year = new Date().getFullYear();
-    const [notesRes, employeesRes] = await Promise.all([
-        apiCall(`/api/sick-notes/all?year=${year}`),
-        apiCall(`/api/admin/employees?year=${year}`)
-    ]);
+    const notesRes = await apiCall(`/api/sick-notes/all?year=${year}`);
     const notes = (await notesRes.json()).data || [];
-    const employees = (await employeesRes.json()).data || [];
-
-    // Filter employees who have quotas initialized
-    const employeesWithQuotas = employees.filter(e =>
-        e.paragraph_days_total !== null || e.ocr_days_total !== null
-    );
 
     container.innerHTML = `
         <div class="page-header">
             <div><h1>${pt('allSickNotesTitle')}</h1><p>${pt('allSickNotesDesc')}</p></div>
         </div>
         <div class="page-body">
-            <!-- Employee Quotas Section -->
-            <div class="portal-card" style="margin-bottom: 1.5rem;">
-                <div class="card-header">
-                    <h3>${pt('employeeQuotasSection')}</h3>
-                    <p style="color: var(--gray-500); font-size: 0.875rem; margin-top: 0.25rem;">${pt('employeeQuotasSectionDesc')}</p>
-                </div>
-                <div class="card-body" style="overflow-x:auto;">
-                    ${employeesWithQuotas.length > 0 ? `
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>${pt('colEmployeeName')}</th>
-                                    <th>${pt('colParagraphTotal')}</th>
-                                    <th>${pt('colParagraphUsed')}</th>
-                                    <th>${pt('colParagraphRemaining')}</th>
-                                    <th>${pt('colOcrTotal')}</th>
-                                    <th>${pt('colOcrUsed')}</th>
-                                    <th>${pt('colOcrRemaining')}</th>
-                                    <th>${pt('colActions')}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${employeesWithQuotas.map(e => {
-                                    const parTotal = e.paragraph_days_total || 7;
-                                    const parUsed = e.paragraph_days_used || 0;
-                                    const parRemaining = parTotal - parUsed;
-                                    const ocrTotal = e.ocr_days_total || 7;
-                                    const ocrUsed = e.ocr_days_used || 0;
-                                    const ocrRemaining = ocrTotal - ocrUsed;
-                                    return `
-                                    <tr>
-                                        <td><strong>${escapeHtml(e.name)}</strong><br><small style="color:var(--gray-500)">${escapeHtml(e.email)}</small></td>
-                                        <td>${parTotal}</td>
-                                        <td>${parUsed}</td>
-                                        <td><strong style="color:${parRemaining <= 1 ? 'var(--red-500)' : 'var(--green-600)'}">${parRemaining}</strong></td>
-                                        <td>${ocrTotal}</td>
-                                        <td>${ocrUsed}</td>
-                                        <td><strong style="color:${ocrRemaining <= 1 ? 'var(--red-500)' : 'var(--green-600)'}">${ocrRemaining}</strong></td>
-                                        <td>
-                                            <button class="btn-icon primary" onclick="editParagraphOcrQuota('${e.id}', '${escapeHtml(e.name)}', ${e.vacation_days_total || 20}, ${e.sick_days_total || 5}, ${parTotal}, ${ocrTotal})" title="${pt('editParagraphQuotaTitle')}">&#9999;</button>
-                                        </td>
-                                    </tr>`;
-                                }).join('')}
-                            </tbody>
-                        </table>
-                    ` : `<div class="empty-state"><div class="empty-icon">&#128101;</div><div class="empty-text">${pt('noSickNotes')}</div></div>`}
-                </div>
-            </div>
-
-            <!-- Documents Section -->
             <div class="portal-card">
                 <div class="card-header">
                     <h3>${pt('documentsSection')}</h3>
@@ -1476,54 +1470,6 @@ async function renderAdminSickNotes(container) {
     `;
 }
 
-// Edit Paragraph and OCR quotas from admin-sick-notes page
-async function editParagraphOcrQuota(userId, name, vacTotal, sickTotal, paragraphTotal, ocrTotal) {
-    const year = new Date().getFullYear();
-    document.getElementById('modalTitle').textContent = `${pt('editParagraphQuotaTitle')} - ${name}`;
-    document.getElementById('modalBody').innerHTML = `
-        <form id="paragraphOcrQuotaForm" data-vac-total="${vacTotal}" data-sick-total="${sickTotal}">
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">${pt('quotaFieldParagraph')}</label>
-                    <input type="number" class="form-input" name="paragraph_days_total" value="${paragraphTotal || 7}" min="0" max="30">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">${pt('quotaFieldOcr')}</label>
-                    <input type="number" class="form-input" name="ocr_days_total" value="${ocrTotal || 7}" min="0" max="30">
-                </div>
-            </div>
-        </form>
-    `;
-    document.getElementById('modalFooter').innerHTML = `
-        <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
-        <button class="btn btn-primary" onclick="saveParagraphOcrQuota('${userId}', ${year})">${pt('save')}</button>
-    `;
-    openModal();
-}
-
-async function saveParagraphOcrQuota(userId, year) {
-    const form = document.getElementById('paragraphOcrQuotaForm');
-    const data = {
-        year,
-        vacation_days_total: parseInt(form.dataset.vacTotal),
-        sick_days_total: parseInt(form.dataset.sickTotal),
-        paragraph_days_total: parseInt(form.paragraph_days_total.value),
-        ocr_days_total: parseInt(form.ocr_days_total.value)
-    };
-
-    try {
-        const response = await apiCall(`/api/quotas/user/${userId}`, {
-            method: 'PUT',
-            body: JSON.stringify(data)
-        });
-        if (!response.ok) throw new Error(pt('saveFailed'));
-        showToast(pt('quotaSaved'), 'success');
-        closeModal();
-        navigateToPage('admin-sick-notes');
-    } catch (error) {
-        showToast(error.message, 'error');
-    }
-}
 
 // ============================================
 // ADMIN ALL TICKETS
