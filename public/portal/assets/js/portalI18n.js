@@ -295,6 +295,12 @@ const portalTranslations = {
     colDocType: 'Typ dokladu',
     colEmployeeName: 'Zamestnanec',
     colDocument: 'Doklad',
+    employeeQuotasSection: 'Kvóty zamestnancov',
+    employeeQuotasSectionDesc: 'Prehľad a úprava zostávajúcich dní paragrafov a OČR',
+    colParagraphRemaining: 'Paragraf zostatok',
+    colOcrRemaining: 'OČR zostatok',
+    editParagraphQuotaTitle: 'Upraviť kvóty paragrafov a OČR',
+    documentsSection: 'Doklady',
 
     // Admin Tickets
     allTicketsTitle: 'Všetky tikety',
@@ -627,6 +633,12 @@ const portalTranslations = {
     colDocType: 'Document type',
     colEmployeeName: 'Employee',
     colDocument: 'Document',
+    employeeQuotasSection: 'Employee Quotas',
+    employeeQuotasSectionDesc: 'View and edit remaining paragraph and FMC days',
+    colParagraphRemaining: 'Paragraph remaining',
+    colOcrRemaining: 'FMC remaining',
+    editParagraphQuotaTitle: 'Edit Paragraph and FMC Quotas',
+    documentsSection: 'Documents',
 
     // Admin Tickets
     allTicketsTitle: 'All Tickets',
