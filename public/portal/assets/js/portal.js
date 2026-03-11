@@ -1098,7 +1098,16 @@ async function renderAdminEmployees(container) {
                                         <div class="table-actions">
                                             <button class="btn-icon" onclick="toggleEmployeeVisibility('${e.id}', ${e.hidden})" title="${e.hidden ? pt('showUserTitle') : pt('hideUserTitle')}">${e.hidden ? '&#128065;' : '&#128683;'}</button>
                                             <button class="btn-icon" onclick="toggleEmployeeRole('${e.id}', '${e.role}')" title="${pt('changeRoleTitle')}">${e.role === 'admin' ? '&#128100;' : '&#128081;'}</button>
-                                            <button class="btn-icon primary" onclick="editEmployeeQuota('${e.id}', '${escapeHtml(e.name)}', ${e.vacation_days_total || 20}, ${e.sick_days_total || 5}, ${e.paragraph_days_total || 7}, ${e.ocr_days_total || 7})" title="${pt('editQuotaTitle')}">&#9999;</button>
+                                            <button class="btn-icon primary" onclick="editEmployeeQuota('${e.id}', '${escapeHtml(e.name)}', ${JSON.stringify({
+                                                vacation_total: e.vacation_days_total || 20,
+                                                vacation_used: e.vacation_days_used || 0,
+                                                paragraph_total: e.paragraph_days_total || 7,
+                                                paragraph_used: e.paragraph_days_used || 0,
+                                                ocr_total: e.ocr_days_total || 7,
+                                                ocr_used: e.ocr_days_used || 0,
+                                                sick_total: e.sick_days_total || 5,
+                                                sick_used: e.sick_days_used || 0
+                                            }).replace(/"/g, '&quot;')})" title="${pt('editQuotaTitle')}">&#9999;</button>
                                         </div>
                                     </td>
                                 </tr>
@@ -1145,25 +1154,72 @@ async function toggleEmployeeRole(userId, currentRole) {
     }
 }
 
-async function editEmployeeQuota(userId, name, vacTotal, sickTotal, paragraphTotal, ocrTotal) {
+async function editEmployeeQuota(userId, name, quotaDataStr) {
     const year = new Date().getFullYear();
+    const q = typeof quotaDataStr === 'string' ? JSON.parse(quotaDataStr) : quotaDataStr;
+
+    // Calculate remainings
+    const vacRemaining = q.vacation_total - q.vacation_used;
+    const paragraphRemaining = q.paragraph_total - q.paragraph_used;
+    const ocrRemaining = q.ocr_total - q.ocr_used;
+
     document.getElementById('modalTitle').textContent = `${pt('quotaModalTitle')} - ${name}`;
     document.getElementById('modalBody').innerHTML = `
-        <form id="quotaForm" data-sick-total="${sickTotal}">
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">${pt('quotaFieldVacation')}</label>
-                    <input type="number" class="form-input" name="vacation_days_total" value="${vacTotal}" min="0" max="50">
+        <form id="quotaForm" data-sick-total="${q.sick_total}" data-sick-used="${q.sick_used}">
+            <!-- Dovolenka -->
+            <div class="quota-section">
+                <h4 style="margin: 0 0 10px 0; color: var(--primary-500);">&#127796; ${pt('quotaFieldVacation')}</h4>
+                <div class="form-row" style="gap: 10px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label">${pt('quotaEntitlement') || 'Nárok'}</label>
+                        <input type="number" class="form-input" name="vacation_days_total" value="${q.vacation_total}" min="0" max="50" onchange="updateQuotaRemaining('vacation')">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label">${pt('quotaUsed') || 'Vyčerpané'}</label>
+                        <input type="number" class="form-input" name="vacation_days_used" value="${q.vacation_used}" min="0" max="50" step="0.5" onchange="updateQuotaRemaining('vacation')">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label">${pt('quotaRemaining') || 'Zostatok'}</label>
+                        <input type="number" class="form-input" name="vacation_remaining" value="${vacRemaining}" readonly style="background: var(--gray-100); font-weight: bold; color: ${vacRemaining >= 0 ? 'var(--success-500)' : 'var(--error-500)'}">
+                    </div>
                 </div>
             </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">${pt('quotaFieldParagraph')}</label>
-                    <input type="number" class="form-input" name="paragraph_days_total" value="${paragraphTotal || 7}" min="0" max="30">
+
+            <!-- Paragraf -->
+            <div class="quota-section" style="margin-top: 15px;">
+                <h4 style="margin: 0 0 10px 0; color: var(--warning-500);">&#167; ${pt('quotaFieldParagraph')}</h4>
+                <div class="form-row" style="gap: 10px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label">${pt('quotaEntitlement') || 'Nárok'}</label>
+                        <input type="number" class="form-input" name="paragraph_days_total" value="${q.paragraph_total}" min="0" max="30" onchange="updateQuotaRemaining('paragraph')">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label">${pt('quotaUsed') || 'Vyčerpané'}</label>
+                        <input type="number" class="form-input" name="paragraph_days_used" value="${q.paragraph_used}" min="0" max="30" step="0.5" onchange="updateQuotaRemaining('paragraph')">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label">${pt('quotaRemaining') || 'Zostatok'}</label>
+                        <input type="number" class="form-input" name="paragraph_remaining" value="${paragraphRemaining}" readonly style="background: var(--gray-100); font-weight: bold; color: ${paragraphRemaining >= 0 ? 'var(--success-500)' : 'var(--error-500)'}">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">${pt('quotaFieldOcr')}</label>
-                    <input type="number" class="form-input" name="ocr_days_total" value="${ocrTotal || 7}" min="0" max="30">
+            </div>
+
+            <!-- OČR -->
+            <div class="quota-section" style="margin-top: 15px;">
+                <h4 style="margin: 0 0 10px 0; color: var(--info-500);">&#128118; ${pt('quotaFieldOcr')}</h4>
+                <div class="form-row" style="gap: 10px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label">${pt('quotaEntitlement') || 'Nárok'}</label>
+                        <input type="number" class="form-input" name="ocr_days_total" value="${q.ocr_total}" min="0" max="30" onchange="updateQuotaRemaining('ocr')">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label">${pt('quotaUsed') || 'Vyčerpané'}</label>
+                        <input type="number" class="form-input" name="ocr_days_used" value="${q.ocr_used}" min="0" max="30" step="0.5" onchange="updateQuotaRemaining('ocr')">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label">${pt('quotaRemaining') || 'Zostatok'}</label>
+                        <input type="number" class="form-input" name="ocr_remaining" value="${ocrRemaining}" readonly style="background: var(--gray-100); font-weight: bold; color: ${ocrRemaining >= 0 ? 'var(--success-500)' : 'var(--error-500)'}">
+                    </div>
                 </div>
             </div>
         </form>
@@ -1175,14 +1231,28 @@ async function editEmployeeQuota(userId, name, vacTotal, sickTotal, paragraphTot
     openModal();
 }
 
+function updateQuotaRemaining(type) {
+    const form = document.getElementById('quotaForm');
+    const total = parseFloat(form[`${type}_days_total`].value) || 0;
+    const used = parseFloat(form[`${type}_days_used`].value) || 0;
+    const remaining = total - used;
+    const remainingField = form[`${type}_remaining`];
+    remainingField.value = remaining;
+    remainingField.style.color = remaining >= 0 ? 'var(--success-500)' : 'var(--error-500)';
+}
+
 async function saveEmployeeQuota(userId, year) {
     const form = document.getElementById('quotaForm');
     const data = {
         year,
-        vacation_days_total: parseInt(form.vacation_days_total.value),
-        sick_days_total: parseInt(form.dataset.sickTotal),
-        paragraph_days_total: parseInt(form.paragraph_days_total.value),
-        ocr_days_total: parseInt(form.ocr_days_total.value)
+        vacation_days_total: parseFloat(form.vacation_days_total.value),
+        vacation_days_used: parseFloat(form.vacation_days_used.value),
+        sick_days_total: parseFloat(form.dataset.sickTotal),
+        sick_days_used: parseFloat(form.dataset.sickUsed || 0),
+        paragraph_days_total: parseFloat(form.paragraph_days_total.value),
+        paragraph_days_used: parseFloat(form.paragraph_days_used.value),
+        ocr_days_total: parseFloat(form.ocr_days_total.value),
+        ocr_days_used: parseFloat(form.ocr_days_used.value)
     };
 
     try {

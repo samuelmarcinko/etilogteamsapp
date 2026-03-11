@@ -93,23 +93,49 @@ class QuotaController {
   /**
    * Update user quota (admin)
    * PUT /api/quotas/user/:userId
+   * Supports both totals and used values for manual adjustments
    */
   static async updateUserQuota(req, res, next) {
     try {
       const { userId } = req.params;
-      const { vacation_days_total, sick_days_total, paragraph_days_total, ocr_days_total } = req.body;
+      const {
+        vacation_days_total, vacation_days_used,
+        sick_days_total, sick_days_used,
+        paragraph_days_total, paragraph_days_used,
+        ocr_days_total, ocr_days_used
+      } = req.body;
       const year = parseInt(req.body.year) || new Date().getFullYear();
 
       // Ensure quota exists first
       await Quota.getOrCreate(userId, year);
 
-      const updated = await Quota.updateTotals(
-        userId, year,
-        vacation_days_total,
-        sick_days_total,
-        paragraph_days_total,
-        ocr_days_total
-      );
+      // Use the new full update method if used values are provided
+      const hasUsedValues = vacation_days_used !== undefined ||
+                            paragraph_days_used !== undefined ||
+                            ocr_days_used !== undefined ||
+                            sick_days_used !== undefined;
+
+      let updated;
+      if (hasUsedValues) {
+        updated = await Quota.updateQuotaFull(userId, year, {
+          vacation_days_total,
+          vacation_days_used,
+          paragraph_days_total,
+          paragraph_days_used,
+          ocr_days_total,
+          ocr_days_used,
+          sick_days_total,
+          sick_days_used
+        });
+      } else {
+        updated = await Quota.updateTotals(
+          userId, year,
+          vacation_days_total,
+          sick_days_total,
+          paragraph_days_total,
+          ocr_days_total
+        );
+      }
 
       res.json({
         success: true,

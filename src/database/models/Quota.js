@@ -89,6 +89,39 @@ class Quota {
   }
 
   /**
+   * Update quota totals AND used values (admin) - for manual adjustments
+   */
+  static async updateQuotaFull(userId, year, data) {
+    const result = await pool.query(
+      `UPDATE employee_quotas
+       SET vacation_days_total = COALESCE($1, vacation_days_total),
+           vacation_days_used = COALESCE($2, vacation_days_used),
+           paragraph_days_total = COALESCE($3, paragraph_days_total),
+           paragraph_days_used = COALESCE($4, paragraph_days_used),
+           ocr_days_total = COALESCE($5, ocr_days_total),
+           ocr_days_used = COALESCE($6, ocr_days_used),
+           sick_days_total = COALESCE($7, sick_days_total),
+           sick_days_used = COALESCE($8, sick_days_used),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE user_id = $9 AND year = $10
+       RETURNING *`,
+      [
+        data.vacation_days_total,
+        data.vacation_days_used,
+        data.paragraph_days_total,
+        data.paragraph_days_used,
+        data.ocr_days_total,
+        data.ocr_days_used,
+        data.sick_days_total,
+        data.sick_days_used,
+        userId,
+        year
+      ]
+    );
+    return result.rows[0];
+  }
+
+  /**
    * Add used days (when ticket is approved)
    */
   static async addUsedDays(userId, year, type, days) {
