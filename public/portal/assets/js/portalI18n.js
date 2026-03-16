@@ -256,10 +256,12 @@ const portalTranslations = {
 
     // Admin Quota Modal
     quotaModalTitle: 'Kvóty',
-    quotaFieldVacation: 'Dovolenka (dni)',
+    quotaFieldVacation: 'Dovolenka',
     quotaFieldSickDays: 'Zdravotné voľno (dni)',
-    quotaFieldParagraph: 'Paragraf (dni)',
-    quotaFieldOcr: 'OČR (dni)',
+    quotaFieldParagraph: 'Paragraf',
+    quotaFieldOcr: 'OČR',
+    quotaNarok: 'Nárok',
+    quotaZostatok: 'Zostatok',
     quotaSaved: 'Kvóta uložená',
     quotasInitialized: 'Inicializované pre',
     quotasInitConfirm: 'Inicializovať kvóty pre všetkých zamestnancov na rok',
@@ -596,10 +598,12 @@ const portalTranslations = {
 
     // Admin Quota Modal
     quotaModalTitle: 'Quotas',
-    quotaFieldVacation: 'Vacation (days)',
+    quotaFieldVacation: 'Vacation',
     quotaFieldSickDays: 'Sick leave (days)',
-    quotaFieldParagraph: 'Paragraph (days)',
-    quotaFieldOcr: 'FMC (days)',
+    quotaFieldParagraph: 'Paragraph',
+    quotaFieldOcr: 'FMC',
+    quotaNarok: 'Entitlement',
+    quotaZostatok: 'Balance',
     quotaSaved: 'Quota saved',
     quotasInitialized: 'Initialized for',
     quotasInitConfirm: 'Initialize quotas for all employees for year',

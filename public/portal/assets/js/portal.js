@@ -1229,7 +1229,7 @@ async function renderAdminQuotas(container) {
                                     <td>${q.ocr_days_total || 7}</td>
                                     <td>${q.ocr_days_used || 0}</td>
                                     <td><strong style="color:${q.ocr_days_remaining <= 1 ? 'var(--red-500)' : 'var(--green-600)'}">${q.ocr_days_remaining}</strong></td>
-                                    <td><button class="btn-icon primary" onclick="editUserQuotas('${q.user_id}', '${escapeHtml(q.display_name || '')}', ${q.vacation_days_total}, ${q.paragraph_days_total || 7}, ${q.ocr_days_total || 7})" title="${pt('editQuota')}">&#9999;</button></td>
+                                    <td><button class="btn-icon primary" onclick="editUserQuotas('${q.user_id}', '${escapeHtml(q.display_name || '')}', ${q.vacation_days_total}, ${q.vacation_days_remaining}, ${q.paragraph_days_total || 7}, ${q.paragraph_days_remaining}, ${q.ocr_days_total || 7}, ${q.ocr_days_remaining})" title="${pt('editQuota')}">&#9999;</button></td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -1317,23 +1317,48 @@ async function saveQuotaSettings() {
 }
 
 // Edit individual user quotas
-async function editUserQuotas(userId, userName, vacTotal, paragraphTotal, ocrTotal) {
+async function editUserQuotas(userId, userName, vacTotal, vacRemaining, paragraphTotal, paragraphRemaining, ocrTotal, ocrRemaining) {
     const year = new Date().getFullYear();
     document.getElementById('modalTitle').textContent = `${pt('editQuota')} - ${userName}`;
     document.getElementById('modalBody').innerHTML = `
         <form id="userQuotaForm">
             <div class="form-group">
-                <label class="form-label">${pt('quotaFieldVacation')}</label>
-                <input type="number" class="form-input" name="vacation_days_total" value="${vacTotal}" min="0" max="50">
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">${pt('quotaFieldParagraph')}</label>
-                    <input type="number" class="form-input" name="paragraph_days_total" value="${paragraphTotal}" min="0" max="30">
+                <label class="form-label" style="font-weight:600;margin-bottom:8px;">${pt('quotaFieldVacation')}</label>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">${pt('quotaNarok')}</label>
+                        <input type="number" class="form-input" name="vacation_days_total" value="${vacTotal}" min="0" max="50">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">${pt('quotaZostatok')}</label>
+                        <input type="number" class="form-input" name="vacation_days_remaining" value="${vacRemaining}" min="0" max="50" step="0.5">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">${pt('quotaFieldOcr')}</label>
-                    <input type="number" class="form-input" name="ocr_days_total" value="${ocrTotal}" min="0" max="30">
+            </div>
+            <div class="form-group">
+                <label class="form-label" style="font-weight:600;margin-bottom:8px;">${pt('quotaFieldParagraph')}</label>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">${pt('quotaNarok')}</label>
+                        <input type="number" class="form-input" name="paragraph_days_total" value="${paragraphTotal}" min="0" max="30">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">${pt('quotaZostatok')}</label>
+                        <input type="number" class="form-input" name="paragraph_days_remaining" value="${paragraphRemaining}" min="0" max="30" step="0.5">
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label" style="font-weight:600;margin-bottom:8px;">${pt('quotaFieldOcr')}</label>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">${pt('quotaNarok')}</label>
+                        <input type="number" class="form-input" name="ocr_days_total" value="${ocrTotal}" min="0" max="30">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">${pt('quotaZostatok')}</label>
+                        <input type="number" class="form-input" name="ocr_days_remaining" value="${ocrRemaining}" min="0" max="30" step="0.5">
+                    </div>
                 </div>
             </div>
         </form>
@@ -1347,11 +1372,23 @@ async function editUserQuotas(userId, userName, vacTotal, paragraphTotal, ocrTot
 
 async function saveUserQuotas(userId, year) {
     const form = document.getElementById('userQuotaForm');
+
+    const vacTotal = parseFloat(form.vacation_days_total.value);
+    const vacRemaining = parseFloat(form.vacation_days_remaining.value);
+    const paragraphTotal = parseFloat(form.paragraph_days_total.value);
+    const paragraphRemaining = parseFloat(form.paragraph_days_remaining.value);
+    const ocrTotal = parseFloat(form.ocr_days_total.value);
+    const ocrRemaining = parseFloat(form.ocr_days_remaining.value);
+
+    // Calculate used values: used = total - remaining
     const data = {
         year,
-        vacation_days_total: parseInt(form.vacation_days_total.value),
-        paragraph_days_total: parseInt(form.paragraph_days_total.value),
-        ocr_days_total: parseInt(form.ocr_days_total.value)
+        vacation_days_total: vacTotal,
+        vacation_days_used: vacTotal - vacRemaining,
+        paragraph_days_total: paragraphTotal,
+        paragraph_days_used: paragraphTotal - paragraphRemaining,
+        ocr_days_total: ocrTotal,
+        ocr_days_used: ocrTotal - ocrRemaining
     };
 
     try {
