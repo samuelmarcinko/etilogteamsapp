@@ -28,6 +28,9 @@ CREATE TABLE IF NOT EXISTS tickets (
     assigned_approver_email VARCHAR(255),
     conversation_id VARCHAR(255),
     activity_id VARCHAR(255),
+    start_date DATE,
+    end_date DATE,
+    is_half_day BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_status CHECK (status IN ('Pending', 'Approved', 'Rejected')),
@@ -54,6 +57,9 @@ CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
 CREATE INDEX IF NOT EXISTS idx_tickets_created_by ON tickets(created_by_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_assigned_to ON tickets(assigned_approver_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_created_at ON tickets(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_tickets_start_date ON tickets(start_date) WHERE start_date IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_tickets_end_date ON tickets(end_date) WHERE end_date IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_tickets_is_half_day ON tickets(is_half_day) WHERE is_half_day = TRUE;
 CREATE INDEX IF NOT EXISTS idx_ticket_actions_ticket_id ON ticket_actions(ticket_id);
 CREATE INDEX IF NOT EXISTS idx_ticket_actions_timestamp ON ticket_actions(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_users_user_id ON users(user_id);
