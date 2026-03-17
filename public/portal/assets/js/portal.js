@@ -658,20 +658,24 @@ function applyMyRequestsFilter() {
 
 // Open new request modal
 async function openNewRequestModal() {
-    // Load ticket types and users for approver dropdown
+    // Load ticket types, users, and quota for the form
     let users = [];
+    let quota = null;
     window._loadedTicketTypes = [];
     try {
-        const [typesRes, usersRes] = await Promise.all([
+        const [typesRes, usersRes, quotaRes] = await Promise.all([
             apiCall('/api/ticket-types/active'),
-            apiCall('/api/admin/employees')
+            apiCall('/api/admin/employees'),
+            apiCall('/api/quotas/me')
         ]);
         window._loadedTicketTypes = (await typesRes.json()).data || [];
         users = (await usersRes.json()).data || [];
+        quota = (await quotaRes.json()).data;
     } catch (e) {
         console.error('Error loading form data:', e);
     }
 
+    window._currentQuota = quota;
     const ticketTypes = window._loadedTicketTypes;
     const lang = localStorage.getItem('etilog_portal_lang') || 'sk';
     const typeOptions = ticketTypes.map(t => {
@@ -717,11 +721,25 @@ async function openNewRequestModal() {
             <div class="form-row" id="requestDatesRow" style="display:none;">
                 <div class="form-group">
                     <label class="form-label">${pt('reqFieldStartDate')}</label>
-                    <input type="date" class="form-input" name="start_date">
+                    <input type="date" class="form-input" name="start_date" onchange="updateWorkingDaysInfo()">
                 </div>
                 <div class="form-group">
                     <label class="form-label">${pt('reqFieldEndDate')}</label>
-                    <input type="date" class="form-input" name="end_date">
+                    <input type="date" class="form-input" name="end_date" onchange="updateWorkingDaysInfo()">
+                </div>
+            </div>
+            <div id="vacationQuotaInfoBox" class="quota-info-box" style="display:none; background: #d1fae5; border: 1px solid #10b981; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                    <div>
+                        <span style="font-weight: 600; color: #065f46;">${pt('vacationRemaining')}:</span>
+                        <span id="quotaRemainingValue" style="font-weight: 700; color: #065f46;">${quota ? quota.vacation_days_remaining : '-'} ${pt('days')}</span>
+                    </div>
+                    <div id="selectedDaysInfo" style="display: none;">
+                        <span style="font-weight: 600; color: #065f46;">${pt('selectedDays')}:</span>
+                        <span id="selectedDaysValue" style="font-weight: 700; color: #065f46;">0 ${pt('days')}</span>
+                    </div>
+                </div>
+                <div id="quotaWarning" style="display: none; margin-top: 8px; padding: 8px; background: #fef3c7; border-radius: 4px; color: #92400e; font-size: 13px;">
                 </div>
             </div>
             <div class="form-group">
@@ -748,11 +766,78 @@ async function openNewRequestModal() {
 // Toggle date fields based on ticket type
 function toggleRequestDates(type) {
     const row = document.getElementById('requestDatesRow');
+    const quotaBox = document.getElementById('vacationQuotaInfoBox');
     if (row) {
         const types = window._loadedTicketTypes || [];
         const matched = types.find(t => t.key === type);
         const showDates = matched ? matched.requires_dates : false;
         row.style.display = showDates ? 'grid' : 'none';
+
+        // Show quota info box only for vacation type
+        if (quotaBox) {
+            const isVacation = type === 'vacation';
+            quotaBox.style.display = (showDates && isVacation) ? 'block' : 'none';
+            // Reset selected days info when type changes
+            const selectedDaysInfo = document.getElementById('selectedDaysInfo');
+            if (selectedDaysInfo) selectedDaysInfo.style.display = 'none';
+        }
+    }
+}
+
+// Update working days info when dates change
+async function updateWorkingDaysInfo() {
+    const form = document.getElementById('newRequestForm');
+    if (!form) return;
+
+    const startDate = form.start_date?.value;
+    const endDate = form.end_date?.value;
+    const ticketType = form.ticket_type?.value;
+
+    const selectedDaysInfo = document.getElementById('selectedDaysInfo');
+    const selectedDaysValue = document.getElementById('selectedDaysValue');
+    const quotaWarning = document.getElementById('quotaWarning');
+
+    // Only show for vacation type with both dates
+    if (ticketType !== 'vacation' || !startDate || !endDate) {
+        if (selectedDaysInfo) selectedDaysInfo.style.display = 'none';
+        if (quotaWarning) quotaWarning.style.display = 'none';
+        return;
+    }
+
+    // Validate date range
+    if (new Date(startDate) > new Date(endDate)) {
+        if (selectedDaysInfo) selectedDaysInfo.style.display = 'none';
+        if (quotaWarning) {
+            quotaWarning.style.display = 'block';
+            quotaWarning.textContent = pt('dateRangeError');
+        }
+        return;
+    }
+
+    try {
+        const response = await apiCall(`/api/quotas/working-days?start_date=${startDate}&end_date=${endDate}`);
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            const workingDays = result.data.working_days;
+            const quota = window._currentQuota;
+            const remaining = quota ? quota.vacation_days_remaining : 0;
+
+            if (selectedDaysInfo) selectedDaysInfo.style.display = 'block';
+            if (selectedDaysValue) selectedDaysValue.textContent = `${workingDays} ${pt('days')}`;
+
+            // Show warning if not enough days
+            if (quotaWarning) {
+                if (workingDays > remaining) {
+                    quotaWarning.style.display = 'block';
+                    quotaWarning.innerHTML = `<strong>&#9888;</strong> ${pt('notEnoughDaysWarning').replace('{selected}', workingDays).replace('{remaining}', remaining)}`;
+                } else {
+                    quotaWarning.style.display = 'none';
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Error fetching working days:', e);
     }
 }
 
