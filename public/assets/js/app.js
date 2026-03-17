@@ -81,9 +81,12 @@ async function updateSelectedDaysInfo() {
     const selectedDaysInline = document.getElementById('selectedDaysInline');
     const selectedDaysValue = document.getElementById('selectedDaysValue');
 
+    console.log('[updateSelectedDaysInfo] called', { startDate, endDate, ticketType, banner: !!banner, selectedDaysInline: !!selectedDaysInline });
+
     // Only for quota types with dates
     const quotaTypes = ['vacation', 'sick-leave', 'paragraph', 'ocr'];
     if (!banner || !quotaTypes.includes(ticketType) || !startDate || !endDate) {
+        console.log('[updateSelectedDaysInfo] early return - missing data', { banner: !!banner, quotaTypesIncludes: quotaTypes.includes(ticketType), startDate, endDate });
         selectedWorkingDays = 0;
         hasEnoughDays = true;
         if (selectedDaysInline) selectedDaysInline.style.display = 'none';
@@ -133,10 +136,14 @@ async function updateSelectedDaysInfo() {
             hasEnoughDays = selectedWorkingDays <= remainingDays;
 
             // Update inline selected days display
+            console.log('[updateSelectedDaysInfo] API success', { selectedWorkingDays, hasEnoughDays, selectedDaysInline: !!selectedDaysInline, selectedDaysValue: !!selectedDaysValue });
             if (selectedDaysInline && selectedDaysValue) {
                 selectedDaysInline.style.display = 'inline-flex';
                 selectedDaysValue.textContent = `${selectedWorkingDays} ${t('quotaInfoDays')}`;
                 selectedDaysValue.style.color = hasEnoughDays ? '#0d6efd' : '#dc3545';
+                console.log('[updateSelectedDaysInfo] updated display', { display: selectedDaysInline.style.display, text: selectedDaysValue.textContent });
+            } else {
+                console.warn('[updateSelectedDaysInfo] missing elements!', { selectedDaysInline: !!selectedDaysInline, selectedDaysValue: !!selectedDaysValue });
             }
 
             // Show/hide warning
