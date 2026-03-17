@@ -212,10 +212,7 @@ async function renderDashboard(container) {
                     <div class="quota-bar-container">
                         <div class="quota-bar-label">
                             <span>${pt('vacation')}</span>
-                            <span>${quota ? parseFloat(quota.vacation_days_used) : 0} / ${quota ? quota.vacation_days_total : 20} ${pt('days')}</span>
-                        </div>
-                        <div class="quota-bar">
-                            <div class="quota-bar-fill ${vacUsedPct > 90 ? 'red' : vacUsedPct > 70 ? 'amber' : 'green'}" style="width: ${Math.min(vacUsedPct, 100)}%"></div>
+                            <span><strong>${quota ? quota.vacation_days_remaining : '-'} ${pt('days')}</strong> ${pt('quotaRemaining')}</span>
                         </div>
                     </div>
                     <div class="quota-bar-container">
@@ -295,12 +292,7 @@ async function renderMyQuotas(container) {
                 <div class="quota-details">
                     <div class="quota-type">${pt('vacation')}</div>
                     <div class="quota-numbers">
-                        <span>${pt('quotaTotal')}: <strong>${quota ? quota.vacation_days_total : '-'} ${pt('days')}</strong></span>
-                        <span>${pt('quotaUsed')}: <strong>${quota ? parseFloat(quota.vacation_days_used) : 0} ${pt('days')}</strong></span>
                         <span>${pt('quotaRemaining')}: <strong>${quota ? quota.vacation_days_remaining : '-'} ${pt('days')}</strong></span>
-                    </div>
-                    <div class="quota-bar" style="margin-top: 0.75rem;">
-                        <div class="quota-bar-fill ${vacUsedPct > 90 ? 'red' : vacUsedPct > 70 ? 'amber' : 'green'}" style="width: ${Math.min(vacUsedPct, 100)}%"></div>
                     </div>
                 </div>
             </div>
@@ -1324,15 +1316,9 @@ async function editUserQuotas(userId, userName, vacTotal, vacRemaining, paragrap
         <form id="userQuotaForm">
             <div class="form-group">
                 <label class="form-label" style="font-weight:600;margin-bottom:8px;">${pt('quotaFieldVacation')}</label>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">${pt('quotaNarok')}</label>
-                        <input type="number" class="form-input" name="vacation_days_total" value="${vacTotal}" min="0" max="50" step="0.5">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">${pt('quotaZostatok')}</label>
-                        <input type="number" class="form-input" name="vacation_days_remaining" value="${vacRemaining}" min="0" max="50" step="0.5">
-                    </div>
+                <div class="form-group">
+                    <label class="form-label">${pt('quotaZostatok')}</label>
+                    <input type="number" class="form-input" name="vacation_days_remaining" value="${vacRemaining}" min="0" max="100" step="0.5">
                 </div>
             </div>
             <div class="form-group">
@@ -1340,11 +1326,11 @@ async function editUserQuotas(userId, userName, vacTotal, vacRemaining, paragrap
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">${pt('quotaNarok')}</label>
-                        <input type="number" class="form-input" name="paragraph_days_total" value="${paragraphTotal}" min="0" max="30" step="0.5">
+                        <input type="number" class="form-input" name="paragraph_days_total" value="${paragraphTotal}" min="0" max="30" step="0.01">
                     </div>
                     <div class="form-group">
                         <label class="form-label">${pt('quotaZostatok')}</label>
-                        <input type="number" class="form-input" name="paragraph_days_remaining" value="${paragraphRemaining}" min="0" max="30" step="0.5">
+                        <input type="number" class="form-input" name="paragraph_days_remaining" value="${paragraphRemaining}" min="0" max="30" step="0.01">
                     </div>
                 </div>
             </div>
@@ -1353,11 +1339,11 @@ async function editUserQuotas(userId, userName, vacTotal, vacRemaining, paragrap
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">${pt('quotaNarok')}</label>
-                        <input type="number" class="form-input" name="ocr_days_total" value="${ocrTotal}" min="0" max="30" step="0.5">
+                        <input type="number" class="form-input" name="ocr_days_total" value="${ocrTotal}" min="0" max="30" step="0.01">
                     </div>
                     <div class="form-group">
                         <label class="form-label">${pt('quotaZostatok')}</label>
-                        <input type="number" class="form-input" name="ocr_days_remaining" value="${ocrRemaining}" min="0" max="30" step="0.5">
+                        <input type="number" class="form-input" name="ocr_days_remaining" value="${ocrRemaining}" min="0" max="30" step="0.01">
                     </div>
                 </div>
             </div>
@@ -1373,18 +1359,17 @@ async function editUserQuotas(userId, userName, vacTotal, vacRemaining, paragrap
 async function saveUserQuotas(userId, year) {
     const form = document.getElementById('userQuotaForm');
 
-    const vacTotal = parseFloat(form.vacation_days_total.value);
     const vacRemaining = parseFloat(form.vacation_days_remaining.value);
     const paragraphTotal = parseFloat(form.paragraph_days_total.value);
     const paragraphRemaining = parseFloat(form.paragraph_days_remaining.value);
     const ocrTotal = parseFloat(form.ocr_days_total.value);
     const ocrRemaining = parseFloat(form.ocr_days_remaining.value);
 
-    // Calculate used values: used = total - remaining
+    // Vacation: only remaining is stored (no total/used)
+    // Paragraph & OCR: calculate used from total - remaining
     const data = {
         year,
-        vacation_days_total: vacTotal,
-        vacation_days_used: vacTotal - vacRemaining,
+        vacation_days_remaining: vacRemaining,
         paragraph_days_total: paragraphTotal,
         paragraph_days_used: paragraphTotal - paragraphRemaining,
         ocr_days_total: ocrTotal,

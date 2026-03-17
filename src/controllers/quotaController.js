@@ -99,7 +99,7 @@ class QuotaController {
     try {
       const { userId } = req.params;
       const {
-        vacation_days_total, vacation_days_used,
+        vacation_days_total, vacation_days_used, vacation_days_remaining,
         sick_days_total, sick_days_used,
         paragraph_days_total, paragraph_days_used,
         ocr_days_total, ocr_days_used
@@ -109,8 +109,16 @@ class QuotaController {
       // Ensure quota exists first
       await Quota.getOrCreate(userId, year);
 
+      // For vacation: if only remaining is provided, set total = remaining, used = 0
+      let vacTotal = vacation_days_total;
+      let vacUsed = vacation_days_used;
+      if (vacation_days_remaining !== undefined && vacation_days_total === undefined) {
+        vacTotal = vacation_days_remaining;
+        vacUsed = 0;
+      }
+
       // Use the new full update method if used values are provided
-      const hasUsedValues = vacation_days_used !== undefined ||
+      const hasUsedValues = vacUsed !== undefined ||
                             paragraph_days_used !== undefined ||
                             ocr_days_used !== undefined ||
                             sick_days_used !== undefined;
@@ -118,8 +126,8 @@ class QuotaController {
       let updated;
       if (hasUsedValues) {
         updated = await Quota.updateQuotaFull(userId, year, {
-          vacation_days_total,
-          vacation_days_used,
+          vacation_days_total: vacTotal,
+          vacation_days_used: vacUsed,
           paragraph_days_total,
           paragraph_days_used,
           ocr_days_total,
@@ -130,7 +138,7 @@ class QuotaController {
       } else {
         updated = await Quota.updateTotals(
           userId, year,
-          vacation_days_total,
+          vacTotal,
           sick_days_total,
           paragraph_days_total,
           ocr_days_total

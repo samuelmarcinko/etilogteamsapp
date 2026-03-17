@@ -119,23 +119,14 @@ function renderOverviewCards(data) {
     const quota = data.quota;
     const holidays = data.nextHolidays || [];
 
-    // Vacation card
+    // Vacation card - only show remaining balance, no progress bar
     const vacCard = document.getElementById('vacationCard');
     vacCard.classList.remove('loading');
     if (quota) {
         const vacRemaining = quota.vacation_days_remaining;
-        const vacTotal = quota.vacation_days_total;
-        const vacUsedPct = Math.round((quota.vacation_days_used / vacTotal) * 100);
-        const barClass = vacUsedPct > 90 ? 'bar-red' : vacUsedPct > 70 ? 'bar-amber' : 'bar-green';
-
         document.getElementById('vacationRemaining').textContent = `${vacRemaining} ${t('dashDays')}`;
-        document.getElementById('vacationDetail').textContent = `${quota.vacation_days_used} / ${vacTotal} ${t('dashUsed')}`;
-        const vacBar = document.getElementById('vacationBar');
-        vacBar.className = `overview-bar-fill ${barClass}`;
-        vacBar.style.width = `${Math.min(vacUsedPct, 100)}%`;
     } else {
         document.getElementById('vacationRemaining').textContent = '-';
-        document.getElementById('vacationDetail').textContent = t('dashNoQuota');
     }
 
     // Paragraph card
