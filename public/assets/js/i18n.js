@@ -235,6 +235,11 @@ const translations = {
     halfDayHalfDay: 'Half day (0.5)',
     halfDayHelperText: 'Select if you want to request only half a day off',
 
+    // Selected days validation
+    selectedDays: 'Selected working days',
+    notEnoughDaysWarning: 'Not enough days! You selected {selected} days, but only {remaining} days remaining.',
+    dateRangeError: 'Start date must be before end date',
+
     // Required field
     required: '*'
   },
@@ -472,6 +477,11 @@ const translations = {
     halfDayFullDay: 'Celý deň',
     halfDayHalfDay: 'Pol dňa (0,5)',
     halfDayHelperText: 'Vyberte ak chcete požiadať iba o pol dňa voľna',
+
+    // Selected days validation
+    selectedDays: 'Vybrané pracovné dni',
+    notEnoughDaysWarning: 'Nedostatok dní! Vybrali ste {selected} dní, ale zostáva vám len {remaining} dní.',
+    dateRangeError: 'Dátum od musí byť pred dátumom do',
 
     // Required field
     required: '*'

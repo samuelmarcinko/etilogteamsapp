@@ -39,6 +39,10 @@ function toggleDateFields() {
     checkHalfDayToggle();
 }
 
+// Track selected working days for validation
+let selectedWorkingDays = 0;
+let hasEnoughDays = true;
+
 // Check if half-day toggle should be shown (when start date = end date)
 function checkHalfDayToggle() {
     const startDate = document.getElementById('startDate')?.value;
@@ -59,6 +63,101 @@ function checkHalfDayToggle() {
         halfDayContainer.style.display = 'none';
         // Reset to full day when hiding
         setHalfDay(false);
+    }
+
+    // Update selected days info
+    updateSelectedDaysInfo();
+}
+
+// Calculate and display selected working days
+async function updateSelectedDaysInfo() {
+    const startDate = document.getElementById('startDate')?.value;
+    const endDate = document.getElementById('endDate')?.value;
+    const ticketType = document.getElementById('ticketType')?.value;
+    const banner = document.getElementById('quotaInfoBanner');
+    const submitBtn = document.getElementById('submitBtn');
+    const isHalfDay = document.getElementById('isHalfDay')?.value === 'true';
+
+    // Only for quota types with dates
+    const quotaTypes = ['vacation', 'sick-leave', 'paragraph', 'ocr'];
+    if (!banner || !quotaTypes.includes(ticketType) || !startDate || !endDate) {
+        selectedWorkingDays = 0;
+        hasEnoughDays = true;
+        return;
+    }
+
+    // Validate date range
+    if (new Date(startDate) > new Date(endDate)) {
+        banner.innerHTML += `
+            <div class="quota-info-error" style="margin-top: 8px; color: #dc3545; font-weight: 500;">
+                ${t('dateRangeError')}
+            </div>
+        `;
+        hasEnoughDays = false;
+        submitBtn.disabled = true;
+        return;
+    }
+
+    // Fetch working days from API
+    try {
+        const res = await fetch(`/api/teams/working-days?startDate=${startDate}&endDate=${endDate}`);
+        if (res.ok) {
+            const result = await res.json();
+            selectedWorkingDays = result.data?.workingDays || 0;
+
+            // If half-day is selected and single day, use 0.5
+            if (isHalfDay && startDate === endDate) {
+                selectedWorkingDays = 0.5;
+            }
+
+            // Get remaining days from cached quota
+            let remainingDays = 0;
+            if (userQuotaData) {
+                const quotaMap = {
+                    'vacation': 'vacation_days_remaining',
+                    'sick-leave': 'sick_days_remaining',
+                    'paragraph': 'paragraph_days_remaining',
+                    'ocr': 'ocr_days_remaining'
+                };
+                remainingDays = userQuotaData[quotaMap[ticketType]] || 0;
+            }
+
+            hasEnoughDays = selectedWorkingDays <= remainingDays;
+
+            // Update banner with selected days info
+            const selectedDaysHtml = `
+                <div class="quota-info-selected" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(0,0,0,0.1);">
+                    <span style="font-weight: 500;">${t('selectedDays')}:</span>
+                    <span style="font-weight: 700; color: ${hasEnoughDays ? '#0d6efd' : '#dc3545'};">${selectedWorkingDays} ${t('quotaInfoDays')}</span>
+                </div>
+            `;
+
+            // Add warning if not enough days
+            let warningHtml = '';
+            if (!hasEnoughDays) {
+                const warningMsg = t('notEnoughDaysWarning')
+                    .replace('{selected}', selectedWorkingDays)
+                    .replace('{remaining}', remainingDays);
+                warningHtml = `
+                    <div class="quota-info-warning" style="margin-top: 8px; padding: 8px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; color: #856404;">
+                        <strong>&#9888;</strong> ${warningMsg}
+                    </div>
+                `;
+            }
+
+            // Append to existing banner content
+            const existingContent = banner.querySelector('.quota-info-main');
+            if (existingContent) {
+                // Remove old selected days info if exists
+                banner.querySelectorAll('.quota-info-selected, .quota-info-warning, .quota-info-error').forEach(el => el.remove());
+                banner.innerHTML += selectedDaysHtml + warningHtml;
+            }
+
+            // Enable/disable submit button
+            submitBtn.disabled = !hasEnoughDays;
+        }
+    } catch (e) {
+        console.warn('Could not calculate working days:', e);
     }
 }
 
@@ -81,6 +180,9 @@ function setHalfDay(isHalfDay) {
             halfDayBtn.classList.remove('active');
         }
     }
+
+    // Recalculate selected days when half-day changes
+    updateSelectedDaysInfo();
 }
 
 // Load and display quota info banner
@@ -139,6 +241,8 @@ async function updateQuotaInfoBanner(ticketType) {
                 <span class="quota-info-value">${remaining} ${t('quotaInfoDays')} ${t('quotaInfoRemaining')}</span>
             </div>
         `;
+        // Update selected days info if dates are already set
+        updateSelectedDaysInfo();
     } else {
         // Paragraph, OCR: show progress bar and used/total (with 2 decimal places)
         banner.innerHTML = `
@@ -151,6 +255,8 @@ async function updateQuotaInfoBanner(ticketType) {
             </div>
             <span class="quota-info-detail">${Number(used).toFixed(2)} ${t('quotaInfoOf')} ${total} ${t('quotaInfoDays')}</span>
         `;
+        // Update selected days info if dates are already set
+        updateSelectedDaysInfo();
     }
 }
 
@@ -288,6 +394,12 @@ async function loadApprovers() {
 // Handle form submission
 document.getElementById('approvalForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+
+    // Check if user has enough days for quota types
+    if (!hasEnoughDays) {
+        showToast(t('notEnoughDaysWarning').replace('{selected}', selectedWorkingDays).replace('{remaining}', '0'), 'error');
+        return;
+    }
 
     const submitBtn = document.getElementById('submitBtn');
     const btnText = document.getElementById('btnText');

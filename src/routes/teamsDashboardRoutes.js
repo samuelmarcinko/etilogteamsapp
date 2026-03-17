@@ -7,6 +7,31 @@ const pool = require('../database/config');
  * Uses userId from query params (from Teams SDK context)
  */
 
+// GET /api/teams/working-days?startDate=xxx&endDate=yyy
+// Calculate working days between two dates (excludes weekends and holidays)
+router.get('/working-days', async (req, res) => {
+  const { startDate, endDate } = req.query;
+
+  if (!startDate || !endDate) {
+    return res.status(400).json({ error: 'startDate and endDate are required' });
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT COUNT(*) as working_days
+       FROM generate_series($1::date, $2::date, '1 day') d
+       WHERE EXTRACT(DOW FROM d) NOT IN (0, 6)
+         AND d NOT IN (SELECT date FROM holidays WHERE date >= $1 AND date <= $2)`,
+      [startDate, endDate]
+    );
+    const workingDays = parseInt(result.rows[0].working_days) || 0;
+    res.json({ data: { workingDays } });
+  } catch (e) {
+    console.error('Working days calculation failed:', e.message);
+    res.status(500).json({ error: 'Failed to calculate working days' });
+  }
+});
+
 // GET /api/teams/dashboard?userId=xxx
 router.get('/', async (req, res) => {
   const userId = req.query.userId;
