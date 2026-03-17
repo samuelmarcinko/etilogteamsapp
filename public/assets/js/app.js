@@ -140,16 +140,16 @@ async function updateQuotaInfoBanner(ticketType) {
             </div>
         `;
     } else {
-        // Paragraph, OCR: show progress bar and used/total
+        // Paragraph, OCR: show progress bar and used/total (with 2 decimal places)
         banner.innerHTML = `
             <div class="quota-info-main">
                 <span class="quota-info-label">${label}</span>
-                <span class="quota-info-value">${remaining} ${t('quotaInfoDays')} ${t('quotaInfoRemaining')}</span>
+                <span class="quota-info-value">${Number(remaining).toFixed(2)} ${t('quotaInfoDays')} ${t('quotaInfoRemaining')}</span>
             </div>
             <div class="quota-info-bar-track">
                 <div class="quota-info-bar-fill" style="width:${total > 0 ? ((total - remaining) / total * 100) : 0}%"></div>
             </div>
-            <span class="quota-info-detail">${used} ${t('quotaInfoOf')} ${total} ${t('quotaInfoDays')}</span>
+            <span class="quota-info-detail">${Number(used).toFixed(2)} ${t('quotaInfoOf')} ${total} ${t('quotaInfoDays')}</span>
         `;
     }
 }
