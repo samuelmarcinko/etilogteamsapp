@@ -77,24 +77,32 @@ async function updateSelectedDaysInfo() {
     const banner = document.getElementById('quotaInfoBanner');
     const submitBtn = document.getElementById('submitBtn');
     const isHalfDay = document.getElementById('isHalfDay')?.value === 'true';
+    const warningContainer = document.getElementById('quotaWarningContainer');
+    const selectedDaysInline = document.getElementById('selectedDaysInline');
+    const selectedDaysValue = document.getElementById('selectedDaysValue');
 
     // Only for quota types with dates
     const quotaTypes = ['vacation', 'sick-leave', 'paragraph', 'ocr'];
     if (!banner || !quotaTypes.includes(ticketType) || !startDate || !endDate) {
         selectedWorkingDays = 0;
         hasEnoughDays = true;
+        if (selectedDaysInline) selectedDaysInline.style.display = 'none';
+        if (warningContainer) warningContainer.innerHTML = '';
+        if (submitBtn) submitBtn.disabled = false;
         return;
     }
 
     // Validate date range
     if (new Date(startDate) > new Date(endDate)) {
-        banner.innerHTML += `
-            <div class="quota-info-error" style="margin-top: 8px; color: #dc3545; font-weight: 500;">
-                ${t('dateRangeError')}
-            </div>
-        `;
+        if (warningContainer) {
+            warningContainer.innerHTML = `
+                <div class="quota-warning-bar quota-warning-error">
+                    <strong>&#9888;</strong> ${t('dateRangeError')}
+                </div>
+            `;
+        }
         hasEnoughDays = false;
-        submitBtn.disabled = true;
+        if (submitBtn) submitBtn.disabled = true;
         return;
     }
 
@@ -124,37 +132,31 @@ async function updateSelectedDaysInfo() {
 
             hasEnoughDays = selectedWorkingDays <= remainingDays;
 
-            // Update banner with selected days info
-            const selectedDaysHtml = `
-                <div class="quota-info-selected" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(0,0,0,0.1);">
-                    <span style="font-weight: 500;">${t('selectedDays')}:</span>
-                    <span style="font-weight: 700; color: ${hasEnoughDays ? '#0d6efd' : '#dc3545'};">${selectedWorkingDays} ${t('quotaInfoDays')}</span>
-                </div>
-            `;
-
-            // Add warning if not enough days
-            let warningHtml = '';
-            if (!hasEnoughDays) {
-                const warningMsg = t('notEnoughDaysWarning')
-                    .replace('{selected}', selectedWorkingDays)
-                    .replace('{remaining}', remainingDays);
-                warningHtml = `
-                    <div class="quota-info-warning" style="margin-top: 8px; padding: 8px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; color: #856404;">
-                        <strong>&#9888;</strong> ${warningMsg}
-                    </div>
-                `;
+            // Update inline selected days display
+            if (selectedDaysInline && selectedDaysValue) {
+                selectedDaysInline.style.display = 'inline-flex';
+                selectedDaysValue.textContent = `${selectedWorkingDays} ${t('quotaInfoDays')}`;
+                selectedDaysValue.style.color = hasEnoughDays ? '#0d6efd' : '#dc3545';
             }
 
-            // Append to existing banner content
-            const existingContent = banner.querySelector('.quota-info-main');
-            if (existingContent) {
-                // Remove old selected days info if exists
-                banner.querySelectorAll('.quota-info-selected, .quota-info-warning, .quota-info-error').forEach(el => el.remove());
-                banner.innerHTML += selectedDaysHtml + warningHtml;
+            // Show/hide warning
+            if (warningContainer) {
+                if (!hasEnoughDays) {
+                    const warningMsg = t('notEnoughDaysWarning')
+                        .replace('{selected}', selectedWorkingDays)
+                        .replace('{remaining}', remainingDays);
+                    warningContainer.innerHTML = `
+                        <div class="quota-warning-bar">
+                            <strong>&#9888;</strong> ${warningMsg}
+                        </div>
+                    `;
+                } else {
+                    warningContainer.innerHTML = '';
+                }
             }
 
             // Enable/disable submit button
-            submitBtn.disabled = !hasEnoughDays;
+            if (submitBtn) submitBtn.disabled = !hasEnoughDays;
         }
     } catch (e) {
         console.warn('Could not calculate working days:', e);
@@ -233,13 +235,20 @@ async function updateQuotaInfoBanner(ticketType) {
     banner.style.display = 'block';
     banner.className = `quota-info-banner ${colorClass}`;
 
-    // Vacation: only show remaining balance, no progress bar
+    // Vacation: show remaining balance with placeholder for selected days
     if (ticketType === 'vacation') {
         banner.innerHTML = `
             <div class="quota-info-main">
-                <span class="quota-info-label">${label}</span>
-                <span class="quota-info-value">${remaining} ${t('quotaInfoDays')} ${t('quotaInfoRemaining')}</span>
+                <span class="quota-info-inline">
+                    <span class="quota-info-label">${label}:</span>
+                    <span class="quota-info-value">${remaining} ${t('quotaInfoDays')}</span>
+                </span>
+                <span class="quota-info-inline quota-info-selected-inline" id="selectedDaysInline" style="display:none;">
+                    <span class="quota-info-label">${t('selectedDays')}:</span>
+                    <span class="quota-info-value" id="selectedDaysValue">0 ${t('quotaInfoDays')}</span>
+                </span>
             </div>
+            <div id="quotaWarningContainer"></div>
         `;
         // Update selected days info if dates are already set
         updateSelectedDaysInfo();
