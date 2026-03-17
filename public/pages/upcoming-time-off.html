@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Team Calendar - ETILOG Approval System</title>
-    <link rel="stylesheet" href="/assets/css/style.css?v=20260206a">
+    <link rel="stylesheet" href="/assets/css/style.css?v=20260317a">
     <script src="https://res.cdn.office.net/teams-js/2.19.0/js/MicrosoftTeams.min.js"></script>
-    <script src="/assets/js/i18n.js?v=20260206a"></script>
-    <script src="/assets/js/navigation.js?v=20260206a"></script>
+    <script src="/assets/js/i18n.js?v=20260317a"></script>
+    <script src="/assets/js/navigation.js?v=20260317a"></script>
 </head>
 <body data-page="upcoming-time-off">
     <div class="container">
@@ -17,122 +17,229 @@
             <img src="/assets/images/logo.png" alt="ETILOG Logo" class="logo">
             <div class="header-content">
                 <h1 data-i18n="teamCalendarTitle">Team Calendar</h1>
-                <p data-i18n="teamCalendarSubtitle">See who's off today and upcoming days</p>
+                <p data-i18n="teamCalendarSubtitle">See who's off in selected date range</p>
+            </div>
+        </div>
+
+        <!-- Date Range Filter -->
+        <div class="card date-filter-card">
+            <div class="date-filter-row">
+                <div class="date-filter-inputs">
+                    <div class="date-input-group">
+                        <label for="dateFrom" data-i18n="calendarDateFrom">From</label>
+                        <input type="date" id="dateFrom" class="date-input">
+                    </div>
+                    <div class="date-input-group">
+                        <label for="dateTo" data-i18n="calendarDateTo">To</label>
+                        <input type="date" id="dateTo" class="date-input">
+                    </div>
+                    <button id="applyFilterBtn" class="apply-filter-btn" data-i18n="calendarApplyFilter">Apply</button>
+                </div>
+                <div class="quick-filters">
+                    <button class="quick-filter-btn" data-range="today" data-i18n="calendarQuickToday">Today</button>
+                    <button class="quick-filter-btn" data-range="week" data-i18n="calendarQuickWeek">This week</button>
+                    <button class="quick-filter-btn active" data-range="month" data-i18n="calendarQuickMonth">This month</button>
+                </div>
             </div>
         </div>
 
         <div class="card">
-            <!-- Today Section -->
-            <div class="calendar-section">
-                <h2 class="calendar-day-heading" data-i18n="calendarToday">
-                    <span class="calendar-icon">📅</span> Today
-                </h2>
-                <div id="todayList" class="calendar-list">
-                    <div class="loading-spinner">
-                        <div class="loading"></div>
-                        <p data-i18n="loadingCalendar">Loading calendar...</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tomorrow Section -->
-            <div class="calendar-section">
-                <h2 class="calendar-day-heading" data-i18n="calendarTomorrow">
-                    <span class="calendar-icon">📅</span> Tomorrow
-                </h2>
-                <div id="tomorrowList" class="calendar-list">
-                    <div class="loading-spinner">
-                        <div class="loading"></div>
-                        <p data-i18n="loadingCalendar">Loading calendar...</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Day After Tomorrow Section -->
-            <div class="calendar-section">
-                <h2 class="calendar-day-heading" data-i18n="calendarDayAfter">
-                    <span class="calendar-icon">📅</span> Day After Tomorrow
-                </h2>
-                <div id="dayAfterList" class="calendar-list">
-                    <div class="loading-spinner">
-                        <div class="loading"></div>
-                        <p data-i18n="loadingCalendar">Loading calendar...</p>
-                    </div>
+            <!-- Calendar Results -->
+            <div id="calendarResults">
+                <div class="loading-spinner">
+                    <div class="loading"></div>
+                    <p data-i18n="loadingCalendar">Loading calendar...</p>
                 </div>
             </div>
         </div>
     </div>
 
     <style>
-        .calendar-section {
-            margin-bottom: 2.5rem;
+        .date-filter-card {
+            margin-bottom: 1rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .date-filter-row {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .date-filter-inputs {
+            display: flex;
+            align-items: flex-end;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .date-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .date-input-group label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .date-input {
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            min-width: 140px;
+            background: #fff;
+            color: #1f2937;
+        }
+
+        .date-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .apply-filter-btn {
+            padding: 0.5rem 1.25rem;
+            background: #3b82f6;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            height: 38px;
+        }
+
+        .apply-filter-btn:hover {
+            background: #2563eb;
+        }
+
+        .quick-filters {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .quick-filter-btn {
+            padding: 0.4rem 0.75rem;
+            background: #f3f4f6;
+            color: #4b5563;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .quick-filter-btn:hover {
+            background: #e5e7eb;
+            color: #1f2937;
+        }
+
+        .quick-filter-btn.active {
+            background: #1f2937;
+            color: #fff;
+            border-color: #1f2937;
+        }
+
+        /* Calendar day section */
+        .calendar-day-section {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .calendar-day-section:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
         }
 
         .calendar-day-heading {
-            font-size: 1.25rem;
+            font-size: 1.1rem;
             font-weight: 600;
             color: #1f2937;
             margin-bottom: 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 2px solid #e5e7eb;
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
 
-        .calendar-icon {
-            font-size: 1.5rem;
+        .calendar-day-heading .day-date {
+            color: #6b7280;
+            font-weight: 400;
+            font-size: 0.9rem;
+        }
+
+        .calendar-day-heading .day-badge {
+            background: #dbeafe;
+            color: #1d4ed8;
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .calendar-day-heading .day-badge.today {
+            background: #dcfce7;
+            color: #15803d;
         }
 
         .calendar-list {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 1rem;
-            margin-top: 1rem;
+            gap: 0.75rem;
         }
 
         .calendar-empty {
-            grid-column: 1 / -1;
             text-align: center;
-            padding: 2rem;
+            padding: 1.5rem;
             background: #f9fafb;
             border-radius: 8px;
             color: #6b7280;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
         }
 
         .person-card {
             background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
             border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 1.25rem;
+            border-radius: 10px;
+            padding: 1rem;
             transition: all 0.2s ease;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
         }
 
         .person-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
             border-color: #d1d5db;
         }
 
         .person-card.vacation {
-            border-left: 4px solid #3b82f6;
+            border-left: 3px solid #3b82f6;
         }
 
         .person-card.sick-leave {
-            border-left: 4px solid #f59e0b;
+            border-left: 3px solid #f59e0b;
         }
 
         .person-header {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
-            margin-bottom: 0.75rem;
+            gap: 0.6rem;
+            margin-bottom: 0.5rem;
         }
 
         .person-icon {
-            font-size: 2rem;
+            font-size: 1.5rem;
             flex-shrink: 0;
         }
 
@@ -142,7 +249,7 @@
         }
 
         .person-name {
-            font-size: 1rem;
+            font-size: 0.95rem;
             font-weight: 600;
             color: #1f2937;
             margin: 0;
@@ -152,9 +259,9 @@
         }
 
         .person-email {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             color: #9ca3af;
-            margin: 0.25rem 0 0 0;
+            margin: 0.15rem 0 0 0;
             text-transform: lowercase;
             white-space: nowrap;
             overflow: hidden;
@@ -163,22 +270,22 @@
 
         .person-type-badge {
             display: inline-block;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             color: #6b7280;
             background: #f3f4f6;
-            padding: 0.25rem 0.5rem;
+            padding: 0.2rem 0.4rem;
             border-radius: 4px;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.4rem;
         }
 
         .person-dates {
-            font-size: 0.875rem;
+            font-size: 0.8rem;
             color: #4b5563;
-            padding-top: 0.75rem;
+            padding-top: 0.5rem;
             border-top: 1px solid #e5e7eb;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.4rem;
         }
 
         .person-dates strong {
@@ -186,17 +293,55 @@
         }
 
         .ticket-id-small {
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             color: #9ca3af;
-            margin-top: 0.5rem;
+            margin-top: 0.4rem;
             text-align: right;
+        }
+
+        .no-results-message {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #6b7280;
+        }
+
+        .no-results-message .icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .no-results-message p {
+            font-size: 1rem;
+            margin: 0;
+        }
+
+        @media (max-width: 480px) {
+            .date-filter-inputs {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .date-input-group {
+                width: 100%;
+            }
+
+            .date-input {
+                width: 100%;
+                min-width: unset;
+            }
+
+            .apply-filter-btn {
+                width: 100%;
+            }
         }
     </style>
 
     <script>
         let allApprovedTimeOff = [];
+        let currentDateFrom = null;
+        let currentDateTo = null;
 
-        // Helper function to format date
+        // Format date for display
         function formatDate(dateString) {
             if (!dateString) return '';
             const date = new Date(dateString);
@@ -208,13 +353,25 @@
             });
         }
 
-        // Helper function to check if date is in range
-        function isDateInRange(startDate, endDate, targetDate) {
-            const start = new Date(startDate);
-            const end = new Date(endDate);
+        // Format date for day heading
+        function formatDayHeading(date) {
+            const lang = getCurrentLang();
+            const options = { weekday: 'long', day: 'numeric', month: 'long' };
+            return date.toLocaleDateString(lang === 'sk' ? 'sk-SK' : 'en-US', options);
+        }
+
+        // Check if date is today
+        function isToday(date) {
+            const today = new Date();
+            return date.toDateString() === today.toDateString();
+        }
+
+        // Check if person is off on specific date
+        function isPersonOffOnDate(ticket, targetDate) {
+            const start = new Date(ticket.start_date);
+            const end = new Date(ticket.end_date);
             const target = new Date(targetDate);
 
-            // Set time to midnight for accurate comparison
             start.setHours(0, 0, 0, 0);
             end.setHours(0, 0, 0, 0);
             target.setHours(0, 0, 0, 0);
@@ -222,24 +379,27 @@
             return target >= start && target <= end;
         }
 
-        // Get date objects for today, tomorrow, day after
-        function getDates() {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+        // Get array of dates between from and to
+        function getDateRange(fromDate, toDate) {
+            const dates = [];
+            const current = new Date(fromDate);
+            const end = new Date(toDate);
 
-            const tomorrow = new Date(today);
-            tomorrow.setDate(tomorrow.getDate() + 1);
+            current.setHours(0, 0, 0, 0);
+            end.setHours(0, 0, 0, 0);
 
-            const dayAfter = new Date(today);
-            dayAfter.setDate(dayAfter.getDate() + 2);
+            while (current <= end) {
+                dates.push(new Date(current));
+                current.setDate(current.getDate() + 1);
+            }
 
-            return { today, tomorrow, dayAfter };
+            return dates;
         }
 
         // Render person card
         function renderPersonCard(ticket) {
             const typeClass = ticket.ticket_type === 'vacation' ? 'vacation' : 'sick-leave';
-            const icon = ticket.ticket_type === 'vacation' ? '🏖️' : '🤒';
+            const icon = ticket.ticket_type === 'vacation' ? '&#127796;' : '&#129298;';
             const typeLabel = ticket.ticket_type === 'vacation' ? t('typeVacation') : t('typeSickLeave');
 
             return `
@@ -253,45 +413,146 @@
                     </div>
                     <div class="person-type-badge">${typeLabel}</div>
                     <div class="person-dates">
-                        <strong>📅</strong> ${formatDate(ticket.start_date)} → ${formatDate(ticket.end_date)}
+                        <strong>&#128197;</strong> ${formatDate(ticket.start_date)} &rarr; ${formatDate(ticket.end_date)}
                     </div>
                     <div class="ticket-id-small">${ticket.ticket_id}</div>
                 </div>
             `;
         }
 
-        // Render calendar for a specific day
-        function renderDayCalendar(containerId, targetDate, dayName) {
-            const container = document.getElementById(containerId);
+        // Render calendar grouped by day
+        function renderCalendar() {
+            const container = document.getElementById('calendarResults');
 
-            // Filter tickets for this specific day
-            const peopleOff = allApprovedTimeOff.filter(ticket =>
-                isDateInRange(ticket.start_date, ticket.end_date, targetDate)
-            );
-
-            if (peopleOff.length === 0) {
+            if (!currentDateFrom || !currentDateTo) {
                 container.innerHTML = `
-                    <div class="calendar-empty">
-                        <p>✅ ${t('calendarNoOneOff')}</p>
+                    <div class="no-results-message">
+                        <div class="icon">&#128197;</div>
+                        <p>${t('calendarDateFrom')} / ${t('calendarDateTo')}</p>
                     </div>
                 `;
-            } else {
-                container.innerHTML = peopleOff.map(ticket => renderPersonCard(ticket)).join('');
+                return;
             }
+
+            const dateRange = getDateRange(currentDateFrom, currentDateTo);
+            let hasAnyResults = false;
+            let html = '';
+
+            for (const date of dateRange) {
+                const peopleOff = allApprovedTimeOff.filter(ticket => isPersonOffOnDate(ticket, date));
+
+                if (peopleOff.length > 0) {
+                    hasAnyResults = true;
+                    const todayBadge = isToday(date) ? `<span class="day-badge today">${t('calendarToday')}</span>` : '';
+
+                    html += `
+                        <div class="calendar-day-section">
+                            <h2 class="calendar-day-heading">
+                                &#128197; ${formatDayHeading(date)}
+                                ${todayBadge}
+                                <span class="day-date">(${peopleOff.length})</span>
+                            </h2>
+                            <div class="calendar-list">
+                                ${peopleOff.map(ticket => renderPersonCard(ticket)).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            if (!hasAnyResults) {
+                html = `
+                    <div class="no-results-message">
+                        <div class="icon">&#9989;</div>
+                        <p>${t('calendarNoOneOff')}</p>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
         }
 
-        // Render all calendars
-        function renderAllCalendars() {
-            const { today, tomorrow, dayAfter } = getDates();
+        // Set date range and render
+        function setDateRange(fromDate, toDate) {
+            currentDateFrom = fromDate;
+            currentDateTo = toDate;
 
-            renderDayCalendar('todayList', today, 'today');
-            renderDayCalendar('tomorrowList', tomorrow, 'tomorrow');
-            renderDayCalendar('dayAfterList', dayAfter, 'dayAfter');
+            document.getElementById('dateFrom').value = fromDate.toISOString().split('T')[0];
+            document.getElementById('dateTo').value = toDate.toISOString().split('T')[0];
+
+            renderCalendar();
         }
 
-        // Load approved time-off requests
+        // Quick filter handlers
+        function setQuickFilter(range) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            let fromDate, toDate;
+
+            switch (range) {
+                case 'today':
+                    fromDate = new Date(today);
+                    toDate = new Date(today);
+                    break;
+                case 'week':
+                    fromDate = new Date(today);
+                    const dayOfWeek = today.getDay();
+                    const daysUntilSunday = 7 - dayOfWeek;
+                    toDate = new Date(today);
+                    toDate.setDate(toDate.getDate() + daysUntilSunday);
+                    break;
+                case 'month':
+                default:
+                    fromDate = new Date(today);
+                    toDate = new Date(today.getFullYear(), today.getMonth() + 1, 0); // Last day of month
+                    break;
+            }
+
+            // Update active button
+            document.querySelectorAll('.quick-filter-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.range === range);
+            });
+
+            setDateRange(fromDate, toDate);
+        }
+
+        // Initialize
         (async function() {
             await microsoftTeams.app.initialize();
+
+            // Set up event listeners
+            document.getElementById('applyFilterBtn').addEventListener('click', () => {
+                const fromValue = document.getElementById('dateFrom').value;
+                const toValue = document.getElementById('dateTo').value;
+
+                if (fromValue && toValue) {
+                    currentDateFrom = new Date(fromValue);
+                    currentDateTo = new Date(toValue);
+
+                    // Clear quick filter active state
+                    document.querySelectorAll('.quick-filter-btn').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+
+                    renderCalendar();
+                }
+            });
+
+            document.querySelectorAll('.quick-filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    setQuickFilter(btn.dataset.range);
+                });
+            });
+
+            // Enter key on date inputs
+            document.querySelectorAll('.date-input').forEach(input => {
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        document.getElementById('applyFilterBtn').click();
+                    }
+                });
+            });
 
             try {
                 // Fetch all approved vacation and sick-leave tickets
@@ -306,22 +567,32 @@
                     ticket.end_date
                 );
 
-                renderAllCalendars();
+                // Default: show this month
+                setQuickFilter('month');
+
             } catch (error) {
                 console.error('Error loading time-off calendar:', error);
-                document.getElementById('todayList').innerHTML = `
-                    <div class="error-message">
+                document.getElementById('calendarResults').innerHTML = `
+                    <div class="no-results-message">
+                        <div class="icon">&#10060;</div>
                         <p>${t('errorLoadingCalendar')}</p>
                     </div>
                 `;
             }
         })();
 
-        // Override switchLanguage to re-render with new translations
+        // Re-render on language switch
         const originalSwitchLanguage = window.switchLanguage;
         window.switchLanguage = function(lang) {
             originalSwitchLanguage(lang);
-            renderAllCalendars();
+            renderCalendar();
+            // Update quick filter button texts
+            document.querySelectorAll('.quick-filter-btn').forEach(btn => {
+                const key = 'calendarQuick' + btn.dataset.range.charAt(0).toUpperCase() + btn.dataset.range.slice(1);
+                if (translations[lang][key]) {
+                    btn.textContent = translations[lang][key];
+                }
+            });
         };
     </script>
 </body>

@@ -178,13 +178,19 @@ const translations = {
 
     // Team Calendar
     teamCalendarTitle: 'Team Calendar',
-    teamCalendarSubtitle: "See who's off today and upcoming days",
+    teamCalendarSubtitle: "See who's off in selected date range",
     calendarToday: 'Today',
     calendarTomorrow: 'Tomorrow',
     calendarDayAfter: 'Day After Tomorrow',
     calendarNoOneOff: 'No one is off',
     loadingCalendar: 'Loading calendar...',
     labelDate: 'Date',
+    calendarDateFrom: 'From',
+    calendarDateTo: 'To',
+    calendarApplyFilter: 'Apply',
+    calendarQuickToday: 'Today',
+    calendarQuickWeek: 'This week',
+    calendarQuickMonth: 'This month',
 
     // Sick Notes page (Paragraphs & FMC)
     sickNotesTitle: 'Paragraphs & FMC',
@@ -421,13 +427,19 @@ const translations = {
 
     // Team Calendar
     teamCalendarTitle: 'Teamový kalendár',
-    teamCalendarSubtitle: 'Pozrite si kto má voľno dnes a v nasledujúcich dňoch',
+    teamCalendarSubtitle: 'Pozrite si kto má voľno vo vybranom období',
     calendarToday: 'Dnes',
     calendarTomorrow: 'Zajtra',
     calendarDayAfter: 'Pozajtra',
     calendarNoOneOff: 'Nikto nemá voľno',
     loadingCalendar: 'Načítavam kalendár...',
     labelDate: 'Dátum',
+    calendarDateFrom: 'Od',
+    calendarDateTo: 'Do',
+    calendarApplyFilter: 'Zobraziť',
+    calendarQuickToday: 'Dnes',
+    calendarQuickWeek: 'Tento týždeň',
+    calendarQuickMonth: 'Tento mesiac',
 
     // Sick Notes page (Paragrafy & OČR)
     sickNotesTitle: 'Paragrafy & OČR',
