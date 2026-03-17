@@ -109,7 +109,7 @@ async function updateSelectedDaysInfo() {
 
     // Fetch working days from API
     try {
-        const res = await fetch(`/api/teams/working-days?startDate=${startDate}&endDate=${endDate}`);
+        const res = await fetch(`/api/teams/dashboard/working-days?startDate=${startDate}&endDate=${endDate}`);
         if (res.ok) {
             const result = await res.json();
             selectedWorkingDays = result.data?.workingDays || 0;
