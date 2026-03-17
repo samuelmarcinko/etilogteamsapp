@@ -48,8 +48,8 @@ function checkHalfDayToggle() {
 
     if (!halfDayContainer) return;
 
-    // Check if type supports half-day (vacation, paragraph, ocr, sick-leave)
-    const halfDayTypes = ['vacation', 'paragraph', 'ocr', 'sick-leave'];
+    // Check if type supports half-day (only vacation)
+    const halfDayTypes = ['vacation'];
     const supportsHalfDay = halfDayTypes.includes(ticketType);
 
     // Show toggle only if both dates are the same and type supports half-day
