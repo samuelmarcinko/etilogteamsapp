@@ -2,6 +2,7 @@ const Quota = require('../database/models/Quota');
 const Holiday = require('../database/models/Holiday');
 const GraphService = require('../services/graphService');
 const pool = require('../database/config');
+const logger = require('../utils/logger');
 
 class QuotaController {
   /**
@@ -227,7 +228,7 @@ class QuotaController {
           syncedCount++;
         }
       } catch (e) {
-        console.error('Failed to sync Graph users:', e.message);
+        logger.warn('Failed to sync Graph users', { error: e.message });
       }
 
       // Step 2: Initialize quotas for all users in DB

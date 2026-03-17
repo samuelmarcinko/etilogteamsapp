@@ -1,4 +1,5 @@
 const { Pool } = require('pg');
+const logger = require('../utils/logger');
 require('dotenv').config();
 
 const pool = new Pool({
@@ -13,7 +14,7 @@ const pool = new Pool({
 });
 
 pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
+  logger.error('Unexpected database pool error', { error: err.message });
   process.exit(-1);
 });
 

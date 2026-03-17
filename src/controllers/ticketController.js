@@ -1,6 +1,7 @@
 const TicketService = require('../services/ticketService');
 const NotificationService = require('../services/notificationService');
 const TicketAttachment = require('../database/models/TicketAttachment');
+const logger = require('../utils/logger');
 const fs = require('fs');
 const path = require('path');
 
@@ -63,7 +64,7 @@ class TicketController {
       // Send notification to approver (don't wait for it)
       if (ticket.assigned_approver_id) {
         NotificationService.notifyApproverNewTicket(ticket).catch(err => {
-          console.error('Failed to send notification to approver:', err);
+          logger.error('Failed to send notification to approver', { error: err.message });
         });
       }
 
@@ -150,7 +151,7 @@ class TicketController {
 
       // Send notification to creator (don't wait for it)
       NotificationService.notifyCreatorApproved(ticket, approver.name).catch(err => {
-        console.error('Failed to send notification to creator:', err);
+        logger.error('Failed to send approval notification to creator', { error: err.message });
       });
 
       res.json({
@@ -199,7 +200,7 @@ class TicketController {
 
       // Send notification to creator (don't wait for it)
       NotificationService.notifyCreatorRejected(ticket, rejector.name, rejectionReason || 'No reason provided').catch(err => {
-        console.error('Failed to send notification to creator:', err);
+        logger.error('Failed to send rejection notification to creator', { error: err.message });
       });
 
       res.json({
@@ -256,7 +257,7 @@ class TicketController {
       // If ticket was approved (quota was deducted), notify the approver via bot
       if (result.wasApproved && result.ticket.assigned_approver_id) {
         NotificationService.notifyApproverCancelled(result.ticket, canceller.name, cancellationReason.trim()).catch(err => {
-          console.error('Failed to send cancellation notification to approver:', err);
+          logger.error('Failed to send cancellation notification to approver', { error: err.message });
         });
       }
 

@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs');
+const logger = require('../utils/logger');
 
 /**
  * Upload configuration for file storage
@@ -28,7 +29,7 @@ function ensureUploadDirectories() {
   Object.values(UPLOAD_PATHS).forEach(dir => {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
-      console.log(`Created upload directory: ${dir}`);
+      logger.info('Created upload directory', { dir });
     }
   });
 }

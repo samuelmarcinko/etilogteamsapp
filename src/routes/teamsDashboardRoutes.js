@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../database/config');
+const logger = require('../utils/logger');
 
 /**
  * Teams-compatible dashboard API routes (no JWT auth)
@@ -27,7 +28,7 @@ router.get('/working-days', async (req, res) => {
     const workingDays = parseInt(result.rows[0].working_days) || 0;
     res.json({ data: { workingDays } });
   } catch (e) {
-    console.error('Working days calculation failed:', e.message);
+    logger.error('Working days calculation failed', { error: e.message });
     res.status(500).json({ error: 'Failed to calculate working days' });
   }
 });
@@ -70,7 +71,7 @@ router.get('/', async (req, res) => {
       };
     }
   } catch (e) {
-    console.error('Dashboard: quota query failed:', e.message);
+    logger.warn('Dashboard: quota query failed', { error: e.message, userId });
   }
 
   // 2. Get upcoming holidays
@@ -83,7 +84,7 @@ router.get('/', async (req, res) => {
     );
     holidays = result.rows;
   } catch (e) {
-    console.error('Dashboard: holidays query failed:', e.message);
+    logger.warn('Dashboard: holidays query failed', { error: e.message });
   }
 
   // 3. Get ticket stats
@@ -106,7 +107,7 @@ router.get('/', async (req, res) => {
       };
     }
   } catch (e) {
-    console.error('Dashboard: ticket stats query failed:', e.message);
+    logger.warn('Dashboard: ticket stats query failed', { error: e.message, userId });
   }
 
   res.json({

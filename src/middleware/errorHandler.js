@@ -1,8 +1,10 @@
+const logger = require('../utils/logger');
+
 /**
  * Global error handler middleware
  */
 function errorHandler(err, req, res, next) {
-  console.error('Error:', err);
+  logger.error('Request error', { error: err.message, path: req.path, method: req.method });
 
   // Default error response
   const statusCode = err.statusCode || 500;

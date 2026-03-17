@@ -1,6 +1,7 @@
 const { CardFactory, TurnContext } = require('botbuilder');
 const adapter = require('../bot/botAdapter');
 const { createApprovalCard } = require('../cards/approvalCard');
+const logger = require('../utils/logger');
 require('dotenv').config();
 
 class CardService {
@@ -27,7 +28,7 @@ class CardService {
       // Otherwise, send as direct message to manager
       return await this.sendDirectMessage(managerId, cardAttachment, ticket);
     } catch (error) {
-      console.error('Error sending approval card:', error);
+      logger.error('Error sending approval card', { error: error.message });
       throw error;
     }
   }
@@ -85,7 +86,7 @@ class CardService {
         success: true
       };
     } catch (error) {
-      console.error('Error sending to channel:', error);
+      logger.error('Error sending to channel', { error: error.message });
       throw error;
     }
   }
@@ -135,7 +136,7 @@ class CardService {
         success: true
       };
     } catch (error) {
-      console.error('Error sending direct message:', error);
+      logger.error('Error sending direct message', { error: error.message });
       throw error;
     }
   }
@@ -159,7 +160,7 @@ class CardService {
 
       return { success: true };
     } catch (error) {
-      console.error('Error updating card:', error);
+      logger.error('Error updating card', { error: error.message });
       throw error;
     }
   }
