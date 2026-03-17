@@ -10,6 +10,7 @@ function toggleDateFields() {
     const dateRangeContainer = document.getElementById('dateRangeContainer');
     const startDateInput = document.getElementById('startDate');
     const endDateInput = document.getElementById('endDate');
+    const halfDayContainer = document.getElementById('halfDayContainer');
 
     // Check if selected type requires dates (from API data)
     const typeInfo = ticketTypesData.find(t => t.key === ticketType);
@@ -25,10 +26,61 @@ function toggleDateFields() {
         endDateInput.required = false;
         startDateInput.value = '';
         endDateInput.value = '';
+        // Hide half-day toggle when dates are not needed
+        if (halfDayContainer) {
+            halfDayContainer.style.display = 'none';
+            setHalfDay(false);
+        }
     }
 
     // Show quota info for vacation / sick-leave
     updateQuotaInfoBanner(ticketType);
+    // Check half-day toggle visibility
+    checkHalfDayToggle();
+}
+
+// Check if half-day toggle should be shown (when start date = end date)
+function checkHalfDayToggle() {
+    const startDate = document.getElementById('startDate')?.value;
+    const endDate = document.getElementById('endDate')?.value;
+    const halfDayContainer = document.getElementById('halfDayContainer');
+    const ticketType = document.getElementById('ticketType')?.value;
+
+    if (!halfDayContainer) return;
+
+    // Check if type supports half-day (vacation, paragraph, ocr, sick-leave)
+    const halfDayTypes = ['vacation', 'paragraph', 'ocr', 'sick-leave'];
+    const supportsHalfDay = halfDayTypes.includes(ticketType);
+
+    // Show toggle only if both dates are the same and type supports half-day
+    if (startDate && endDate && startDate === endDate && supportsHalfDay) {
+        halfDayContainer.style.display = 'block';
+    } else {
+        halfDayContainer.style.display = 'none';
+        // Reset to full day when hiding
+        setHalfDay(false);
+    }
+}
+
+// Set half-day value
+function setHalfDay(isHalfDay) {
+    const halfDayInput = document.getElementById('isHalfDay');
+    const fullDayBtn = document.getElementById('fullDayBtn');
+    const halfDayBtn = document.getElementById('halfDayBtn');
+
+    if (halfDayInput) {
+        halfDayInput.value = isHalfDay ? 'true' : 'false';
+    }
+
+    if (fullDayBtn && halfDayBtn) {
+        if (isHalfDay) {
+            fullDayBtn.classList.remove('active');
+            halfDayBtn.classList.add('active');
+        } else {
+            fullDayBtn.classList.add('active');
+            halfDayBtn.classList.remove('active');
+        }
+    }
 }
 
 // Load and display quota info banner
@@ -250,6 +302,7 @@ document.getElementById('approvalForm').addEventListener('submit', async (e) => 
         ticketData.append('assigned_approver_email', approverData.email);
         ticketData.append('start_date', formData.get('startDate') || '');
         ticketData.append('end_date', formData.get('endDate') || '');
+        ticketData.append('is_half_day', formData.get('isHalfDay') || 'false');
 
         const attachments = formData.getAll('attachments');
         attachments.forEach(file => {

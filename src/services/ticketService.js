@@ -25,7 +25,11 @@ class TicketService {
           ticketData.startDate && ticketData.endDate) {
         try {
           const year = new Date(ticketData.startDate).getFullYear();
-          const workingDays = await Holiday.countWorkingDays(ticketData.startDate, ticketData.endDate);
+          let workingDays = await Holiday.countWorkingDays(ticketData.startDate, ticketData.endDate);
+          // If half-day is requested and it's a single day, use 0.5 instead of 1
+          if (ticketData.isHalfDay && ticketData.startDate === ticketData.endDate) {
+            workingDays = 0.5;
+          }
           const hasEnough = await Quota.hasEnoughDays(
             ticketData.createdBy.id, year, ticketData.ticketType, workingDays
           );
@@ -145,10 +149,16 @@ class TicketService {
           ticket.start_date && ticket.end_date) {
         try {
           const year = new Date(ticket.start_date).getFullYear();
-          const workingDays = await Holiday.countWorkingDays(ticket.start_date, ticket.end_date);
+          let workingDays = await Holiday.countWorkingDays(ticket.start_date, ticket.end_date);
+          // If half-day is requested and it's a single day, use 0.5 instead of 1
+          const startStr = new Date(ticket.start_date).toISOString().split('T')[0];
+          const endStr = new Date(ticket.end_date).toISOString().split('T')[0];
+          if (ticket.is_half_day && startStr === endStr) {
+            workingDays = 0.5;
+          }
           await Quota.getOrCreate(ticket.created_by_id, year);
           await Quota.addUsedDays(ticket.created_by_id, year, ticket.ticket_type, workingDays);
-          logger.debug('Quota deducted', { days: workingDays, type: ticket.ticket_type, userId: ticket.created_by_id });
+          logger.debug('Quota deducted', { days: workingDays, type: ticket.ticket_type, userId: ticket.created_by_id, isHalfDay: ticket.is_half_day });
         } catch (quotaError) {
           logger.error('Failed to deduct quota days', { error: quotaError.message });
         }
@@ -226,9 +236,15 @@ class TicketService {
           ticket.start_date && ticket.end_date) {
         try {
           const year = new Date(ticket.start_date).getFullYear();
-          const workingDays = await Holiday.countWorkingDays(ticket.start_date, ticket.end_date);
+          let workingDays = await Holiday.countWorkingDays(ticket.start_date, ticket.end_date);
+          // If half-day was requested and it's a single day, return 0.5 instead of 1
+          const startStr = new Date(ticket.start_date).toISOString().split('T')[0];
+          const endStr = new Date(ticket.end_date).toISOString().split('T')[0];
+          if (ticket.is_half_day && startStr === endStr) {
+            workingDays = 0.5;
+          }
           await Quota.removeUsedDays(ticket.created_by_id, year, ticket.ticket_type, workingDays);
-          logger.debug('Quota returned', { days: workingDays, type: ticket.ticket_type, userId: ticket.created_by_id });
+          logger.debug('Quota returned', { days: workingDays, type: ticket.ticket_type, userId: ticket.created_by_id, isHalfDay: ticket.is_half_day });
         } catch (quotaError) {
           logger.error('Failed to return quota days', { error: quotaError.message });
         }

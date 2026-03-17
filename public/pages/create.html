@@ -103,6 +103,7 @@
                             id="startDate"
                             name="startDate"
                             class="form-input"
+                            onchange="checkHalfDayToggle()"
                         >
                     </div>
 
@@ -116,8 +117,26 @@
                             id="endDate"
                             name="endDate"
                             class="form-input"
+                            onchange="checkHalfDayToggle()"
                         >
                     </div>
+                </div>
+
+                <!-- Half-Day Toggle (shown only when single day selected) -->
+                <div id="halfDayContainer" class="form-group" style="display: none;">
+                    <label class="form-label">
+                        <span data-i18n="halfDayLabel">Half-day</span>
+                    </label>
+                    <div class="half-day-toggle">
+                        <button type="button" class="toggle-btn active" id="fullDayBtn" onclick="setHalfDay(false)">
+                            <span data-i18n="halfDayFullDay">Full day</span>
+                        </button>
+                        <button type="button" class="toggle-btn" id="halfDayBtn" onclick="setHalfDay(true)">
+                            <span data-i18n="halfDayHalfDay">Half day (0.5)</span>
+                        </button>
+                    </div>
+                    <input type="hidden" id="isHalfDay" name="isHalfDay" value="false">
+                    <p class="helper-text" data-i18n="halfDayHelperText">Select if you want to request only half a day off</p>
                 </div>
 
                 <!-- Approver -->

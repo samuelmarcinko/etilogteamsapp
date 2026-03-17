@@ -11,7 +11,7 @@ class TicketController {
    */
   static async createTicket(req, res, next) {
     try {
-      const { title, description, ticket_type, priority, conversationId, start_date, end_date } = req.body;
+      const { title, description, ticket_type, priority, conversationId, start_date, end_date, is_half_day } = req.body;
 
       // Validate input
       if (!title || !description) {
@@ -49,7 +49,8 @@ class TicketController {
         assignedApprover,
         conversationId,
         startDate: start_date || null,
-        endDate: end_date || null
+        endDate: end_date || null,
+        isHalfDay: is_half_day === 'true' || is_half_day === true
       };
 
       // Create ticket

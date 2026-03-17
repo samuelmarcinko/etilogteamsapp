@@ -1327,7 +1327,7 @@ async function editUserQuotas(userId, userName, vacTotal, vacRemaining, paragrap
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">${pt('quotaNarok')}</label>
-                        <input type="number" class="form-input" name="vacation_days_total" value="${vacTotal}" min="0" max="50">
+                        <input type="number" class="form-input" name="vacation_days_total" value="${vacTotal}" min="0" max="50" step="0.5">
                     </div>
                     <div class="form-group">
                         <label class="form-label">${pt('quotaZostatok')}</label>
@@ -1340,7 +1340,7 @@ async function editUserQuotas(userId, userName, vacTotal, vacRemaining, paragrap
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">${pt('quotaNarok')}</label>
-                        <input type="number" class="form-input" name="paragraph_days_total" value="${paragraphTotal}" min="0" max="30">
+                        <input type="number" class="form-input" name="paragraph_days_total" value="${paragraphTotal}" min="0" max="30" step="0.5">
                     </div>
                     <div class="form-group">
                         <label class="form-label">${pt('quotaZostatok')}</label>
@@ -1353,7 +1353,7 @@ async function editUserQuotas(userId, userName, vacTotal, vacRemaining, paragrap
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">${pt('quotaNarok')}</label>
-                        <input type="number" class="form-input" name="ocr_days_total" value="${ocrTotal}" min="0" max="30">
+                        <input type="number" class="form-input" name="ocr_days_total" value="${ocrTotal}" min="0" max="30" step="0.5">
                     </div>
                     <div class="form-group">
                         <label class="form-label">${pt('quotaZostatok')}</label>

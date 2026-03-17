@@ -229,6 +229,12 @@ const translations = {
     sickNotesDate: 'Date',
     sickNotesClose: 'Close',
 
+    // Half-day vacation
+    halfDayLabel: 'Half-day',
+    halfDayFullDay: 'Full day',
+    halfDayHalfDay: 'Half day (0.5)',
+    halfDayHelperText: 'Select if you want to request only half a day off',
+
     // Required field
     required: '*'
   },
@@ -460,6 +466,12 @@ const translations = {
     sickNotesDays: 'dní',
     sickNotesDate: 'Dátum',
     sickNotesClose: 'Zavrieť',
+
+    // Half-day vacation
+    halfDayLabel: 'Pol dňa',
+    halfDayFullDay: 'Celý deň',
+    halfDayHalfDay: 'Pol dňa (0,5)',
+    halfDayHelperText: 'Vyberte ak chcete požiadať iba o pol dňa voľna',
 
     // Required field
     required: '*'
