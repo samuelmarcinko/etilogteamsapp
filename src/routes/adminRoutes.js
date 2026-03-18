@@ -17,5 +17,6 @@ router.get('/employees', requireDbRole('admin'), asyncHandler(AdminController.ge
 router.put('/employees/:userId/role', requireDbRole('admin'), asyncHandler(AdminController.updateEmployeeRole));
 router.put('/employees/:userId/visibility', requireDbRole('admin'), asyncHandler(AdminController.toggleEmployeeVisibility));
 router.get('/tickets', requireDbRole('admin'), asyncHandler(AdminController.getAllTickets));
+router.get('/all-azure-users', requireDbRole('admin'), asyncHandler(AdminController.getAllAzureUsers));
 
 module.exports = router;

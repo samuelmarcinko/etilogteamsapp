@@ -241,6 +241,33 @@ class AdminController {
   }
 
   /**
+   * Get all Azure AD users including those without licenses (diagnostics)
+   * GET /api/admin/all-azure-users
+   */
+  static async getAllAzureUsers(req, res, next) {
+    try {
+      const allUsers = await GraphService.getAllUsersIncludingUnlicensed();
+
+      // Separate licensed and unlicensed
+      const licensed = allUsers.filter(u => u.hasLicense);
+      const unlicensed = allUsers.filter(u => !u.hasLicense);
+
+      res.json({
+        success: true,
+        summary: {
+          total: allUsers.length,
+          licensed: licensed.length,
+          unlicensed: unlicensed.length
+        },
+        data: allUsers,
+        unlicensedUsers: unlicensed
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Get all tickets (admin view with more data)
    * GET /api/admin/tickets
    */

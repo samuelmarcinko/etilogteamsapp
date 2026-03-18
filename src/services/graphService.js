@@ -155,6 +155,50 @@ class GraphService {
   }
 
   /**
+   * Get all users including those without licenses (for admin diagnostics)
+   */
+  static async getAllUsersIncludingUnlicensed() {
+    try {
+      const accessToken = await this.getAccessToken();
+
+      const allUsers = await this.fetchAllUsers(accessToken, {
+        $select: 'id,displayName,mail,userPrincipalName,userType,assignedLicenses,accountEnabled',
+        $top: 999,
+        $filter: "accountEnabled eq true"
+      });
+
+      logger.debug('Graph API returned all users', { total: allUsers.length });
+
+      // Filter for @etilog.com domain only (include users without licenses)
+      const etilogUsers = allUsers.filter(user => {
+        const email = user.mail || user.userPrincipalName || '';
+        return email.toLowerCase().endsWith('@etilog.com');
+      });
+
+      logger.debug('Filtered etilog.com users (all)', { count: etilogUsers.length });
+
+      // Format users and include license status
+      const formattedUsers = etilogUsers.map(user => {
+        const formatted = this.formatUser(user);
+        const hasLicense = user.assignedLicenses && user.assignedLicenses.length > 0;
+        return {
+          ...formatted,
+          hasLicense,
+          licenseCount: user.assignedLicenses ? user.assignedLicenses.length : 0
+        };
+      });
+
+      formattedUsers.sort((a, b) => a.lastName.localeCompare(b.lastName, 'sk'));
+
+      // Remove lastName from final output
+      return formattedUsers.map(({ lastName, ...user }) => user);
+    } catch (error) {
+      logger.error('Error fetching all users', { error: error.response?.data || error.message });
+      throw new Error('Failed to fetch all users from Microsoft Graph');
+    }
+  }
+
+  /**
    * Search users by name or email
    */
   static async searchUsers(query) {

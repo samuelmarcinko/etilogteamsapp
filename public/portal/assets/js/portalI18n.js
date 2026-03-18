@@ -256,6 +256,8 @@ const portalTranslations = {
     changeRoleTitle: 'Zmeniť rolu',
     editQuotaTitle: 'Upraviť kvótu',
     editQuota: 'Upraviť kvóty',
+    unlicensedUsersTitle: 'Používatelia bez licencie',
+    unlicensedUsersDesc: 'Nasledujúci používatelia nemajú pridelenú Microsoft licenciu a preto sa nezobrazujú v zozname zamestnancov. Pre ich zahrnutie im musíte prideliť licenciu v Azure AD.',
 
     // Admin Quota Modal
     quotaModalTitle: 'Kvóty',
@@ -601,6 +603,8 @@ const portalTranslations = {
     changeRoleTitle: 'Change role',
     editQuotaTitle: 'Edit quota',
     editQuota: 'Edit quotas',
+    unlicensedUsersTitle: 'Users without license',
+    unlicensedUsersDesc: 'The following users do not have a Microsoft license assigned and therefore are not shown in the employee list. To include them, you need to assign a license in Azure AD.',
 
     // Admin Quota Modal
     quotaModalTitle: 'Quotas',

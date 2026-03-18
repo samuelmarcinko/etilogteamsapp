@@ -1146,8 +1146,13 @@ async function renderAdminDashboard(container) {
 
 async function renderAdminEmployees(container) {
     const year = new Date().getFullYear();
-    const response = await apiCall(`/api/admin/employees?year=${year}`);
-    const employees = (await response.json()).data || [];
+    const [employeesRes, allUsersRes] = await Promise.all([
+        apiCall(`/api/admin/employees?year=${year}`),
+        apiCall('/api/admin/all-azure-users')
+    ]);
+    const employees = (await employeesRes.json()).data || [];
+    const allUsersData = await allUsersRes.json();
+    const unlicensedUsers = allUsersData.unlicensedUsers || [];
 
     container.innerHTML = `
         <div class="page-header">
@@ -1183,6 +1188,29 @@ async function renderAdminEmployees(container) {
                     </table>
                 </div>
             </div>
+            ${unlicensedUsers.length > 0 ? `
+            <div class="portal-card" style="margin-top: 1.5rem; border-left: 4px solid var(--warning);">
+                <div class="card-header">
+                    <h2 style="color: var(--warning);">${pt('unlicensedUsersTitle') || 'Bez licencie'} (${unlicensedUsers.length})</h2>
+                </div>
+                <div class="card-body">
+                    <p style="color: var(--gray-500); margin-bottom: 1rem;">${pt('unlicensedUsersDesc') || 'Nasledujuci pouzivatelia nemaju pridelenu Microsoft licenciu a preto sa nezobrazuju v zozname zamestnancov. Pre ich zahrnutie im musite pridelit licenciu v Azure AD.'}</p>
+                    <table class="data-table">
+                        <thead>
+                            <tr><th>${pt('colName')}</th><th>${pt('colEmail')}</th></tr>
+                        </thead>
+                        <tbody>
+                            ${unlicensedUsers.map(u => `
+                                <tr>
+                                    <td><strong>${escapeHtml(u.name)}</strong></td>
+                                    <td>${escapeHtml(u.email)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            ` : ''}
         </div>
     `;
 }
