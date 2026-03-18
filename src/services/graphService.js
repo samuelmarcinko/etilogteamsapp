@@ -98,13 +98,15 @@ class GraphService {
       logger.debug('Graph API returned users', { total: allUsers.length });
 
       // Filter for @etilog.com domain and users with licenses
+      // Check both mail and userPrincipalName as some users have different domains in mail field
       const etilogUsers = allUsers.filter(user => {
-        const email = user.mail || user.userPrincipalName || '';
-        const hasEtilogDomain = email.toLowerCase().endsWith('@etilog.com');
+        const mail = (user.mail || '').toLowerCase();
+        const upn = (user.userPrincipalName || '').toLowerCase();
+        const hasEtilogDomain = mail.endsWith('@etilog.com') || upn.endsWith('@etilog.com');
         const hasLicense = user.assignedLicenses && user.assignedLicenses.length > 0;
 
         if (hasEtilogDomain && !hasLicense) {
-          logger.debug('User excluded (no license)', { name: user.displayName, email });
+          logger.debug('User excluded (no license)', { name: user.displayName, mail, upn });
         }
 
         return hasEtilogDomain && hasLicense;
@@ -170,9 +172,11 @@ class GraphService {
       logger.debug('Graph API returned all users', { total: allUsers.length });
 
       // Filter for @etilog.com domain only (include users without licenses)
+      // Check both mail and userPrincipalName as some users have different domains in mail field
       const etilogUsers = allUsers.filter(user => {
-        const email = user.mail || user.userPrincipalName || '';
-        return email.toLowerCase().endsWith('@etilog.com');
+        const mail = (user.mail || '').toLowerCase();
+        const upn = (user.userPrincipalName || '').toLowerCase();
+        return mail.endsWith('@etilog.com') || upn.endsWith('@etilog.com');
       });
 
       logger.debug('Filtered etilog.com users (all)', { count: etilogUsers.length });
@@ -235,7 +239,8 @@ class GraphService {
           hasLicenses: user.assignedLicenses && user.assignedLicenses.length > 0,
           licenseCount: user.assignedLicenses ? user.assignedLicenses.length : 0,
           wouldBeIncluded: {
-            hasEtilogDomain: (user.mail || user.userPrincipalName || '').toLowerCase().endsWith('@etilog.com'),
+            hasEtilogDomain: (user.mail || '').toLowerCase().endsWith('@etilog.com') ||
+                             (user.userPrincipalName || '').toLowerCase().endsWith('@etilog.com'),
             hasLicense: user.assignedLicenses && user.assignedLicenses.length > 0,
             isEnabled: user.accountEnabled
           }
@@ -267,9 +272,11 @@ class GraphService {
       });
 
       // Filter for @etilog.com domain and users with licenses
+      // Check both mail and userPrincipalName as some users have different domains in mail field
       const etilogUsers = response.data.value.filter(user => {
-        const email = user.mail || user.userPrincipalName || '';
-        const hasEtilogDomain = email.toLowerCase().endsWith('@etilog.com');
+        const mail = (user.mail || '').toLowerCase();
+        const upn = (user.userPrincipalName || '').toLowerCase();
+        const hasEtilogDomain = mail.endsWith('@etilog.com') || upn.endsWith('@etilog.com');
         const hasLicense = user.assignedLicenses && user.assignedLicenses.length > 0;
 
         return hasEtilogDomain && hasLicense;
