@@ -268,6 +268,32 @@ class AdminController {
   }
 
   /**
+   * Diagnose a specific user by email
+   * GET /api/admin/diagnose-user?email=xxx
+   */
+  static async diagnoseUser(req, res, next) {
+    try {
+      const { email } = req.query;
+
+      if (!email) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email parameter is required'
+        });
+      }
+
+      const diagnosis = await GraphService.diagnoseUser(email);
+
+      res.json({
+        success: true,
+        data: diagnosis
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Get all tickets (admin view with more data)
    * GET /api/admin/tickets
    */

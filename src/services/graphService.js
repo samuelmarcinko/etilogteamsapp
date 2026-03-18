@@ -199,6 +199,55 @@ class GraphService {
   }
 
   /**
+   * Diagnose a specific user by email - returns raw Graph API data
+   */
+  static async diagnoseUser(email) {
+    try {
+      const accessToken = await this.getAccessToken();
+
+      const response = await axios.get('https://graph.microsoft.com/v1.0/users', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        params: {
+          $select: 'id,displayName,mail,userPrincipalName,userType,assignedLicenses,accountEnabled,givenName,surname',
+          $filter: `mail eq '${email}' or userPrincipalName eq '${email}'`,
+          $top: 10
+        }
+      });
+
+      const users = response.data.value || [];
+
+      return {
+        found: users.length > 0,
+        query: email,
+        rawUsers: users,
+        analysis: users.map(user => ({
+          id: user.id,
+          displayName: user.displayName,
+          mail: user.mail,
+          userPrincipalName: user.userPrincipalName,
+          givenName: user.givenName,
+          surname: user.surname,
+          userType: user.userType,
+          accountEnabled: user.accountEnabled,
+          hasLicenses: user.assignedLicenses && user.assignedLicenses.length > 0,
+          licenseCount: user.assignedLicenses ? user.assignedLicenses.length : 0,
+          wouldBeIncluded: {
+            hasEtilogDomain: (user.mail || user.userPrincipalName || '').toLowerCase().endsWith('@etilog.com'),
+            hasLicense: user.assignedLicenses && user.assignedLicenses.length > 0,
+            isEnabled: user.accountEnabled
+          }
+        }))
+      };
+    } catch (error) {
+      logger.error('Error diagnosing user', { email, error: error.response?.data || error.message });
+      throw new Error('Failed to diagnose user: ' + error.message);
+    }
+  }
+
+  /**
    * Search users by name or email
    */
   static async searchUsers(query) {
