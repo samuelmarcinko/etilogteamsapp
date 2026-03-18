@@ -511,6 +511,21 @@ body {
 .data-table tr:hover td { background: var(--gray-25); }
 .data-table tr:last-child td { border-bottom: none; }
 
+/* Sticky header table */
+.scrollable-table-container {
+  max-height: 70vh;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+.data-table.sticky-header thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--gray-50);
+  box-shadow: 0 1px 0 var(--gray-200);
+}
+
 /* Helper text below form inputs */
 .helper-text {
   font-size: 0.75rem;

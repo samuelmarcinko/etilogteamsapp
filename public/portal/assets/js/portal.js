@@ -1288,8 +1288,8 @@ async function renderAdminQuotas(container) {
                 <div class="card-header">
                     <h2>${pt('employeeQuotasYear')} ${year}</h2>
                 </div>
-                <div class="card-body" style="overflow-x:auto;">
-                    <table class="data-table">
+                <div class="card-body scrollable-table-container">
+                    <table class="data-table sticky-header">
                         <thead>
                             <tr><th>${pt('colEmployee')}</th><th>${pt('colVacTotal')}</th><th>${pt('colVacUsed')}</th><th>${pt('colBalance')}</th><th>${pt('colParagraphTotal')}</th><th>${pt('colParagraphUsed')}</th><th>${pt('colBalance')}</th><th>${pt('colOcrTotal')}</th><th>${pt('colOcrUsed')}</th><th>${pt('colBalance')}</th><th>${pt('colActions')}</th></tr>
                         </thead>
