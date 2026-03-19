@@ -971,6 +971,18 @@ body {
 
 .modal-overlay.active { opacity: 1; visibility: visible; }
 
+/* Modal backdrop for dynamically created modals */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
 .modal {
   background: var(--white);
   border-radius: 16px;
