@@ -58,6 +58,11 @@ async function loadUserProfile() {
         document.getElementById('userRoleBadge').textContent = portalUser.role;
         document.getElementById('userAvatar').textContent = getInitials(portalUser.name || portalUser.email);
 
+        // Show manager menu for spravca and admin
+        if (portalUser.role === 'spravca' || portalUser.role === 'admin') {
+            document.getElementById('managerNav').style.display = 'block';
+        }
+        // Show admin-only menu for admin
         if (portalUser.role === 'admin') {
             document.getElementById('adminNav').style.display = 'block';
         }
@@ -95,9 +100,19 @@ function setupNavigation() {
 function navigateToPage(page) {
     if (!page) page = 'dashboard';
 
-    if (page.startsWith('admin-') && portalUser?.role !== 'admin') {
-        showToast(pt('accessDenied'), 'error');
-        return;
+    // Pages accessible to spravca role
+    const spravcaPages = ['admin-employees', 'admin-quotas', 'admin-sick-notes', 'admin-tickets'];
+
+    if (page.startsWith('admin-')) {
+        const userRole = portalUser?.role;
+        if (userRole === 'admin') {
+            // Admin has full access
+        } else if (userRole === 'spravca' && spravcaPages.includes(page)) {
+            // Spravca has limited access
+        } else {
+            showToast(pt('accessDenied'), 'error');
+            return;
+        }
     }
 
     currentPage = page;
@@ -1164,7 +1179,7 @@ async function renderAdminEmployees(container) {
                 <div class="card-body" style="overflow-x:auto;">
                     <table class="data-table">
                         <thead>
-                            <tr><th>${pt('colName')}</th><th>${pt('colEmail')}</th><th>${pt('colRole')}</th><th>${pt('colVisibility')}</th><th>${pt('colVacation')}</th><th>${pt('colParagraph')}</th><th>${pt('colOcr')}</th><th>${pt('colActions')}</th></tr>
+                            <tr><th>${pt('colName')}</th><th>${pt('colEmail')}</th><th>${pt('colRole')}</th><th>${pt('colVisibility')}</th><th>${pt('colVacation')}</th><th>${pt('colParagraph')}</th><th>${pt('colOcr')}</th>${portalUser?.role === 'admin' ? `<th>${pt('colActions')}</th>` : ''}</tr>
                         </thead>
                         <tbody>
                             ${employees.map(e => `
@@ -1176,12 +1191,12 @@ async function renderAdminEmployees(container) {
                                     <td>${e.vacation_days_total !== null ? `${e.vacation_days_used}/${e.vacation_days_total}` : '<span style="color:var(--gray-400)">-</span>'}</td>
                                     <td>${e.paragraph_days_total !== null && e.paragraph_days_total !== undefined ? `${e.paragraph_days_used || 0}/${e.paragraph_days_total}` : '<span style="color:var(--gray-400)">-</span>'}</td>
                                     <td>${e.ocr_days_total !== null && e.ocr_days_total !== undefined ? `${e.ocr_days_used || 0}/${e.ocr_days_total}` : '<span style="color:var(--gray-400)">-</span>'}</td>
-                                    <td>
+                                    ${portalUser?.role === 'admin' ? `<td>
                                         <div class="table-actions">
                                             <button class="btn-icon" onclick="toggleEmployeeVisibility('${e.id}', ${e.hidden})" title="${e.hidden ? pt('showUserTitle') : pt('hideUserTitle')}">${e.hidden ? '&#128065;' : '&#128683;'}</button>
-                                            <button class="btn-icon" onclick="toggleEmployeeRole('${e.id}', '${e.role}')" title="${pt('changeRoleTitle')}">${e.role === 'admin' ? '&#128100;' : '&#128081;'}</button>
+                                            <button class="btn-icon" onclick="toggleEmployeeRole('${e.id}', '${e.role}')" title="${pt('changeRoleTitle')}">${e.role === 'admin' ? '&#128081;' : e.role === 'spravca' ? '&#128188;' : '&#128100;'}</button>
                                         </div>
-                                    </td>
+                                    </td>` : ''}
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -1233,7 +1248,10 @@ async function toggleEmployeeVisibility(userId, isHidden) {
 }
 
 async function toggleEmployeeRole(userId, currentRole) {
-    const newRole = currentRole === 'admin' ? 'user' : 'admin';
+    // Cycle through roles: user -> spravca -> admin -> user
+    const roleOrder = ['user', 'spravca', 'admin'];
+    const currentIndex = roleOrder.indexOf(currentRole);
+    const newRole = roleOrder[(currentIndex + 1) % roleOrder.length];
     if (!confirm(`${pt('changeRoleConfirm')} "${newRole}"?`)) return;
 
     try {
@@ -1403,11 +1421,11 @@ async function renderAdminSickNotes(container) {
             <div><h1>${pt('allSickNotesTitle')}</h1><p>${pt('allSickNotesDesc')}</p></div>
         </div>
         <div class="page-body">
-            <div class="filters-bar" style="margin-bottom: 15px;">
+            ${portalUser?.role === 'admin' ? `<div class="filters-bar" style="margin-bottom: 15px;">
                 <button class="btn btn-danger" id="bulkDeleteSickNotesBtn" style="display:none;" onclick="bulkDeleteSickNotes()">
                     <span style="margin-right:5px;">&#128465;</span> ${pt('bulkDelete')} (<span id="selectedSickNotesCount">0</span>)
                 </button>
-            </div>
+            </div>` : ''}
             <div id="adminSickNotesList" class="portal-card">
                 <div class="card-header">
                     <h3>${pt('documentsSection')}</h3>
@@ -1424,11 +1442,12 @@ async function renderAdminSickNotes(container) {
 
 function renderAdminSickNotesTable(notes) {
     if (!notes.length) return `<div class="empty-state"><div class="empty-icon">&#128203;</div><div class="empty-text">${pt('noSickNotes')}</div></div>`;
+    const isAdmin = portalUser?.role === 'admin';
     return `
         <table class="data-table">
             <thead>
                 <tr>
-                    <th style="width:40px;"><input type="checkbox" id="selectAllSickNotes" onchange="toggleAllSickNotes(this)"></th>
+                    ${isAdmin ? `<th style="width:40px;"><input type="checkbox" id="selectAllSickNotes" onchange="toggleAllSickNotes(this)"></th>` : ''}
                     <th>${pt('colEmployeeName')}</th><th>${pt('colDocType')}</th><th>${pt('colName')}</th><th>${pt('colDate')}</th><th>${pt('sickNoteColDoctor')}</th><th>${pt('colDocument')}</th>
                 </tr>
             </thead>
@@ -1438,7 +1457,7 @@ function renderAdminSickNotesTable(notes) {
                     const docBadge = n.document_type === 'ocr' ? 'badge-sick' : 'badge-paragraph';
                     return `
                     <tr>
-                        <td><input type="checkbox" class="sick-note-checkbox" value="${n.id}" onchange="updateBulkDeleteSickNotesBtn()"></td>
+                        ${isAdmin ? `<td><input type="checkbox" class="sick-note-checkbox" value="${n.id}" onchange="updateBulkDeleteSickNotesBtn()"></td>` : ''}
                         <td><strong>${escapeHtml(n.user_name)}</strong><br><small style="color:var(--gray-500)">${escapeHtml(n.user_email)}</small></td>
                         <td><span class="badge ${docBadge}">${docLabel}</span></td>
                         <td><strong>${escapeHtml(n.title)}</strong>${n.diagnosis ? `<br><small style="color:var(--gray-500)">${escapeHtml(n.diagnosis)}</small>` : ''}</td>
@@ -1539,9 +1558,9 @@ async function renderAdminTickets(container) {
                     <option value="hr">${pt('filterHr')}</option>
                     <option value="other">${pt('filterOther')}</option>
                 </select>
-                <button class="btn btn-danger" id="bulkDeleteBtn" style="display:none;" onclick="bulkDeleteTickets()">
+${portalUser?.role === 'admin' ? `<button class="btn btn-danger" id="bulkDeleteBtn" style="display:none;" onclick="bulkDeleteTickets()">
                     <span style="margin-right:5px;">&#128465;</span> ${pt('bulkDelete')} (<span id="selectedCount">0</span>)
-                </button>
+                </button>` : ''}
             </div>
             <div id="adminTicketsList" class="portal-card">
                 <div class="card-body" style="overflow-x:auto;">
@@ -1565,18 +1584,19 @@ function filterAdminTickets() {
 
 function renderAdminTicketsTable(tickets) {
     if (!tickets.length) return `<div class="empty-state"><div class="empty-icon">&#128196;</div><div class="empty-text">${pt('noTickets')}</div></div>`;
+    const isAdmin = portalUser?.role === 'admin';
     return `
         <table class="data-table">
             <thead>
                 <tr>
-                    <th style="width:40px;"><input type="checkbox" id="selectAllTickets" onchange="toggleAllTickets(this)"></th>
+                    ${isAdmin ? `<th style="width:40px;"><input type="checkbox" id="selectAllTickets" onchange="toggleAllTickets(this)"></th>` : ''}
                     <th>${pt('colTicketId')}</th><th>${pt('colName')}</th><th>${pt('colType')}</th><th>${pt('colCreatedBy')}</th><th>${pt('colApprover')}</th><th>${pt('colStatus')}</th><th>${pt('colDate')}</th><th style="width:60px;">${pt('colActions')}</th>
                 </tr>
             </thead>
             <tbody>
                 ${tickets.map(t => `
                     <tr>
-                        <td><input type="checkbox" class="ticket-checkbox" value="${t.ticket_id}" onchange="updateBulkDeleteBtn()"></td>
+                        ${isAdmin ? `<td><input type="checkbox" class="ticket-checkbox" value="${t.ticket_id}" onchange="updateBulkDeleteBtn()"></td>` : ''}
                         <td><code>${t.ticket_id}</code></td>
                         <td>${escapeHtml(t.title)}</td>
                         <td><span class="badge badge-${{'vacation':'vacation','sick-leave':'sick','paragraph':'paragraph','ocr':'ocr'}[t.ticket_type] || 'user'}">${translateType(t.ticket_type)}</span></td>
@@ -2396,8 +2416,19 @@ function openModal() {
     document.getElementById('modalOverlay').classList.add('active');
 }
 
-function closeModal(event) {
-    if (event && event.target !== event.currentTarget) return;
+function closeModal(eventOrElement) {
+    // Handle ticket detail popup (modal-backdrop inserted into body)
+    if (eventOrElement && eventOrElement.classList && eventOrElement.classList.contains('modal-backdrop')) {
+        eventOrElement.remove();
+        return;
+    }
+
+    // Handle click on backdrop (event bubbling check)
+    if (eventOrElement && eventOrElement.target && eventOrElement.target !== eventOrElement.currentTarget) {
+        return;
+    }
+
+    // Handle standard modal overlay
     document.getElementById('modalOverlay').classList.remove('active');
 }
 

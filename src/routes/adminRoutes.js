@@ -13,12 +13,16 @@ router.get('/me', asyncHandler(AdminController.getMyProfile));
 
 // Admin-only routes
 router.get('/stats', requireDbRole('admin'), asyncHandler(AdminController.getStats));
-router.get('/employees', requireDbRole('admin'), asyncHandler(AdminController.getEmployees));
+router.get('/diagnose-user', requireDbRole('admin'), asyncHandler(AdminController.diagnoseUser));
+
+// Routes accessible by admin and spravca (read-only for spravca)
+router.get('/employees', requireDbRole('admin', 'spravca'), asyncHandler(AdminController.getEmployees));
+router.get('/tickets', requireDbRole('admin', 'spravca'), asyncHandler(AdminController.getAllTickets));
+router.get('/all-azure-users', requireDbRole('admin', 'spravca'), asyncHandler(AdminController.getAllAzureUsers));
+
+// Admin-only employee management
 router.put('/employees/:userId/role', requireDbRole('admin'), asyncHandler(AdminController.updateEmployeeRole));
 router.put('/employees/:userId/visibility', requireDbRole('admin'), asyncHandler(AdminController.toggleEmployeeVisibility));
-router.get('/tickets', requireDbRole('admin'), asyncHandler(AdminController.getAllTickets));
-router.get('/all-azure-users', requireDbRole('admin'), asyncHandler(AdminController.getAllAzureUsers));
-router.get('/diagnose-user', requireDbRole('admin'), asyncHandler(AdminController.diagnoseUser));
 
 // Data management routes (admin only)
 router.get('/data/stats', requireDbRole('admin'), asyncHandler(AdminController.getDataStats));

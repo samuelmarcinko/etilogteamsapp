@@ -48,9 +48,9 @@ const upload = multer({
 router.use(verifyToken);
 router.use(attachDbRole);
 
-// Admin routes (must be before /:id to avoid conflicts)
-router.get('/all', requireDbRole('admin'), asyncHandler(SickNoteController.getAll));
-router.get('/stats/:userId', requireDbRole('admin'), asyncHandler(SickNoteController.getUserStats));
+// Admin and spravca routes (read-only access for all sick notes)
+router.get('/all', requireDbRole('admin', 'spravca'), asyncHandler(SickNoteController.getAll));
+router.get('/stats/:userId', requireDbRole('admin', 'spravca'), asyncHandler(SickNoteController.getUserStats));
 
 // User routes
 router.get('/me', asyncHandler(SickNoteController.getMySickNotes));

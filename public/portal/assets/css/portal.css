@@ -560,6 +560,7 @@ body {
 .badge-approved { background: var(--green-100); color: #065f46; }
 .badge-rejected { background: var(--red-100); color: #991b1b; }
 .badge-admin { background: var(--etilog-red-medium); color: var(--etilog-red); }
+.badge-spravca { background: #dbeafe; color: #1e40af; }
 .badge-user { background: var(--gray-100); color: var(--gray-600); }
 .badge-visible { background: var(--green-50); color: var(--green-600); }
 .badge-hidden { background: #fee2e2; color: #991b1b; }
