@@ -26,9 +26,11 @@ services:
       - DB_HOST=teams-app-db
       - DB_PORT=5432
       - UPLOAD_DIR=/app/uploads
+      - BACKUP_DIR=/app/backups
     volumes:
       # Host mount for persistent file storage - accessible directly on VPS
       - /srv/stacks/apps/teams-app/uploads:/app/uploads
+      - /srv/stacks/apps/teams-app/backups:/app/backups
     depends_on:
       teams-app-db:
         condition: service_healthy
