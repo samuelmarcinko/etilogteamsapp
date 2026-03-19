@@ -539,7 +539,7 @@ class AdminController {
       // Build pg_dump command
       const pgDumpCmd = `PGPASSWORD="${process.env.DB_PASSWORD}" pg_dump -h ${dbHost} -p ${dbPort} -U ${dbUser} -d ${dbName} -F p > "${backupFile}"`;
 
-      exec(pgDumpCmd, { shell: '/bin/bash' }, (error, stdout, stderr) => {
+      exec(pgDumpCmd, { shell: true }, (error, stdout, stderr) => {
         if (error) {
           console.error('Backup error:', error);
           return res.status(500).json({
