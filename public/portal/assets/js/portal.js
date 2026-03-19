@@ -1529,19 +1529,28 @@ async function bulkDeleteSickNotes() {
         const data = await response.json();
 
         if (data.success) {
-            showNotification(pt('bulkDeleteSickNotesSuccess').replace('{count}', data.count), 'success');
-            // Refresh the sick notes list
-            window._adminSickNotes = window._adminSickNotes.filter(n => !sickNoteIds.includes(n.id));
-            document.querySelector('#adminSickNotesList .card-body').innerHTML = renderAdminSickNotesTable(window._adminSickNotes);
-            // Reset bulk delete button
-            updateBulkDeleteSickNotesBtn();
+            showToast(pt('bulkDeleteSickNotesSuccess').replace('{count}', data.count), 'success');
+            // Reload the page to show fresh data
+            await refreshAdminSickNotes();
         } else {
-            showNotification(data.message || pt('bulkDeleteSickNotesError'), 'error');
+            showToast(data.message || pt('bulkDeleteSickNotesError'), 'error');
         }
     } catch (error) {
         console.error('Bulk delete sick notes error:', error);
-        showNotification(pt('bulkDeleteSickNotesError'), 'error');
+        showToast(pt('bulkDeleteSickNotesError'), 'error');
     }
+}
+
+async function refreshAdminSickNotes() {
+    const year = new Date().getFullYear();
+    const notesRes = await apiCall(`/api/sick-notes/all?year=${year}`);
+    const notes = (await notesRes.json()).data || [];
+    window._adminSickNotes = notes;
+    const cardBody = document.querySelector('#adminSickNotesList .card-body');
+    if (cardBody) {
+        cardBody.innerHTML = renderAdminSickNotesTable(notes);
+    }
+    updateBulkDeleteSickNotesBtn();
 }
 
 
@@ -1670,19 +1679,25 @@ async function bulkDeleteTickets() {
         const data = await response.json();
 
         if (data.success) {
-            showNotification(pt('bulkDeleteSuccess').replace('{count}', data.count), 'success');
-            // Refresh the tickets list - compare as strings to handle type mismatches
-            window._adminTickets = window._adminTickets.filter(t => !ticketIds.includes(String(t.ticket_id)));
-            filterAdminTickets();
-            // Reset bulk delete button
-            updateBulkDeleteBtn();
+            showToast(pt('bulkDeleteSuccess').replace('{count}', data.count), 'success');
+            // Reload the page to show fresh data
+            await refreshAdminTickets();
         } else {
-            showNotification(data.message || pt('bulkDeleteError'), 'error');
+            showToast(data.message || pt('bulkDeleteError'), 'error');
         }
     } catch (error) {
         console.error('Bulk delete error:', error);
-        showNotification(pt('bulkDeleteError'), 'error');
+        showToast(pt('bulkDeleteError'), 'error');
     }
+}
+
+async function refreshAdminTickets() {
+    const year = new Date().getFullYear();
+    const response = await apiCall(`/api/admin/tickets?year=${year}`);
+    const tickets = (await response.json()).data || [];
+    window._adminTickets = tickets;
+    filterAdminTickets();
+    updateBulkDeleteBtn();
 }
 
 // ============================================
@@ -1692,7 +1707,7 @@ async function bulkDeleteTickets() {
 function openTicketDetailModal(ticketId) {
     const ticket = (window._adminTickets || []).find(t => String(t.ticket_id) === String(ticketId));
     if (!ticket) {
-        showNotification('Ticket not found', 'error');
+        showToast('Ticket not found', 'error');
         return;
     }
 

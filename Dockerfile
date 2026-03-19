@@ -17,6 +17,9 @@ RUN npm install --omit=dev && npm cache clean --force
 FROM node:20-alpine AS runner
 WORKDIR /app
 
+# Install postgresql-client for pg_dump (needed for database backups)
+RUN apk add --no-cache postgresql-client
+
 # Create non-root user for security
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nodeuser

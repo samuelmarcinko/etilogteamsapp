@@ -593,12 +593,16 @@ class AdminController {
       const dbName = process.env.DB_NAME || 'etilog';
       const dbUser = process.env.DB_USER || 'postgres';
 
-      // Build pg_dump command
-      const pgDumpCmd = `PGPASSWORD="${process.env.DB_PASSWORD}" pg_dump -h ${dbHost} -p ${dbPort} -U ${dbUser} -d ${dbName} -F p > "${backupFile}"`;
+      // Build pg_dump command (use -f flag instead of shell redirection to avoid empty file on error)
+      const pgDumpCmd = `PGPASSWORD="${process.env.DB_PASSWORD}" pg_dump -h ${dbHost} -p ${dbPort} -U ${dbUser} -d ${dbName} -F p -f "${backupFile}"`;
 
       exec(pgDumpCmd, { shell: true }, (error, stdout, stderr) => {
         if (error) {
           console.error('Backup error:', error);
+          // Clean up empty file if it was created
+          if (fs.existsSync(backupFile)) {
+            try { fs.unlinkSync(backupFile); } catch (e) { /* ignore */ }
+          }
           return res.status(500).json({
             success: false,
             message: 'Backup failed: ' + error.message
@@ -608,6 +612,14 @@ class AdminController {
         // Check if file was created and has content
         if (fs.existsSync(backupFile)) {
           const stats = fs.statSync(backupFile);
+          if (stats.size === 0) {
+            // Empty file means something went wrong
+            try { fs.unlinkSync(backupFile); } catch (e) { /* ignore */ }
+            return res.status(500).json({
+              success: false,
+              message: 'Backup failed: File is empty (pg_dump may have failed)'
+            });
+          }
           res.json({
             success: true,
             message: 'Backup created successfully',
