@@ -26,6 +26,7 @@ router.delete('/data/tickets', requireDbRole('admin'), asyncHandler(AdminControl
 router.post('/data/tickets/bulk-delete', requireDbRole('admin'), asyncHandler(AdminController.bulkDeleteTickets));
 router.delete('/data/tickets/:ticketId', requireDbRole('admin'), asyncHandler(AdminController.deleteTicket));
 router.delete('/data/sick-notes', requireDbRole('admin'), asyncHandler(AdminController.deleteAllSickNotes));
+router.post('/data/sick-notes/bulk-delete', requireDbRole('admin'), asyncHandler(AdminController.bulkDeleteSickNotes));
 router.delete('/data/sick-notes/:id', requireDbRole('admin'), asyncHandler(AdminController.deleteSickNote));
 router.delete('/data/quotas', requireDbRole('admin'), asyncHandler(AdminController.deleteAllQuotas));
 router.post('/data/quotas/reset-used', requireDbRole('admin'), asyncHandler(AdminController.resetQuotasUsed));

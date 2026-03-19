@@ -1026,6 +1026,38 @@ body {
   justify-content: flex-end;
 }
 
+/* Detail grid for ticket modal */
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.detail-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.detail-row label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.detail-row span {
+  font-size: 0.9rem;
+  color: var(--gray-800);
+}
+
+@media (max-width: 600px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ============================================
    QUOTA BARS
    ============================================ */

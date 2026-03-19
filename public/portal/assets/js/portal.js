@@ -1403,37 +1403,109 @@ async function renderAdminSickNotes(container) {
             <div><h1>${pt('allSickNotesTitle')}</h1><p>${pt('allSickNotesDesc')}</p></div>
         </div>
         <div class="page-body">
-            <div class="portal-card">
+            <div class="filters-bar" style="margin-bottom: 15px;">
+                <button class="btn btn-danger" id="bulkDeleteSickNotesBtn" style="display:none;" onclick="bulkDeleteSickNotes()">
+                    <span style="margin-right:5px;">&#128465;</span> ${pt('bulkDelete')} (<span id="selectedSickNotesCount">0</span>)
+                </button>
+            </div>
+            <div id="adminSickNotesList" class="portal-card">
                 <div class="card-header">
                     <h3>${pt('documentsSection')}</h3>
                 </div>
                 <div class="card-body" style="overflow-x:auto;">
-                    ${notes.length > 0 ? `
-                        <table class="data-table">
-                            <thead>
-                                <tr><th>${pt('colEmployeeName')}</th><th>${pt('colDocType')}</th><th>${pt('colName')}</th><th>${pt('colDate')}</th><th>${pt('sickNoteColDoctor')}</th><th>${pt('colDocument')}</th></tr>
-                            </thead>
-                            <tbody>
-                                ${notes.map(n => {
-                                    const docLabel = n.document_type === 'ocr' ? (pt('sickNoteDocTypeOcr') || 'OČR') : (pt('sickNoteDocTypeParagraph') || 'Paragraf');
-                                    const docBadge = n.document_type === 'ocr' ? 'badge-sick' : 'badge-paragraph';
-                                    return `
-                                    <tr>
-                                        <td><strong>${escapeHtml(n.user_name)}</strong><br><small style="color:var(--gray-500)">${escapeHtml(n.user_email)}</small></td>
-                                        <td><span class="badge ${docBadge}">${docLabel}</span></td>
-                                        <td><strong>${escapeHtml(n.title)}</strong>${n.diagnosis ? `<br><small style="color:var(--gray-500)">${escapeHtml(n.diagnosis)}</small>` : ''}</td>
-                                        <td>${formatDate(n.start_date)}${n.end_date && n.end_date !== n.start_date ? ` - ${formatDate(n.end_date)}` : ''}</td>
-                                        <td>${n.doctor_name ? escapeHtml(n.doctor_name) : '<span style="color:var(--gray-300)">—</span>'}</td>
-                                        <td>${n.file_name ? `<button class="btn-file-link" onclick="return previewSickNoteFile(event, ${n.id}, '${escapeHtml(n.file_name)}')">&#128065; ${escapeHtml(n.file_name)}</button>` : '<span style="color:var(--gray-300)">—</span>'}</td>
-                                    </tr>`;
-                                }).join('')}
-                            </tbody>
-                        </table>
-                    ` : `<div class="empty-state"><div class="empty-icon">&#128203;</div><div class="empty-text">${pt('noSickNotes')}</div></div>`}
+                    ${renderAdminSickNotesTable(notes)}
                 </div>
             </div>
         </div>
     `;
+
+    window._adminSickNotes = notes;
+}
+
+function renderAdminSickNotesTable(notes) {
+    if (!notes.length) return `<div class="empty-state"><div class="empty-icon">&#128203;</div><div class="empty-text">${pt('noSickNotes')}</div></div>`;
+    return `
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width:40px;"><input type="checkbox" id="selectAllSickNotes" onchange="toggleAllSickNotes(this)"></th>
+                    <th>${pt('colEmployeeName')}</th><th>${pt('colDocType')}</th><th>${pt('colName')}</th><th>${pt('colDate')}</th><th>${pt('sickNoteColDoctor')}</th><th>${pt('colDocument')}</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${notes.map(n => {
+                    const docLabel = n.document_type === 'ocr' ? (pt('sickNoteDocTypeOcr') || 'OČR') : (pt('sickNoteDocTypeParagraph') || 'Paragraf');
+                    const docBadge = n.document_type === 'ocr' ? 'badge-sick' : 'badge-paragraph';
+                    return `
+                    <tr>
+                        <td><input type="checkbox" class="sick-note-checkbox" value="${n.id}" onchange="updateBulkDeleteSickNotesBtn()"></td>
+                        <td><strong>${escapeHtml(n.user_name)}</strong><br><small style="color:var(--gray-500)">${escapeHtml(n.user_email)}</small></td>
+                        <td><span class="badge ${docBadge}">${docLabel}</span></td>
+                        <td><strong>${escapeHtml(n.title)}</strong>${n.diagnosis ? `<br><small style="color:var(--gray-500)">${escapeHtml(n.diagnosis)}</small>` : ''}</td>
+                        <td>${formatDate(n.start_date)}${n.end_date && n.end_date !== n.start_date ? ` - ${formatDate(n.end_date)}` : ''}</td>
+                        <td>${n.doctor_name ? escapeHtml(n.doctor_name) : '<span style="color:var(--gray-300)">—</span>'}</td>
+                        <td>${n.file_name ? `<button class="btn-file-link" onclick="return previewSickNoteFile(event, ${n.id}, '${escapeHtml(n.file_name)}')">&#128065; ${escapeHtml(n.file_name)}</button>` : '<span style="color:var(--gray-300)">—</span>'}</td>
+                    </tr>`;
+                }).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+function toggleAllSickNotes(checkbox) {
+    const checkboxes = document.querySelectorAll('.sick-note-checkbox');
+    checkboxes.forEach(cb => cb.checked = checkbox.checked);
+    updateBulkDeleteSickNotesBtn();
+}
+
+function updateBulkDeleteSickNotesBtn() {
+    const checked = document.querySelectorAll('.sick-note-checkbox:checked');
+    const btn = document.getElementById('bulkDeleteSickNotesBtn');
+    const count = document.getElementById('selectedSickNotesCount');
+    if (checked.length > 0) {
+        btn.style.display = 'inline-flex';
+        count.textContent = checked.length;
+    } else {
+        btn.style.display = 'none';
+    }
+    // Update select all checkbox state
+    const allCheckboxes = document.querySelectorAll('.sick-note-checkbox');
+    const selectAll = document.getElementById('selectAllSickNotes');
+    if (selectAll) {
+        selectAll.checked = allCheckboxes.length > 0 && checked.length === allCheckboxes.length;
+        selectAll.indeterminate = checked.length > 0 && checked.length < allCheckboxes.length;
+    }
+}
+
+async function bulkDeleteSickNotes() {
+    const checked = document.querySelectorAll('.sick-note-checkbox:checked');
+    const sickNoteIds = Array.from(checked).map(cb => parseInt(cb.value));
+
+    if (sickNoteIds.length === 0) return;
+
+    if (!confirm(pt('confirmBulkDeleteSickNotes').replace('{count}', sickNoteIds.length))) return;
+
+    try {
+        const response = await apiCall('/api/admin/data/sick-notes/bulk-delete', {
+            method: 'POST',
+            body: JSON.stringify({ sickNoteIds })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            showNotification(pt('bulkDeleteSickNotesSuccess').replace('{count}', data.count), 'success');
+            // Refresh the sick notes list
+            window._adminSickNotes = window._adminSickNotes.filter(n => !sickNoteIds.includes(n.id));
+            document.querySelector('#adminSickNotesList .card-body').innerHTML = renderAdminSickNotesTable(window._adminSickNotes);
+            // Reset bulk delete button
+            updateBulkDeleteSickNotesBtn();
+        } else {
+            showNotification(data.message || pt('bulkDeleteSickNotesError'), 'error');
+        }
+    } catch (error) {
+        console.error('Bulk delete sick notes error:', error);
+        showNotification(pt('bulkDeleteSickNotesError'), 'error');
+    }
 }
 
 
@@ -1498,7 +1570,7 @@ function renderAdminTicketsTable(tickets) {
             <thead>
                 <tr>
                     <th style="width:40px;"><input type="checkbox" id="selectAllTickets" onchange="toggleAllTickets(this)"></th>
-                    <th>${pt('colTicketId')}</th><th>${pt('colName')}</th><th>${pt('colType')}</th><th>${pt('colCreatedBy')}</th><th>${pt('colApprover')}</th><th>${pt('colStatus')}</th><th>${pt('colDate')}</th>
+                    <th>${pt('colTicketId')}</th><th>${pt('colName')}</th><th>${pt('colType')}</th><th>${pt('colCreatedBy')}</th><th>${pt('colApprover')}</th><th>${pt('colStatus')}</th><th>${pt('colDate')}</th><th style="width:60px;">${pt('colActions')}</th>
                 </tr>
             </thead>
             <tbody>
@@ -1512,6 +1584,7 @@ function renderAdminTicketsTable(tickets) {
                         <td>${t.assigned_approver_name ? escapeHtml(t.assigned_approver_name) : '-'}</td>
                         <td><span class="badge badge-${t.status.toLowerCase()}">${translateStatus(t.status)}</span></td>
                         <td>${formatDate(t.created_at)}${t.start_date ? `<br><small>${formatDate(t.start_date)} - ${formatDate(t.end_date)}</small>` : ''}</td>
+                        <td><button class="btn btn-sm btn-secondary" onclick="openTicketDetailModal('${t.ticket_id}')" title="${pt('ticketDetailTitle')}">&#128065;</button></td>
                     </tr>
                 `).join('')}
             </tbody>
@@ -1561,9 +1634,11 @@ async function bulkDeleteTickets() {
 
         if (data.success) {
             showNotification(pt('bulkDeleteSuccess').replace('{count}', data.count), 'success');
-            // Refresh the tickets list
-            window._adminTickets = window._adminTickets.filter(t => !ticketIds.includes(t.ticket_id));
+            // Refresh the tickets list - compare as strings to handle type mismatches
+            window._adminTickets = window._adminTickets.filter(t => !ticketIds.includes(String(t.ticket_id)));
             filterAdminTickets();
+            // Reset bulk delete button
+            updateBulkDeleteBtn();
         } else {
             showNotification(data.message || pt('bulkDeleteError'), 'error');
         }
@@ -1571,6 +1646,100 @@ async function bulkDeleteTickets() {
         console.error('Bulk delete error:', error);
         showNotification(pt('bulkDeleteError'), 'error');
     }
+}
+
+// ============================================
+// ADMIN TICKET DETAIL MODAL
+// ============================================
+
+function openTicketDetailModal(ticketId) {
+    const ticket = (window._adminTickets || []).find(t => String(t.ticket_id) === String(ticketId));
+    if (!ticket) {
+        showNotification('Ticket not found', 'error');
+        return;
+    }
+
+    const typeBadge = {'vacation':'vacation','sick-leave':'sick','paragraph':'paragraph','ocr':'ocr'}[ticket.ticket_type] || 'user';
+
+    const modalHtml = `
+        <div class="modal-backdrop" onclick="closeModal(this)">
+            <div class="modal" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <h2>${pt('ticketDetailTitle')}: ${escapeHtml(ticket.ticket_id)}</h2>
+                    <button class="modal-close" onclick="closeModal(this.closest('.modal-backdrop'))">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="detail-grid">
+                        <div class="detail-row">
+                            <label>${pt('colName')}:</label>
+                            <span><strong>${escapeHtml(ticket.title)}</strong></span>
+                        </div>
+                        <div class="detail-row">
+                            <label>${pt('colType')}:</label>
+                            <span><span class="badge badge-${typeBadge}">${translateType(ticket.ticket_type)}</span></span>
+                        </div>
+                        <div class="detail-row">
+                            <label>${pt('colStatus')}:</label>
+                            <span><span class="badge badge-${ticket.status.toLowerCase()}">${translateStatus(ticket.status)}</span></span>
+                        </div>
+                        <div class="detail-row">
+                            <label>${pt('ticketDetailPriority')}:</label>
+                            <span>${escapeHtml(ticket.priority || '-')}</span>
+                        </div>
+                        <div class="detail-row">
+                            <label>${pt('colCreatedBy')}:</label>
+                            <span><strong>${escapeHtml(ticket.created_by_name)}</strong><br><small style="color:var(--gray-500)">${escapeHtml(ticket.created_by_email)}</small></span>
+                        </div>
+                        <div class="detail-row">
+                            <label>${pt('colApprover')}:</label>
+                            <span>${ticket.assigned_approver_name ? `<strong>${escapeHtml(ticket.assigned_approver_name)}</strong><br><small style="color:var(--gray-500)">${escapeHtml(ticket.assigned_approver_email || '')}</small>` : '-'}</span>
+                        </div>
+                        ${ticket.start_date ? `
+                        <div class="detail-row">
+                            <label>${pt('colDates')}:</label>
+                            <span>${formatDate(ticket.start_date)}${ticket.end_date ? ` - ${formatDate(ticket.end_date)}` : ''}</span>
+                        </div>
+                        ` : ''}
+                        ${ticket.is_half_day ? `
+                        <div class="detail-row">
+                            <label>${pt('ticketDetailHalfDay')}:</label>
+                            <span><span style="color:var(--green-600)">&#10003;</span> ${pt('yes')}</span>
+                        </div>
+                        ` : ''}
+                        <div class="detail-row" style="grid-column: 1/-1;">
+                            <label>${pt('ticketDetailDescription')}:</label>
+                            <div style="padding:10px; background:var(--gray-50); border-radius:6px; margin-top:5px; white-space:pre-wrap;">${escapeHtml(ticket.description || '-')}</div>
+                        </div>
+                        <div class="detail-row">
+                            <label>${pt('ticketDetailCreatedAt')}:</label>
+                            <span>${formatDateTime(ticket.created_at)}</span>
+                        </div>
+                        <div class="detail-row">
+                            <label>${pt('ticketDetailUpdatedAt')}:</label>
+                            <span>${formatDateTime(ticket.updated_at)}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal(this.closest('.modal-backdrop'))">${pt('close')}</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function formatDateTime(dateStr) {
+    if (!dateStr) return '-';
+    const d = new Date(dateStr);
+    return d.toLocaleString(portalLang === 'sk' ? 'sk-SK' : 'en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
 }
 
 // ============================================

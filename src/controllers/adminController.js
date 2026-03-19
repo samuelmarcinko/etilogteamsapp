@@ -507,6 +507,33 @@ class AdminController {
   }
 
   /**
+   * Bulk delete sick notes by IDs
+   * POST /api/admin/data/sick-notes/bulk-delete
+   */
+  static async bulkDeleteSickNotes(req, res, next) {
+    try {
+      const { sickNoteIds } = req.body;
+
+      if (!sickNoteIds || !Array.isArray(sickNoteIds) || sickNoteIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'No sick note IDs provided'
+        });
+      }
+
+      const result = await pool.query('DELETE FROM sick_notes WHERE id = ANY($1) RETURNING id', [sickNoteIds]);
+
+      res.json({
+        success: true,
+        message: `Deleted ${result.rowCount} sick notes`,
+        count: result.rowCount
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Get data statistics for admin system page
    * GET /api/admin/data/stats
    */
