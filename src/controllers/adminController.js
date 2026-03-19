@@ -124,10 +124,10 @@ class AdminController {
       const { userId } = req.params;
       const { role } = req.body;
 
-      if (!['admin', 'user'].includes(role)) {
+      if (!['admin', 'spravca', 'user'].includes(role)) {
         return res.status(400).json({
           error: 'Bad Request',
-          message: 'Role must be "admin" or "user"'
+          message: 'Role must be "admin", "spravca" or "user"'
         });
       }
 

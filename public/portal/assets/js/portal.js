@@ -1194,7 +1194,7 @@ async function renderAdminEmployees(container) {
                                     ${portalUser?.role === 'admin' ? `<td>
                                         <div class="table-actions">
                                             <button class="btn-icon" onclick="toggleEmployeeVisibility('${e.id}', ${e.hidden})" title="${e.hidden ? pt('showUserTitle') : pt('hideUserTitle')}">${e.hidden ? '&#128065;' : '&#128683;'}</button>
-                                            <button class="btn-icon" onclick="toggleEmployeeRole('${e.id}', '${e.role}')" title="${pt('changeRoleTitle')}">${e.role === 'admin' ? '&#128081;' : e.role === 'spravca' ? '&#128188;' : '&#128100;'}</button>
+                                            <button class="btn-icon" onclick="openChangeRoleModal('${e.id}', '${e.role}', '${e.name.replace(/'/g, "\\'")}')" title="${pt('changeRoleTitle')}">${e.role === 'admin' ? '&#128081;' : e.role === 'spravca' ? '&#128188;' : '&#128100;'}</button>
                                         </div>
                                     </td>` : ''}
                                 </tr>
@@ -1247,12 +1247,28 @@ async function toggleEmployeeVisibility(userId, isHidden) {
     }
 }
 
-async function toggleEmployeeRole(userId, currentRole) {
-    // Cycle through roles: user -> spravca -> admin -> user
-    const roleOrder = ['user', 'spravca', 'admin'];
-    const currentIndex = roleOrder.indexOf(currentRole);
-    const newRole = roleOrder[(currentIndex + 1) % roleOrder.length];
-    if (!confirm(`${pt('changeRoleConfirm')} "${newRole}"?`)) return;
+function openChangeRoleModal(userId, currentRole, userName) {
+    document.getElementById('modalTitle').textContent = pt('changeRoleModalTitle');
+    document.getElementById('modalBody').innerHTML = `
+        <div class="form-group">
+            <label style="font-weight: 500; margin-bottom: 0.5rem; display: block;">${escapeHtml(userName)}</label>
+            <label for="roleSelect">${pt('selectRole')}:</label>
+            <select id="roleSelect" class="form-control" style="margin-top: 0.5rem;">
+                <option value="user" ${currentRole === 'user' ? 'selected' : ''}>${pt('roleUser')}</option>
+                <option value="spravca" ${currentRole === 'spravca' ? 'selected' : ''}>${pt('roleSpravca')}</option>
+                <option value="admin" ${currentRole === 'admin' ? 'selected' : ''}>${pt('roleAdmin')}</option>
+            </select>
+        </div>
+    `;
+    document.getElementById('modalFooter').innerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
+        <button class="btn btn-primary" onclick="submitRoleChange('${userId}')">${pt('saveRole')}</button>
+    `;
+    openModal();
+}
+
+async function submitRoleChange(userId) {
+    const newRole = document.getElementById('roleSelect').value;
 
     try {
         const response = await apiCall(`/api/admin/employees/${userId}/role`, {
@@ -1261,6 +1277,7 @@ async function toggleEmployeeRole(userId, currentRole) {
         });
         if (!response.ok) throw new Error(pt('changeFailed'));
         showToast(`${pt('roleChanged')} ${newRole}`, 'success');
+        closeModal();
         navigateToPage('admin-employees');
     } catch (error) {
         showToast(error.message, 'error');
