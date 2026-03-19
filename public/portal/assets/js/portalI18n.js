@@ -321,6 +321,10 @@ const portalTranslations = {
     filterExpense: 'Výdavok',
     filterHr: 'HR',
     filterOther: 'Iné',
+    bulkDelete: 'Zmazať označené',
+    confirmBulkDelete: 'Naozaj chcete zmazať {count} tiketov?',
+    bulkDeleteSuccess: 'Úspešne zmazaných {count} tiketov',
+    bulkDeleteError: 'Chyba pri mazaní tiketov',
     colTicketId: 'ID',
     colCreatedBy: 'Vytvoril',
 
@@ -699,6 +703,10 @@ const portalTranslations = {
     filterExpense: 'Expense',
     filterHr: 'HR',
     filterOther: 'Other',
+    bulkDelete: 'Delete selected',
+    confirmBulkDelete: 'Are you sure you want to delete {count} tickets?',
+    bulkDeleteSuccess: 'Successfully deleted {count} tickets',
+    bulkDeleteError: 'Error deleting tickets',
     colTicketId: 'ID',
     colCreatedBy: 'Created by',
 

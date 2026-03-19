@@ -1582,6 +1582,9 @@ async function renderAdminTickets(container) {
                     <option value="hr">${pt('filterHr')}</option>
                     <option value="other">${pt('filterOther')}</option>
                 </select>
+                <button class="btn btn-danger" id="bulkDeleteBtn" style="display:none;" onclick="bulkDeleteTickets()">
+                    <span style="margin-right:5px;">&#128465;</span> ${pt('bulkDelete')} (<span id="selectedCount">0</span>)
+                </button>
             </div>
             <div id="adminTicketsList" class="portal-card">
                 <div class="card-body" style="overflow-x:auto;">
@@ -1608,11 +1611,15 @@ function renderAdminTicketsTable(tickets) {
     return `
         <table class="data-table">
             <thead>
-                <tr><th>${pt('colTicketId')}</th><th>${pt('colName')}</th><th>${pt('colType')}</th><th>${pt('colCreatedBy')}</th><th>${pt('colApprover')}</th><th>${pt('colStatus')}</th><th>${pt('colDate')}</th></tr>
+                <tr>
+                    <th style="width:40px;"><input type="checkbox" id="selectAllTickets" onchange="toggleAllTickets(this)"></th>
+                    <th>${pt('colTicketId')}</th><th>${pt('colName')}</th><th>${pt('colType')}</th><th>${pt('colCreatedBy')}</th><th>${pt('colApprover')}</th><th>${pt('colStatus')}</th><th>${pt('colDate')}</th>
+                </tr>
             </thead>
             <tbody>
                 ${tickets.map(t => `
                     <tr>
+                        <td><input type="checkbox" class="ticket-checkbox" value="${t.ticket_id}" onchange="updateBulkDeleteBtn()"></td>
                         <td><code>${t.ticket_id}</code></td>
                         <td>${escapeHtml(t.title)}</td>
                         <td><span class="badge badge-${{'vacation':'vacation','sick-leave':'sick','paragraph':'paragraph','ocr':'ocr'}[t.ticket_type] || 'user'}">${translateType(t.ticket_type)}</span></td>
@@ -1625,6 +1632,60 @@ function renderAdminTicketsTable(tickets) {
             </tbody>
         </table>
     `;
+}
+
+function toggleAllTickets(checkbox) {
+    const checkboxes = document.querySelectorAll('.ticket-checkbox');
+    checkboxes.forEach(cb => cb.checked = checkbox.checked);
+    updateBulkDeleteBtn();
+}
+
+function updateBulkDeleteBtn() {
+    const checked = document.querySelectorAll('.ticket-checkbox:checked');
+    const btn = document.getElementById('bulkDeleteBtn');
+    const count = document.getElementById('selectedCount');
+    if (checked.length > 0) {
+        btn.style.display = 'inline-flex';
+        count.textContent = checked.length;
+    } else {
+        btn.style.display = 'none';
+    }
+    // Update select all checkbox state
+    const allCheckboxes = document.querySelectorAll('.ticket-checkbox');
+    const selectAll = document.getElementById('selectAllTickets');
+    if (selectAll) {
+        selectAll.checked = allCheckboxes.length > 0 && checked.length === allCheckboxes.length;
+        selectAll.indeterminate = checked.length > 0 && checked.length < allCheckboxes.length;
+    }
+}
+
+async function bulkDeleteTickets() {
+    const checked = document.querySelectorAll('.ticket-checkbox:checked');
+    const ticketIds = Array.from(checked).map(cb => cb.value);
+
+    if (ticketIds.length === 0) return;
+
+    if (!confirm(pt('confirmBulkDelete').replace('{count}', ticketIds.length))) return;
+
+    try {
+        const response = await apiCall('/api/admin/data/tickets/bulk-delete', {
+            method: 'POST',
+            body: JSON.stringify({ ticketIds })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            showNotification(pt('bulkDeleteSuccess').replace('{count}', data.count), 'success');
+            // Refresh the tickets list
+            window._adminTickets = window._adminTickets.filter(t => !ticketIds.includes(t.ticket_id));
+            filterAdminTickets();
+        } else {
+            showNotification(data.message || pt('bulkDeleteError'), 'error');
+        }
+    } catch (error) {
+        console.error('Bulk delete error:', error);
+        showNotification(pt('bulkDeleteError'), 'error');
+    }
 }
 
 // ============================================

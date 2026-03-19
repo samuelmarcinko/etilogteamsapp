@@ -451,6 +451,36 @@ class AdminController {
   }
 
   /**
+   * Bulk delete tickets by IDs
+   * POST /api/admin/data/tickets/bulk-delete
+   */
+  static async bulkDeleteTickets(req, res, next) {
+    try {
+      const { ticketIds } = req.body;
+
+      if (!ticketIds || !Array.isArray(ticketIds) || ticketIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'No ticket IDs provided'
+        });
+      }
+
+      // Delete related data first
+      await pool.query('DELETE FROM ticket_actions WHERE ticket_id = ANY($1)', [ticketIds]);
+      await pool.query('DELETE FROM ticket_attachments WHERE ticket_id = ANY($1)', [ticketIds]);
+      const result = await pool.query('DELETE FROM tickets WHERE ticket_id = ANY($1) RETURNING ticket_id', [ticketIds]);
+
+      res.json({
+        success: true,
+        message: `Deleted ${result.rowCount} tickets`,
+        count: result.rowCount
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Delete a specific sick note by ID
    * DELETE /api/admin/data/sick-notes/:id
    */
