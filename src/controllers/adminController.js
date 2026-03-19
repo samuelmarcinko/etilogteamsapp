@@ -521,16 +521,13 @@ class AdminController {
     const fs = require('fs');
 
     try {
-      const backupDir = '/srv/backups/dumps';
+      const backupDir = process.env.BACKUP_DIR || '/app/backups';
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const backupFile = path.join(backupDir, `manual-backup-${timestamp}.sql`);
 
-      // Check if backup directory exists
+      // Create backup directory if it doesn't exist
       if (!fs.existsSync(backupDir)) {
-        return res.status(500).json({
-          success: false,
-          message: 'Backup directory does not exist: ' + backupDir
-        });
+        fs.mkdirSync(backupDir, { recursive: true });
       }
 
       // Get database connection info from environment
@@ -584,13 +581,14 @@ class AdminController {
     const path = require('path');
 
     try {
-      const backupDir = '/srv/backups/dumps';
+      const backupDir = process.env.BACKUP_DIR || '/app/backups';
 
       if (!fs.existsSync(backupDir)) {
+        fs.mkdirSync(backupDir, { recursive: true });
         return res.json({
           success: true,
           data: [],
-          message: 'Backup directory does not exist'
+          message: 'Backup directory created, no backups yet'
         });
       }
 

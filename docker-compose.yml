@@ -10,9 +10,11 @@ services:
     volumes:
       - .:/app
       - ./uploads:/app/uploads
+      - ./backups:/app/backups
     environment:
       - NODE_ENV=production
       - UPLOAD_DIR=/app/uploads
+      - BACKUP_DIR=/app/backups
     env_file:
       - .env
     networks:
