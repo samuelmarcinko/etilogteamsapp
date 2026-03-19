@@ -1158,7 +1158,6 @@ async function renderAdminEmployees(container) {
     container.innerHTML = `
         <div class="page-header">
             <div><h1>${pt('employeesTitle')}</h1><p>${pt('employeesDesc')}</p></div>
-            <button class="btn btn-primary" onclick="initializeAllQuotas()">${pt('initQuotas')} ${year}</button>
         </div>
         <div class="page-body">
             <div class="portal-card">
@@ -1250,69 +1249,31 @@ async function toggleEmployeeRole(userId, currentRole) {
     }
 }
 
-async function initializeAllQuotas() {
-    const year = new Date().getFullYear();
-    if (!confirm(`${pt('quotasInitConfirm')} ${year}?`)) return;
-
-    try {
-        const response = await apiCall('/api/quotas/initialize', {
-            method: 'POST',
-            body: JSON.stringify({ year })
-        });
-        const result = await response.json();
-        if (result.count > 0) {
-            showToast(`${pt('quotasInitialized')} ${result.count} ${pt('employees')}`, 'success');
-        } else {
-            showToast(pt('quotasAllAlreadyInit') || `${pt('quotasInitialized')} 0 - ${pt('quotasAllExist')}`, 'success');
-        }
-        navigateToPage('admin-employees');
-    } catch (error) {
-        showToast(error.message, 'error');
-    }
-}
-
 // ============================================
 // ADMIN QUOTAS
 // ============================================
 
 async function renderAdminQuotas(container) {
     const year = new Date().getFullYear();
-    const [quotasRes, settingsRes] = await Promise.all([
-        apiCall(`/api/quotas/all?year=${year}`),
-        apiCall('/api/quotas/settings')
-    ]);
 
+    // Auto-sync: synchronize employees and create quotas for new users (does NOT modify existing quotas)
+    try {
+        await apiCall('/api/quotas/initialize', {
+            method: 'POST',
+            body: JSON.stringify({ year })
+        });
+    } catch (e) {
+        console.warn('Auto-sync failed:', e);
+    }
+
+    const quotasRes = await apiCall(`/api/quotas/all?year=${year}`);
     const quotas = (await quotasRes.json()).data || [];
-    const settings = (await settingsRes.json()).data || [];
 
     container.innerHTML = `
         <div class="page-header">
             <div><h1>${pt('adminQuotasTitle')}</h1><p>${pt('adminQuotasDesc')}</p></div>
         </div>
         <div class="page-body">
-            <div class="portal-card">
-                <div class="card-header">
-                    <h2>${pt('quotaSettings')}</h2>
-                    <button class="btn btn-sm btn-secondary" onclick="openQuotaSettingsModal()">${pt('edit')}</button>
-                </div>
-                <div class="card-body">
-                    <table class="data-table">
-                        <thead><tr><th>${pt('quotaSettingsYear')}</th><th>${pt('quotaSettingsDefaultVacation')}</th><th>${pt('quotaSettingsDefaultParagraph')}</th><th>${pt('quotaSettingsDefaultOcr')}</th><th>${pt('quotaSettingsCarryOver')}</th></tr></thead>
-                        <tbody>
-                            ${settings.map(s => `
-                                <tr>
-                                    <td><strong>${s.year}</strong></td>
-                                    <td>${s.default_vacation_days} ${pt('days')}</td>
-                                    <td>${s.default_paragraph_days || 7} ${pt('days')}</td>
-                                    <td>${s.default_ocr_days || 7} ${pt('days')}</td>
-                                    <td>${s.carry_over_enabled ? `${pt('yes')} (${pt('quotaSettingsCarryOverMax')} ${s.max_carry_over_days} ${pt('days')})` : pt('no')}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
             <div class="portal-card">
                 <div class="card-header">
                     <h2>${pt('employeeQuotasYear')} ${year}</h2>
@@ -1344,82 +1305,6 @@ async function renderAdminQuotas(container) {
             </div>
         </div>
     `;
-}
-
-async function openQuotaSettingsModal() {
-    const year = new Date().getFullYear();
-
-    // Load existing settings to pre-fill
-    let existingVacation = 20;
-    let existingSick = 5;
-    let existingParagraph = 7;
-    let existingOcr = 7;
-    try {
-        const res = await apiCall('/api/quotas/settings');
-        const allSettings = (await res.json()).data || [];
-        const current = allSettings.find(s => s.year === year);
-        if (current) {
-            existingVacation = current.default_vacation_days;
-            existingSick = current.default_sick_days;
-            existingParagraph = current.default_paragraph_days || 7;
-            existingOcr = current.default_ocr_days || 7;
-        }
-    } catch (e) { /* use defaults */ }
-
-    document.getElementById('modalTitle').textContent = pt('quotaSettings');
-    document.getElementById('modalBody').innerHTML = `
-        <form id="quotaSettingsForm" data-default-sick="${existingSick}">
-            <div class="form-group">
-                <label class="form-label">${pt('quotaSettingsYear')}</label>
-                <input type="number" class="form-input" name="year" value="${year}" min="2024" max="2030">
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">${pt('quotaSettingsDefaultVacation')}</label>
-                    <input type="number" class="form-input" name="default_vacation_days" value="${existingVacation}" min="0" max="50">
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">${pt('quotaSettingsDefaultParagraph')}</label>
-                    <input type="number" class="form-input" name="default_paragraph_days" value="${existingParagraph}" min="0" max="30">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">${pt('quotaSettingsDefaultOcr')}</label>
-                    <input type="number" class="form-input" name="default_ocr_days" value="${existingOcr}" min="0" max="30">
-                </div>
-            </div>
-        </form>
-    `;
-    document.getElementById('modalFooter').innerHTML = `
-        <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
-        <button class="btn btn-primary" onclick="saveQuotaSettings()">${pt('save')}</button>
-    `;
-    openModal();
-}
-
-async function saveQuotaSettings() {
-    const form = document.getElementById('quotaSettingsForm');
-    const data = {
-        year: parseInt(form.year.value),
-        default_vacation_days: parseInt(form.default_vacation_days.value),
-        default_sick_days: parseInt(form.dataset.defaultSick),
-        default_paragraph_days: parseInt(form.default_paragraph_days.value),
-        default_ocr_days: parseInt(form.default_ocr_days.value)
-    };
-
-    try {
-        const response = await apiCall('/api/quotas/settings', {
-            method: 'PUT',
-            body: JSON.stringify(data)
-        });
-        if (!response.ok) throw new Error(pt('saveFailed'));
-        showToast(pt('quotaSettingsSaved'), 'success');
-        closeModal();
-        navigateToPage('admin-quotas');
-    } catch (error) {
-        showToast(error.message, 'error');
-    }
 }
 
 // Edit individual user quotas
