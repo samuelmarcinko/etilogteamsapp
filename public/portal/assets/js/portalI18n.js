@@ -349,6 +349,37 @@ const portalTranslations = {
     ticketTypesCannotDelete: 'Nemožno vymazať',
     ticketTypesEmpty: 'Žiadne typy tiketov',
     ticketTypesToggleActive: 'Aktivovať/Deaktivovať',
+
+    // Admin System Management
+    navAdminSystem: 'Správa systému',
+    adminSystemTitle: 'Správa systému',
+    adminSystemDesc: 'Správa dát a zálohovanie databázy',
+    dataStatistics: 'Štatistiky dát',
+    tickets: 'Tikety',
+    sickNotes: 'Doklady',
+    quotas: 'Kvóty',
+    users: 'Používatelia',
+    dataManagement: 'Správa dát',
+    dataManagementWarning: 'POZOR: Tieto akcie sú nevratné! Pred vymazaním dát odporúčame vytvoriť zálohu databázy.',
+    deleteAllTickets: 'Vymazať všetky tikety',
+    deleteAllSickNotes: 'Vymazať všetky doklady',
+    deleteAllQuotas: 'Vymazať všetky kvóty',
+    resetQuotasUsed: 'Resetovať využité dni',
+    deleteAllTicketsConfirm: 'POZOR! Naozaj chcete vymazať VŠETKY tikety vrátane histórie a príloh? Táto akcia je NEVRATNÁ!',
+    deleteAllSickNotesConfirm: 'POZOR! Naozaj chcete vymazať VŠETKY doklady (paragrafy a OČR)? Táto akcia je NEVRATNÁ!',
+    deleteAllQuotasConfirm: 'POZOR! Naozaj chcete vymazať VŠETKY kvóty zamestnancov? Táto akcia je NEVRATNÁ!',
+    resetQuotasUsedConfirm: 'Naozaj chcete resetovať využité dni kvót na 0 pre rok {year}?',
+    deleteConfirmSecond: 'Ste si NAOZAJ istý? Kliknite OK pre potvrdenie vymazania.',
+    databaseBackup: 'Záloha databázy',
+    createBackup: 'Vytvoriť zálohu',
+    creatingBackup: 'Vytváranie zálohy...',
+    backupInfo: 'Zálohy sa automaticky vytvárajú každý deň cez CRON. Tu môžete vytvoriť manuálnu zálohu.',
+    backupCreated: 'Záloha bola vytvorená',
+    backupFailed: 'Záloha zlyhala',
+    existingBackups: 'Existujúce zálohy',
+    noBackups: 'Žiadne zálohy',
+    colSize: 'Veľkosť',
+    andMore: '... a ďalších {count} záloh',
   },
 
   en: {
@@ -696,6 +727,37 @@ const portalTranslations = {
     ticketTypesCannotDelete: 'Cannot delete',
     ticketTypesEmpty: 'No ticket types',
     ticketTypesToggleActive: 'Activate/Deactivate',
+
+    // Admin System Management
+    navAdminSystem: 'System Management',
+    adminSystemTitle: 'System Management',
+    adminSystemDesc: 'Data management and database backup',
+    dataStatistics: 'Data Statistics',
+    tickets: 'Tickets',
+    sickNotes: 'Documents',
+    quotas: 'Quotas',
+    users: 'Users',
+    dataManagement: 'Data Management',
+    dataManagementWarning: 'WARNING: These actions are irreversible! We recommend creating a backup before deleting data.',
+    deleteAllTickets: 'Delete all tickets',
+    deleteAllSickNotes: 'Delete all documents',
+    deleteAllQuotas: 'Delete all quotas',
+    resetQuotasUsed: 'Reset used days',
+    deleteAllTicketsConfirm: 'WARNING! Are you sure you want to delete ALL tickets including history and attachments? This action is IRREVERSIBLE!',
+    deleteAllSickNotesConfirm: 'WARNING! Are you sure you want to delete ALL documents (paragraphs and FMC)? This action is IRREVERSIBLE!',
+    deleteAllQuotasConfirm: 'WARNING! Are you sure you want to delete ALL employee quotas? This action is IRREVERSIBLE!',
+    resetQuotasUsedConfirm: 'Are you sure you want to reset used quota days to 0 for year {year}?',
+    deleteConfirmSecond: 'Are you REALLY sure? Click OK to confirm deletion.',
+    databaseBackup: 'Database Backup',
+    createBackup: 'Create Backup',
+    creatingBackup: 'Creating backup...',
+    backupInfo: 'Backups are automatically created daily via CRON. Here you can create a manual backup.',
+    backupCreated: 'Backup created',
+    backupFailed: 'Backup failed',
+    existingBackups: 'Existing Backups',
+    noBackups: 'No backups',
+    colSize: 'Size',
+    andMore: '... and {count} more backups',
   }
 };
 
@@ -809,7 +871,8 @@ function updateSidebarLanguage() {
     'admin-quotas': pt('navQuotas'),
     'admin-sick-notes': pt('navAllSickNotes'),
     'admin-tickets': pt('navAllTickets'),
-    'admin-ticket-types': pt('navTicketTypes')
+    'admin-ticket-types': pt('navTicketTypes'),
+    'admin-system': pt('navAdminSystem')
   };
 
   document.querySelectorAll('.sidebar-link').forEach(link => {

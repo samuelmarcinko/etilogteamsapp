@@ -892,6 +892,9 @@ body {
 .btn-danger { background: var(--red-500); color: var(--white); }
 .btn-danger:hover { background: #dc2626; }
 
+.btn-warning { background: #f59e0b; color: var(--white); }
+.btn-warning:hover { background: #d97706; }
+
 .btn-ghost {
   background: transparent;
   color: var(--gray-500);

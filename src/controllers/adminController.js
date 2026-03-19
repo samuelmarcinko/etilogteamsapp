@@ -331,6 +331,293 @@ class AdminController {
       next(error);
     }
   }
+
+  // ============================================
+  // DATA MANAGEMENT (DELETE OPERATIONS)
+  // ============================================
+
+  /**
+   * Delete all tickets
+   * DELETE /api/admin/data/tickets
+   */
+  static async deleteAllTickets(req, res, next) {
+    try {
+      // First delete related data
+      await pool.query('DELETE FROM ticket_actions');
+      await pool.query('DELETE FROM ticket_attachments');
+      const result = await pool.query('DELETE FROM tickets RETURNING ticket_id');
+
+      res.json({
+        success: true,
+        message: `Deleted ${result.rowCount} tickets`,
+        count: result.rowCount
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Delete all sick notes
+   * DELETE /api/admin/data/sick-notes
+   */
+  static async deleteAllSickNotes(req, res, next) {
+    try {
+      const result = await pool.query('DELETE FROM sick_notes RETURNING id');
+
+      res.json({
+        success: true,
+        message: `Deleted ${result.rowCount} sick notes`,
+        count: result.rowCount
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Delete all quotas
+   * DELETE /api/admin/data/quotas
+   */
+  static async deleteAllQuotas(req, res, next) {
+    try {
+      const result = await pool.query('DELETE FROM employee_quotas RETURNING id');
+
+      res.json({
+        success: true,
+        message: `Deleted ${result.rowCount} quota records`,
+        count: result.rowCount
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Reset quotas used values to 0 for current year
+   * POST /api/admin/data/quotas/reset-used
+   */
+  static async resetQuotasUsed(req, res, next) {
+    try {
+      const year = parseInt(req.query.year) || new Date().getFullYear();
+      const result = await pool.query(
+        `UPDATE employee_quotas
+         SET vacation_days_used = 0, sick_days_used = 0,
+             paragraph_days_used = 0, ocr_days_used = 0,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE year = $1
+         RETURNING id`,
+        [year]
+      );
+
+      res.json({
+        success: true,
+        message: `Reset used values for ${result.rowCount} quota records in year ${year}`,
+        count: result.rowCount
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Delete a specific ticket by ID
+   * DELETE /api/admin/data/tickets/:ticketId
+   */
+  static async deleteTicket(req, res, next) {
+    try {
+      const { ticketId } = req.params;
+
+      // Delete related data first
+      await pool.query('DELETE FROM ticket_actions WHERE ticket_id = $1', [ticketId]);
+      await pool.query('DELETE FROM ticket_attachments WHERE ticket_id = $1', [ticketId]);
+      const result = await pool.query('DELETE FROM tickets WHERE ticket_id = $1 RETURNING *', [ticketId]);
+
+      if (result.rowCount === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Ticket not found'
+        });
+      }
+
+      res.json({
+        success: true,
+        message: `Deleted ticket ${ticketId}`,
+        data: result.rows[0]
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Delete a specific sick note by ID
+   * DELETE /api/admin/data/sick-notes/:id
+   */
+  static async deleteSickNote(req, res, next) {
+    try {
+      const { id } = req.params;
+      const result = await pool.query('DELETE FROM sick_notes WHERE id = $1 RETURNING *', [id]);
+
+      if (result.rowCount === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Sick note not found'
+        });
+      }
+
+      res.json({
+        success: true,
+        message: `Deleted sick note ${id}`,
+        data: result.rows[0]
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get data statistics for admin system page
+   * GET /api/admin/data/stats
+   */
+  static async getDataStats(req, res, next) {
+    try {
+      const [tickets, sickNotes, quotas, users, ticketActions, ticketAttachments] = await Promise.all([
+        pool.query('SELECT COUNT(*) as count FROM tickets'),
+        pool.query('SELECT COUNT(*) as count FROM sick_notes'),
+        pool.query('SELECT COUNT(*) as count FROM employee_quotas'),
+        pool.query('SELECT COUNT(*) as count FROM users'),
+        pool.query('SELECT COUNT(*) as count FROM ticket_actions'),
+        pool.query('SELECT COUNT(*) as count FROM ticket_attachments')
+      ]);
+
+      res.json({
+        success: true,
+        data: {
+          tickets: parseInt(tickets.rows[0].count),
+          sickNotes: parseInt(sickNotes.rows[0].count),
+          quotas: parseInt(quotas.rows[0].count),
+          users: parseInt(users.rows[0].count),
+          ticketActions: parseInt(ticketActions.rows[0].count),
+          ticketAttachments: parseInt(ticketAttachments.rows[0].count)
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ============================================
+  // DATABASE BACKUP
+  // ============================================
+
+  /**
+   * Trigger database backup
+   * POST /api/admin/backup
+   */
+  static async triggerBackup(req, res, next) {
+    const { exec } = require('child_process');
+    const path = require('path');
+    const fs = require('fs');
+
+    try {
+      const backupDir = '/srv/backups/dumps';
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const backupFile = path.join(backupDir, `manual-backup-${timestamp}.sql`);
+
+      // Check if backup directory exists
+      if (!fs.existsSync(backupDir)) {
+        return res.status(500).json({
+          success: false,
+          message: 'Backup directory does not exist: ' + backupDir
+        });
+      }
+
+      // Get database connection info from environment
+      const dbHost = process.env.DB_HOST || 'localhost';
+      const dbPort = process.env.DB_PORT || '5432';
+      const dbName = process.env.DB_NAME || 'etilog';
+      const dbUser = process.env.DB_USER || 'postgres';
+
+      // Build pg_dump command
+      const pgDumpCmd = `PGPASSWORD="${process.env.DB_PASSWORD}" pg_dump -h ${dbHost} -p ${dbPort} -U ${dbUser} -d ${dbName} -F p > "${backupFile}"`;
+
+      exec(pgDumpCmd, { shell: '/bin/bash' }, (error, stdout, stderr) => {
+        if (error) {
+          console.error('Backup error:', error);
+          return res.status(500).json({
+            success: false,
+            message: 'Backup failed: ' + error.message
+          });
+        }
+
+        // Check if file was created and has content
+        if (fs.existsSync(backupFile)) {
+          const stats = fs.statSync(backupFile);
+          res.json({
+            success: true,
+            message: 'Backup created successfully',
+            data: {
+              file: backupFile,
+              size: stats.size,
+              timestamp: timestamp
+            }
+          });
+        } else {
+          res.status(500).json({
+            success: false,
+            message: 'Backup file was not created'
+          });
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * List available backups
+   * GET /api/admin/backups
+   */
+  static async listBackups(req, res, next) {
+    const fs = require('fs');
+    const path = require('path');
+
+    try {
+      const backupDir = '/srv/backups/dumps';
+
+      if (!fs.existsSync(backupDir)) {
+        return res.json({
+          success: true,
+          data: [],
+          message: 'Backup directory does not exist'
+        });
+      }
+
+      const files = fs.readdirSync(backupDir)
+        .filter(f => f.endsWith('.sql'))
+        .map(f => {
+          const filePath = path.join(backupDir, f);
+          const stats = fs.statSync(filePath);
+          return {
+            name: f,
+            path: filePath,
+            size: stats.size,
+            sizeFormatted: (stats.size / 1024 / 1024).toFixed(2) + ' MB',
+            created: stats.mtime
+          };
+        })
+        .sort((a, b) => new Date(b.created) - new Date(a.created));
+
+      res.json({
+        success: true,
+        count: files.length,
+        data: files
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = AdminController;

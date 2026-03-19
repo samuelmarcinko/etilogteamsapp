@@ -20,4 +20,17 @@ router.get('/tickets', requireDbRole('admin'), asyncHandler(AdminController.getA
 router.get('/all-azure-users', requireDbRole('admin'), asyncHandler(AdminController.getAllAzureUsers));
 router.get('/diagnose-user', requireDbRole('admin'), asyncHandler(AdminController.diagnoseUser));
 
+// Data management routes (admin only)
+router.get('/data/stats', requireDbRole('admin'), asyncHandler(AdminController.getDataStats));
+router.delete('/data/tickets', requireDbRole('admin'), asyncHandler(AdminController.deleteAllTickets));
+router.delete('/data/tickets/:ticketId', requireDbRole('admin'), asyncHandler(AdminController.deleteTicket));
+router.delete('/data/sick-notes', requireDbRole('admin'), asyncHandler(AdminController.deleteAllSickNotes));
+router.delete('/data/sick-notes/:id', requireDbRole('admin'), asyncHandler(AdminController.deleteSickNote));
+router.delete('/data/quotas', requireDbRole('admin'), asyncHandler(AdminController.deleteAllQuotas));
+router.post('/data/quotas/reset-used', requireDbRole('admin'), asyncHandler(AdminController.resetQuotasUsed));
+
+// Backup routes (admin only)
+router.post('/backup', requireDbRole('admin'), asyncHandler(AdminController.triggerBackup));
+router.get('/backups', requireDbRole('admin'), asyncHandler(AdminController.listBackups));
+
 module.exports = router;

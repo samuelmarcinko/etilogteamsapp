@@ -144,6 +144,7 @@ async function renderPage(page) {
             case 'admin-sick-notes': await renderAdminSickNotes(content); break;
             case 'admin-tickets': await renderAdminTickets(content); break;
             case 'admin-ticket-types': await renderAdminTicketTypes(content); break;
+            case 'admin-system': await renderAdminSystem(content); break;
             default: content.innerHTML = `<div class="page-body"><div class="empty-state"><div class="empty-icon">&#128533;</div><div class="empty-text">${pt('pageNotFound')}</div></div></div>`;
         }
     } catch (error) {
@@ -1836,6 +1837,206 @@ async function deleteTicketType(id) {
     } catch (error) {
         showToast(pt('ticketTypesCannotDelete') + ': ' + error.message, 'error');
     }
+}
+
+// ============================================
+// ADMIN SYSTEM MANAGEMENT
+// ============================================
+
+async function renderAdminSystem(container) {
+    // Load data stats
+    const statsRes = await apiCall('/api/admin/data/stats');
+    const stats = (await statsRes.json()).data || {};
+
+    // Load backups list
+    const backupsRes = await apiCall('/api/admin/backups');
+    const backups = (await backupsRes.json()).data || [];
+
+    container.innerHTML = `
+        <div class="page-header">
+            <div><h1>${pt('adminSystemTitle')}</h1><p>${pt('adminSystemDesc')}</p></div>
+        </div>
+        <div class="page-body">
+            <!-- Data Statistics -->
+            <div class="portal-card">
+                <div class="card-header">
+                    <h3>${pt('dataStatistics')}</h3>
+                </div>
+                <div class="card-body">
+                    <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background:#e0f2fe;color:#0284c7;">&#127915;</div>
+                            <div><div class="stat-value">${stats.tickets || 0}</div><div class="stat-label">${pt('tickets')}</div></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background:#dcfce7;color:#16a34a;">&#128203;</div>
+                            <div><div class="stat-value">${stats.sickNotes || 0}</div><div class="stat-label">${pt('sickNotes')}</div></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background:#fef3c7;color:#d97706;">&#128202;</div>
+                            <div><div class="stat-value">${stats.quotas || 0}</div><div class="stat-label">${pt('quotas')}</div></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background:#f3e8ff;color:#9333ea;">&#128101;</div>
+                            <div><div class="stat-value">${stats.users || 0}</div><div class="stat-label">${pt('users')}</div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Management -->
+            <div class="portal-card" style="margin-top: 1.5rem;">
+                <div class="card-header">
+                    <h3>${pt('dataManagement')}</h3>
+                </div>
+                <div class="card-body">
+                    <p style="color: var(--gray-600); margin-bottom: 1rem;">${pt('dataManagementWarning')}</p>
+                    <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+                        <button class="btn btn-danger" onclick="confirmDeleteAllTickets()">
+                            ${pt('deleteAllTickets')}
+                        </button>
+                        <button class="btn btn-danger" onclick="confirmDeleteAllSickNotes()">
+                            ${pt('deleteAllSickNotes')}
+                        </button>
+                        <button class="btn btn-danger" onclick="confirmDeleteAllQuotas()">
+                            ${pt('deleteAllQuotas')}
+                        </button>
+                        <button class="btn btn-warning" onclick="confirmResetQuotasUsed()">
+                            ${pt('resetQuotasUsed')}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Database Backup -->
+            <div class="portal-card" style="margin-top: 1.5rem;">
+                <div class="card-header">
+                    <h3>${pt('databaseBackup')}</h3>
+                    <button class="btn btn-primary" onclick="triggerBackup()" id="backupBtn">
+                        ${pt('createBackup')}
+                    </button>
+                </div>
+                <div class="card-body">
+                    <p style="color: var(--gray-600); margin-bottom: 1rem;">${pt('backupInfo')}</p>
+
+                    ${backups.length > 0 ? `
+                        <h4 style="margin-top: 1.5rem; margin-bottom: 0.75rem;">${pt('existingBackups')}</h4>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>${pt('colName')}</th>
+                                    <th>${pt('colSize')}</th>
+                                    <th>${pt('colDate')}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${backups.slice(0, 10).map(b => `
+                                    <tr>
+                                        <td><code>${escapeHtml(b.name)}</code></td>
+                                        <td>${b.sizeFormatted}</td>
+                                        <td>${formatDateTime(b.created)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                        ${backups.length > 10 ? `<p style="color: var(--gray-500); margin-top: 0.5rem;">${pt('andMore').replace('{count}', backups.length - 10)}</p>` : ''}
+                    ` : `
+                        <div class="empty-state" style="padding: 2rem;">
+                            <div class="empty-icon">&#128190;</div>
+                            <div class="empty-text">${pt('noBackups')}</div>
+                        </div>
+                    `}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+async function confirmDeleteAllTickets() {
+    if (!confirm(pt('deleteAllTicketsConfirm'))) return;
+    if (!confirm(pt('deleteConfirmSecond'))) return;
+
+    try {
+        const response = await apiCall('/api/admin/data/tickets', { method: 'DELETE' });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || pt('deleteFailed'));
+        showToast(result.message, 'success');
+        navigateToPage('admin-system');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function confirmDeleteAllSickNotes() {
+    if (!confirm(pt('deleteAllSickNotesConfirm'))) return;
+    if (!confirm(pt('deleteConfirmSecond'))) return;
+
+    try {
+        const response = await apiCall('/api/admin/data/sick-notes', { method: 'DELETE' });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || pt('deleteFailed'));
+        showToast(result.message, 'success');
+        navigateToPage('admin-system');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function confirmDeleteAllQuotas() {
+    if (!confirm(pt('deleteAllQuotasConfirm'))) return;
+    if (!confirm(pt('deleteConfirmSecond'))) return;
+
+    try {
+        const response = await apiCall('/api/admin/data/quotas', { method: 'DELETE' });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || pt('deleteFailed'));
+        showToast(result.message, 'success');
+        navigateToPage('admin-system');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function confirmResetQuotasUsed() {
+    const year = new Date().getFullYear();
+    if (!confirm(pt('resetQuotasUsedConfirm').replace('{year}', year))) return;
+
+    try {
+        const response = await apiCall(`/api/admin/data/quotas/reset-used?year=${year}`, { method: 'POST' });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || pt('changeFailed'));
+        showToast(result.message, 'success');
+        navigateToPage('admin-system');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function triggerBackup() {
+    const btn = document.getElementById('backupBtn');
+    btn.disabled = true;
+    btn.textContent = pt('creatingBackup');
+
+    try {
+        const response = await apiCall('/api/admin/backup', { method: 'POST' });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || pt('backupFailed'));
+        showToast(pt('backupCreated') + ': ' + result.data.file, 'success');
+        navigateToPage('admin-system');
+    } catch (error) {
+        showToast(error.message, 'error');
+        btn.disabled = false;
+        btn.textContent = pt('createBackup');
+    }
+}
+
+function formatDateTime(dateStr) {
+    if (!dateStr) return '-';
+    const d = new Date(dateStr);
+    return d.toLocaleString(portalLang === 'sk' ? 'sk-SK' : 'en-GB', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+    });
 }
 
 // ============================================
