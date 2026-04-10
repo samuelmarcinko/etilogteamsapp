@@ -1597,11 +1597,13 @@ async function renderAdminTickets(container) {
                 <select class="form-select" id="adminTicketType" onchange="filterAdminTickets()">
                     <option value="">${pt('filterAllTypes')}</option>
                     <option value="vacation">${pt('filterVacation')}</option>
-                    <option value="sick-leave">${pt('filterSickLeave')}</option>
-                    <option value="purchase">${pt('filterPurchase')}</option>
+${portalUser?.role === 'admin' ? `                    <option value="sick-leave">${pt('filterSickLeave')}</option>` : ''}
+                    <option value="paragraph">${pt('filterParagraph')}</option>
+                    <option value="ocr">${pt('filterOcr')}</option>
+${portalUser?.role === 'admin' ? `                    <option value="purchase">${pt('filterPurchase')}</option>
                     <option value="expense">${pt('filterExpense')}</option>
                     <option value="hr">${pt('filterHr')}</option>
-                    <option value="other">${pt('filterOther')}</option>
+                    <option value="other">${pt('filterOther')}</option>` : ''}
                 </select>
                 <div class="filter-date-group">
                     <label>${pt('filterDateFrom')}:</label>
@@ -1629,6 +1631,11 @@ ${portalUser?.role === 'admin' ? `<button class="btn btn-danger" id="bulkDeleteB
 
     window._adminTickets = tickets;
     window._adminEmployees = employees;
+
+    // For spravca role, filter and re-render with only allowed ticket types
+    if (portalUser?.role === 'spravca') {
+        filterAdminTickets();
+    }
 }
 
 async function loadAdminTicketsByYear() {
@@ -1656,6 +1663,12 @@ function filterAdminTickets() {
     const dateTo = document.getElementById('adminTicketDateTo')?.value || '';
 
     let filtered = window._adminTickets || [];
+
+    // For spravca role, only show vacation, ocr, paragraph tickets
+    if (portalUser?.role === 'spravca') {
+        const allowedTypes = ['vacation', 'ocr', 'paragraph'];
+        filtered = filtered.filter(t => allowedTypes.includes(t.ticket_type));
+    }
 
     if (employee) {
         filtered = filtered.filter(t => t.created_by_id === employee);
