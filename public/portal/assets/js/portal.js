@@ -1559,16 +1559,35 @@ async function refreshAdminSickNotes() {
 // ============================================
 
 async function renderAdminTickets(container) {
-    const year = new Date().getFullYear();
-    const response = await apiCall(`/api/admin/tickets?year=${year}`);
-    const tickets = (await response.json()).data || [];
+    const currentYear = new Date().getFullYear();
+    const years = [currentYear, currentYear - 1, currentYear - 2];
+
+    // Load tickets and employees in parallel
+    const [ticketsResponse, employeesResponse] = await Promise.all([
+        apiCall(`/api/admin/tickets?year=${currentYear}`),
+        apiCall('/api/admin/employees')
+    ]);
+    const tickets = (await ticketsResponse.json()).data || [];
+    const employees = (await employeesResponse.json()).data || [];
 
     container.innerHTML = `
         <div class="page-header">
-            <div><h1>${pt('allTicketsTitle')}</h1><p>${pt('allTicketsDesc')} (${year})</p></div>
+            <div><h1>${pt('allTicketsTitle')}</h1><p>${pt('allTicketsDesc')}</p></div>
+            <div class="page-header-actions">
+                <button class="btn btn-primary" onclick="openExportModal()">
+                    <span style="margin-right:5px;">&#128190;</span> ${pt('exportBtn')}
+                </button>
+            </div>
         </div>
         <div class="page-body">
-            <div class="filters-bar">
+            <div class="filters-bar" style="flex-wrap: wrap;">
+                <select class="form-select" id="adminTicketYear" onchange="loadAdminTicketsByYear()">
+                    ${years.map(y => `<option value="${y}">${y}</option>`).join('')}
+                </select>
+                <select class="form-select" id="adminTicketEmployee" onchange="filterAdminTickets()">
+                    <option value="">${pt('filterAllEmployees')}</option>
+                    ${employees.map(e => `<option value="${e.ms_id}">${escapeHtml(e.display_name)}</option>`).join('')}
+                </select>
                 <select class="form-select" id="adminTicketStatus" onchange="filterAdminTickets()">
                     <option value="">${pt('filterAllStatuses')}</option>
                     <option value="Pending">${pt('filterPending')}</option>
@@ -1584,10 +1603,22 @@ async function renderAdminTickets(container) {
                     <option value="hr">${pt('filterHr')}</option>
                     <option value="other">${pt('filterOther')}</option>
                 </select>
+                <div class="filter-date-group">
+                    <label>${pt('filterDateFrom')}:</label>
+                    <input type="date" class="form-input" id="adminTicketDateFrom" onchange="filterAdminTickets()">
+                </div>
+                <div class="filter-date-group">
+                    <label>${pt('filterDateTo')}:</label>
+                    <input type="date" class="form-input" id="adminTicketDateTo" onchange="filterAdminTickets()">
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="clearAdminTicketFilters()" title="${pt('clearFilters')}">
+                    <span>&#10006;</span> ${pt('clearFilters')}
+                </button>
 ${portalUser?.role === 'admin' ? `<button class="btn btn-danger" id="bulkDeleteBtn" style="display:none;" onclick="bulkDeleteTickets()">
                     <span style="margin-right:5px;">&#128465;</span> ${pt('bulkDelete')} (<span id="selectedCount">0</span>)
                 </button>` : ''}
             </div>
+            <div class="filter-summary" id="filterSummary" style="display:none;"></div>
             <div id="adminTicketsList" class="portal-card">
                 <div class="card-body" style="overflow-x:auto;">
                     ${renderAdminTicketsTable(tickets)}
@@ -1597,15 +1628,76 @@ ${portalUser?.role === 'admin' ? `<button class="btn btn-danger" id="bulkDeleteB
     `;
 
     window._adminTickets = tickets;
+    window._adminEmployees = employees;
+}
+
+async function loadAdminTicketsByYear() {
+    const year = document.getElementById('adminTicketYear').value;
+    const response = await apiCall(`/api/admin/tickets?year=${year}`);
+    const tickets = (await response.json()).data || [];
+    window._adminTickets = tickets;
+    filterAdminTickets();
+}
+
+function clearAdminTicketFilters() {
+    document.getElementById('adminTicketEmployee').value = '';
+    document.getElementById('adminTicketStatus').value = '';
+    document.getElementById('adminTicketType').value = '';
+    document.getElementById('adminTicketDateFrom').value = '';
+    document.getElementById('adminTicketDateTo').value = '';
+    filterAdminTickets();
 }
 
 function filterAdminTickets() {
-    const status = document.getElementById('adminTicketStatus').value;
-    const type = document.getElementById('adminTicketType').value;
+    const employee = document.getElementById('adminTicketEmployee')?.value || '';
+    const status = document.getElementById('adminTicketStatus')?.value || '';
+    const type = document.getElementById('adminTicketType')?.value || '';
+    const dateFrom = document.getElementById('adminTicketDateFrom')?.value || '';
+    const dateTo = document.getElementById('adminTicketDateTo')?.value || '';
+
     let filtered = window._adminTickets || [];
-    if (status) filtered = filtered.filter(t => t.status === status);
-    if (type) filtered = filtered.filter(t => t.ticket_type === type);
+
+    if (employee) {
+        filtered = filtered.filter(t => t.created_by === employee);
+    }
+    if (status) {
+        filtered = filtered.filter(t => t.status === status);
+    }
+    if (type) {
+        filtered = filtered.filter(t => t.ticket_type === type);
+    }
+    if (dateFrom) {
+        const fromDate = new Date(dateFrom);
+        filtered = filtered.filter(t => {
+            const ticketDate = t.start_date ? new Date(t.start_date) : new Date(t.created_at);
+            return ticketDate >= fromDate;
+        });
+    }
+    if (dateTo) {
+        const toDate = new Date(dateTo);
+        toDate.setHours(23, 59, 59, 999);
+        filtered = filtered.filter(t => {
+            const ticketDate = t.end_date ? new Date(t.end_date) : new Date(t.created_at);
+            return ticketDate <= toDate;
+        });
+    }
+
+    // Update filter summary
+    updateFilterSummary(filtered.length, (window._adminTickets || []).length, { employee, status, type, dateFrom, dateTo });
+
     document.querySelector('#adminTicketsList .card-body').innerHTML = renderAdminTicketsTable(filtered);
+}
+
+function updateFilterSummary(filteredCount, totalCount, filters) {
+    const summaryEl = document.getElementById('filterSummary');
+    const hasFilters = filters.employee || filters.status || filters.type || filters.dateFrom || filters.dateTo;
+
+    if (hasFilters && summaryEl) {
+        summaryEl.style.display = 'block';
+        summaryEl.innerHTML = `<span class="filter-info">${pt('filterResults')}: <strong>${filteredCount}</strong> ${pt('of')} ${totalCount} ${pt('tickets')}</span>`;
+    } else if (summaryEl) {
+        summaryEl.style.display = 'none';
+    }
 }
 
 function renderAdminTicketsTable(tickets) {
@@ -1692,12 +1784,180 @@ async function bulkDeleteTickets() {
 }
 
 async function refreshAdminTickets() {
-    const year = new Date().getFullYear();
+    const year = document.getElementById('adminTicketYear')?.value || new Date().getFullYear();
     const response = await apiCall(`/api/admin/tickets?year=${year}`);
     const tickets = (await response.json()).data || [];
     window._adminTickets = tickets;
     filterAdminTickets();
     updateBulkDeleteBtn();
+}
+
+// ============================================
+// EXPORT FUNCTIONALITY
+// ============================================
+
+function openExportModal() {
+    const currentYear = new Date().getFullYear();
+    const employees = window._adminEmployees || [];
+    const today = new Date().toISOString().split('T')[0];
+    const yearStart = `${currentYear}-01-01`;
+
+    const modalHtml = `
+        <div class="modal-backdrop" onclick="closeModal(this)">
+            <div class="modal modal-lg" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <h2><span style="margin-right:8px;">&#128190;</span>${pt('exportTitle')}</h2>
+                    <button class="modal-close" onclick="closeModal(this.closest('.modal-backdrop'))">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p class="export-desc">${pt('exportDesc')}</p>
+                    <form id="exportForm" onsubmit="handleExport(event)">
+                        <div class="form-grid-2">
+                            <div class="form-group">
+                                <label class="form-label">${pt('exportTicketType')} *</label>
+                                <select class="form-select" id="exportType" required>
+                                    <option value="vacation">${pt('filterVacation')}</option>
+                                    <option value="sick-leave">${pt('filterSickLeave')}</option>
+                                    <option value="paragraph">${pt('filterParagraph')}</option>
+                                    <option value="ocr">${pt('filterOcr')}</option>
+                                    <option value="">${pt('filterAllTypes')}</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">${pt('exportEmployee')}</label>
+                                <select class="form-select" id="exportEmployee">
+                                    <option value="">${pt('filterAllEmployees')}</option>
+                                    ${employees.map(e => `<option value="${e.ms_id}">${escapeHtml(e.display_name)}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">${pt('exportDateFrom')} *</label>
+                                <input type="date" class="form-input" id="exportDateFrom" value="${yearStart}" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">${pt('exportDateTo')} *</label>
+                                <input type="date" class="form-input" id="exportDateTo" value="${today}" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">${pt('exportStatus')}</label>
+                            <div class="checkbox-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="exportApproved" checked>
+                                    <span class="badge badge-approved">${pt('filterApproved')}</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="exportPending">
+                                    <span class="badge badge-pending">${pt('filterPending')}</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="exportRejected">
+                                    <span class="badge badge-rejected">${pt('filterRejected')}</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">${pt('exportFormat')} *</label>
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="exportFormat" value="xlsx" checked>
+                                    <span>Excel (XLSX)</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="exportFormat" value="pdf">
+                                    <span>PDF</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" onclick="closeModal(this.closest('.modal-backdrop'))">${pt('cancel')}</button>
+                            <button type="submit" class="btn btn-primary" id="exportSubmitBtn">
+                                <span style="margin-right:5px;">&#128190;</span> ${pt('exportGenerate')}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+async function handleExport(event) {
+    event.preventDefault();
+
+    const type = document.getElementById('exportType').value;
+    const employee = document.getElementById('exportEmployee').value;
+    const dateFrom = document.getElementById('exportDateFrom').value;
+    const dateTo = document.getElementById('exportDateTo').value;
+    const format = document.querySelector('input[name="exportFormat"]:checked').value;
+
+    // Get selected statuses
+    const statuses = [];
+    if (document.getElementById('exportApproved').checked) statuses.push('Approved');
+    if (document.getElementById('exportPending').checked) statuses.push('Pending');
+    if (document.getElementById('exportRejected').checked) statuses.push('Rejected');
+
+    if (statuses.length === 0) {
+        showToast(pt('exportStatusRequired'), 'error');
+        return;
+    }
+
+    if (new Date(dateFrom) > new Date(dateTo)) {
+        showToast(pt('dateRangeError'), 'error');
+        return;
+    }
+
+    const submitBtn = document.getElementById('exportSubmitBtn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = `<span class="spinner-sm"></span> ${pt('exportGenerating')}`;
+
+    try {
+        const params = new URLSearchParams({
+            type,
+            employee,
+            dateFrom,
+            dateTo,
+            statuses: statuses.join(','),
+            format,
+            lang: portalLang
+        });
+
+        const response = await apiCall(`/api/admin/export/tickets?${params}`);
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Export failed');
+        }
+
+        // Get filename from Content-Disposition header
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = `export_${type || 'tickets'}_${dateFrom}_${dateTo}.${format}`;
+        if (contentDisposition) {
+            const match = contentDisposition.match(/filename="?([^"]+)"?/);
+            if (match) filename = match[1];
+        }
+
+        // Download the file
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+
+        showToast(pt('exportSuccess'), 'success');
+        closeModal(document.querySelector('.modal-backdrop'));
+    } catch (error) {
+        console.error('Export error:', error);
+        showToast(error.message || pt('exportError'), 'error');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = `<span style="margin-right:5px;">&#128190;</span> ${pt('exportGenerate')}`;
+    }
 }
 
 // ============================================

@@ -39,4 +39,7 @@ router.post('/data/quotas/reset-used', requireDbRole('admin'), asyncHandler(Admi
 router.post('/backup', requireDbRole('admin'), asyncHandler(AdminController.triggerBackup));
 router.get('/backups', requireDbRole('admin'), asyncHandler(AdminController.listBackups));
 
+// Export routes (admin and spravca)
+router.get('/export/tickets', requireDbRole('admin', 'spravca'), asyncHandler(AdminController.exportTickets));
+
 module.exports = router;

@@ -685,6 +685,275 @@ class AdminController {
       next(error);
     }
   }
+
+  // ============================================
+  // EXPORT FUNCTIONALITY
+  // ============================================
+
+  /**
+   * Export tickets to XLSX or PDF
+   * GET /api/admin/export/tickets
+   */
+  static async exportTickets(req, res, next) {
+    try {
+      const { type, employee, dateFrom, dateTo, statuses, format, lang } = req.query;
+
+      if (!dateFrom || !dateTo) {
+        return res.status(400).json({
+          success: false,
+          message: 'Date range is required'
+        });
+      }
+
+      const statusArray = statuses ? statuses.split(',') : ['Approved'];
+
+      // Build query
+      let query = `
+        SELECT * FROM tickets
+        WHERE 1=1
+      `;
+      const values = [];
+      let paramCount = 1;
+
+      // Filter by type
+      if (type) {
+        query += ` AND ticket_type = $${paramCount}`;
+        values.push(type);
+        paramCount++;
+      }
+
+      // Filter by employee
+      if (employee) {
+        query += ` AND created_by = $${paramCount}`;
+        values.push(employee);
+        paramCount++;
+      }
+
+      // Filter by date range (use start_date/end_date for vacation-like tickets, created_at for others)
+      query += ` AND (
+        (start_date IS NOT NULL AND start_date >= $${paramCount} AND start_date <= $${paramCount + 1})
+        OR (start_date IS NULL AND created_at >= $${paramCount} AND created_at <= $${paramCount + 1})
+      )`;
+      values.push(dateFrom, dateTo);
+      paramCount += 2;
+
+      // Filter by statuses
+      if (statusArray.length > 0) {
+        query += ` AND status = ANY($${paramCount})`;
+        values.push(statusArray);
+        paramCount++;
+      }
+
+      query += ' ORDER BY start_date ASC NULLS LAST, created_at ASC';
+
+      const result = await pool.query(query, values);
+      const tickets = result.rows;
+
+      if (tickets.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: lang === 'sk' ? 'Žiadne dáta na export' : 'No data to export'
+        });
+      }
+
+      // Translations
+      const translations = {
+        sk: {
+          title: 'Export tiketov',
+          subtitle: 'Prehľad dovoleniek a tiketov',
+          dateRange: 'Obdobie',
+          ticketId: 'ID tiketu',
+          employee: 'Zamestnanec',
+          email: 'Email',
+          type: 'Typ',
+          status: 'Stav',
+          dateFrom: 'Dátum od',
+          dateTo: 'Dátum do',
+          days: 'Dni',
+          createdAt: 'Vytvorené',
+          approver: 'Schvaľovateľ',
+          Approved: 'Schválené',
+          Pending: 'Čakajúce',
+          Rejected: 'Zamietnuté',
+          vacation: 'Dovolenka',
+          'sick-leave': 'PN',
+          paragraph: 'Paragraf',
+          ocr: 'OČR',
+          purchase: 'Nákup',
+          expense: 'Výdavok',
+          hr: 'HR',
+          other: 'Iné',
+          total: 'Celkom',
+          generatedAt: 'Vygenerované'
+        },
+        en: {
+          title: 'Tickets Export',
+          subtitle: 'Vacation and tickets overview',
+          dateRange: 'Period',
+          ticketId: 'Ticket ID',
+          employee: 'Employee',
+          email: 'Email',
+          type: 'Type',
+          status: 'Status',
+          dateFrom: 'Date from',
+          dateTo: 'Date to',
+          days: 'Days',
+          createdAt: 'Created',
+          approver: 'Approver',
+          Approved: 'Approved',
+          Pending: 'Pending',
+          Rejected: 'Rejected',
+          vacation: 'Vacation',
+          'sick-leave': 'Sick Leave',
+          paragraph: 'Paragraph',
+          ocr: 'FMC',
+          purchase: 'Purchase',
+          expense: 'Expense',
+          hr: 'HR',
+          other: 'Other',
+          total: 'Total',
+          generatedAt: 'Generated'
+        }
+      };
+
+      const t = translations[lang] || translations.sk;
+
+      if (format === 'xlsx') {
+        // Generate XLSX
+        const XLSX = require('xlsx');
+
+        const data = tickets.map(ticket => ({
+          [t.ticketId]: ticket.ticket_id,
+          [t.employee]: ticket.created_by_name,
+          [t.email]: ticket.created_by_email,
+          [t.type]: t[ticket.ticket_type] || ticket.ticket_type,
+          [t.status]: t[ticket.status] || ticket.status,
+          [t.dateFrom]: ticket.start_date ? new Date(ticket.start_date).toLocaleDateString(lang === 'sk' ? 'sk-SK' : 'en-GB') : '-',
+          [t.dateTo]: ticket.end_date ? new Date(ticket.end_date).toLocaleDateString(lang === 'sk' ? 'sk-SK' : 'en-GB') : '-',
+          [t.days]: ticket.days_count || '-',
+          [t.approver]: ticket.assigned_approver_name || '-',
+          [t.createdAt]: new Date(ticket.created_at).toLocaleDateString(lang === 'sk' ? 'sk-SK' : 'en-GB')
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(data);
+
+        // Set column widths
+        ws['!cols'] = [
+          { wch: 12 }, // Ticket ID
+          { wch: 25 }, // Employee
+          { wch: 30 }, // Email
+          { wch: 12 }, // Type
+          { wch: 12 }, // Status
+          { wch: 12 }, // Date from
+          { wch: 12 }, // Date to
+          { wch: 8 },  // Days
+          { wch: 25 }, // Approver
+          { wch: 12 }  // Created
+        ];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, t.title);
+
+        const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+        const filename = `export_${type || 'tickets'}_${dateFrom}_${dateTo}.xlsx`;
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(buffer);
+
+      } else if (format === 'pdf') {
+        // Generate PDF
+        const PDFDocument = require('pdfkit');
+
+        const doc = new PDFDocument({
+          margin: 40,
+          size: 'A4',
+          layout: 'landscape'
+        });
+
+        const filename = `export_${type || 'tickets'}_${dateFrom}_${dateTo}.pdf`;
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+        doc.pipe(res);
+
+        // Header
+        doc.fontSize(18).fillColor('#D9000C').text(t.title, { align: 'center' });
+        doc.fontSize(12).fillColor('#666666').text(t.subtitle, { align: 'center' });
+        doc.moveDown(0.5);
+        doc.fontSize(10).fillColor('#333333').text(`${t.dateRange}: ${dateFrom} - ${dateTo}`, { align: 'center' });
+        doc.moveDown();
+
+        // Table header
+        const tableTop = doc.y;
+        const colWidths = [70, 120, 70, 70, 70, 70, 40, 120, 70];
+        const headers = [t.ticketId, t.employee, t.type, t.status, t.dateFrom, t.dateTo, t.days, t.approver, t.createdAt];
+        let x = 40;
+
+        doc.fontSize(8).fillColor('#ffffff');
+        doc.rect(40, tableTop - 5, 760, 18).fill('#D9000C');
+
+        headers.forEach((header, i) => {
+          doc.fillColor('#ffffff').text(header, x, tableTop, { width: colWidths[i], align: 'left' });
+          x += colWidths[i] + 5;
+        });
+
+        // Table rows
+        let y = tableTop + 20;
+        doc.fontSize(7).fillColor('#333333');
+
+        tickets.forEach((ticket, idx) => {
+          if (y > 530) {
+            doc.addPage();
+            y = 40;
+          }
+
+          // Alternate row colors
+          if (idx % 2 === 0) {
+            doc.rect(40, y - 3, 760, 14).fill('#f8f8f8');
+          }
+
+          x = 40;
+          const row = [
+            ticket.ticket_id,
+            ticket.created_by_name || '-',
+            t[ticket.ticket_type] || ticket.ticket_type,
+            t[ticket.status] || ticket.status,
+            ticket.start_date ? new Date(ticket.start_date).toLocaleDateString(lang === 'sk' ? 'sk-SK' : 'en-GB') : '-',
+            ticket.end_date ? new Date(ticket.end_date).toLocaleDateString(lang === 'sk' ? 'sk-SK' : 'en-GB') : '-',
+            ticket.days_count ? String(ticket.days_count) : '-',
+            ticket.assigned_approver_name || '-',
+            new Date(ticket.created_at).toLocaleDateString(lang === 'sk' ? 'sk-SK' : 'en-GB')
+          ];
+
+          doc.fillColor('#333333');
+          row.forEach((cell, i) => {
+            doc.text(cell, x, y, { width: colWidths[i], align: 'left' });
+            x += colWidths[i] + 5;
+          });
+
+          y += 14;
+        });
+
+        // Footer
+        doc.moveDown(2);
+        doc.fontSize(9).fillColor('#666666');
+        doc.text(`${t.total}: ${tickets.length}`, 40, y + 20);
+        doc.text(`${t.generatedAt}: ${new Date().toLocaleString(lang === 'sk' ? 'sk-SK' : 'en-GB')}`, 40, y + 35);
+
+        doc.end();
+
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid format. Use xlsx or pdf.'
+        });
+      }
+
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = AdminController;
