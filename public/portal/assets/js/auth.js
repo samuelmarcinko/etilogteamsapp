@@ -108,17 +108,35 @@ async function getAccessToken() {
     // First try stored token
     const stored = localStorage.getItem('etilog_token');
     if (stored) {
-        // Check if token is expired
+        // Check if token is expired (with 60 second buffer to prevent edge-case expiration during request)
         try {
             const payload = JSON.parse(atob(stored.split('.')[1]));
-            if (payload.exp * 1000 > Date.now()) {
+            const bufferMs = 60 * 1000; // 60 second buffer
+            if (payload.exp * 1000 > Date.now() + bufferMs) {
                 return stored;
             }
-            // Token expired, remove it
+            // Token expired or about to expire, remove it and get fresh token
             localStorage.removeItem('etilog_token');
         } catch (e) {
             // Invalid token format
             localStorage.removeItem('etilog_token');
+        }
+    }
+
+    // Try to reinitialize MSAL if needed
+    if (!msalInstance) {
+        try {
+            await initializeMsal();
+        } catch (e) {
+            console.error('Failed to reinitialize MSAL:', e);
+        }
+    }
+
+    // If still no msalInstance or account, try to get account from MSAL
+    if (msalInstance && !currentAccount) {
+        const accounts = msalInstance.getAllAccounts();
+        if (accounts.length > 0) {
+            currentAccount = accounts[0];
         }
     }
 

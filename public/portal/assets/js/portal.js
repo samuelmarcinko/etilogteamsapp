@@ -1586,7 +1586,7 @@ async function renderAdminTickets(container) {
                 </select>
                 <select class="form-select" id="adminTicketEmployee" onchange="filterAdminTickets()">
                     <option value="">${pt('filterAllEmployees')}</option>
-                    ${employees.map(e => `<option value="${e.ms_id}">${escapeHtml(e.display_name)}</option>`).join('')}
+                    ${employees.map(e => `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('')}
                 </select>
                 <select class="form-select" id="adminTicketStatus" onchange="filterAdminTickets()">
                     <option value="">${pt('filterAllStatuses')}</option>
@@ -1827,7 +1827,7 @@ function openExportModal() {
                                 <label class="form-label">${pt('exportEmployee')}</label>
                                 <select class="form-select" id="exportEmployee">
                                     <option value="">${pt('filterAllEmployees')}</option>
-                                    ${employees.map(e => `<option value="${e.ms_id}">${escapeHtml(e.display_name)}</option>`).join('')}
+                                    ${employees.map(e => `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('')}
                                 </select>
                             </div>
                             <div class="form-group">

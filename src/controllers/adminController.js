@@ -729,9 +729,10 @@ class AdminController {
         paramCount++;
       }
 
-      // Filter by date range (use start_date/end_date for vacation-like tickets, created_at for others)
+      // Filter by date range - use range overlap for tickets with start_date/end_date
+      // Range overlap: ticket overlaps filter if start_date <= dateTo AND end_date >= dateFrom
       query += ` AND (
-        (start_date IS NOT NULL AND start_date >= $${paramCount} AND start_date <= $${paramCount + 1})
+        (start_date IS NOT NULL AND start_date <= $${paramCount + 1} AND COALESCE(end_date, start_date) >= $${paramCount})
         OR (start_date IS NULL AND created_at >= $${paramCount} AND created_at <= $${paramCount + 1})
       )`;
       values.push(dateFrom, dateTo);
