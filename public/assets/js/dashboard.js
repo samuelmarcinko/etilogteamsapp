@@ -138,7 +138,7 @@ function renderOverviewCards(data) {
         const parUsedPct = parTotal > 0 ? Math.round((quota.paragraph_days_used / parTotal) * 100) : 0;
         const parBarClass = parUsedPct > 90 ? 'bar-red' : parUsedPct > 70 ? 'bar-amber' : 'bar-green';
 
-        document.getElementById('paragraphRemaining').textContent = `${parRemaining.toFixed(2)} ${t('dashDays')}`;
+        document.getElementById('paragraphRemaining').textContent = `${parRemaining.toFixed(2)} ${t('dashHours')}`;
         document.getElementById('paragraphDetail').textContent = `${Number(quota.paragraph_days_used).toFixed(2)} / ${parTotal} ${t('dashUsed')}`;
         const parBar = document.getElementById('paragraphBar');
         parBar.className = `overview-bar-fill ${parBarClass}`;
@@ -157,7 +157,7 @@ function renderOverviewCards(data) {
         const ocrUsedPct = ocrTotal > 0 ? Math.round((quota.ocr_days_used / ocrTotal) * 100) : 0;
         const ocrBarClass = ocrUsedPct > 90 ? 'bar-red' : ocrUsedPct > 70 ? 'bar-amber' : 'bar-green';
 
-        document.getElementById('ocrRemaining').textContent = `${ocrRemaining.toFixed(2)} ${t('dashDays')}`;
+        document.getElementById('ocrRemaining').textContent = `${ocrRemaining.toFixed(2)} ${t('dashHours')}`;
         document.getElementById('ocrDetail').textContent = `${Number(quota.ocr_days_used).toFixed(2)} / ${ocrTotal} ${t('dashUsed')}`;
         const ocrBar = document.getElementById('ocrBar');
         ocrBar.className = `overview-bar-fill ${ocrBarClass}`;

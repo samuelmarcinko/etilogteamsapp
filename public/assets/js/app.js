@@ -254,16 +254,18 @@ async function updateQuotaInfoBanner(ticketType) {
         // Update selected days info if dates are already set (delay to ensure DOM is ready)
         setTimeout(() => updateSelectedDaysInfo(), 0);
     } else {
-        // Paragraph, OCR: show progress bar and used/total (with 2 decimal places)
+        // Paragraph, OCR, Sick-leave: show progress bar and used/total (with 2 decimal places)
+        // Use hours for paragraph and ocr, days for sick-leave
+        const unitLabel = (ticketType === 'paragraph' || ticketType === 'ocr') ? t('quotaInfoHours') : t('quotaInfoDays');
         banner.innerHTML = `
             <div class="quota-info-main">
                 <span class="quota-info-label">${label}</span>
-                <span class="quota-info-value">${Number(remaining).toFixed(2)} ${t('quotaInfoDays')} ${t('quotaInfoRemaining')}</span>
+                <span class="quota-info-value">${Number(remaining).toFixed(2)} ${unitLabel} ${t('quotaInfoRemaining')}</span>
             </div>
             <div class="quota-info-bar-track">
                 <div class="quota-info-bar-fill" style="width:${total > 0 ? ((total - remaining) / total * 100) : 0}%"></div>
             </div>
-            <span class="quota-info-detail">${Number(used).toFixed(2)} ${t('quotaInfoOf')} ${total} ${t('quotaInfoDays')}</span>
+            <span class="quota-info-detail">${Number(used).toFixed(2)} ${t('quotaInfoOf')} ${total} ${unitLabel}</span>
         `;
         // Update selected days info if dates are already set
         updateSelectedDaysInfo();

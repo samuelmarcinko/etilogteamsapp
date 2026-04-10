@@ -234,7 +234,7 @@ async function renderDashboard(container) {
                     <div class="quota-bar-container">
                         <div class="quota-bar-label">
                             <span>${pt('sickNoteDocTypeParagraph') || 'Paragraf'}</span>
-                            <span>${quota ? parseFloat(quota.paragraph_days_used || 0).toFixed(2) : '0.00'} / ${quota ? (quota.paragraph_days_total || 7) : 7} ${pt('days')}</span>
+                            <span>${quota ? parseFloat(quota.paragraph_days_used || 0).toFixed(2) : '0.00'} / ${quota ? (quota.paragraph_days_total || 7) : 7} ${pt('hours')}</span>
                         </div>
                         <div class="quota-bar">
                             <div class="quota-bar-fill ${parUsedPct > 90 ? 'red' : parUsedPct > 70 ? 'amber' : 'green'}" style="width: ${Math.min(parUsedPct, 100)}%"></div>
@@ -243,7 +243,7 @@ async function renderDashboard(container) {
                     <div class="quota-bar-container">
                         <div class="quota-bar-label">
                             <span>${pt('sickNoteDocTypeOcr') || 'OČR'}</span>
-                            <span>${quota ? parseFloat(quota.ocr_days_used || 0).toFixed(2) : '0.00'} / ${quota ? (quota.ocr_days_total || 7) : 7} ${pt('days')}</span>
+                            <span>${quota ? parseFloat(quota.ocr_days_used || 0).toFixed(2) : '0.00'} / ${quota ? (quota.ocr_days_total || 7) : 7} ${pt('hours')}</span>
                         </div>
                         <div class="quota-bar">
                             <div class="quota-bar-fill ${ocrUsedPct > 90 ? 'red' : ocrUsedPct > 70 ? 'amber' : 'green'}" style="width: ${Math.min(ocrUsedPct, 100)}%"></div>
@@ -318,9 +318,9 @@ async function renderMyQuotas(container) {
                 <div class="quota-details">
                     <div class="quota-type">${pt('sickNoteDocTypeParagraph') || 'Paragraf'}</div>
                     <div class="quota-numbers">
-                        <span>${pt('quotaTotal')}: <strong>${quota ? (quota.paragraph_days_total || 7) : '-'} ${pt('days')}</strong></span>
-                        <span>${pt('quotaUsed')}: <strong>${quota ? parseFloat(quota.paragraph_days_used || 0).toFixed(2) : '0.00'} ${pt('days')}</strong></span>
-                        <span>${pt('quotaRemaining')}: <strong>${quota ? Number(quota.paragraph_days_remaining).toFixed(2) : '-'} ${pt('days')}</strong></span>
+                        <span>${pt('quotaTotal')}: <strong>${quota ? (quota.paragraph_days_total || 7) : '-'} ${pt('hours')}</strong></span>
+                        <span>${pt('quotaUsed')}: <strong>${quota ? parseFloat(quota.paragraph_days_used || 0).toFixed(2) : '0.00'} ${pt('hours')}</strong></span>
+                        <span>${pt('quotaRemaining')}: <strong>${quota ? Number(quota.paragraph_days_remaining).toFixed(2) : '-'} ${pt('hours')}</strong></span>
                     </div>
                     <div class="quota-bar" style="margin-top: 0.75rem;">
                         <div class="quota-bar-fill ${parUsedPct > 90 ? 'red' : parUsedPct > 70 ? 'amber' : 'green'}" style="width: ${Math.min(parUsedPct, 100)}%"></div>
@@ -333,9 +333,9 @@ async function renderMyQuotas(container) {
                 <div class="quota-details">
                     <div class="quota-type">${pt('sickNoteDocTypeOcr') || 'OČR'}</div>
                     <div class="quota-numbers">
-                        <span>${pt('quotaTotal')}: <strong>${quota ? (quota.ocr_days_total || 7) : '-'} ${pt('days')}</strong></span>
-                        <span>${pt('quotaUsed')}: <strong>${quota ? parseFloat(quota.ocr_days_used || 0).toFixed(2) : '0.00'} ${pt('days')}</strong></span>
-                        <span>${pt('quotaRemaining')}: <strong>${quota ? Number(quota.ocr_days_remaining).toFixed(2) : '-'} ${pt('days')}</strong></span>
+                        <span>${pt('quotaTotal')}: <strong>${quota ? (quota.ocr_days_total || 7) : '-'} ${pt('hours')}</strong></span>
+                        <span>${pt('quotaUsed')}: <strong>${quota ? parseFloat(quota.ocr_days_used || 0).toFixed(2) : '0.00'} ${pt('hours')}</strong></span>
+                        <span>${pt('quotaRemaining')}: <strong>${quota ? Number(quota.ocr_days_remaining).toFixed(2) : '-'} ${pt('hours')}</strong></span>
                     </div>
                     <div class="quota-bar" style="margin-top: 0.75rem;">
                         <div class="quota-bar-fill ${ocrUsedPct > 90 ? 'red' : ocrUsedPct > 70 ? 'amber' : 'green'}" style="width: ${Math.min(ocrUsedPct, 100)}%"></div>

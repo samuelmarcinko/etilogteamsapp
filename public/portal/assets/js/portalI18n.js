@@ -25,6 +25,7 @@ const portalTranslations = {
 
     // Common
     days: 'dni',
+    hours: 'hodín',
     yes: 'Áno',
     no: 'Nie',
     save: 'Uložiť',
@@ -311,7 +312,7 @@ const portalTranslations = {
     colEmployeeName: 'Zamestnanec',
     colDocument: 'Doklad',
     employeeQuotasSection: 'Kvóty zamestnancov',
-    employeeQuotasSectionDesc: 'Prehľad a úprava zostávajúcich dní paragrafov a OČR',
+    employeeQuotasSectionDesc: 'Prehľad a úprava zostávajúcich hodín paragrafov a OČR',
     colParagraphRemaining: 'Paragraf zostatok',
     colOcrRemaining: 'OČR zostatok',
     editParagraphQuotaTitle: 'Upraviť kvóty paragrafov a OČR',
@@ -422,6 +423,7 @@ const portalTranslations = {
 
     // Common
     days: 'days',
+    hours: 'hours',
     yes: 'Yes',
     no: 'No',
     save: 'Save',
@@ -708,7 +710,7 @@ const portalTranslations = {
     colEmployeeName: 'Employee',
     colDocument: 'Document',
     employeeQuotasSection: 'Employee Quotas',
-    employeeQuotasSectionDesc: 'View and edit remaining paragraph and FMC days',
+    employeeQuotasSectionDesc: 'View and edit remaining paragraph and FMC hours',
     colParagraphRemaining: 'Paragraph remaining',
     colOcrRemaining: 'FMC remaining',
     editParagraphQuotaTitle: 'Edit Paragraph and FMC Quotas',
