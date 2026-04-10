@@ -1658,7 +1658,7 @@ function filterAdminTickets() {
     let filtered = window._adminTickets || [];
 
     if (employee) {
-        filtered = filtered.filter(t => t.created_by === employee);
+        filtered = filtered.filter(t => t.created_by_id === employee);
     }
     if (status) {
         filtered = filtered.filter(t => t.status === status);

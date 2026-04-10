@@ -819,6 +819,21 @@ class AdminController {
 
       const t = translations[lang] || translations.sk;
 
+      // Helper function to calculate days
+      const calculateDays = (ticket) => {
+        if (!ticket.start_date) return '-';
+        const start = new Date(ticket.start_date);
+        const end = ticket.end_date ? new Date(ticket.end_date) : start;
+        // Calculate difference in days (+1 because both days are inclusive)
+        const diffTime = Math.abs(end - start);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        // If it's a half day (single day with is_half_day flag), return 0.5
+        if (ticket.is_half_day && diffDays === 1) {
+          return '0,5';
+        }
+        return String(diffDays);
+      };
+
       if (format === 'xlsx') {
         // Generate XLSX
         const XLSX = require('xlsx');
@@ -831,7 +846,7 @@ class AdminController {
           [t.status]: t[ticket.status] || ticket.status,
           [t.dateFrom]: ticket.start_date ? new Date(ticket.start_date).toLocaleDateString(lang === 'sk' ? 'sk-SK' : 'en-GB') : '-',
           [t.dateTo]: ticket.end_date ? new Date(ticket.end_date).toLocaleDateString(lang === 'sk' ? 'sk-SK' : 'en-GB') : '-',
-          [t.days]: ticket.days_count || '-',
+          [t.days]: calculateDays(ticket),
           [t.approver]: ticket.assigned_approver_name || '-',
           [t.createdAt]: new Date(ticket.created_at).toLocaleDateString(lang === 'sk' ? 'sk-SK' : 'en-GB')
         }));
@@ -865,12 +880,18 @@ class AdminController {
       } else if (format === 'pdf') {
         // Generate PDF
         const PDFDocument = require('pdfkit');
+        const path = require('path');
 
         const doc = new PDFDocument({
           margin: 40,
           size: 'A4',
           layout: 'landscape'
         });
+
+        // Register font with diacritics support
+        const fontPath = path.join(__dirname, '../../public/fonts/dejavu-sans.ttf');
+        doc.registerFont('DejaVu', fontPath);
+        doc.font('DejaVu');
 
         const filename = `export_${type || 'tickets'}_${dateFrom}_${dateTo}.pdf`;
         res.setHeader('Content-Type', 'application/pdf');
@@ -922,7 +943,7 @@ class AdminController {
             t[ticket.status] || ticket.status,
             ticket.start_date ? new Date(ticket.start_date).toLocaleDateString(lang === 'sk' ? 'sk-SK' : 'en-GB') : '-',
             ticket.end_date ? new Date(ticket.end_date).toLocaleDateString(lang === 'sk' ? 'sk-SK' : 'en-GB') : '-',
-            ticket.days_count ? String(ticket.days_count) : '-',
+            calculateDays(ticket),
             ticket.assigned_approver_name || '-',
             new Date(ticket.created_at).toLocaleDateString(lang === 'sk' ? 'sk-SK' : 'en-GB')
           ];
