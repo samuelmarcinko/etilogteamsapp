@@ -88,6 +88,7 @@ class Quota {
          CASE WHEN eq.user_id IS NULL THEN true ELSE false END as needs_initialization
        FROM users u
        LEFT JOIN employee_quotas eq ON u.user_id = eq.user_id AND eq.year = $1
+       WHERE COALESCE(u.hidden, false) = false
        ORDER BY u.display_name`,
       [year, defVacation, defSick, defParagraph, defOcr]
     );
