@@ -4,6 +4,9 @@ const Quota = require('../database/models/Quota');
 const Holiday = require('../database/models/Holiday');
 const logger = require('../utils/logger');
 
+// Hours per working day for paragraph and OČR quotas
+const HOURS_PER_DAY = 8;
+
 class TicketService {
   /**
    * Create a new ticket and send approval card
@@ -21,6 +24,8 @@ class TicketService {
 
       // Quota check for types that require dates and have quotas
       const quotaTypes = ['vacation', 'sick-leave', 'paragraph', 'ocr'];
+      // Types that use hours instead of days
+      const hourBasedTypes = ['paragraph', 'ocr'];
       if (quotaTypes.includes(ticketData.ticketType) &&
           ticketData.startDate && ticketData.endDate) {
         try {
@@ -30,8 +35,15 @@ class TicketService {
           if (ticketData.isHalfDay && ticketData.startDate === ticketData.endDate) {
             workingDays = 0.5;
           }
+
+          // Convert days to hours for paragraph and OČR
+          let quotaAmount = workingDays;
+          if (hourBasedTypes.includes(ticketData.ticketType)) {
+            quotaAmount = workingDays * HOURS_PER_DAY;
+          }
+
           const hasEnough = await Quota.hasEnoughDays(
-            ticketData.createdBy.id, year, ticketData.ticketType, workingDays
+            ticketData.createdBy.id, year, ticketData.ticketType, quotaAmount
           );
 
           if (!hasEnough) {
@@ -51,9 +63,17 @@ class TicketService {
             const label = typeLabels[ticketData.ticketType] || ticketData.ticketType;
             const col = colPrefixes[ticketData.ticketType] || 'sick';
             const remaining = quota[`${col}_days_total`] - parseFloat(quota[`${col}_days_used`]);
-            throw new Error(
-              `Nedostatok dni ${label}. Pozadovane: ${workingDays} pracovnych dni, zostatok: ${remaining} dni.`
-            );
+
+            // Use appropriate unit in error message
+            if (hourBasedTypes.includes(ticketData.ticketType)) {
+              throw new Error(
+                `Nedostatok hodin ${label}. Pozadovane: ${quotaAmount} hodin, zostatok: ${remaining} hodin.`
+              );
+            } else {
+              throw new Error(
+                `Nedostatok dni ${label}. Pozadovane: ${quotaAmount} pracovnych dni, zostatok: ${remaining} dni.`
+              );
+            }
           }
         } catch (quotaError) {
           // Re-throw quota errors, but don't block on DB errors
@@ -143,8 +163,10 @@ class TicketService {
       // Update ticket status
       const updatedTicket = await Ticket.updateStatus(ticketId, 'Approved', approver);
 
-      // Deduct quota days for types with quotas (vacation, sick-leave, paragraph, ocr)
+      // Deduct quota for types with quotas (vacation, sick-leave, paragraph, ocr)
       const quotaTypes = ['vacation', 'sick-leave', 'paragraph', 'ocr'];
+      // Types that use hours instead of days
+      const hourBasedTypes = ['paragraph', 'ocr'];
       if (quotaTypes.includes(ticket.ticket_type) &&
           ticket.start_date && ticket.end_date) {
         try {
@@ -156,11 +178,18 @@ class TicketService {
           if (ticket.is_half_day && startStr === endStr) {
             workingDays = 0.5;
           }
+
+          // Convert days to hours for paragraph and OČR
+          let quotaAmount = workingDays;
+          if (hourBasedTypes.includes(ticket.ticket_type)) {
+            quotaAmount = workingDays * HOURS_PER_DAY;
+          }
+
           await Quota.getOrCreate(ticket.created_by_id, year);
-          await Quota.addUsedDays(ticket.created_by_id, year, ticket.ticket_type, workingDays);
-          logger.debug('Quota deducted', { days: workingDays, type: ticket.ticket_type, userId: ticket.created_by_id, isHalfDay: ticket.is_half_day });
+          await Quota.addUsedDays(ticket.created_by_id, year, ticket.ticket_type, quotaAmount);
+          logger.debug('Quota deducted', { amount: quotaAmount, unit: hourBasedTypes.includes(ticket.ticket_type) ? 'hours' : 'days', type: ticket.ticket_type, userId: ticket.created_by_id, isHalfDay: ticket.is_half_day });
         } catch (quotaError) {
-          logger.error('Failed to deduct quota days', { error: quotaError.message });
+          logger.error('Failed to deduct quota', { error: quotaError.message });
         }
       }
 
@@ -230,8 +259,10 @@ class TicketService {
         cancellationReason
       );
 
-      // If ticket was approved and has quota types, return the days
+      // If ticket was approved and has quota types, return the quota
       const quotaTypes = ['vacation', 'sick-leave', 'paragraph', 'ocr'];
+      // Types that use hours instead of days
+      const hourBasedTypes = ['paragraph', 'ocr'];
       if (wasApproved && quotaTypes.includes(ticket.ticket_type) &&
           ticket.start_date && ticket.end_date) {
         try {
@@ -243,10 +274,17 @@ class TicketService {
           if (ticket.is_half_day && startStr === endStr) {
             workingDays = 0.5;
           }
-          await Quota.removeUsedDays(ticket.created_by_id, year, ticket.ticket_type, workingDays);
-          logger.debug('Quota returned', { days: workingDays, type: ticket.ticket_type, userId: ticket.created_by_id, isHalfDay: ticket.is_half_day });
+
+          // Convert days to hours for paragraph and OČR
+          let quotaAmount = workingDays;
+          if (hourBasedTypes.includes(ticket.ticket_type)) {
+            quotaAmount = workingDays * HOURS_PER_DAY;
+          }
+
+          await Quota.removeUsedDays(ticket.created_by_id, year, ticket.ticket_type, quotaAmount);
+          logger.debug('Quota returned', { amount: quotaAmount, unit: hourBasedTypes.includes(ticket.ticket_type) ? 'hours' : 'days', type: ticket.ticket_type, userId: ticket.created_by_id, isHalfDay: ticket.is_half_day });
         } catch (quotaError) {
-          logger.error('Failed to return quota days', { error: quotaError.message });
+          logger.error('Failed to return quota', { error: quotaError.message });
         }
       }
 
