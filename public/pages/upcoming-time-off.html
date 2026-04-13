@@ -464,13 +464,21 @@
             container.innerHTML = html;
         }
 
+        // Format date for input field (YYYY-MM-DD) in local timezone
+        function formatDateForInput(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
         // Set date range and render
         function setDateRange(fromDate, toDate) {
             currentDateFrom = fromDate;
             currentDateTo = toDate;
 
-            document.getElementById('dateFrom').value = fromDate.toISOString().split('T')[0];
-            document.getElementById('dateTo').value = toDate.toISOString().split('T')[0];
+            document.getElementById('dateFrom').value = formatDateForInput(fromDate);
+            document.getElementById('dateTo').value = formatDateForInput(toDate);
 
             renderCalendar();
         }
@@ -496,7 +504,7 @@
                     break;
                 case 'month':
                 default:
-                    fromDate = new Date(today);
+                    fromDate = new Date(today.getFullYear(), today.getMonth(), 1); // First day of month
                     toDate = new Date(today.getFullYear(), today.getMonth() + 1, 0); // Last day of month
                     break;
             }
