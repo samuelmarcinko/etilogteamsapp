@@ -119,4 +119,61 @@ router.get('/', async (req, res) => {
   });
 });
 
+// GET /api/teams/out-of-office?date=YYYY-MM-DD
+// Get employees who are out of office on a specific date
+router.get('/out-of-office', async (req, res) => {
+  const date = req.query.date || new Date().toISOString().split('T')[0];
+
+  try {
+    // Get approved tickets for vacation, sick-leave, paragraph, and ocr
+    // where the date falls between start_date and end_date
+    const result = await pool.query(
+      `SELECT
+         t.ticket_id,
+         t.ticket_type,
+         t.start_date,
+         t.end_date,
+         t.created_by_name,
+         t.created_by_id,
+         t.title
+       FROM tickets t
+       WHERE t.status = 'Approved'
+         AND t.ticket_type IN ('vacation', 'sick-leave', 'paragraph', 'ocr')
+         AND t.start_date <= $1
+         AND t.end_date >= $1
+       ORDER BY t.created_by_name ASC`,
+      [date]
+    );
+
+    // Group by user (in case someone has multiple overlapping absences)
+    const userMap = new Map();
+    result.rows.forEach(row => {
+      if (!userMap.has(row.created_by_id)) {
+        userMap.set(row.created_by_id, {
+          userId: row.created_by_id,
+          name: row.created_by_name,
+          absences: []
+        });
+      }
+      userMap.get(row.created_by_id).absences.push({
+        ticketId: row.ticket_id,
+        type: row.ticket_type,
+        startDate: row.start_date,
+        endDate: row.end_date,
+        title: row.title
+      });
+    });
+
+    res.json({
+      data: {
+        date,
+        employees: Array.from(userMap.values())
+      }
+    });
+  } catch (e) {
+    logger.error('Out of office query failed', { error: e.message, date });
+    res.status(500).json({ error: 'Failed to get out of office data' });
+  }
+});
+
 module.exports = router;

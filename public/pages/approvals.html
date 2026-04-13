@@ -8,6 +8,105 @@
     <script src="https://res.cdn.office.net/teams-js/2.19.0/js/MicrosoftTeams.min.js"></script>
     <script src="/assets/js/i18n.js?v=20260206a"></script>
     <script src="/assets/js/navigation.js?v=20260206a"></script>
+    <style>
+        /* Confetti Animation Styles */
+        .confetti-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 99999;
+            overflow: hidden;
+        }
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            opacity: 0;
+            animation: confetti-fall 3s ease-out forwards;
+        }
+        @keyframes confetti-fall {
+            0% {
+                opacity: 1;
+                transform: translateY(0) rotate(0deg) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(100vh) rotate(720deg) scale(0.5);
+            }
+        }
+
+        /* Success message animation */
+        .success-message-animated {
+            animation: successPop 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+        @keyframes successPop {
+            0% { transform: scale(0.8) translateY(-10px); opacity: 0; }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+
+        /* Button loading state */
+        .btn-loading {
+            position: relative;
+            pointer-events: none;
+            opacity: 0.7;
+        }
+        .btn-loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 16px;
+            height: 16px;
+            margin: -8px 0 0 -8px;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: btnSpin 0.8s linear infinite;
+        }
+        @keyframes btnSpin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Skeleton loaders for approval cards */
+        .approval-skeleton {
+            padding: 1.25rem;
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            margin-bottom: 1rem;
+        }
+        .skeleton-line {
+            height: 14px;
+            background: #f3f4f6;
+            border-radius: 6px;
+            animation: softPulse 1.8s ease-in-out infinite;
+        }
+        .skeleton-line.title { width: 60%; height: 18px; margin-bottom: 12px; }
+        .skeleton-line.badge { width: 80px; height: 22px; border-radius: 12px; display: inline-block; margin-right: 8px; }
+        .skeleton-line.meta { width: 40%; margin-top: 10px; }
+        .skeleton-line.desc { width: 90%; margin-top: 8px; }
+        .skeleton-line.desc2 { width: 70%; margin-top: 6px; }
+        .skeleton-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+        }
+        .skeleton-btn {
+            width: 100px;
+            height: 36px;
+            background: #f3f4f6;
+            border-radius: 8px;
+            animation: softPulse 1.8s ease-in-out infinite;
+        }
+        @keyframes softPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+    </style>
 </head>
 <body data-page="approvals">
     <div class="container">
@@ -34,9 +133,29 @@
             <div id="pendingTab" class="tab-content active">
                 <h2 data-i18n="requestsToApprove">Requests to Approve</h2>
                 <div id="approvalsList" class="requests-list">
-                    <div class="loading-spinner">
-                        <div class="loading"></div>
-                        <p data-i18n="loadingApprovals">Loading pending approvals...</p>
+                    <div class="skeleton-loading-container">
+                        <div class="approval-skeleton">
+                            <div class="skeleton-line title"></div>
+                            <div><span class="skeleton-line badge"></span><span class="skeleton-line badge"></span></div>
+                            <div class="skeleton-line meta"></div>
+                            <div class="skeleton-line desc"></div>
+                            <div class="skeleton-line desc2"></div>
+                            <div class="skeleton-actions">
+                                <div class="skeleton-btn"></div>
+                                <div class="skeleton-btn"></div>
+                            </div>
+                        </div>
+                        <div class="approval-skeleton">
+                            <div class="skeleton-line title"></div>
+                            <div><span class="skeleton-line badge"></span><span class="skeleton-line badge"></span></div>
+                            <div class="skeleton-line meta"></div>
+                            <div class="skeleton-line desc"></div>
+                            <div class="skeleton-line desc2"></div>
+                            <div class="skeleton-actions">
+                                <div class="skeleton-btn"></div>
+                                <div class="skeleton-btn"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -70,9 +189,21 @@
                 </div>
 
                 <div id="historyList" class="requests-list">
-                    <div class="loading-spinner">
-                        <div class="loading"></div>
-                        <p data-i18n="loadingHistory">Loading history...</p>
+                    <div class="skeleton-loading-container">
+                        <div class="approval-skeleton">
+                            <div class="skeleton-line title"></div>
+                            <div><span class="skeleton-line badge"></span><span class="skeleton-line badge"></span></div>
+                            <div class="skeleton-line meta"></div>
+                            <div class="skeleton-line desc"></div>
+                            <div class="skeleton-line desc2"></div>
+                        </div>
+                        <div class="approval-skeleton">
+                            <div class="skeleton-line title"></div>
+                            <div><span class="skeleton-line badge"></span><span class="skeleton-line badge"></span></div>
+                            <div class="skeleton-line meta"></div>
+                            <div class="skeleton-line desc"></div>
+                            <div class="skeleton-line desc2"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -545,6 +676,53 @@
             document.addEventListener('keydown', escHandler);
         }
 
+        // Confetti celebration animation
+        function launchConfetti() {
+            const container = document.createElement('div');
+            container.className = 'confetti-container';
+            document.body.appendChild(container);
+
+            const colors = ['#22c55e', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6', '#ef4444'];
+            const shapes = ['circle', 'square', 'triangle'];
+            const confettiCount = 80;
+
+            for (let i = 0; i < confettiCount; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                const shape = shapes[Math.floor(Math.random() * shapes.length)];
+                const left = Math.random() * 100;
+                const delay = Math.random() * 0.5;
+                const size = Math.random() * 8 + 6;
+                const duration = Math.random() * 1.5 + 2;
+
+                confetti.style.left = `${left}%`;
+                confetti.style.top = '-20px';
+                confetti.style.width = `${size}px`;
+                confetti.style.height = `${size}px`;
+                confetti.style.backgroundColor = color;
+                confetti.style.animationDelay = `${delay}s`;
+                confetti.style.animationDuration = `${duration}s`;
+
+                if (shape === 'circle') {
+                    confetti.style.borderRadius = '50%';
+                } else if (shape === 'triangle') {
+                    confetti.style.width = '0';
+                    confetti.style.height = '0';
+                    confetti.style.backgroundColor = 'transparent';
+                    confetti.style.borderLeft = `${size/2}px solid transparent`;
+                    confetti.style.borderRight = `${size/2}px solid transparent`;
+                    confetti.style.borderBottom = `${size}px solid ${color}`;
+                }
+
+                container.appendChild(confetti);
+            }
+
+            // Clean up after animation
+            setTimeout(() => container.remove(), 4000);
+        }
+
         // Approve ticket
         async function approveTicket(ticketId) {
             console.log('Approve clicked for ticket:', ticketId);
@@ -553,6 +731,13 @@
             if (!currentUser) {
                 showMessage(t('approveError') + ': User context not loaded', 'error');
                 return;
+            }
+
+            // Find and disable the button, add loading state
+            const button = document.querySelector(`button[data-action="approve"][data-ticket-id="${ticketId}"]`);
+            if (button) {
+                button.classList.add('btn-loading');
+                button.disabled = true;
             }
 
             try {
@@ -572,20 +757,32 @@
                 console.log('Approve response status:', response.status);
 
                 if (response.ok) {
-                    showMessage(t('approveSuccess'), 'success');
+                    // Launch confetti celebration!
+                    launchConfetti();
+                    showMessage(t('approveSuccess'), 'success', true);
                     // Refresh approval badge count
                     if (window.refreshApprovalsBadge) {
                         window.refreshApprovalsBadge();
                     }
-                    setTimeout(() => location.reload(), 1500);
+                    setTimeout(() => location.reload(), 2000);
                 } else {
                     const errorData = await response.json().catch(() => null);
                     console.error('Approve failed:', errorData);
                     showMessage(t('approveFailed') + (errorData?.message ? ': ' + errorData.message : ''), 'error');
+                    // Re-enable button
+                    if (button) {
+                        button.classList.remove('btn-loading');
+                        button.disabled = false;
+                    }
                 }
             } catch (error) {
                 console.error('Error approving ticket:', error);
                 showMessage(t('approveError') + ': ' + error.message, 'error');
+                // Re-enable button
+                if (button) {
+                    button.classList.remove('btn-loading');
+                    button.disabled = false;
+                }
             }
         }
 
@@ -661,29 +858,37 @@
         }
 
         // Show message helper (replaces alert/confirm for Teams compatibility)
-        function showMessage(message, type = 'info') {
+        function showMessage(message, type = 'info', celebrate = false) {
             const messageDiv = document.createElement('div');
+            const icon = type === 'success' ? '&#10004;' : type === 'error' ? '&#10006;' : '&#8505;';
+            messageDiv.innerHTML = `<span style="margin-right: 8px;">${icon}</span>${message}${celebrate ? ' &#127881;' : ''}`;
             messageDiv.style.cssText = `
                 position: fixed;
                 top: 20px;
                 right: 20px;
-                padding: 15px 20px;
-                background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+                padding: 16px 24px;
+                background: ${type === 'success' ? 'linear-gradient(135deg, #10b981, #059669)' : type === 'error' ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'linear-gradient(135deg, #3b82f6, #2563eb)'};
                 color: white;
-                border-radius: 8px;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                z-index: 10000;
-                font-size: 14px;
-                max-width: 300px;
+                border-radius: 12px;
+                box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+                z-index: 100000;
+                font-size: 15px;
+                font-weight: 600;
+                max-width: 350px;
+                display: flex;
+                align-items: center;
             `;
-            messageDiv.textContent = message;
+            if (celebrate) {
+                messageDiv.classList.add('success-message-animated');
+            }
             document.body.appendChild(messageDiv);
 
             setTimeout(() => {
-                messageDiv.style.transition = 'opacity 0.3s';
+                messageDiv.style.transition = 'all 0.4s ease';
                 messageDiv.style.opacity = '0';
-                setTimeout(() => messageDiv.remove(), 300);
-            }, 3000);
+                messageDiv.style.transform = 'translateY(-20px)';
+                setTimeout(() => messageDiv.remove(), 400);
+            }, celebrate ? 3500 : 3000);
         }
 
         // Override switchLanguage to re-render ticket boxes with new translations

@@ -250,7 +250,15 @@ const translations = {
     dateRangeError: 'Start date must be before end date',
 
     // Required field
-    required: '*'
+    required: '*',
+
+    // Out of Office widget
+    dashOutOfOfficeTitle: 'Out of Office Today',
+    dashOooNobody: 'Everyone is in the office today!',
+    dashOooVacation: 'Vacation',
+    dashOooSickLeave: 'Sick Leave',
+    dashOooParagraph: 'Paragraph',
+    dashOooOcr: 'Family Care'
   },
   sk: {
     // Header
@@ -502,7 +510,15 @@ const translations = {
     dateRangeError: 'Dátum od musí byť pred dátumom do',
 
     // Required field
-    required: '*'
+    required: '*',
+
+    // Out of Office widget
+    dashOutOfOfficeTitle: 'Dnes mimo kancelárie',
+    dashOooNobody: 'Dnes sú všetci v kancelárii!',
+    dashOooVacation: 'Dovolenka',
+    dashOooSickLeave: 'PN',
+    dashOooParagraph: 'Paragraf',
+    dashOooOcr: 'OČR'
   }
 };
 
