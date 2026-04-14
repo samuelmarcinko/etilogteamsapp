@@ -235,6 +235,18 @@
             border-left: 3px solid #f59e0b;
         }
 
+        .person-card.paragraph {
+            border-left: 4px solid #10b981;
+        }
+
+        .person-card.ocr {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .person-card.other {
+            border-left: 4px solid #6b7280;
+        }
+
         .person-header {
             display: flex;
             align-items: center;
@@ -392,9 +404,35 @@
 
         // Render person card
         function renderPersonCard(ticket) {
-            const typeClass = ticket.ticket_type === 'vacation' ? 'vacation' : 'sick-leave';
-            const icon = ticket.ticket_type === 'vacation' ? '&#127796;' : '&#129298;';
-            const typeLabel = ticket.ticket_type === 'vacation' ? t('typeVacation') : t('typeSickLeave');
+            const type = ticket.ticket_type?.toLowerCase();
+            let typeClass, icon, typeLabel;
+
+            switch(type) {
+                case 'vacation':
+                    typeClass = 'vacation';
+                    icon = '&#127796;';
+                    typeLabel = t('typeVacation');
+                    break;
+                case 'sick-leave':
+                    typeClass = 'sick-leave';
+                    icon = '&#129298;';
+                    typeLabel = t('typeSickLeave');
+                    break;
+                case 'paragraph':
+                    typeClass = 'paragraph';
+                    icon = '&#127973;';
+                    typeLabel = t('typeParagraph');
+                    break;
+                case 'ocr':
+                    typeClass = 'ocr';
+                    icon = '&#128106;';
+                    typeLabel = t('typeOcr');
+                    break;
+                default:
+                    typeClass = 'other';
+                    icon = '&#128203;';
+                    typeLabel = ticket.ticket_type || t('typeOther');
+            }
 
             return `
                 <div class="person-card ${typeClass}">
@@ -560,9 +598,11 @@
                 const result = await response.json();
                 const allTickets = result.data || [];
 
-                // Filter only vacation and sick-leave with dates
+                // Filter all tickets that have dates (vacation, sick-leave, paragraph, ocr, etc.)
+                // These are "time-off" type requests that should show in the calendar
+                const timeOffTypes = ['vacation', 'sick-leave', 'paragraph', 'ocr'];
                 allApprovedTimeOff = allTickets.filter(ticket =>
-                    (ticket.ticket_type === 'vacation' || ticket.ticket_type === 'sick-leave') &&
+                    timeOffTypes.includes(ticket.ticket_type?.toLowerCase()) &&
                     ticket.start_date &&
                     ticket.end_date
                 );
