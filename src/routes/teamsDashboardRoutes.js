@@ -127,6 +127,7 @@ router.get('/out-of-office', async (req, res) => {
   try {
     // Get approved tickets for vacation, sick-leave, paragraph, and ocr
     // where the date falls between start_date and end_date
+    // Using LOWER() for case-insensitive comparison
     const result = await pool.query(
       `SELECT
          t.ticket_id,
@@ -138,7 +139,7 @@ router.get('/out-of-office', async (req, res) => {
          t.title
        FROM tickets t
        WHERE t.status = 'Approved'
-         AND t.ticket_type IN ('vacation', 'sick-leave', 'paragraph', 'ocr')
+         AND LOWER(t.ticket_type) IN ('vacation', 'sick-leave', 'paragraph', 'ocr')
          AND t.start_date <= $1
          AND t.end_date >= $1
        ORDER BY t.created_by_name ASC`,
@@ -157,7 +158,7 @@ router.get('/out-of-office', async (req, res) => {
       }
       userMap.get(row.created_by_id).absences.push({
         ticketId: row.ticket_id,
-        type: row.ticket_type,
+        type: row.ticket_type?.toLowerCase() || row.ticket_type,
         startDate: row.start_date,
         endDate: row.end_date,
         title: row.title
