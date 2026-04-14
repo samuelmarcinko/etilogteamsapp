@@ -399,8 +399,16 @@
         .ooo-type-badge.ocr { background: #fce7f3; color: #db2777; }
 
         .ooo-date-range {
-            font-size: 0.7rem;
-            color: var(--gray-400, #9ca3af);
+            font-size: 0.75rem;
+            color: var(--gray-500, #6b7280);
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .ooo-date-range::before {
+            content: '•';
+            color: var(--gray-300, #d1d5db);
         }
     </style>
 </head>

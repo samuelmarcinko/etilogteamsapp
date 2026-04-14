@@ -189,16 +189,34 @@ function formatOooDateRange(startDate, endDate) {
     const end = new Date(endDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
 
-    const startStr = start.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
-    const endStr = end.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
+    const currentYear = today.getFullYear();
+    const startYear = start.getFullYear();
+    const endYear = end.getFullYear();
 
-    // If same day, just show one date
-    if (start.getTime() === end.getTime()) {
-        return startStr;
+    // Include year if different from current year
+    const startOptions = { day: 'numeric', month: 'short' };
+    const endOptions = { day: 'numeric', month: 'short' };
+
+    if (startYear !== currentYear) {
+        startOptions.year = 'numeric';
+    }
+    if (endYear !== currentYear) {
+        endOptions.year = 'numeric';
     }
 
-    return `${startStr} - ${endStr}`;
+    const startStr = start.toLocaleDateString(locale, startOptions);
+    const endStr = end.toLocaleDateString(locale, endOptions);
+
+    // If same day, show single date with year
+    if (start.getTime() === end.getTime()) {
+        // Always include year for single day
+        return start.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    return `${startStr} → ${endStr}`;
 }
 
 // Load tickets separately
