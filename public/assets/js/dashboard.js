@@ -84,7 +84,7 @@ async function loadOutOfOfficeData() {
 
     try {
         const today = new Date().toISOString().split('T')[0];
-        const response = await fetch(`/api/teams/out-of-office?date=${today}`);
+        const response = await fetch(`/api/teams/dashboard/out-of-office?date=${today}`);
 
         if (!response.ok) {
             throw new Error('API error ' + response.status);
