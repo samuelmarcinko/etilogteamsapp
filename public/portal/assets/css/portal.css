@@ -1498,8 +1498,8 @@ body {
 
 .fleet-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 1.25rem;
 }
 @media (max-width: 480px) {
   .fleet-grid { grid-template-columns: 1fr; }
@@ -1508,104 +1508,204 @@ body {
 .fleet-card {
   background: var(--white);
   border: 1px solid var(--gray-200);
-  border-radius: 12px;
-  padding: 1.25rem;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-  transition: transform 0.15s, box-shadow 0.15s;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+.fleet-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--fleet-status-color, var(--gray-200));
 }
 .fleet-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
 }
-.fleet-card.inactive { opacity: 0.55; }
+.fleet-card.inactive {
+  opacity: 0.5;
+  filter: grayscale(0.4);
+}
+
+/* Slovak EU License Plate */
+.eu-plate {
+  display: inline-flex;
+  align-items: stretch;
+  background: #fff;
+  border: 2px solid #1a1a1a;
+  border-radius: 5px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(0,0,0,0.05);
+  height: 32px;
+  margin: 0.75rem 0;
+}
+.eu-plate-blue {
+  background: linear-gradient(180deg, #003399 0%, #002266 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 5px;
+  min-width: 24px;
+}
+.eu-plate-stars {
+  width: 14px;
+  height: 14px;
+  position: relative;
+}
+.eu-plate-stars::before {
+  content: '★★★★★★★★★★★★';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 3.5px;
+  color: #ffcc00;
+  letter-spacing: -0.5px;
+  width: 12px;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid #ffcc00;
+  border-radius: 50%;
+  line-height: 1;
+}
+.eu-plate-country {
+  font-size: 7px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.5px;
+  margin-top: 1px;
+}
+.eu-plate-number {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  font-family: 'Arial Black', 'Segoe UI Black', sans-serif;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #1a1a1a;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
 
 .fleet-card-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-}
-.fleet-card-title {
-  display: flex;
-  align-items: center;
   gap: 0.75rem;
 }
 .fleet-card-title h3 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: var(--gray-900);
+  line-height: 1.3;
 }
-.fleet-icon { font-size: 1.6rem; }
-.fleet-plate {
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--gray-500);
-  background: var(--gray-100);
-  padding: 0.15rem 0.5rem;
-  border-radius: 4px;
-  letter-spacing: 0.5px;
-  font-family: monospace;
+
+.fleet-card-actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+.fleet-card-actions .btn {
+  padding: 0.4rem 0.5rem;
+  font-size: 0.85rem;
 }
 
 .fleet-meta {
   display: flex;
-  gap: 1rem;
-  font-size: 0.8rem;
-  color: var(--gray-500);
-  margin-bottom: 0.75rem;
-  padding-bottom: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  font-size: 0.85rem;
+  color: var(--gray-600);
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
   border-bottom: 1px solid var(--gray-100);
+}
+.fleet-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.fleet-meta-icon {
+  font-size: 1rem;
+  opacity: 0.7;
 }
 
 .fleet-expiry-list {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  margin-bottom: 0.75rem;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
 }
 .fleet-expiry-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.4rem 0.6rem;
-  background: var(--gray-50, #f8fafc);
-  border-radius: 6px;
+  padding: 0.6rem 0.85rem;
+  background: var(--gray-50);
+  border-radius: 8px;
+  border-left: 3px solid var(--expiry-color, var(--gray-300));
+  transition: background 0.15s;
+}
+.fleet-expiry-row:hover {
+  background: var(--gray-100);
 }
 .fleet-expiry-label {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--gray-600);
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  min-width: 80px;
-}
-.fleet-expiry-value {
   font-size: 0.8rem;
   font-weight: 600;
+  color: var(--gray-700);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.fleet-expiry-value {
+  font-size: 0.85rem;
+  font-weight: 700;
   text-align: right;
 }
+.fleet-expiry-days {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--gray-500);
+  margin-left: 0.5rem;
+}
 
-.fleet-status-ok { color: #16a34a; }
-.fleet-status-soon { color: #2563eb; }
-.fleet-status-warning { color: #d97706; }
-.fleet-status-critical { color: #dc2626; font-weight: 700; }
-.fleet-status-expired { color: #dc2626; font-weight: 700; text-decoration: line-through; }
-.fleet-status-neutral { color: var(--gray-400); font-style: italic; }
+.fleet-status-ok { color: #16a34a; --expiry-color: #22c55e; }
+.fleet-status-soon { color: #2563eb; --expiry-color: #3b82f6; }
+.fleet-status-warning { color: #d97706; --expiry-color: #f59e0b; }
+.fleet-status-critical { color: #dc2626; font-weight: 800; --expiry-color: #ef4444; }
+.fleet-status-expired { color: #dc2626; font-weight: 800; --expiry-color: #dc2626; }
+.fleet-status-neutral { color: var(--gray-400); font-style: italic; --expiry-color: var(--gray-300); }
 
 .fleet-card-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 0.6rem;
+  padding-top: 0.85rem;
   border-top: 1px solid var(--gray-100);
+  gap: 0.5rem;
 }
 .fleet-email-info {
-  font-size: 0.75rem;
-  color: var(--gray-400);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--gray-500);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 70%;
+}
+.fleet-email-info .email-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
 }

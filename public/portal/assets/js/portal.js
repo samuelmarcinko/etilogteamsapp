@@ -2871,16 +2871,16 @@ function renderVehicleCard(v) {
     today.setHours(0, 0, 0, 0);
 
     function getExpiryInfo(dateStr) {
-        if (!dateStr) return { label: pt('fleetNotSet'), cls: 'neutral', days: null };
+        if (!dateStr) return { label: pt('fleetNotSet'), cls: 'neutral', days: null, dateOnly: '' };
         const d = new Date(dateStr);
         d.setHours(0, 0, 0, 0);
         const days = Math.ceil((d - today) / (1000 * 60 * 60 * 24));
-        const formatted = d.toLocaleDateString(portalLang === 'sk' ? 'sk-SK' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' });
-        if (days < 0) return { label: `${formatted} (${pt('fleetExpired')})`, cls: 'expired', days };
-        if (days <= 7) return { label: `${formatted} (${days} ${pt('days')})`, cls: 'critical', days };
-        if (days <= 14) return { label: `${formatted} (${days} ${pt('days')})`, cls: 'warning', days };
-        if (days <= 30) return { label: `${formatted} (${days} ${pt('days')})`, cls: 'soon', days };
-        return { label: formatted, cls: 'ok', days };
+        const dateOnly = d.toLocaleDateString(portalLang === 'sk' ? 'sk-SK' : 'en-GB', { day: 'numeric', month: 'numeric', year: 'numeric' });
+        if (days < 0) return { label: dateOnly, cls: 'expired', days, dateOnly, daysText: pt('fleetExpired') };
+        if (days <= 7) return { label: dateOnly, cls: 'critical', days, dateOnly, daysText: `${days} ${pt('days')}` };
+        if (days <= 14) return { label: dateOnly, cls: 'warning', days, dateOnly, daysText: `${days} ${pt('days')}` };
+        if (days <= 30) return { label: dateOnly, cls: 'soon', days, dateOnly, daysText: `${days} ${pt('days')}` };
+        return { label: dateOnly, cls: 'ok', days, dateOnly, daysText: '' };
     }
 
     const stk = getExpiryInfo(v.stk_valid_until);
@@ -2888,7 +2888,7 @@ function renderVehicleCard(v) {
     const hw = getExpiryInfo(v.highway_sticker_valid_until);
 
     const yearMonth = v.year_manufactured
-        ? `${v.month_manufactured ? v.month_manufactured + '/' : ''}${v.year_manufactured}`
+        ? `${v.year_manufactured}${v.month_manufactured ? '/' + String(v.month_manufactured).padStart(2, '0') : ''}`
         : '';
 
     const worstStatus = [stk, ek, hw].reduce((worst, cur) => {
@@ -2896,51 +2896,55 @@ function renderVehicleCard(v) {
         return (order[cur.cls] || 5) < (order[worst.cls] || 5) ? cur : worst;
     }, { cls: 'neutral' });
 
-    const cardBorderColor = {
+    const statusColor = {
         expired: '#dc2626', critical: '#dc2626', warning: '#f59e0b', soon: '#3b82f6', ok: '#22c55e', neutral: '#e5e7eb'
     }[worstStatus.cls];
 
+    const emails = (v.notification_email || '').split(',').map(e => e.trim()).filter(Boolean);
+
     return `
-        <div class="fleet-card ${!v.is_active ? 'inactive' : ''}" style="border-top: 3px solid ${cardBorderColor};">
+        <div class="fleet-card ${!v.is_active ? 'inactive' : ''}" style="--fleet-status-color: ${statusColor};">
             <div class="fleet-card-header">
                 <div class="fleet-card-title">
-                    <span class="fleet-icon">&#128663;</span>
-                    <div>
-                        <h3>${escapeHtml(v.name)}</h3>
-                        <span class="fleet-plate">${escapeHtml(v.license_plate)}</span>
-                    </div>
+                    <h3>${escapeHtml(v.name)}</h3>
                 </div>
-                <div class="table-actions">
-                    <button class="btn-icon primary" onclick="editVehicle(${v.id})" title="${pt('edit')}">&#9999;</button>
-                    <button class="btn-icon ${v.is_active ? '' : 'success'}" onclick="toggleVehicleActive(${v.id})" title="${v.is_active ? pt('fleetDeactivate') : pt('fleetActivate')}">${v.is_active ? '&#128683;' : '&#9989;'}</button>
-                    <button class="btn-icon danger" onclick="deleteVehicle(${v.id})" title="${pt('delete')}">&#128465;</button>
+                <div class="fleet-card-actions">
+                    <button class="btn btn-sm btn-secondary" onclick="editVehicle(${v.id})" title="${pt('edit')}">&#9999;</button>
+                    <button class="btn btn-sm ${v.is_active ? 'btn-warning' : 'btn-success'}" onclick="toggleVehicleActive(${v.id})" title="${v.is_active ? pt('fleetDeactivate') : pt('fleetActivate')}">${v.is_active ? '&#128683;' : '&#9989;'}</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteVehicle(${v.id})" title="${pt('delete')}">&#128465;</button>
                 </div>
             </div>
 
-            ${v.brand || yearMonth ? `
-                <div class="fleet-meta">
-                    ${v.brand ? `<span>${escapeHtml(v.brand)}${v.model ? ' ' + escapeHtml(v.model) : ''}</span>` : ''}
-                    ${yearMonth ? `<span>&#128197; ${yearMonth}</span>` : ''}
+            <div class="eu-plate">
+                <div class="eu-plate-blue">
+                    <div class="eu-plate-stars"></div>
+                    <span class="eu-plate-country">SK</span>
                 </div>
-            ` : ''}
+                <div class="eu-plate-number">${escapeHtml(v.license_plate)}</div>
+            </div>
+
+            <div class="fleet-meta">
+                ${v.brand ? `<span class="fleet-meta-item"><span class="fleet-meta-icon">&#128663;</span> ${escapeHtml(v.brand)}${v.model ? ' ' + escapeHtml(v.model) : ''}</span>` : ''}
+                ${yearMonth ? `<span class="fleet-meta-item"><span class="fleet-meta-icon">&#128197;</span> ${yearMonth}</span>` : ''}
+            </div>
 
             <div class="fleet-expiry-list">
-                <div class="fleet-expiry-row">
+                <div class="fleet-expiry-row fleet-status-${stk.cls}">
                     <span class="fleet-expiry-label">STK</span>
-                    <span class="fleet-expiry-value fleet-status-${stk.cls}">${stk.label}</span>
+                    <span class="fleet-expiry-value fleet-status-${stk.cls}">${stk.label}${stk.daysText ? `<span class="fleet-expiry-days">(${stk.daysText})</span>` : ''}</span>
                 </div>
-                <div class="fleet-expiry-row">
+                <div class="fleet-expiry-row fleet-status-${ek.cls}">
                     <span class="fleet-expiry-label">EK</span>
-                    <span class="fleet-expiry-value fleet-status-${ek.cls}">${ek.label}</span>
+                    <span class="fleet-expiry-value fleet-status-${ek.cls}">${ek.label}${ek.daysText ? `<span class="fleet-expiry-days">(${ek.daysText})</span>` : ''}</span>
                 </div>
-                <div class="fleet-expiry-row">
+                <div class="fleet-expiry-row fleet-status-${hw.cls}">
                     <span class="fleet-expiry-label">${pt('fleetHighwaySticker')}</span>
-                    <span class="fleet-expiry-value fleet-status-${hw.cls}">${hw.label}</span>
+                    <span class="fleet-expiry-value fleet-status-${hw.cls}">${hw.label}${hw.daysText ? `<span class="fleet-expiry-days">(${hw.daysText})</span>` : ''}</span>
                 </div>
             </div>
 
             <div class="fleet-card-footer">
-                <span class="fleet-email-info">&#128231; ${escapeHtml(v.notification_email)}</span>
+                <span class="fleet-email-info"><span class="email-icon">&#128231;</span> ${emails.length > 1 ? emails.length + ' ' + pt('emails') : escapeHtml(emails[0] || '-')}</span>
                 ${!v.is_active ? `<span class="badge badge-rejected">${pt('fleetInactive')}</span>` : ''}
             </div>
         </div>
@@ -2973,6 +2977,8 @@ async function editVehicle(id) {
 
 function buildVehicleForm(v = {}) {
     const fmt = (d) => d ? new Date(d).toISOString().split('T')[0] : '';
+    const emails = (v.notification_email || '').split(',').map(e => e.trim()).filter(Boolean);
+    if (emails.length === 0) emails.push('');
     return `
         <form id="vehicleForm">
             <div class="form-row">
@@ -3020,16 +3026,25 @@ function buildVehicleForm(v = {}) {
                     <input type="date" class="form-input" name="ek_valid_until" value="${fmt(v.ek_valid_until)}">
                 </div>
             </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">${pt('fleetHighwaySticker')} ${pt('fleetValidUntil')}</label>
-                    <input type="date" class="form-input" name="highway_sticker_valid_until" value="${fmt(v.highway_sticker_valid_until)}">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">${pt('fleetNotificationEmail')} *</label>
-                    <input type="email" class="form-input" name="notification_email" value="${escapeHtml(v.notification_email || '')}" required placeholder="fleet@etilog.com">
-                </div>
+            <div class="form-group">
+                <label class="form-label">${pt('fleetHighwaySticker')} ${pt('fleetValidUntil')}</label>
+                <input type="date" class="form-input" name="highway_sticker_valid_until" value="${fmt(v.highway_sticker_valid_until)}">
             </div>
+
+            <div style="margin: 1rem 0 0.5rem; padding-top: 1rem; border-top: 1px solid var(--gray-200, #e5e7eb);">
+                <div style="font-weight: 700; font-size: 0.85rem; color: var(--gray-600); margin-bottom: 0.25rem;">&#128231; ${pt('fleetNotificationEmail')} *</div>
+                <div style="font-size: 0.75rem; color: var(--gray-500); margin-bottom: 0.5rem;">${pt('fleetNotificationEmailHint')}</div>
+            </div>
+            <div id="emailList">
+                ${emails.map((email, idx) => `
+                    <div class="email-row" style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <input type="email" class="form-input fleet-email-input" value="${escapeHtml(email)}" placeholder="email@example.com" style="flex: 1;">
+                        <button type="button" class="btn btn-sm btn-danger" onclick="removeFleetEmail(this)" ${emails.length === 1 && idx === 0 ? 'disabled style="opacity:0.4;"' : ''}>&#128465;</button>
+                    </div>
+                `).join('')}
+            </div>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="addFleetEmail()" style="margin-bottom: 1rem;">+ ${pt('fleetAddEmail')}</button>
+
             <div class="form-group">
                 <label class="form-label">${pt('fleetNotes')}</label>
                 <textarea class="form-input" name="notes" rows="2" placeholder="${pt('fleetNotesPlaceholder')}">${escapeHtml(v.notes || '')}</textarea>
@@ -3038,8 +3053,42 @@ function buildVehicleForm(v = {}) {
     `;
 }
 
+function addFleetEmail() {
+    const list = document.getElementById('emailList');
+    const row = document.createElement('div');
+    row.className = 'email-row';
+    row.style.cssText = 'display: flex; gap: 0.5rem; margin-bottom: 0.5rem;';
+    row.innerHTML = `
+        <input type="email" class="form-input fleet-email-input" value="" placeholder="email@example.com" style="flex: 1;">
+        <button type="button" class="btn btn-sm btn-danger" onclick="removeFleetEmail(this)">&#128465;</button>
+    `;
+    list.appendChild(row);
+    updateEmailDeleteButtons();
+}
+
+function removeFleetEmail(btn) {
+    btn.parentElement.remove();
+    updateEmailDeleteButtons();
+}
+
+function updateEmailDeleteButtons() {
+    const rows = document.querySelectorAll('#emailList .email-row');
+    rows.forEach((row, idx) => {
+        const btn = row.querySelector('button');
+        if (rows.length === 1) {
+            btn.disabled = true;
+            btn.style.opacity = '0.4';
+        } else {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+        }
+    });
+}
+
 function getVehicleFormData() {
     const f = document.getElementById('vehicleForm');
+    const emailInputs = document.querySelectorAll('.fleet-email-input');
+    const emails = Array.from(emailInputs).map(inp => inp.value.trim()).filter(Boolean).join(', ');
     return {
         name: f.name.value.trim(),
         license_plate: f.license_plate.value.trim().toUpperCase(),
@@ -3050,7 +3099,7 @@ function getVehicleFormData() {
         stk_valid_until: f.stk_valid_until.value || null,
         ek_valid_until: f.ek_valid_until.value || null,
         highway_sticker_valid_until: f.highway_sticker_valid_until.value || null,
-        notification_email: f.notification_email.value.trim(),
+        notification_email: emails,
         notes: f.notes.value.trim() || null
     };
 }
