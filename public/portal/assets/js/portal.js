@@ -2871,48 +2871,51 @@ function renderVehicleCard(v) {
     today.setHours(0, 0, 0, 0);
 
     function getExpiryInfo(dateStr) {
-        if (!dateStr) return { label: pt('fleetNotSet'), cls: 'neutral', days: null, dateOnly: '' };
+        if (!dateStr) return { label: pt('fleetNotSet'), cls: 'neutral', days: null };
         const d = new Date(dateStr);
         d.setHours(0, 0, 0, 0);
         const days = Math.ceil((d - today) / (1000 * 60 * 60 * 24));
         const dateOnly = d.toLocaleDateString(portalLang === 'sk' ? 'sk-SK' : 'en-GB', { day: 'numeric', month: 'numeric', year: 'numeric' });
-        if (days < 0) return { label: dateOnly, cls: 'expired', days, dateOnly, daysText: pt('fleetExpired') };
-        if (days <= 7) return { label: dateOnly, cls: 'critical', days, dateOnly, daysText: `${days} ${pt('days')}` };
-        if (days <= 14) return { label: dateOnly, cls: 'warning', days, dateOnly, daysText: `${days} ${pt('days')}` };
-        if (days <= 30) return { label: dateOnly, cls: 'soon', days, dateOnly, daysText: `${days} ${pt('days')}` };
-        return { label: dateOnly, cls: 'ok', days, dateOnly, daysText: '' };
+        if (days < 0) return { label: dateOnly, cls: 'expired', days };
+        if (days <= 7) return { label: dateOnly, cls: 'critical', days };
+        if (days <= 14) return { label: dateOnly, cls: 'warning', days };
+        if (days <= 30) return { label: dateOnly, cls: 'soon', days };
+        return { label: dateOnly, cls: 'ok', days };
     }
 
     const stk = getExpiryInfo(v.stk_valid_until);
     const ek = getExpiryInfo(v.ek_valid_until);
     const hw = getExpiryInfo(v.highway_sticker_valid_until);
 
-    const yearMonth = v.year_manufactured
-        ? `${v.year_manufactured}${v.month_manufactured ? '/' + String(v.month_manufactured).padStart(2, '0') : ''}`
-        : '';
-
-    const worstStatus = [stk, ek, hw].reduce((worst, cur) => {
-        const order = { expired: 0, critical: 1, warning: 2, soon: 3, ok: 4, neutral: 5 };
-        return (order[cur.cls] || 5) < (order[worst.cls] || 5) ? cur : worst;
-    }, { cls: 'neutral' });
-
-    const statusColor = {
-        expired: '#dc2626', critical: '#dc2626', warning: '#f59e0b', soon: '#3b82f6', ok: '#22c55e', neutral: '#e5e7eb'
-    }[worstStatus.cls];
-
     const emails = (v.notification_email || '').split(',').map(e => e.trim()).filter(Boolean);
+    const emailDisplay = emails.length > 1 ? `${emails[0]} (+${emails.length - 1})` : (emails[0] || '-');
 
     return `
-        <div class="fleet-card ${!v.is_active ? 'inactive' : ''}" style="--fleet-status-color: ${statusColor};">
-            <div class="fleet-card-header">
-                <div class="fleet-card-title">
-                    <h3>${escapeHtml(v.name)}</h3>
+        <div class="fleet-card ${!v.is_active ? 'inactive' : ''}">
+            <div class="fleet-card-top">
+                <div class="fleet-badges">
+                    <span class="fleet-badge ${v.is_active ? 'active' : 'inactive'}">${v.is_active ? pt('fleetActive') : pt('fleetInactive')}</span>
+                    ${v.brand ? `<span class="fleet-badge color">${escapeHtml(v.brand)}</span>` : ''}
                 </div>
                 <div class="fleet-card-actions">
-                    <button class="btn btn-sm btn-secondary" onclick="editVehicle(${v.id})" title="${pt('edit')}">&#9999;</button>
-                    <button class="btn btn-sm ${v.is_active ? 'btn-warning' : 'btn-success'}" onclick="toggleVehicleActive(${v.id})" title="${v.is_active ? pt('fleetDeactivate') : pt('fleetActivate')}">${v.is_active ? '&#128683;' : '&#9989;'}</button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteVehicle(${v.id})" title="${pt('delete')}">&#128465;</button>
+                    <button class="fleet-action-btn edit" onclick="editVehicle(${v.id})" title="${pt('edit')}">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button class="fleet-action-btn toggle" onclick="toggleVehicleActive(${v.id})" title="${v.is_active ? pt('fleetDeactivate') : pt('fleetActivate')}">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                    </button>
+                    <button class="fleet-action-btn delete" onclick="deleteVehicle(${v.id})" title="${pt('delete')}">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
                 </div>
+            </div>
+
+            <h3 class="fleet-card-title">${escapeHtml(v.name)}</h3>
+
+            <div class="fleet-meta">
+                ${v.model ? `<span class="fleet-meta-item"><span class="fleet-meta-icon">&#128663;</span> ${escapeHtml(v.model)}</span>` : ''}
+                ${v.year_manufactured ? `<span class="fleet-meta-item"><span class="fleet-meta-icon">&#128197;</span> ${v.year_manufactured}</span>` : ''}
+                ${v.brand ? `<span class="fleet-meta-item"><span class="fleet-meta-icon">&#127991;</span> ${escapeHtml(v.brand)}</span>` : ''}
             </div>
 
             <div class="eu-plate">
@@ -2923,29 +2926,29 @@ function renderVehicleCard(v) {
                 <div class="eu-plate-number">${escapeHtml(v.license_plate)}</div>
             </div>
 
-            <div class="fleet-meta">
-                ${v.brand ? `<span class="fleet-meta-item"><span class="fleet-meta-icon">&#128663;</span> ${escapeHtml(v.brand)}${v.model ? ' ' + escapeHtml(v.model) : ''}</span>` : ''}
-                ${yearMonth ? `<span class="fleet-meta-item"><span class="fleet-meta-icon">&#128197;</span> ${yearMonth}</span>` : ''}
-            </div>
-
             <div class="fleet-expiry-list">
                 <div class="fleet-expiry-row fleet-status-${stk.cls}">
                     <span class="fleet-expiry-label">STK</span>
-                    <span class="fleet-expiry-value fleet-status-${stk.cls}">${stk.label}${stk.daysText ? `<span class="fleet-expiry-days">(${stk.daysText})</span>` : ''}</span>
+                    <span class="fleet-expiry-value fleet-status-${stk.cls}">${stk.label}</span>
                 </div>
                 <div class="fleet-expiry-row fleet-status-${ek.cls}">
                     <span class="fleet-expiry-label">EK</span>
-                    <span class="fleet-expiry-value fleet-status-${ek.cls}">${ek.label}${ek.daysText ? `<span class="fleet-expiry-days">(${ek.daysText})</span>` : ''}</span>
+                    <span class="fleet-expiry-value fleet-status-${ek.cls}">${ek.label}</span>
                 </div>
                 <div class="fleet-expiry-row fleet-status-${hw.cls}">
                     <span class="fleet-expiry-label">${pt('fleetHighwaySticker')}</span>
-                    <span class="fleet-expiry-value fleet-status-${hw.cls}">${hw.label}${hw.daysText ? `<span class="fleet-expiry-days">(${hw.daysText})</span>` : ''}</span>
+                    <span class="fleet-expiry-value fleet-status-${hw.cls}">${hw.label}</span>
                 </div>
             </div>
 
             <div class="fleet-card-footer">
-                <span class="fleet-email-info"><span class="email-icon">&#128231;</span> ${emails.length > 1 ? emails.length + ' ' + pt('emails') : escapeHtml(emails[0] || '-')}</span>
-                ${!v.is_active ? `<span class="badge badge-rejected">${pt('fleetInactive')}</span>` : ''}
+                <div class="fleet-contact">
+                    <div class="fleet-contact-label">${pt('fleetContactPerson')}</div>
+                    <div class="fleet-contact-email">${escapeHtml(emailDisplay)}</div>
+                </div>
+                <div class="fleet-footer-actions">
+                    <button class="fleet-btn primary" onclick="editVehicle(${v.id})">${pt('edit')}</button>
+                </div>
             </div>
         </div>
     `;
