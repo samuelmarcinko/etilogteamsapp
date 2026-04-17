@@ -2293,6 +2293,10 @@ async function renderAdminSystem(container) {
     const backupsRes = await apiCall('/api/admin/backups');
     const backups = (await backupsRes.json()).data || [];
 
+    // Load SMTP config
+    const smtpRes = await apiCall('/api/admin/settings/smtp');
+    const smtp = smtpRes.ok ? ((await smtpRes.json()).data || {}) : {};
+
     container.innerHTML = `
         <div class="page-header">
             <div><h1>${pt('adminSystemTitle')}</h1><p>${pt('adminSystemDesc')}</p></div>
@@ -2389,6 +2393,45 @@ async function renderAdminSystem(container) {
                     `}
                 </div>
             </div>
+
+            <!-- SMTP Settings -->
+            <div class="portal-card" style="margin-top: 1.5rem;">
+                <div class="card-header">
+                    <h3>&#128231; ${pt('smtpSettings')}</h3>
+                    <span class="status-badge ${smtp.configured ? 'status-approved' : 'status-pending'}">
+                        ${smtp.configured ? pt('smtpConfigured') : pt('smtpNotConfigured')}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <p style="color: var(--gray-600); margin-bottom: 1.5rem;">${pt('smtpSettingsDesc')}</p>
+                    <form id="smtpForm" onsubmit="saveSmtpSettings(event)" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label class="form-label">${pt('smtpHost')}</label>
+                            <input type="text" class="form-input" id="smtpHost" value="${escapeHtml(smtp.host || '')}" placeholder="smtp.gmail.com">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">${pt('smtpPort')}</label>
+                            <input type="number" class="form-input" id="smtpPort" value="${escapeHtml(smtp.port || '587')}" placeholder="587">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">${pt('smtpUser')}</label>
+                            <input type="email" class="form-input" id="smtpUser" value="${escapeHtml(smtp.user || '')}" placeholder="noreply@example.com">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">${pt('smtpPass')}</label>
+                            <input type="password" class="form-input" id="smtpPass" value="" placeholder="${pt('smtpPassPlaceholder')}">
+                        </div>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label class="form-label">${pt('smtpFrom')}</label>
+                            <input type="text" class="form-input" id="smtpFrom" value="${escapeHtml(smtp.from || '')}" placeholder="${pt('smtpFromPlaceholder')}">
+                        </div>
+                        <div style="grid-column: 1 / -1; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                            <button type="submit" class="btn btn-primary" id="smtpSaveBtn">${pt('smtpSave')}</button>
+                            <button type="button" class="btn btn-secondary" onclick="openSmtpTestModal()">${pt('smtpTest')}</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
     `;
 }
@@ -2468,6 +2511,59 @@ async function triggerBackup() {
         showToast(error.message, 'error');
         btn.disabled = false;
         btn.textContent = pt('createBackup');
+    }
+}
+
+async function saveSmtpSettings(event) {
+    event.preventDefault();
+    const btn = document.getElementById('smtpSaveBtn');
+    btn.disabled = true;
+
+    const payload = {
+        host: document.getElementById('smtpHost').value.trim(),
+        port: document.getElementById('smtpPort').value.trim(),
+        user: document.getElementById('smtpUser').value.trim(),
+        pass: document.getElementById('smtpPass').value,
+        from: document.getElementById('smtpFrom').value.trim()
+    };
+
+    try {
+        const response = await apiCall('/api/admin/settings/smtp', { method: 'PUT', body: JSON.stringify(payload) });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || pt('smtpSaveFailed'));
+        showToast(pt('smtpSaved'), 'success');
+        navigateToPage('admin-system');
+    } catch (error) {
+        showToast(error.message, 'error');
+        btn.disabled = false;
+    }
+}
+
+function openSmtpTestModal() {
+    document.getElementById('modalTitle').textContent = pt('smtpTest');
+    document.getElementById('modalBody').innerHTML = `
+        <div class="form-group">
+            <label class="form-label">${pt('smtpTestEmail')}</label>
+            <input type="email" class="form-input" id="smtpTestEmailInput" placeholder="vas@email.com">
+        </div>`;
+    document.getElementById('modalFooter').innerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
+        <button class="btn btn-primary" onclick="sendSmtpTest()">${pt('smtpTestSend')}</button>`;
+    openModal();
+}
+
+async function sendSmtpTest() {
+    const to = document.getElementById('smtpTestEmailInput')?.value?.trim();
+    if (!to) { showToast(pt('smtpTestEmail'), 'warning'); return; }
+
+    try {
+        const response = await apiCall('/api/admin/settings/smtp/test', { method: 'POST', body: JSON.stringify({ to }) });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || pt('smtpTestFailed'));
+        showToast(result.message || pt('smtpTestSuccess'), 'success');
+        closeModal();
+    } catch (error) {
+        showToast(error.message, 'error');
     }
 }
 

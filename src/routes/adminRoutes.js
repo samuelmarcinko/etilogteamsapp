@@ -4,6 +4,8 @@ const AdminController = require('../controllers/adminController');
 const { verifyToken } = require('../middleware/auth');
 const { requireDbRole } = require('../middleware/portalAuth');
 const { asyncHandler } = require('../middleware/errorHandler');
+const SystemSettings = require('../database/models/SystemSettings');
+const { sendEmail, getSmtpConfig } = require('../services/emailService');
 
 // All admin routes require authentication
 router.use(verifyToken);
@@ -41,5 +43,53 @@ router.get('/backups', requireDbRole('admin'), asyncHandler(AdminController.list
 
 // Export routes (admin and spravca)
 router.get('/export/tickets', requireDbRole('admin', 'spravca'), asyncHandler(AdminController.exportTickets));
+
+// SMTP Settings (admin only)
+router.get('/settings/smtp', requireDbRole('admin'), asyncHandler(async (req, res) => {
+  const settings = await SystemSettings.getByPrefix('smtp.');
+  const config = await getSmtpConfig();
+  res.json({
+    success: true,
+    data: {
+      host: settings['smtp.host'] || process.env.SMTP_HOST || '',
+      port: settings['smtp.port'] || process.env.SMTP_PORT || '587',
+      user: settings['smtp.user'] || process.env.SMTP_USER || '',
+      pass: (settings['smtp.pass'] || process.env.SMTP_PASS) ? '***' : '',
+      from: settings['smtp.from'] || process.env.SMTP_FROM || '',
+      configured: !!(config.host && config.user && config.pass)
+    }
+  });
+}));
+
+router.put('/settings/smtp', requireDbRole('admin'), asyncHandler(async (req, res) => {
+  const { host, port, user, pass, from } = req.body;
+  const toSave = {};
+  if (host !== undefined) toSave['smtp.host'] = host;
+  if (port !== undefined) toSave['smtp.port'] = String(port);
+  if (user !== undefined) toSave['smtp.user'] = user;
+  if (from !== undefined) toSave['smtp.from'] = from;
+  // Only update password if a new non-empty value was provided
+  if (pass && pass !== '***') toSave['smtp.pass'] = pass;
+
+  await SystemSettings.setMany(toSave);
+  res.json({ success: true, message: 'SMTP nastavenia uložené' });
+}));
+
+router.post('/settings/smtp/test', requireDbRole('admin'), asyncHandler(async (req, res) => {
+  const { to } = req.body;
+  if (!to) return res.status(400).json({ success: false, message: 'Chýba cieľová emailová adresa' });
+
+  const sent = await sendEmail({
+    to,
+    subject: 'ETILOG – Test SMTP',
+    html: `<p>Test SMTP konfigurácie bol úspešný.</p><p>Odoslaný: ${new Date().toLocaleString('sk-SK')}</p>`
+  });
+
+  if (sent) {
+    res.json({ success: true, message: `Testovací email odoslaný na ${to}` });
+  } else {
+    res.status(500).json({ success: false, message: 'SMTP nie je nakonfigurované alebo odosielanie zlyhalo' });
+  }
+}));
 
 module.exports = router;
