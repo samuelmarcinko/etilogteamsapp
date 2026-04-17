@@ -2890,12 +2890,37 @@ function renderVehicleCard(v) {
     const emails = (v.notification_email || '').split(',').map(e => e.trim()).filter(Boolean);
     const emailDisplay = emails.length > 1 ? `${emails[0]} (+${emails.length - 1})` : (emails[0] || '-');
 
+    const yearMonth = v.year_manufactured
+        ? `${v.year_manufactured}${v.month_manufactured ? ' / ' + v.month_manufactured : ''}`
+        : '';
+
+    const plateSvg = `<svg class="eu-plate-svg" viewBox="0 0 3416.51 761.68" xmlns="http://www.w3.org/2000/svg">
+        <rect width="3416.51" height="761.68" rx="77.7" ry="77.7" fill="#f6f6f6"/>
+        <path d="M3338.47,15.55H78.06c-34.45,0-62.5,28.05-62.5,62.5v605.56c0,34.45,28.05,62.5,62.5,62.5h3260.4c34.45,0,62.5-28.05,62.5-62.5V78.06c0-34.45-28.05-62.5-62.5-62.5ZM3384.75,683.62c0,25.62-20.75,46.29-46.29,46.29H78.06c-25.62,0-46.29-20.67-46.29-46.29V78.06c0-25.62,20.67-46.29,46.29-46.29h3260.4c25.53,0,46.29,20.67,46.29,46.29v605.56Z" fill="#1d1d1b"/>
+        <path d="M362.9,31.77v698.14H78.06c-25.62,0-46.29-20.67-46.29-46.29V78.06c0-25.62,20.67-46.29,46.29-46.29h284.84Z" fill="#003caa"/>
+        <g fill="#fdcb00">
+            <polygon points="197.36 94 200.81 104.47 211.84 104.52 202.95 111.05 206.31 121.55 197.36 115.11 188.41 121.55 191.77 111.05 182.88 104.52 193.9 104.47 197.36 94"/>
+            <polygon points="145.46 108.4 148.91 118.87 159.94 118.92 151.05 125.44 154.41 135.95 145.46 129.51 136.51 135.95 139.87 125.44 130.97 118.92 142 118.87 145.46 108.4"/>
+            <polygon points="106.79 145.23 110.25 155.7 121.28 155.75 112.38 162.28 115.74 172.78 106.79 166.34 97.84 172.78 101.2 162.28 92.31 155.75 103.34 155.7 106.79 145.23"/>
+            <polygon points="91.26 200.1 94.71 210.58 105.74 210.63 96.85 217.15 100.21 227.65 91.26 221.21 82.31 227.65 85.67 217.15 76.77 210.63 87.8 210.58 91.26 200.1"/>
+            <polygon points="108.62 250.86 112.08 261.34 123.11 261.39 114.21 267.91 117.57 278.41 108.62 271.97 99.67 278.41 103.03 267.91 94.14 261.39 105.17 261.34 108.62 250.86"/>
+            <polygon points="143.63 287.7 147.08 298.17 158.11 298.22 149.22 304.74 152.58 315.24 143.63 308.8 134.68 315.24 138.04 304.74 129.14 298.22 140.17 298.17 143.63 287.7"/>
+            <polygon points="197.36 306.2 200.81 316.68 211.84 316.73 202.95 323.25 206.31 333.75 197.36 327.31 188.41 333.75 191.77 323.25 182.88 316.73 193.9 316.68 197.36 306.2"/>
+            <polygon points="251.09 287.7 254.54 298.17 265.57 298.22 256.68 304.74 260.04 315.24 251.09 308.8 242.14 315.24 245.5 304.74 236.61 298.22 247.63 298.17 251.09 287.7"/>
+            <polygon points="286.09 250.86 289.55 261.34 300.57 261.39 291.68 267.91 295.04 278.41 286.09 271.97 277.14 278.41 280.5 267.91 271.61 261.39 282.64 261.34 286.09 250.86"/>
+            <polygon points="303.46 200.1 306.91 210.58 317.94 210.63 309.05 217.15 312.41 227.65 303.46 221.21 294.51 227.65 297.87 217.15 288.98 210.63 300 210.58 303.46 200.1"/>
+            <polygon points="287.92 145.23 291.38 155.7 302.4 155.75 293.51 162.28 296.87 172.78 287.92 166.34 278.97 172.78 282.33 162.28 273.44 155.75 284.47 155.7 287.92 145.23"/>
+            <polygon points="249.26 108.4 252.71 118.87 263.74 118.92 254.85 125.44 258.21 135.95 249.26 129.51 240.31 135.95 243.67 125.44 234.78 118.92 245.8 118.87 249.26 108.4"/>
+        </g>
+        <text x="197" y="580" fill="#fff" font-family="Arial, sans-serif" font-size="220" font-weight="700" text-anchor="middle">SK</text>
+    </svg>`;
+
     return `
         <div class="fleet-card ${!v.is_active ? 'inactive' : ''}">
             <div class="fleet-card-top">
                 <div class="fleet-badges">
                     <span class="fleet-badge ${v.is_active ? 'active' : 'inactive'}">${v.is_active ? pt('fleetActive') : pt('fleetInactive')}</span>
-                    ${v.brand ? `<span class="fleet-badge color">${escapeHtml(v.brand)}</span>` : ''}
+                    ${v.brand ? `<span class="fleet-badge brand">${escapeHtml(v.brand)}</span>` : ''}
                 </div>
                 <div class="fleet-card-actions">
                     <button class="fleet-action-btn edit" onclick="editVehicle(${v.id})" title="${pt('edit')}">
@@ -2913,17 +2938,14 @@ function renderVehicleCard(v) {
             <h3 class="fleet-card-title">${escapeHtml(v.name)}</h3>
 
             <div class="fleet-meta">
-                ${v.model ? `<span class="fleet-meta-item"><span class="fleet-meta-icon">&#128663;</span> ${escapeHtml(v.model)}</span>` : ''}
-                ${v.year_manufactured ? `<span class="fleet-meta-item"><span class="fleet-meta-icon">&#128197;</span> ${v.year_manufactured}</span>` : ''}
-                ${v.brand ? `<span class="fleet-meta-item"><span class="fleet-meta-icon">&#127991;</span> ${escapeHtml(v.brand)}</span>` : ''}
+                ${v.brand ? `<span class="fleet-meta-item">&#128663; ${escapeHtml(v.brand)}</span>` : ''}
+                ${v.model ? `<span class="fleet-meta-item">&#128203; ${escapeHtml(v.model)}</span>` : ''}
+                ${yearMonth ? `<span class="fleet-meta-item">&#128197; ${yearMonth}</span>` : ''}
             </div>
 
-            <div class="eu-plate">
-                <div class="eu-plate-blue">
-                    <div class="eu-plate-stars"></div>
-                    <span class="eu-plate-country">SK</span>
-                </div>
-                <div class="eu-plate-number">${escapeHtml(v.license_plate)}</div>
+            <div class="eu-plate-wrapper">
+                ${plateSvg}
+                <span class="eu-plate-number">${escapeHtml(v.license_plate)}</span>
             </div>
 
             <div class="fleet-expiry-list">

@@ -1510,26 +1510,7 @@ body {
   border-radius: 20px;
   padding: 1.5rem;
   box-shadow: 0 4px 20px rgba(0,0,0,0.06);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  position: relative;
-  border: 2px solid transparent;
-  background-clip: padding-box;
-}
-.fleet-card::before {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border-radius: 22px;
-  background: linear-gradient(135deg, #10b981 0%, #3b82f6 50%, #8b5cf6 100%);
-  z-index: -1;
-  opacity: 0.6;
-}
-.fleet-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 32px rgba(0,0,0,0.12);
-}
-.fleet-card:hover::before {
-  opacity: 1;
+  border: 1px solid var(--gray-200);
 }
 .fleet-card.inactive {
   opacity: 0.55;
@@ -1562,7 +1543,7 @@ body {
   background: #fee2e2;
   color: #dc2626;
 }
-.fleet-badge.color {
+.fleet-badge.brand {
   background: var(--gray-100);
   color: var(--gray-600);
 }
@@ -1584,7 +1565,8 @@ body {
   transition: transform 0.15s, opacity 0.15s;
 }
 .fleet-action-btn:hover {
-  transform: scale(1.1);
+  transform: scale(1.05);
+  opacity: 0.85;
 }
 .fleet-action-btn.edit {
   background: #dbeafe;
@@ -1612,7 +1594,7 @@ body {
   gap: 1rem;
   font-size: 0.85rem;
   color: var(--gray-500);
-  margin-bottom: 1.25rem;
+  margin-bottom: 1rem;
 }
 .fleet-meta-item {
   display: flex;
@@ -1623,59 +1605,31 @@ body {
   font-size: 1.1rem;
 }
 
-/* Slovak EU License Plate - Modern Dark Style */
-.eu-plate {
-  display: inline-flex;
-  align-items: stretch;
-  background: #1a1a2e;
-  border-radius: 6px;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-  height: 52px;
+/* Slovak EU License Plate */
+.eu-plate-wrapper {
+  position: relative;
+  display: inline-block;
   margin: 0.5rem 0 1.25rem;
 }
-.eu-plate-blue {
-  background: #003399;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 8px;
-  min-width: 36px;
-}
-.eu-plate-stars {
-  width: 20px;
-  height: 20px;
-  position: relative;
-  margin-bottom: 2px;
-}
-.eu-plate-stars::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 20px;
-  height: 20px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='20' r='18' fill='none' stroke='%23ffcc00' stroke-width='0'/%3E%3Cg fill='%23ffcc00'%3E%3Cpolygon points='20,2 21.5,7 26.5,7 22.5,10 24,15 20,12 16,15 17.5,10 13.5,7 18.5,7'/%3E%3Cpolygon points='20,38 21.5,33 26.5,33 22.5,30 24,25 20,28 16,25 17.5,30 13.5,33 18.5,33' /%3E%3Cpolygon points='2,20 7,21.5 7,26.5 10,22.5 15,24 12,20 15,16 10,17.5 7,13.5 7,18.5'/%3E%3Cpolygon points='38,20 33,21.5 33,26.5 30,22.5 25,24 28,20 25,16 30,17.5 33,13.5 33,18.5'/%3E%3Cpolygon points='6.3,6.3 10.5,9.5 8.5,14.5 13,12 15.5,16.5 14.5,11.5 19,8.5 13.5,8.5 11,4 9.5,9'/%3E%3Cpolygon points='33.7,6.3 29.5,9.5 31.5,14.5 27,12 24.5,16.5 25.5,11.5 21,8.5 26.5,8.5 29,4 30.5,9'/%3E%3Cpolygon points='6.3,33.7 10.5,30.5 8.5,25.5 13,28 15.5,23.5 14.5,28.5 19,31.5 13.5,31.5 11,36 9.5,31'/%3E%3Cpolygon points='33.7,33.7 29.5,30.5 31.5,25.5 27,28 24.5,23.5 25.5,28.5 21,31.5 26.5,31.5 29,36 30.5,31'/%3E%3Cpolygon points='4,11 8,14 6,18 11,17 12,22 13,17 18,16 13,14 12,9 9,13'/%3E%3Cpolygon points='36,11 32,14 34,18 29,17 28,22 27,17 22,16 27,14 28,9 31,13'/%3E%3Cpolygon points='4,29 8,26 6,22 11,23 12,18 13,23 18,24 13,26 12,31 9,27'/%3E%3Cpolygon points='36,29 32,26 34,22 29,23 28,18 27,23 22,24 27,26 28,31 31,27'/%3E%3C/g%3E%3C/svg%3E");
-  background-size: contain;
-}
-.eu-plate-country {
-  font-size: 10px;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: 0.5px;
+.eu-plate-svg {
+  height: 48px;
+  width: auto;
+  display: block;
 }
 .eu-plate-number {
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
+  position: absolute;
+  top: 50%;
+  left: 28px;
+  right: 8px;
+  transform: translateY(-50%);
   font-family: 'Segoe UI', -apple-system, sans-serif;
-  font-size: 26px;
-  font-weight: 600;
-  letter-spacing: 3px;
-  color: #fff;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 5px;
+  color: #1d1d1b;
   text-transform: uppercase;
   white-space: nowrap;
+  text-align: center;
 }
 
 .fleet-expiry-list {
@@ -1692,10 +1646,6 @@ body {
   background: var(--gray-50);
   border-radius: 10px;
   border-right: 4px solid var(--expiry-color, var(--gray-300));
-  transition: background 0.15s;
-}
-.fleet-expiry-row:hover {
-  background: var(--gray-100);
 }
 .fleet-expiry-label {
   font-size: 0.85rem;
@@ -1750,25 +1700,18 @@ body {
   flex-shrink: 0;
 }
 .fleet-btn {
-  padding: 0.5rem 1rem;
+  padding: 0.6rem 1.25rem;
   border-radius: 8px;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s;
   border: none;
 }
-.fleet-btn.secondary {
-  background: var(--gray-100);
-  color: var(--gray-700);
-}
-.fleet-btn.secondary:hover {
-  background: var(--gray-200);
-}
 .fleet-btn.primary {
-  background: var(--gray-900);
+  background: #16a34a;
   color: #fff;
 }
 .fleet-btn.primary:hover {
-  background: var(--gray-800);
+  background: #15803d;
 }
