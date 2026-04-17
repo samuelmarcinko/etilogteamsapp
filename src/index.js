@@ -8,6 +8,7 @@ const TeamsBot = require('./bot/teamsBot');
 const apiRoutes = require('./routes');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const ReminderService = require('./services/reminderService');
+const FleetNotificationService = require('./services/fleetNotificationService');
 const logger = require('./utils/logger');
 
 // Initialize Express app
@@ -70,6 +71,10 @@ const bot = new TeamsBot();
 // Initialize reminder service
 const reminderService = new ReminderService();
 reminderService.start();
+
+// Initialize fleet notification service
+const fleetNotificationService = new FleetNotificationService();
+fleetNotificationService.start();
 
 // Bot Framework endpoint
 app.post('/api/messages', async (req, res) => {
@@ -150,12 +155,14 @@ app.listen(PORT, '0.0.0.0', () => {
 process.on('SIGINT', () => {
   logger.info('Shutting down gracefully (SIGINT)');
   reminderService.stop();
+  fleetNotificationService.stop();
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
   logger.info('Shutting down gracefully (SIGTERM)');
   reminderService.stop();
+  fleetNotificationService.stop();
   process.exit(0);
 });
 

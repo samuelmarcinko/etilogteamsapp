@@ -1491,3 +1491,121 @@ body {
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
+
+/* ============================================
+   FLEET MANAGEMENT
+   ============================================ */
+
+.fleet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 1rem;
+}
+@media (max-width: 480px) {
+  .fleet-grid { grid-template-columns: 1fr; }
+}
+
+.fleet-card {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.fleet-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.fleet-card.inactive { opacity: 0.55; }
+
+.fleet-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.fleet-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.fleet-card-title h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--gray-900);
+}
+.fleet-icon { font-size: 1.6rem; }
+.fleet-plate {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--gray-500);
+  background: var(--gray-100);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  font-family: monospace;
+}
+
+.fleet-meta {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.8rem;
+  color: var(--gray-500);
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.fleet-expiry-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+.fleet-expiry-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0.6rem;
+  background: var(--gray-50, #f8fafc);
+  border-radius: 6px;
+}
+.fleet-expiry-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  min-width: 80px;
+}
+.fleet-expiry-value {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: right;
+}
+
+.fleet-status-ok { color: #16a34a; }
+.fleet-status-soon { color: #2563eb; }
+.fleet-status-warning { color: #d97706; }
+.fleet-status-critical { color: #dc2626; font-weight: 700; }
+.fleet-status-expired { color: #dc2626; font-weight: 700; text-decoration: line-through; }
+.fleet-status-neutral { color: var(--gray-400); font-style: italic; }
+
+.fleet-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--gray-100);
+}
+.fleet-email-info {
+  font-size: 0.75rem;
+  color: var(--gray-400);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 70%;
+}
