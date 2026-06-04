@@ -1,6 +1,7 @@
 const pool = require('../database/config');
 const User = require('../database/models/User');
 const Quota = require('../database/models/Quota');
+const Ticket = require('../database/models/Ticket');
 const GraphService = require('../services/graphService');
 
 class AdminController {
@@ -326,6 +327,63 @@ class AdminController {
         success: true,
         count: result.rows.length,
         data: result.rows
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Admin update a ticket
+   * PUT /api/admin/tickets/:ticketId
+   */
+  static async updateTicket(req, res, next) {
+    try {
+      const { ticketId } = req.params;
+      const body = req.body || {};
+
+      const fields = {};
+      const allowed = [
+        'title', 'description', 'ticket_type', 'priority', 'status',
+        'start_date', 'end_date', 'is_half_day',
+        'rejection_reason', 'cancellation_reason'
+      ];
+
+      for (const key of allowed) {
+        if (Object.prototype.hasOwnProperty.call(body, key)) {
+          let val = body[key];
+          if (key === 'start_date' || key === 'end_date') {
+            val = val || null;
+          }
+          if (key === 'is_half_day') {
+            val = !!val;
+          }
+          fields[key] = val;
+        }
+      }
+
+      // Validate status
+      if (fields.status && !['Pending', 'Approved', 'Rejected', 'Cancelled'].includes(fields.status)) {
+        return res.status(400).json({ success: false, message: 'Invalid status' });
+      }
+
+      const existing = await Ticket.findById(ticketId);
+      if (!existing) {
+        return res.status(404).json({ success: false, message: 'Ticket not found' });
+      }
+
+      const performedBy = {
+        id: req.user?.id || 'admin',
+        name: req.user?.name || 'Admin',
+        email: req.user?.email || ''
+      };
+
+      const updated = await Ticket.adminUpdate(ticketId, fields, performedBy);
+
+      res.json({
+        success: true,
+        message: 'Ticket updated',
+        data: updated
       });
     } catch (error) {
       next(error);

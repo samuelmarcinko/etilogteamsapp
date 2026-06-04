@@ -1736,7 +1736,10 @@ function renderAdminTicketsTable(tickets) {
                         <td>${t.assigned_approver_name ? escapeHtml(t.assigned_approver_name) : '-'}</td>
                         <td><span class="badge badge-${t.status.toLowerCase()}">${translateStatus(t.status)}</span></td>
                         <td>${formatDate(t.created_at)}${t.start_date ? `<br><small>${formatDate(t.start_date)} - ${formatDate(t.end_date)}</small>` : ''}</td>
-                        <td><button class="btn btn-sm btn-secondary" onclick="openTicketDetailModal('${t.ticket_id}')" title="${pt('ticketDetailTitle')}">&#128065;</button></td>
+                        <td style="white-space:nowrap;">
+                            <button class="btn btn-sm btn-secondary" onclick="openTicketDetailModal('${t.ticket_id}')" title="${pt('ticketDetailTitle')}">&#128065;</button>
+                            ${isAdmin ? `<button class="btn btn-sm btn-primary" onclick="openEditTicketModal('${t.ticket_id}')" title="${pt('editTicketTitle') || 'Upraviť tiket'}" style="margin-left:4px;">&#9999;</button>` : ''}
+                        </td>
                     </tr>
                 `).join('')}
             </tbody>
@@ -2054,6 +2057,186 @@ function openTicketDetailModal(ticketId) {
     `;
 
     document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+// ============================================
+// ADMIN EDIT TICKET
+// ============================================
+
+async function openEditTicketModal(ticketId) {
+    const ticket = (window._adminTickets || []).find(t => String(t.ticket_id) === String(ticketId));
+    if (!ticket) {
+        showToast('Ticket not found', 'error');
+        return;
+    }
+
+    // Load active ticket types from API
+    let types = [];
+    try {
+        const r = await apiCall('/api/ticket-types');
+        types = ((await r.json()).data || []).filter(t => t.is_active);
+    } catch (e) {
+        types = [];
+    }
+
+    const fmtDate = (d) => d ? new Date(d).toISOString().split('T')[0] : '';
+
+    const statusOptions = ['Pending', 'Approved', 'Rejected', 'Cancelled'];
+    const priorityOptions = ['Low', 'Medium', 'High', 'Urgent'];
+
+    const modalHtml = `
+        <div class="modal-backdrop" onclick="closeModal(this)">
+            <div class="modal modal-lg" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <h2>&#9999; ${pt('editTicketTitle') || 'Upraviť tiket'}: ${escapeHtml(ticket.ticket_id)}</h2>
+                    <button class="modal-close" onclick="closeModal(this.closest('.modal-backdrop'))">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="editTicketForm" onsubmit="submitEditTicket(event, '${ticket.ticket_id}')">
+                        <div class="form-group">
+                            <label class="form-label">${pt('colName')} *</label>
+                            <input type="text" class="form-input" name="title" value="${escapeHtml(ticket.title || '')}" required>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">${pt('colType')} *</label>
+                                <select class="form-select" name="ticket_type" id="editTicketType" onchange="toggleEditDateFields()" required>
+                                    ${types.length === 0 ? `
+                                        <option value="vacation" ${ticket.ticket_type === 'vacation' ? 'selected' : ''}>Dovolenka</option>
+                                        <option value="paragraph" ${ticket.ticket_type === 'paragraph' ? 'selected' : ''}>Paragraf</option>
+                                        <option value="ocr" ${ticket.ticket_type === 'ocr' ? 'selected' : ''}>OČR</option>
+                                        <option value="other" ${ticket.ticket_type === 'other' ? 'selected' : ''}>Iné</option>
+                                    ` : types.map(t => `
+                                        <option value="${escapeHtml(t.key)}" data-requires-dates="${t.requires_dates ? '1' : '0'}" ${ticket.ticket_type === t.key ? 'selected' : ''}>${escapeHtml(portalLang === 'sk' ? t.label_sk : t.label_en)}</option>
+                                    `).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">${pt('colStatus')} *</label>
+                                <select class="form-select" name="status" id="editTicketStatus" onchange="toggleEditReasonFields()" required>
+                                    ${statusOptions.map(s => `<option value="${s}" ${ticket.status === s ? 'selected' : ''}>${translateStatus(s)}</option>`).join('')}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row" id="editTicketDateRow">
+                            <div class="form-group">
+                                <label class="form-label">${pt('ticketDetailStartDate') || pt('colStart') || 'Od'}</label>
+                                <input type="date" class="form-input" name="start_date" value="${fmtDate(ticket.start_date)}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">${pt('ticketDetailEndDate') || pt('colEnd') || 'Do'}</label>
+                                <input type="date" class="form-input" name="end_date" value="${fmtDate(ticket.end_date)}">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">${pt('ticketDetailPriority')}</label>
+                                <select class="form-select" name="priority">
+                                    ${priorityOptions.map(p => `<option value="${p}" ${(ticket.priority || 'Medium') === p ? 'selected' : ''}>${p}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group" style="display:flex;align-items:flex-end;">
+                                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                                    <input type="checkbox" name="is_half_day" ${ticket.is_half_day ? 'checked' : ''}>
+                                    <span>${pt('ticketDetailHalfDay') || 'Polovica dňa'}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">${pt('ticketDetailDescription')}</label>
+                            <textarea class="form-input" name="description" rows="4">${escapeHtml(ticket.description || '')}</textarea>
+                        </div>
+
+                        <div class="form-group" id="editRejectionReasonGroup" style="display:${ticket.status === 'Rejected' ? 'block' : 'none'};">
+                            <label class="form-label">${pt('reason') || 'Dôvod zamietnutia'}</label>
+                            <textarea class="form-input" name="rejection_reason" rows="2">${escapeHtml(ticket.rejection_reason || '')}</textarea>
+                        </div>
+
+                        <div class="form-group" id="editCancellationReasonGroup" style="display:${ticket.status === 'Cancelled' ? 'block' : 'none'};">
+                            <label class="form-label">${pt('cancelReason') || 'Dôvod zrušenia'}</label>
+                            <textarea class="form-input" name="cancellation_reason" rows="2">${escapeHtml(ticket.cancellation_reason || '')}</textarea>
+                        </div>
+
+                        <div style="background:var(--amber-50, #fffbeb);border-left:3px solid var(--amber-500, #f59e0b);padding:10px;border-radius:6px;margin-top:1rem;font-size:0.85rem;color:var(--gray-700);">
+                            &#9888; ${pt('editTicketWarning') || 'Pozor: zmena typu tiketu neovplyvní stiahnuté kvóty automaticky. Kvótu musíte upraviť ručne.'}
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal(this.closest('.modal-backdrop'))">${pt('cancel')}</button>
+                    <button type="submit" form="editTicketForm" class="btn btn-primary">${pt('save')}</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    toggleEditDateFields();
+}
+
+function toggleEditDateFields() {
+    const select = document.getElementById('editTicketType');
+    if (!select) return;
+    const opt = select.options[select.selectedIndex];
+    const requiresDates = opt?.dataset?.requiresDates;
+    const dateRow = document.getElementById('editTicketDateRow');
+    if (!dateRow) return;
+    // If we don't know (no metadata), keep visible for flexibility
+    if (requiresDates === '0') {
+        dateRow.style.opacity = '0.6';
+    } else {
+        dateRow.style.opacity = '1';
+    }
+}
+
+function toggleEditReasonFields() {
+    const status = document.getElementById('editTicketStatus')?.value;
+    const rej = document.getElementById('editRejectionReasonGroup');
+    const can = document.getElementById('editCancellationReasonGroup');
+    if (rej) rej.style.display = status === 'Rejected' ? 'block' : 'none';
+    if (can) can.style.display = status === 'Cancelled' ? 'block' : 'none';
+}
+
+async function submitEditTicket(event, ticketId) {
+    event.preventDefault();
+    const form = document.getElementById('editTicketForm');
+    const fd = new FormData(form);
+
+    const payload = {
+        title: fd.get('title')?.trim(),
+        description: fd.get('description')?.trim() || '',
+        ticket_type: fd.get('ticket_type'),
+        status: fd.get('status'),
+        priority: fd.get('priority'),
+        start_date: fd.get('start_date') || null,
+        end_date: fd.get('end_date') || null,
+        is_half_day: fd.get('is_half_day') === 'on',
+        rejection_reason: fd.get('rejection_reason') || null,
+        cancellation_reason: fd.get('cancellation_reason') || null
+    };
+
+    try {
+        const response = await apiCall(`/api/admin/tickets/${ticketId}`, {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || pt('saveFailed') || 'Save failed');
+        }
+        showToast(pt('ticketUpdated') || 'Tiket bol upravený', 'success');
+        // Close modal
+        const modal = form.closest('.modal-backdrop');
+        if (modal) modal.remove();
+        // Refresh table
+        await refreshAdminTickets();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
 }
 
 function formatDateTime(dateStr) {

@@ -22,6 +22,9 @@ router.get('/employees', requireDbRole('admin', 'spravca'), asyncHandler(AdminCo
 router.get('/tickets', requireDbRole('admin', 'spravca'), asyncHandler(AdminController.getAllTickets));
 router.get('/all-azure-users', requireDbRole('admin', 'spravca'), asyncHandler(AdminController.getAllAzureUsers));
 
+// Admin-only ticket edit
+router.put('/tickets/:ticketId', requireDbRole('admin'), asyncHandler(AdminController.updateTicket));
+
 // Admin-only employee management
 router.put('/employees/:userId/role', requireDbRole('admin'), asyncHandler(AdminController.updateEmployeeRole));
 router.put('/employees/:userId/visibility', requireDbRole('admin'), asyncHandler(AdminController.toggleEmployeeVisibility));
