@@ -125,7 +125,7 @@ class Ticket {
     const result = await pool.query(query, values);
 
     if (result.rows[0] && performedBy) {
-      await this.logAction(ticketId, 'AdminEdit', performedBy, JSON.stringify(Object.keys(fields)));
+      await this.logAction(ticketId, 'Updated', performedBy, JSON.stringify(Object.keys(fields)));
     }
 
     return result.rows[0];

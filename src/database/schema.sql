@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS ticket_actions (
     rejection_reason TEXT,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (ticket_id) REFERENCES tickets(ticket_id) ON DELETE CASCADE,
-    CONSTRAINT chk_action CHECK (action IN ('Created', 'Approved', 'Rejected', 'Viewed'))
+    CONSTRAINT chk_action CHECK (action IN ('Created', 'Approved', 'Rejected', 'Viewed', 'Updated'))
 );
 
 -- Indexes for better performance
