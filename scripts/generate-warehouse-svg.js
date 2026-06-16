@@ -97,20 +97,19 @@ const officeX = planX1 - officeW;
 // Corridor widths
 const corridorW = 42;
 
-// Mini Sklad width (leftmost)
-const miniW = 70;
-const miniX = planX0;
+// Left column (Mini Sklad on top + Zone D below) - stacked in ONE column
+const leftColW = 78;
+const leftColX = planX0;
 
-// Zone D width (after Mini Sklad + left corridor)
-const dW = 70;
-const leftCorridorX = miniX + miniW;
-const dX = leftCorridorX + corridorW;
+// Left vertical corridor (right of D column)
+const leftCorridorX = leftColX + leftColW;
+const dX = leftColX; // alias for compatibility
 
 // Right corridor (before office)
 const rightCorridorX = officeX - corridorW;
 
 // Main bands area
-const mainX0 = dX + dW + 8;
+const mainX0 = leftCorridorX + corridorW + 8;
 const mainX1 = rightCorridorX - 8;
 const mainW = mainX1 - mainX0;
 
@@ -157,40 +156,46 @@ p(`    <text x="${officeX + officeW/2}" y="${(planY0 + planY1)/2}" text-anchor="
 p(`  </g>`);
 
 // =========================================================
-// MINI SKLAD (separate zone, leftmost)
+// LEFT COLUMN: MINI SKLAD (top) + ZONE D (below), stacked
 // =========================================================
-p(`  <g id="zone-Mini">`);
 const mZ = ZONES.M;
-// Background
-p(`    <rect x="${miniX}" y="${planY0}" width="${miniW}" height="${planY1 - planY0}" fill="url(#grad-M)" stroke="${mZ.stroke}" stroke-width="2" rx="10"/>`);
-// Zone label badge
-const mlx = miniX + miniW/2, mly = planY0 + 35;
-p(`    <rect x="${mlx - 40}" y="${mly - 18}" width="80" height="28" rx="14" fill="${mZ.stroke}" filter="url(#shadow-sm)"/>`);
-p(`    <text x="${mlx}" y="${mly + 2}" text-anchor="middle" font-family="${FONT}" font-size="13" font-weight="800" fill="#ffffff" letter-spacing="1">MINI SKLAD</text>`);
-// Interactive area indicator
-p(`    <rect x="${miniX + 8}" y="${planY0 + 60}" width="${miniW - 16}" height="${planY1 - planY0 - 80}" fill="#faf5ff" stroke="${mZ.stroke}" stroke-width="1.5" stroke-dasharray="6,3" rx="6" class="pallet-loc" id="loc-MINI-01" data-zone="MINI" data-num="1"/>`);
-p(`    <text x="${miniX + miniW/2}" y="${(planY0 + planY1)/2 + 5}" text-anchor="middle" font-family="${FONT}" font-size="12" fill="${mZ.text}" font-weight="600">Bežné veci</text>`);
+const dZ = ZONES.D;
+
+// Mini Sklad block height (top portion of left column)
+const miniH = 90;
+const miniBlockX = leftColX;
+const miniBlockY = planY0;
+
+// --- MINI SKLAD (own interactive zone, 1 field) ---
+p(`  <g id="zone-Mini">`);
+p(`    <rect x="${miniBlockX}" y="${miniBlockY}" width="${leftColW}" height="${miniH}" fill="url(#grad-M)" stroke="${mZ.stroke}" stroke-width="2" rx="10"/>`);
+// Label
+p(`    <text x="${miniBlockX + leftColW/2}" y="${miniBlockY + 18}" text-anchor="middle" font-family="${FONT}" font-size="11" font-weight="800" fill="${mZ.text}" letter-spacing="0.5">MINI SKLAD</text>`);
+// Single interactive field
+p(`    <g class="loc-group">`);
+p(`      <rect id="loc-MINI-01" class="pallet-loc" data-zone="MINI" data-num="1" x="${miniBlockX + 8}" y="${miniBlockY + 26}" width="${leftColW - 16}" height="${miniH - 36}" rx="6" fill="#faf5ff" stroke="${mZ.stroke}" stroke-width="1.5" stroke-dasharray="5,3"/>`);
+p(`      <text x="${miniBlockX + leftColW/2}" y="${miniBlockY + miniH/2 + 14}" text-anchor="middle" font-family="${FONT}" font-size="12" fill="${mZ.text}" font-weight="600" pointer-events="none">Bežné veci</text>`);
+p(`    </g>`);
 p(`  </g>`);
 
-// =========================================================
-// ZONE D (vertical strip, 20 locations)
-// =========================================================
+// --- ZONE D (vertical strip below Mini Sklad, 20 locations) ---
+const dBlockY = miniBlockY + miniH + 12;
+const dBlockH = planY1 - dBlockY;
 p(`  <g id="zone-D">`);
-const dZ = ZONES.D;
 // Background
-p(`    <rect x="${dX}" y="${planY0}" width="${dW}" height="${planY1 - planY0}" fill="url(#grad-D)" stroke="${dZ.stroke}" stroke-width="2" rx="10"/>`);
-// Zone label badge (prominent)
-const dlx = dX + dW/2, dly = planY0 + 35;
-p(`    <rect x="${dlx - 24}" y="${dly - 18}" width="48" height="28" rx="14" fill="${dZ.stroke}" filter="url(#shadow-sm)"/>`);
-p(`    <text x="${dlx}" y="${dly + 2}" text-anchor="middle" font-family="${FONT}" font-size="16" font-weight="900" fill="#ffffff">D</text>`);
+p(`    <rect x="${leftColX}" y="${dBlockY}" width="${leftColW}" height="${dBlockH}" fill="url(#grad-D)" stroke="${dZ.stroke}" stroke-width="2" rx="10"/>`);
+// Zone label badge (prominent, top of D)
+const dlx = leftColX + leftColW/2, dly = dBlockY + 22;
+p(`    <rect x="${dlx - 22}" y="${dly - 16}" width="44" height="28" rx="14" fill="${dZ.stroke}" filter="url(#shadow-sm)"/>`);
+p(`    <text x="${dlx}" y="${dly + 5}" text-anchor="middle" font-family="${FONT}" font-size="17" font-weight="900" fill="#ffffff">D</text>`);
 // Cells
-const dCellsY0 = planY0 + 55;
-const dCellH = (planY1 - dCellsY0 - 10) / 20;
+const dCellsY0 = dBlockY + 42;
+const dCellH = (planY1 - dCellsY0 - 8) / 20;
 for (let i = 1; i <= 20; i++) {
   const cy = dCellsY0 + (i - 1) * dCellH;
   p(`    <g class="loc-group">`);
-  p(`      <rect id="loc-D-${pad(i)}" class="pallet-loc" data-zone="D" data-num="${i}" x="${dX + 6}" y="${cy + 1}" width="${dW - 12}" height="${dCellH - 3}" rx="4" fill="#fdf2f8" stroke="${dZ.stroke}" stroke-width="1.2"/>`);
-  p(`      <text x="${dX + dW/2}" y="${cy + dCellH/2 + 4}" text-anchor="middle" font-family="${FONT}" font-size="11" font-weight="600" fill="${dZ.text}" pointer-events="none">${i}</text>`);
+  p(`      <rect id="loc-D-${pad(i)}" class="pallet-loc" data-zone="D" data-num="${i}" x="${leftColX + 6}" y="${cy + 1}" width="${leftColW - 12}" height="${dCellH - 3}" rx="4" fill="#fdf2f8" stroke="${dZ.stroke}" stroke-width="1.2"/>`);
+  p(`      <text x="${leftColX + leftColW/2}" y="${cy + dCellH/2 + 5}" text-anchor="middle" font-family="${FONT}" font-size="13" font-weight="700" fill="${dZ.text}" pointer-events="none">${i}</text>`);
   p(`    </g>`);
 }
 p(`  </g>`);
@@ -243,7 +248,7 @@ function drawHorizontalBand(zone, y, h, sections, pillars, blocked) {
       const hasPillar = pillars && pillars.includes(n);
       p(`      <g class="loc-group">`);
       p(`        <rect id="loc-${zone}-${pad(n)}" class="pallet-loc" data-zone="${zone}" data-num="${n}" x="${x + 1}" y="${y + 4}" width="${cw - 2}" height="${h - 8}" rx="4" fill="${z.fill}" stroke="${z.stroke}" stroke-width="1.2"/>`);
-      p(`        <text x="${x + cw/2}" y="${y + 18}" text-anchor="middle" font-family="${FONT}" font-size="10" font-weight="600" fill="${z.text}" pointer-events="none">${n}</text>`);
+      p(`        <text x="${x + cw/2}" y="${y + 20}" text-anchor="middle" font-family="${FONT}" font-size="13" font-weight="700" fill="${z.text}" pointer-events="none">${n}</text>`);
       if (hasPillar) {
         p(`        <rect class="pillar" x="${x + cw/2 - 5}" y="${y + h/2 - 2}" width="10" height="10" rx="2" fill="#64748b" stroke="#475569" stroke-width="0.8"/>`);
       }
