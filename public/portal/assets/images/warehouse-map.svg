@@ -1,514 +1,562 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1680 820" width="1680" height="820" font-family="Inter, system-ui, -apple-system, sans-serif">
   <defs>
-    <!-- Pallet location gradient backgrounds -->
-    <linearGradient id="zone-a-fill" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#dbeafe;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#bfdbfe;stop-opacity:1" />
-    </linearGradient>
-    <linearGradient id="zone-b-fill" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#dcfce7;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#bbf7d0;stop-opacity:1" />
-    </linearGradient>
-    <linearGradient id="zone-c-fill" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#fef3c7;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#fde68a;stop-opacity:1" />
-    </linearGradient>
-    <linearGradient id="zone-d-fill" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#fce7f3;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#fbcfe8;stop-opacity:1" />
-    </linearGradient>
-
-    <!-- Hover state -->
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.15"/>
-    </filter>
-
-    <!-- Pillar pattern -->
-    <pattern id="pillar-hatch" patternUnits="userSpaceOnUse" width="4" height="4">
-      <path d="M-1,1 l2,-2 M0,4 l4,-4 M3,5 l2,-2" style="stroke:#666; stroke-width:1"/>
-    </pattern>
+    <linearGradient id="fill-a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eff6ff"/><stop offset="1" stop-color="#dbeafe"/></linearGradient>
+    <linearGradient id="fill-b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f0fdf4"/><stop offset="1" stop-color="#dcfce7"/></linearGradient>
+    <linearGradient id="fill-c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffbeb"/><stop offset="1" stop-color="#fef3c7"/></linearGradient>
+    <linearGradient id="fill-d" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fdf2f8"/><stop offset="1" stop-color="#fce7f3"/></linearGradient>
+    <pattern id="hatch-blocked" patternUnits="userSpaceOnUse" width="6" height="6"><rect width="6" height="6" fill="#f1f5f9"/><path d="M0,6 l6,-6 M-1,1 l2,-2 M5,7 l2,-2" stroke="#cbd5e1" stroke-width="1"/></pattern>
+    <pattern id="hatch-office" patternUnits="userSpaceOnUse" width="8" height="8"><rect width="8" height="8" fill="#f8fafc"/><path d="M0,8 l8,-8 M-2,2 l4,-4 M6,10 l4,-4" stroke="#cbd5e1" stroke-width="1.2"/></pattern>
+    <filter id="loc-shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#1e293b" flood-opacity="0.25"/></filter>
   </defs>
-
-  <!-- Background -->
-  <rect width="1200" height="800" fill="#f8fafc"/>
-
-  <!-- Warehouse floor -->
-  <rect x="30" y="30" width="1140" height="740" fill="#ffffff" stroke="#e2e8f0" stroke-width="2" rx="8"/>
-
-  <!-- Title -->
-  <text x="600" y="60" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="24" font-weight="700" fill="#1e293b">ETILOG Sklad - Mapa paletových miest</text>
-
-  <!-- ===== FORKLIFT PATHS (middle area) ===== -->
+  <rect width="1680" height="820" fill="#f8fafc"/>
+  <rect x="30" y="70" width="1620" height="720" fill="#ffffff" stroke="#cbd5e1" stroke-width="2" rx="10"/>
+  <text x="840" y="45" text-anchor="middle" font-size="26" font-weight="800" fill="#0f1729" letter-spacing="0.5">ETILOG&#160;&#160;SKLAD</text>
+  <text x="840" y="62" text-anchor="middle" font-size="12" font-weight="500" fill="#64748b">Interaktívna mapa paletových miest</text>
   <g id="forklift-paths">
-    <!-- Main horizontal path -->
-    <rect x="50" y="380" width="1100" height="40" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1" stroke-dasharray="8,4" rx="4"/>
-    <!-- Vertical connectors -->
-    <rect x="280" y="200" width="30" height="220" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1" stroke-dasharray="8,4" rx="4"/>
-    <rect x="280" y="380" width="30" height="220" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1" stroke-dasharray="8,4" rx="4"/>
-    <rect x="890" y="200" width="30" height="220" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1" stroke-dasharray="8,4" rx="4"/>
-    <rect x="890" y="380" width="30" height="220" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1" stroke-dasharray="8,4" rx="4"/>
-    <text x="600" y="405" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" fill="#0284c7" font-weight="500">MANIPULAČNÁ CESTA</text>
+    <rect x="156" y="302" width="1376" height="26" fill="#e0f2fe" stroke="#38bdf8" stroke-width="1" stroke-dasharray="9,5" rx="4"/>
+    <rect x="156" y="536" width="1376" height="26" fill="#e0f2fe" stroke="#38bdf8" stroke-width="1" stroke-dasharray="9,5" rx="4"/>
+    <text x="844" y="319" text-anchor="middle" font-size="10" font-weight="600" fill="#0284c7" letter-spacing="2">MANIPULAČNÁ CESTA</text>
+    <text x="844" y="553" text-anchor="middle" font-size="10" font-weight="600" fill="#0284c7" letter-spacing="2">MANIPULAČNÁ CESTA</text>
   </g>
-
-  <!-- ===== ZONE D (top-left, 20 locations in 2 rows) ===== -->
   <g id="zone-D">
-    <text x="165" y="100" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="18" font-weight="700" fill="#db2777">ZÓNA D</text>
-
-    <!-- Row 1: D1-D10 -->
-    <g id="zone-D-row1">
-      <rect id="loc-D-01" x="50" y="110" width="55" height="40" fill="url(#zone-d-fill)" stroke="#ec4899" stroke-width="1.5" rx="4" class="pallet-loc"/>
-      <text x="77" y="135" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#9d174d">D1</text>
-
-      <rect id="loc-D-02" x="110" y="110" width="55" height="40" fill="url(#zone-d-fill)" stroke="#ec4899" stroke-width="1.5" rx="4" class="pallet-loc"/>
-      <text x="137" y="135" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#9d174d">D2</text>
-
-      <rect id="loc-D-03" x="170" y="110" width="55" height="40" fill="url(#zone-d-fill)" stroke="#ec4899" stroke-width="1.5" rx="4" class="pallet-loc"/>
-      <text x="197" y="135" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#9d174d">D3</text>
-
-      <rect id="loc-D-04" x="230" y="110" width="55" height="40" fill="url(#zone-d-fill)" stroke="#ec4899" stroke-width="1.5" rx="4" class="pallet-loc"/>
-      <text x="257" y="135" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#9d174d">D4</text>
-
-      <rect id="loc-D-05" x="50" y="155" width="55" height="40" fill="url(#zone-d-fill)" stroke="#ec4899" stroke-width="1.5" rx="4" class="pallet-loc"/>
-      <text x="77" y="180" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#9d174d">D5</text>
-
-      <rect id="loc-D-06" x="110" y="155" width="55" height="40" fill="url(#zone-d-fill)" stroke="#ec4899" stroke-width="1.5" rx="4" class="pallet-loc"/>
-      <text x="137" y="180" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#9d174d">D6</text>
-
-      <rect id="loc-D-07" x="170" y="155" width="55" height="40" fill="url(#zone-d-fill)" stroke="#ec4899" stroke-width="1.5" rx="4" class="pallet-loc"/>
-      <text x="197" y="180" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#9d174d">D7</text>
-
-      <rect id="loc-D-08" x="230" y="155" width="55" height="40" fill="url(#zone-d-fill)" stroke="#ec4899" stroke-width="1.5" rx="4" class="pallet-loc"/>
-      <text x="257" y="180" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#9d174d">D8</text>
-
-      <rect id="loc-D-09" x="50" y="200" width="55" height="40" fill="url(#zone-d-fill)" stroke="#ec4899" stroke-width="1.5" rx="4" class="pallet-loc"/>
-      <text x="77" y="225" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#9d174d">D9</text>
-
-      <rect id="loc-D-10" x="110" y="200" width="55" height="40" fill="url(#zone-d-fill)" stroke="#ec4899" stroke-width="1.5" rx="4" class="pallet-loc"/>
-      <text x="137" y="225" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#9d174d">D10</text>
-
-      <rect id="loc-D-11" x="170" y="200" width="55" height="40" fill="url(#zone-d-fill)" stroke="#ec4899" stroke-width="1.5" rx="4" class="pallet-loc"/>
-      <text x="197" y="225" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#9d174d">D11</text>
-
-      <rect id="loc-D-12" x="230" y="200" width="55" height="40" fill="url(#zone-d-fill)" stroke="#ec4899" stroke-width="1.5" rx="4" class="pallet-loc"/>
-      <text x="257" y="225" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#9d174d">D12</text>
-
-      <rect id="loc-D-13" x="50" y="245" width="55" height="40" fill="url(#zone-d-fill)" stroke="#ec4899" stroke-width="1.5" rx="4" class="pallet-loc"/>
-      <text x="77" y="270" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#9d174d">D13</text>
-
-      <rect id="loc-D-14" x="110" y="245" width="55" height="40" fill="url(#zone-d-fill)" stroke="#ec4899" stroke-width="1.5" rx="4" class="pallet-loc"/>
-      <text x="137" y="270" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#9d174d">D14</text>
-
-      <rect id="loc-D-15" x="170" y="245" width="55" height="40" fill="url(#zone-d-fill)" stroke="#ec4899" stroke-width="1.5" rx="4" class="pallet-loc"/>
-      <text x="197" y="270" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#9d174d">D15</text>
-
-      <rect id="loc-D-16" x="230" y="245" width="55" height="40" fill="url(#zone-d-fill)" stroke="#ec4899" stroke-width="1.5" rx="4" class="pallet-loc"/>
-      <text x="257" y="270" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#9d174d">D16</text>
-
-      <rect id="loc-D-17" x="50" y="290" width="55" height="40" fill="url(#zone-d-fill)" stroke="#ec4899" stroke-width="1.5" rx="4" class="pallet-loc"/>
-      <text x="77" y="315" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#9d174d">D17</text>
-
-      <rect id="loc-D-18" x="110" y="290" width="55" height="40" fill="url(#zone-d-fill)" stroke="#ec4899" stroke-width="1.5" rx="4" class="pallet-loc"/>
-      <text x="137" y="315" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#9d174d">D18</text>
-
-      <rect id="loc-D-19" x="170" y="290" width="55" height="40" fill="url(#zone-d-fill)" stroke="#ec4899" stroke-width="1.5" rx="4" class="pallet-loc"/>
-      <text x="197" y="315" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#9d174d">D19</text>
-
-      <rect id="loc-D-20" x="230" y="290" width="55" height="40" fill="url(#zone-d-fill)" stroke="#ec4899" stroke-width="1.5" rx="4" class="pallet-loc"/>
-      <text x="257" y="315" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#9d174d">D20</text>
+    <rect x="48" y="88" width="90" height="684" fill="none" stroke="#ec4899" stroke-width="1" stroke-dasharray="2,3" rx="6" opacity="0.5"/>
+    <text x="93" y="110" text-anchor="middle" font-size="12" font-weight="700" fill="#64748b">Mini Sklad</text>
+    <g class="loc-group">
+      <rect id="loc-D-01" class="pallet-loc" data-zone="D" data-num="1" x="54" y="121" width="78" height="30.299999999999997" rx="3" fill="url(#fill-d)" stroke="#ec4899" stroke-width="1.5"/>
+      <text x="93" y="136" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#9d174d" pointer-events="none">1</text>
     </g>
+    <g class="loc-group">
+      <rect id="loc-D-02" class="pallet-loc" data-zone="D" data-num="2" x="54" y="153.3" width="78" height="30.299999999999997" rx="3" fill="url(#fill-d)" stroke="#ec4899" stroke-width="1.5"/>
+      <text x="93" y="168.3" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#9d174d" pointer-events="none">2</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-D-03" class="pallet-loc" data-zone="D" data-num="3" x="54" y="185.6" width="78" height="30.299999999999997" rx="3" fill="url(#fill-d)" stroke="#ec4899" stroke-width="1.5"/>
+      <text x="93" y="200.6" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#9d174d" pointer-events="none">3</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-D-04" class="pallet-loc" data-zone="D" data-num="4" x="54" y="217.89999999999998" width="78" height="30.299999999999997" rx="3" fill="url(#fill-d)" stroke="#ec4899" stroke-width="1.5"/>
+      <text x="93" y="232.89999999999998" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#9d174d" pointer-events="none">4</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-D-05" class="pallet-loc" data-zone="D" data-num="5" x="54" y="250.2" width="78" height="30.299999999999997" rx="3" fill="url(#fill-d)" stroke="#ec4899" stroke-width="1.5"/>
+      <text x="93" y="265.2" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#9d174d" pointer-events="none">5</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-D-06" class="pallet-loc" data-zone="D" data-num="6" x="54" y="282.5" width="78" height="30.299999999999997" rx="3" fill="url(#fill-d)" stroke="#ec4899" stroke-width="1.5"/>
+      <text x="93" y="297.5" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#9d174d" pointer-events="none">6</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-D-07" class="pallet-loc" data-zone="D" data-num="7" x="54" y="314.79999999999995" width="78" height="30.299999999999997" rx="3" fill="url(#fill-d)" stroke="#ec4899" stroke-width="1.5"/>
+      <text x="93" y="329.79999999999995" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#9d174d" pointer-events="none">7</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-D-08" class="pallet-loc" data-zone="D" data-num="8" x="54" y="347.09999999999997" width="78" height="30.299999999999997" rx="3" fill="url(#fill-d)" stroke="#ec4899" stroke-width="1.5"/>
+      <text x="93" y="362.09999999999997" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#9d174d" pointer-events="none">8</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-D-09" class="pallet-loc" data-zone="D" data-num="9" x="54" y="379.4" width="78" height="30.299999999999997" rx="3" fill="url(#fill-d)" stroke="#ec4899" stroke-width="1.5"/>
+      <text x="93" y="394.4" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#9d174d" pointer-events="none">9</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-D-10" class="pallet-loc" data-zone="D" data-num="10" x="54" y="411.7" width="78" height="30.299999999999997" rx="3" fill="url(#fill-d)" stroke="#ec4899" stroke-width="1.5"/>
+      <text x="93" y="426.7" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#9d174d" pointer-events="none">10</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-D-11" class="pallet-loc" data-zone="D" data-num="11" x="54" y="444" width="78" height="30.299999999999997" rx="3" fill="url(#fill-d)" stroke="#ec4899" stroke-width="1.5"/>
+      <text x="93" y="459" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#9d174d" pointer-events="none">11</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-D-12" class="pallet-loc" data-zone="D" data-num="12" x="54" y="476.29999999999995" width="78" height="30.299999999999997" rx="3" fill="url(#fill-d)" stroke="#ec4899" stroke-width="1.5"/>
+      <text x="93" y="491.29999999999995" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#9d174d" pointer-events="none">12</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-D-13" class="pallet-loc" data-zone="D" data-num="13" x="54" y="508.59999999999997" width="78" height="30.299999999999997" rx="3" fill="url(#fill-d)" stroke="#ec4899" stroke-width="1.5"/>
+      <text x="93" y="523.5999999999999" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#9d174d" pointer-events="none">13</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-D-14" class="pallet-loc" data-zone="D" data-num="14" x="54" y="540.9" width="78" height="30.299999999999997" rx="3" fill="url(#fill-d)" stroke="#ec4899" stroke-width="1.5"/>
+      <text x="93" y="555.9" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#9d174d" pointer-events="none">14</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-D-15" class="pallet-loc" data-zone="D" data-num="15" x="54" y="573.1999999999999" width="78" height="30.299999999999997" rx="3" fill="url(#fill-d)" stroke="#ec4899" stroke-width="1.5"/>
+      <text x="93" y="588.1999999999999" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#9d174d" pointer-events="none">15</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-D-16" class="pallet-loc" data-zone="D" data-num="16" x="54" y="605.5" width="78" height="30.299999999999997" rx="3" fill="url(#fill-d)" stroke="#ec4899" stroke-width="1.5"/>
+      <text x="93" y="620.5" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#9d174d" pointer-events="none">16</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-D-17" class="pallet-loc" data-zone="D" data-num="17" x="54" y="637.8" width="78" height="30.299999999999997" rx="3" fill="url(#fill-d)" stroke="#ec4899" stroke-width="1.5"/>
+      <text x="93" y="652.8" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#9d174d" pointer-events="none">17</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-D-18" class="pallet-loc" data-zone="D" data-num="18" x="54" y="670.0999999999999" width="78" height="30.299999999999997" rx="3" fill="url(#fill-d)" stroke="#ec4899" stroke-width="1.5"/>
+      <text x="93" y="685.0999999999999" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#9d174d" pointer-events="none">18</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-D-19" class="pallet-loc" data-zone="D" data-num="19" x="54" y="702.4" width="78" height="30.299999999999997" rx="3" fill="url(#fill-d)" stroke="#ec4899" stroke-width="1.5"/>
+      <text x="93" y="717.4" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#9d174d" pointer-events="none">19</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-D-20" class="pallet-loc" data-zone="D" data-num="20" x="54" y="734.6999999999999" width="78" height="30.299999999999997" rx="3" fill="url(#fill-d)" stroke="#ec4899" stroke-width="1.5"/>
+      <text x="93" y="749.6999999999999" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#9d174d" pointer-events="none">20</text>
+    </g>
+    <text x="93" y="453" text-anchor="middle" font-size="54" font-weight="800" fill="#ec4899" opacity="0.12" pointer-events="none">D</text>
   </g>
-
-  <!-- ===== ZONE A (top-right, 32 locations in 4 columns of 8) ===== -->
   <g id="zone-A">
-    <text x="770" y="100" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="18" font-weight="700" fill="#2563eb">ZÓNA A</text>
-
-    <!-- 32 locations: 8 rows x 4 cols -->
-    <!-- Column 1: A1-A8 -->
-    <rect id="loc-A-01" x="330" y="110" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="357" y="135" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A1</text>
-
-    <rect id="loc-A-02" x="390" y="110" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="417" y="135" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A2</text>
-
-    <rect id="loc-A-03" x="450" y="110" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="477" y="135" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A3</text>
-
-    <rect id="loc-A-04" x="510" y="110" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="537" y="135" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A4</text>
-
-    <rect id="loc-A-05" x="570" y="110" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="597" y="135" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A5</text>
-
-    <!-- A6 with pillar -->
-    <rect id="loc-A-06" x="630" y="110" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <rect x="650" y="125" width="12" height="12" fill="#64748b" stroke="#475569" stroke-width="1" rx="2" class="pillar"/>
-    <text x="657" y="145" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A6</text>
-
-    <rect id="loc-A-07" x="690" y="110" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="717" y="135" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A7</text>
-
-    <rect id="loc-A-08" x="750" y="110" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="777" y="135" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A8</text>
-
-    <!-- Row 2: A9-A16 -->
-    <rect id="loc-A-09" x="330" y="155" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="357" y="180" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A9</text>
-
-    <rect id="loc-A-10" x="390" y="155" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="417" y="180" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A10</text>
-
-    <rect id="loc-A-11" x="450" y="155" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="477" y="180" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A11</text>
-
-    <rect id="loc-A-12" x="510" y="155" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="537" y="180" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A12</text>
-
-    <rect id="loc-A-13" x="570" y="155" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="597" y="180" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A13</text>
-
-    <rect id="loc-A-14" x="630" y="155" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="657" y="180" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A14</text>
-
-    <rect id="loc-A-15" x="690" y="155" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="717" y="180" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A15</text>
-
-    <rect id="loc-A-16" x="750" y="155" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="777" y="180" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A16</text>
-
-    <!-- Row 3: A17-A24 -->
-    <rect id="loc-A-17" x="330" y="200" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="357" y="225" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A17</text>
-
-    <!-- A18 with pillar -->
-    <rect id="loc-A-18" x="390" y="200" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <rect x="410" y="215" width="12" height="12" fill="#64748b" stroke="#475569" stroke-width="1" rx="2" class="pillar"/>
-    <text x="417" y="235" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A18</text>
-
-    <rect id="loc-A-19" x="450" y="200" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="477" y="225" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A19</text>
-
-    <rect id="loc-A-20" x="510" y="200" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="537" y="225" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A20</text>
-
-    <rect id="loc-A-21" x="570" y="200" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="597" y="225" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A21</text>
-
-    <rect id="loc-A-22" x="630" y="200" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="657" y="225" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A22</text>
-
-    <rect id="loc-A-23" x="690" y="200" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="717" y="225" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A23</text>
-
-    <rect id="loc-A-24" x="750" y="200" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="777" y="225" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A24</text>
-
-    <!-- Row 4: A25-A32 -->
-    <rect id="loc-A-25" x="330" y="245" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="357" y="270" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A25</text>
-
-    <rect id="loc-A-26" x="390" y="245" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="417" y="270" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A26</text>
-
-    <!-- A27 with pillar -->
-    <rect id="loc-A-27" x="450" y="245" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <rect x="470" y="260" width="12" height="12" fill="#64748b" stroke="#475569" stroke-width="1" rx="2" class="pillar"/>
-    <text x="477" y="280" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A27</text>
-
-    <rect id="loc-A-28" x="510" y="245" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="537" y="270" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A28</text>
-
-    <rect id="loc-A-29" x="570" y="245" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="597" y="270" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A29</text>
-
-    <rect id="loc-A-30" x="630" y="245" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="657" y="270" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A30</text>
-
-    <rect id="loc-A-31" x="690" y="245" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="717" y="270" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A31</text>
-
-    <rect id="loc-A-32" x="750" y="245" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="777" y="270" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#1e40af">A32</text>
+    <g class="loc-group">
+      <rect id="loc-A-01" class="pallet-loc" data-zone="A" data-num="1" x="162" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="182.84375" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">1</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-02" class="pallet-loc" data-zone="A" data-num="2" x="203.6875" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="224.53125" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">2</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-03" class="pallet-loc" data-zone="A" data-num="3" x="245.375" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="266.21875" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">3</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-04" class="pallet-loc" data-zone="A" data-num="4" x="287.0625" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="307.90625" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">4</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-05" class="pallet-loc" data-zone="A" data-num="5" x="328.75" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="349.59375" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">5</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-06" class="pallet-loc" data-zone="A" data-num="6" x="370.4375" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="391.28125" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">6</text>
+      <rect class="pillar" x="385.28125" y="192" width="12" height="12" rx="2" fill="#64748b" stroke="#475569" stroke-width="1" pointer-events="none"/>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-07" class="pallet-loc" data-zone="A" data-num="7" x="412.125" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="432.96875" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">7</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-08" class="pallet-loc" data-zone="A" data-num="8" x="453.8125" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="474.65625" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">8</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-09" class="pallet-loc" data-zone="A" data-num="9" x="495.5" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="516.34375" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">9</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-10" class="pallet-loc" data-zone="A" data-num="10" x="537.1875" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="558.03125" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">10</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-11" class="pallet-loc" data-zone="A" data-num="11" x="578.875" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="599.71875" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">11</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-12" class="pallet-loc" data-zone="A" data-num="12" x="620.5625" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="641.40625" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">12</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-13" class="pallet-loc" data-zone="A" data-num="13" x="662.25" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="683.09375" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">13</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-14" class="pallet-loc" data-zone="A" data-num="14" x="703.9375" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="724.78125" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">14</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-15" class="pallet-loc" data-zone="A" data-num="15" x="745.625" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="766.46875" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">15</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-16" class="pallet-loc" data-zone="A" data-num="16" x="787.3125" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="808.15625" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">16</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-17" class="pallet-loc" data-zone="A" data-num="17" x="829" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="849.84375" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">17</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-18" class="pallet-loc" data-zone="A" data-num="18" x="870.6875" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="891.53125" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">18</text>
+      <rect class="pillar" x="885.53125" y="192" width="12" height="12" rx="2" fill="#64748b" stroke="#475569" stroke-width="1" pointer-events="none"/>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-19" class="pallet-loc" data-zone="A" data-num="19" x="912.375" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="933.21875" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">19</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-20" class="pallet-loc" data-zone="A" data-num="20" x="954.0625" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="974.90625" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">20</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-21" class="pallet-loc" data-zone="A" data-num="21" x="995.75" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="1016.59375" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">21</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-22" class="pallet-loc" data-zone="A" data-num="22" x="1037.4375" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="1058.28125" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">22</text>
+    </g>
+    <rect x="1081.125" y="99" width="26" height="198" fill="#e0f2fe" stroke="#38bdf8" stroke-width="1" stroke-dasharray="6,4" rx="3"/>
+    <g class="loc-group">
+      <rect id="loc-A-23" class="pallet-loc" data-zone="A" data-num="23" x="1109.125" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="1129.96875" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">23</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-24" class="pallet-loc" data-zone="A" data-num="24" x="1150.8125" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="1171.65625" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">24</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-25" class="pallet-loc" data-zone="A" data-num="25" x="1192.5" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="1213.34375" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">25</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-26" class="pallet-loc" data-zone="A" data-num="26" x="1234.1875" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="1255.03125" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">26</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-27" class="pallet-loc" data-zone="A" data-num="27" x="1275.875" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="1296.71875" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">27</text>
+      <rect class="pillar" x="1290.71875" y="192" width="12" height="12" rx="2" fill="#64748b" stroke="#475569" stroke-width="1" pointer-events="none"/>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-28" class="pallet-loc" data-zone="A" data-num="28" x="1317.5625" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="1338.40625" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">28</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-29" class="pallet-loc" data-zone="A" data-num="29" x="1359.25" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="1380.09375" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">29</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-30" class="pallet-loc" data-zone="A" data-num="30" x="1400.9375" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="1421.78125" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">30</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-31" class="pallet-loc" data-zone="A" data-num="31" x="1442.625" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="1463.46875" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">31</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-A-32" class="pallet-loc" data-zone="A" data-num="32" x="1484.3125" y="99" width="41.6875" height="198" rx="3" fill="url(#fill-a)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="1505.15625" y="114" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1e40af" pointer-events="none">32</text>
+    </g>
+    <text x="844" y="216" text-anchor="middle" font-size="58" font-weight="800" fill="#2563eb" opacity="0.12" pointer-events="none">A</text>
   </g>
-
-  <!-- ===== ZONE C (bottom-left, 32 locations) ===== -->
-  <g id="zone-C">
-    <text x="165" y="450" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="18" font-weight="700" fill="#d97706">ZÓNA C</text>
-
-    <!-- 32 locations: 8 rows x 4 cols -->
-    <rect id="loc-C-01" x="50" y="460" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="77" y="485" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C1</text>
-
-    <rect id="loc-C-02" x="110" y="460" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="137" y="485" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C2</text>
-
-    <rect id="loc-C-03" x="170" y="460" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="197" y="485" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C3</text>
-
-    <rect id="loc-C-04" x="230" y="460" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="257" y="485" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C4</text>
-
-    <rect id="loc-C-05" x="50" y="505" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="77" y="530" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C5</text>
-
-    <!-- C6 with pillar -->
-    <rect id="loc-C-06" x="110" y="505" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <rect x="130" y="520" width="12" height="12" fill="#64748b" stroke="#475569" stroke-width="1" rx="2" class="pillar"/>
-    <text x="137" y="540" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C6</text>
-
-    <rect id="loc-C-07" x="170" y="505" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="197" y="530" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C7</text>
-
-    <rect id="loc-C-08" x="230" y="505" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="257" y="530" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C8</text>
-
-    <rect id="loc-C-09" x="50" y="550" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="77" y="575" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C9</text>
-
-    <rect id="loc-C-10" x="110" y="550" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="137" y="575" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C10</text>
-
-    <rect id="loc-C-11" x="170" y="550" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="197" y="575" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C11</text>
-
-    <rect id="loc-C-12" x="230" y="550" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="257" y="575" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C12</text>
-
-    <rect id="loc-C-13" x="50" y="595" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="77" y="620" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C13</text>
-
-    <rect id="loc-C-14" x="110" y="595" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="137" y="620" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C14</text>
-
-    <rect id="loc-C-15" x="170" y="595" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="197" y="620" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C15</text>
-
-    <rect id="loc-C-16" x="230" y="595" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="257" y="620" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C16</text>
-
-    <rect id="loc-C-17" x="50" y="640" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="77" y="665" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C17</text>
-
-    <!-- C18 with pillar -->
-    <rect id="loc-C-18" x="110" y="640" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <rect x="130" y="655" width="12" height="12" fill="#64748b" stroke="#475569" stroke-width="1" rx="2" class="pillar"/>
-    <text x="137" y="675" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C18</text>
-
-    <rect id="loc-C-19" x="170" y="640" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="197" y="665" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C19</text>
-
-    <rect id="loc-C-20" x="230" y="640" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="257" y="665" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C20</text>
-
-    <rect id="loc-C-21" x="50" y="685" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="77" y="710" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C21</text>
-
-    <rect id="loc-C-22" x="110" y="685" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="137" y="710" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C22</text>
-
-    <rect id="loc-C-23" x="170" y="685" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="197" y="710" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C23</text>
-
-    <rect id="loc-C-24" x="230" y="685" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="257" y="710" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C24</text>
-
-    <rect id="loc-C-25" x="50" y="730" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="77" y="755" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C25</text>
-
-    <rect id="loc-C-26" x="110" y="730" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="137" y="755" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C26</text>
-
-    <rect id="loc-C-27" x="170" y="730" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="197" y="755" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C27</text>
-
-    <rect id="loc-C-28" x="230" y="730" width="55" height="40" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="257" y="755" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C28</text>
-
-    <!-- C29-C32 would go further down but we're at boundary, let me place them differently -->
-    <!-- Actually, based on description C has pillars at 6, 18, 30 - so 32 locations total. Let me continue on right side -->
-  </g>
-
-  <!-- ===== ZONE B (bottom-right, 32 locations with gaps for pillars/first aid) ===== -->
   <g id="zone-B">
-    <text x="770" y="450" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="18" font-weight="700" fill="#16a34a">ZÓNA B</text>
-
-    <!-- 32 locations with gaps between 5-6, 17-18, 27-28 for pillars/first aid -->
-    <rect id="loc-B-01" x="330" y="460" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="357" y="485" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B1</text>
-
-    <rect id="loc-B-02" x="390" y="460" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="417" y="485" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B2</text>
-
-    <rect id="loc-B-03" x="450" y="460" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="477" y="485" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B3</text>
-
-    <rect id="loc-B-04" x="510" y="460" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="537" y="485" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B4</text>
-
-    <rect id="loc-B-05" x="570" y="460" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="597" y="485" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B5</text>
-
-    <!-- GAP: Pillar + First Aid between B5 and B6 -->
-    <rect x="630" y="460" width="55" height="40" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,2" rx="4"/>
-    <rect x="650" y="472" width="12" height="12" fill="#64748b" stroke="#475569" stroke-width="1" rx="2" class="pillar"/>
-    <text x="657" y="495" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="8" fill="#64748b">🏥</text>
-
-    <rect id="loc-B-06" x="690" y="460" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="717" y="485" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B6</text>
-
-    <rect id="loc-B-07" x="750" y="460" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="777" y="485" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B7</text>
-
-    <!-- Row 2: B8-B15 -->
-    <rect id="loc-B-08" x="330" y="505" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="357" y="530" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B8</text>
-
-    <rect id="loc-B-09" x="390" y="505" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="417" y="530" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B9</text>
-
-    <rect id="loc-B-10" x="450" y="505" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="477" y="530" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B10</text>
-
-    <rect id="loc-B-11" x="510" y="505" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="537" y="530" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B11</text>
-
-    <rect id="loc-B-12" x="570" y="505" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="597" y="530" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B12</text>
-
-    <rect id="loc-B-13" x="630" y="505" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="657" y="530" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B13</text>
-
-    <rect id="loc-B-14" x="690" y="505" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="717" y="530" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B14</text>
-
-    <rect id="loc-B-15" x="750" y="505" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="777" y="530" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B15</text>
-
-    <!-- Row 3: B16-B23 with gap between B17-B18 -->
-    <rect id="loc-B-16" x="330" y="550" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="357" y="575" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B16</text>
-
-    <rect id="loc-B-17" x="390" y="550" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="417" y="575" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B17</text>
-
-    <!-- GAP: Pillar + First Aid between B17 and B18 -->
-    <rect x="450" y="550" width="55" height="40" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,2" rx="4"/>
-    <rect x="470" y="562" width="12" height="12" fill="#64748b" stroke="#475569" stroke-width="1" rx="2" class="pillar"/>
-    <text x="477" y="585" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="8" fill="#64748b">🏥</text>
-
-    <rect id="loc-B-18" x="510" y="550" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="537" y="575" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B18</text>
-
-    <rect id="loc-B-19" x="570" y="550" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="597" y="575" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B19</text>
-
-    <rect id="loc-B-20" x="630" y="550" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="657" y="575" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B20</text>
-
-    <rect id="loc-B-21" x="690" y="550" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="717" y="575" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B21</text>
-
-    <rect id="loc-B-22" x="750" y="550" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="777" y="575" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B22</text>
-
-    <!-- Row 4: B23-B32 with gap between B27-B28 -->
-    <rect id="loc-B-23" x="330" y="595" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="357" y="620" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B23</text>
-
-    <rect id="loc-B-24" x="390" y="595" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="417" y="620" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B24</text>
-
-    <rect id="loc-B-25" x="450" y="595" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="477" y="620" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B25</text>
-
-    <rect id="loc-B-26" x="510" y="595" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="537" y="620" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B26</text>
-
-    <rect id="loc-B-27" x="570" y="595" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="597" y="620" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B27</text>
-
-    <!-- GAP: Pillar + First Aid between B27 and B28 -->
-    <rect x="630" y="595" width="55" height="40" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,2" rx="4"/>
-    <rect x="650" y="607" width="12" height="12" fill="#64748b" stroke="#475569" stroke-width="1" rx="2" class="pillar"/>
-    <text x="657" y="630" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="8" fill="#64748b">🏥</text>
-
-    <rect id="loc-B-28" x="690" y="595" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="717" y="620" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B28</text>
-
-    <rect id="loc-B-29" x="750" y="595" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="777" y="620" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B29</text>
-
-    <rect id="loc-B-30" x="330" y="640" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="357" y="665" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B30</text>
-
-    <rect id="loc-B-31" x="390" y="640" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="417" y="665" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B31</text>
-
-    <rect id="loc-B-32" x="450" y="640" width="55" height="40" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="477" y="665" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#166534">B32</text>
+    <g class="loc-group">
+      <rect id="loc-B-01" class="pallet-loc" data-zone="B" data-num="1" x="162" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="181.625" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">1</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-02" class="pallet-loc" data-zone="B" data-num="2" x="201.25" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="220.875" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">2</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-03" class="pallet-loc" data-zone="B" data-num="3" x="240.5" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="260.125" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">3</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-04" class="pallet-loc" data-zone="B" data-num="4" x="279.75" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="299.375" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">4</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-05" class="pallet-loc" data-zone="B" data-num="5" x="319" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="338.625" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">5</text>
+    </g>
+    <g class="blocked-spot">
+      <rect x="358.25" y="333" width="26" height="198" rx="3" fill="url(#hatch-blocked)" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="4,2"/>
+      <rect class="pillar" x="365.25" y="418" width="12" height="12" rx="2" fill="#64748b" stroke="#475569" stroke-width="1"/>
+      <g transform="translate(371.25,442)">
+        <rect x="-7" y="-7" width="14" height="14" rx="2" fill="#ef4444"/>
+        <rect x="-1.5" y="-5" width="3" height="10" fill="#fff"/>
+        <rect x="-5" y="-1.5" width="10" height="3" fill="#fff"/>
+      </g>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-06" class="pallet-loc" data-zone="B" data-num="6" x="384.25" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="403.875" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">6</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-07" class="pallet-loc" data-zone="B" data-num="7" x="423.5" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="443.125" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">7</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-08" class="pallet-loc" data-zone="B" data-num="8" x="462.75" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="482.375" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">8</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-09" class="pallet-loc" data-zone="B" data-num="9" x="502" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="521.625" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">9</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-10" class="pallet-loc" data-zone="B" data-num="10" x="541.25" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="560.875" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">10</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-11" class="pallet-loc" data-zone="B" data-num="11" x="580.5" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="600.125" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">11</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-12" class="pallet-loc" data-zone="B" data-num="12" x="619.75" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="639.375" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">12</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-13" class="pallet-loc" data-zone="B" data-num="13" x="659" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="678.625" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">13</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-14" class="pallet-loc" data-zone="B" data-num="14" x="698.25" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="717.875" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">14</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-15" class="pallet-loc" data-zone="B" data-num="15" x="737.5" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="757.125" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">15</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-16" class="pallet-loc" data-zone="B" data-num="16" x="776.75" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="796.375" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">16</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-17" class="pallet-loc" data-zone="B" data-num="17" x="816" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="835.625" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">17</text>
+    </g>
+    <g class="blocked-spot">
+      <rect x="855.25" y="333" width="26" height="198" rx="3" fill="url(#hatch-blocked)" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="4,2"/>
+      <rect class="pillar" x="862.25" y="418" width="12" height="12" rx="2" fill="#64748b" stroke="#475569" stroke-width="1"/>
+      <g transform="translate(868.25,442)">
+        <rect x="-7" y="-7" width="14" height="14" rx="2" fill="#ef4444"/>
+        <rect x="-1.5" y="-5" width="3" height="10" fill="#fff"/>
+        <rect x="-5" y="-1.5" width="10" height="3" fill="#fff"/>
+      </g>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-18" class="pallet-loc" data-zone="B" data-num="18" x="881.25" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="900.875" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">18</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-19" class="pallet-loc" data-zone="B" data-num="19" x="920.5" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="940.125" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">19</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-20" class="pallet-loc" data-zone="B" data-num="20" x="959.75" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="979.375" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">20</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-21" class="pallet-loc" data-zone="B" data-num="21" x="999" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="1018.625" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">21</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-22" class="pallet-loc" data-zone="B" data-num="22" x="1038.25" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="1057.875" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">22</text>
+    </g>
+    <rect x="1079.5" y="333" width="26" height="198" fill="#e0f2fe" stroke="#38bdf8" stroke-width="1" stroke-dasharray="6,4" rx="3"/>
+    <g class="loc-group">
+      <rect id="loc-B-23" class="pallet-loc" data-zone="B" data-num="23" x="1107.5" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="1127.125" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">23</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-24" class="pallet-loc" data-zone="B" data-num="24" x="1146.75" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="1166.375" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">24</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-25" class="pallet-loc" data-zone="B" data-num="25" x="1186" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="1205.625" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">25</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-26" class="pallet-loc" data-zone="B" data-num="26" x="1225.25" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="1244.875" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">26</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-27" class="pallet-loc" data-zone="B" data-num="27" x="1264.5" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="1284.125" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">27</text>
+    </g>
+    <g class="blocked-spot">
+      <rect x="1303.75" y="333" width="26" height="198" rx="3" fill="url(#hatch-blocked)" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="4,2"/>
+      <rect class="pillar" x="1310.75" y="418" width="12" height="12" rx="2" fill="#64748b" stroke="#475569" stroke-width="1"/>
+      <g transform="translate(1316.75,442)">
+        <rect x="-7" y="-7" width="14" height="14" rx="2" fill="#ef4444"/>
+        <rect x="-1.5" y="-5" width="3" height="10" fill="#fff"/>
+        <rect x="-5" y="-1.5" width="10" height="3" fill="#fff"/>
+      </g>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-28" class="pallet-loc" data-zone="B" data-num="28" x="1329.75" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="1349.375" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">28</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-29" class="pallet-loc" data-zone="B" data-num="29" x="1369" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="1388.625" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">29</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-30" class="pallet-loc" data-zone="B" data-num="30" x="1408.25" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="1427.875" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">30</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-31" class="pallet-loc" data-zone="B" data-num="31" x="1447.5" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="1467.125" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">31</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-B-32" class="pallet-loc" data-zone="B" data-num="32" x="1486.75" y="333" width="39.25" height="198" rx="3" fill="url(#fill-b)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="1506.375" y="348" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#166534" pointer-events="none">32</text>
+    </g>
+    <text x="844" y="450" text-anchor="middle" font-size="58" font-weight="800" fill="#16a34a" opacity="0.12" pointer-events="none">B</text>
   </g>
-
-  <!-- ===== Continue Zone C (remaining C29-C32) ===== -->
-  <g id="zone-C-extra">
-    <rect id="loc-C-29" x="50" y="340" width="55" height="35" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="77" y="362" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C29</text>
-
-    <!-- C30 with pillar -->
-    <rect id="loc-C-30" x="110" y="340" width="55" height="35" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <rect x="130" y="350" width="12" height="12" fill="#64748b" stroke="#475569" stroke-width="1" rx="2" class="pillar"/>
-    <text x="137" y="370" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C30</text>
-
-    <rect id="loc-C-31" x="170" y="340" width="55" height="35" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="197" y="362" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C31</text>
-
-    <rect id="loc-C-32" x="230" y="340" width="55" height="35" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1.5" rx="4" class="pallet-loc"/>
-    <text x="257" y="362" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#92400e">C32</text>
+  <g id="zone-C">
+    <g class="loc-group">
+      <rect id="loc-C-01" class="pallet-loc" data-zone="C" data-num="1" x="162" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="182.05882352941177" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">1</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-02" class="pallet-loc" data-zone="C" data-num="2" x="202.11764705882354" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="222.1764705882353" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">2</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-03" class="pallet-loc" data-zone="C" data-num="3" x="242.23529411764707" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="262.29411764705884" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">3</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-04" class="pallet-loc" data-zone="C" data-num="4" x="282.3529411764706" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="302.4117647058824" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">4</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-05" class="pallet-loc" data-zone="C" data-num="5" x="322.47058823529414" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="342.5294117647059" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">5</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-06" class="pallet-loc" data-zone="C" data-num="6" x="362.5882352941177" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="382.64705882352945" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">6</text>
+      <rect class="pillar" x="376.64705882352945" y="660" width="12" height="12" rx="2" fill="#64748b" stroke="#475569" stroke-width="1" pointer-events="none"/>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-07" class="pallet-loc" data-zone="C" data-num="7" x="402.7058823529412" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="422.764705882353" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">7</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-08" class="pallet-loc" data-zone="C" data-num="8" x="442.82352941176475" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="462.8823529411765" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">8</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-09" class="pallet-loc" data-zone="C" data-num="9" x="482.9411764705883" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="503.00000000000006" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">9</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-10" class="pallet-loc" data-zone="C" data-num="10" x="523.0588235294118" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="543.1176470588235" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">10</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-11" class="pallet-loc" data-zone="C" data-num="11" x="563.1764705882354" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="583.2352941176471" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">11</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-12" class="pallet-loc" data-zone="C" data-num="12" x="603.2941176470589" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="623.3529411764706" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">12</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-13" class="pallet-loc" data-zone="C" data-num="13" x="643.4117647058824" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="663.4705882352941" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">13</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-14" class="pallet-loc" data-zone="C" data-num="14" x="683.529411764706" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="703.5882352941177" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">14</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-15" class="pallet-loc" data-zone="C" data-num="15" x="723.6470588235295" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="743.7058823529412" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">15</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-16" class="pallet-loc" data-zone="C" data-num="16" x="763.764705882353" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="783.8235294117648" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">16</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-17" class="pallet-loc" data-zone="C" data-num="17" x="803.8823529411766" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="823.9411764705883" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">17</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-18" class="pallet-loc" data-zone="C" data-num="18" x="844.0000000000001" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="864.0588235294118" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">18</text>
+      <rect class="pillar" x="858.0588235294118" y="660" width="12" height="12" rx="2" fill="#64748b" stroke="#475569" stroke-width="1" pointer-events="none"/>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-19" class="pallet-loc" data-zone="C" data-num="19" x="884.1176470588236" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="904.1764705882354" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">19</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-20" class="pallet-loc" data-zone="C" data-num="20" x="924.2352941176472" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="944.2941176470589" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">20</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-21" class="pallet-loc" data-zone="C" data-num="21" x="964.3529411764707" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="984.4117647058824" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">21</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-22" class="pallet-loc" data-zone="C" data-num="22" x="1004.4705882352943" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="1024.529411764706" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">22</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-23" class="pallet-loc" data-zone="C" data-num="23" x="1044.5882352941178" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="1064.6470588235295" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">23</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-24" class="pallet-loc" data-zone="C" data-num="24" x="1084.7058823529412" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="1104.764705882353" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">24</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-25" class="pallet-loc" data-zone="C" data-num="25" x="1124.8235294117646" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="1144.8823529411764" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">25</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-26" class="pallet-loc" data-zone="C" data-num="26" x="1164.941176470588" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="1184.9999999999998" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">26</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-27" class="pallet-loc" data-zone="C" data-num="27" x="1205.0588235294115" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="1225.1176470588232" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">27</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-28" class="pallet-loc" data-zone="C" data-num="28" x="1245.176470588235" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="1265.2352941176466" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">28</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-29" class="pallet-loc" data-zone="C" data-num="29" x="1285.2941176470583" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="1305.35294117647" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">29</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-30" class="pallet-loc" data-zone="C" data-num="30" x="1325.4117647058818" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="1345.4705882352935" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">30</text>
+      <rect class="pillar" x="1339.4705882352935" y="660" width="12" height="12" rx="2" fill="#64748b" stroke="#475569" stroke-width="1" pointer-events="none"/>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-31" class="pallet-loc" data-zone="C" data-num="31" x="1365.5294117647052" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="1385.5882352941169" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">31</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-32" class="pallet-loc" data-zone="C" data-num="32" x="1405.6470588235286" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="1425.7058823529403" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">32</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-33" class="pallet-loc" data-zone="C" data-num="33" x="1445.764705882352" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="1465.8235294117637" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">33</text>
+    </g>
+    <g class="loc-group">
+      <rect id="loc-C-34" class="pallet-loc" data-zone="C" data-num="34" x="1485.8823529411754" y="567" width="40.11764705882353" height="198" rx="3" fill="url(#fill-c)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="1505.9411764705872" y="582" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#92400e" pointer-events="none">34</text>
+    </g>
+    <text x="843.9999999999994" y="684" text-anchor="middle" font-size="58" font-weight="800" fill="#d97706" opacity="0.12" pointer-events="none">C</text>
   </g>
-
-  <!-- ===== Continue Zone A (for layout balance, additional A items to right edge) ===== -->
-  <g id="zone-A-extra">
-    <rect id="loc-A-extra1" x="810" y="110" width="55" height="40" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1.5" rx="4" class="pallet-loc" style="display:none"/>
+  <g id="office-area">
+    <rect x="1556" y="94" width="70" height="672" fill="url(#hatch-office)" stroke="#94a3b8" stroke-width="1.5" rx="6"/>
+    <text x="1591" y="430" text-anchor="middle" font-size="15" font-weight="700" fill="#475569" transform="rotate(-90 1591 430)" letter-spacing="1">KONŠTRUKTÉRI + TECHNOLOGIČKY</text>
   </g>
-
-  <!-- ===== LEGEND ===== -->
-  <g id="legend" transform="translate(940, 680)">
-    <rect x="0" y="0" width="210" height="100" fill="#fff" stroke="#e2e8f0" stroke-width="1" rx="8"/>
-    <text x="105" y="20" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="12" font-weight="700" fill="#1e293b">LEGENDA</text>
-
-    <rect x="15" y="32" width="18" height="12" fill="url(#zone-a-fill)" stroke="#3b82f6" stroke-width="1" rx="2"/>
-    <text x="40" y="42" font-family="Inter, system-ui, sans-serif" font-size="10" fill="#475569">Zóna A (32 miest)</text>
-
-    <rect x="15" y="48" width="18" height="12" fill="url(#zone-b-fill)" stroke="#22c55e" stroke-width="1" rx="2"/>
-    <text x="40" y="58" font-family="Inter, system-ui, sans-serif" font-size="10" fill="#475569">Zóna B (32 miest)</text>
-
-    <rect x="15" y="64" width="18" height="12" fill="url(#zone-c-fill)" stroke="#f59e0b" stroke-width="1" rx="2"/>
-    <text x="40" y="74" font-family="Inter, system-ui, sans-serif" font-size="10" fill="#475569">Zóna C (32 miest)</text>
-
-    <rect x="15" y="80" width="18" height="12" fill="url(#zone-d-fill)" stroke="#ec4899" stroke-width="1" rx="2"/>
-    <text x="40" y="90" font-family="Inter, system-ui, sans-serif" font-size="10" fill="#475569">Zóna D (20 miest)</text>
-
-    <rect x="125" y="32" width="12" height="12" fill="#64748b" stroke="#475569" stroke-width="1" rx="2"/>
-    <text x="142" y="42" font-family="Inter, system-ui, sans-serif" font-size="10" fill="#475569">Stĺp</text>
-
-    <rect x="125" y="48" width="18" height="12" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1" stroke-dasharray="3,1" rx="2"/>
-    <text x="148" y="58" font-family="Inter, system-ui, sans-serif" font-size="10" fill="#475569">Cesta</text>
-
-    <text x="130" y="74" font-family="Inter, system-ui, sans-serif" font-size="12">🏥</text>
-    <text x="148" y="75" font-family="Inter, system-ui, sans-serif" font-size="10" fill="#475569">Lekárnička</text>
+  <g id="legend" transform="translate(570,740)">
+    <rect x="0" y="0" width="540" height="54" fill="#ffffff" stroke="#e2e8f0" stroke-width="1" rx="8"/>
+    <rect x="16" y="19" width="18" height="16" rx="2" fill="url(#fill-a)" stroke="#3b82f6"/>
+    <text x="40" y="31" font-size="10" fill="#475569">Voľné miesto</text>
+    <rect x="126" y="19" width="12" height="12" rx="2" fill="#64748b" stroke="#475569"/>
+    <text x="150" y="31" font-size="10" fill="#475569">Stĺp (použiteľné)</text>
+    <rect x="256" y="19" width="18" height="16" rx="2" fill="url(#hatch-blocked)" stroke="#94a3b8" stroke-dasharray="3,2"/>
+    <text x="280" y="31" font-size="10" fill="#475569">Nepoužívané</text>
+    <rect x="366" y="19" width="18" height="16" rx="2" fill="#e0f2fe" stroke="#38bdf8" stroke-dasharray="3,2"/>
+    <text x="390" y="31" font-size="10" fill="#475569">Cesta</text>
   </g>
-
-  <!-- Interactive CSS (embedded styles for hover etc.) -->
   <style>
-    .pallet-loc {
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-    .pallet-loc:hover {
-      filter: url(#shadow);
-      transform: scale(1.05);
-      stroke-width: 2.5;
-    }
-    .pillar {
-      pointer-events: none;
-    }
+    .pallet-loc { cursor: pointer; transition: opacity .15s ease, stroke-width .15s ease; }
+    .loc-group:hover .pallet-loc { stroke-width: 3; filter: url(#loc-shadow); }
+    .pillar, .blocked-spot { pointer-events: none; }
   </style>
 </svg>

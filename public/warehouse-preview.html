@@ -71,8 +71,10 @@
                 document.querySelectorAll('.pallet-loc').forEach(loc => {
                     loc.addEventListener('click', () => {
                         const info = document.getElementById('clicked-info');
+                        const zone = loc.dataset.zone;
+                        const num = loc.dataset.num;
                         info.style.display = 'block';
-                        info.innerHTML = `<strong>Kliknuté miesto:</strong> ${loc.id} (${loc.id.replace('loc-', '').replace('-', '')})`;
+                        info.innerHTML = `<strong>Vybrané paletové miesto:</strong> ${zone}${num} <span style="color:#64748b">(id: ${loc.id})</span>`;
                     });
                 });
             });
