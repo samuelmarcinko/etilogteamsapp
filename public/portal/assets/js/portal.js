@@ -3779,6 +3779,31 @@ async function renderWarehouseMovements(container) {
 }
 
 // --- Audit page (admin only) ---
+
+// Format audit details for human reading
+function formatAuditDetails(action, details, entity) {
+    if (!details) return '-';
+    const d = typeof details === 'string' ? JSON.parse(details) : details;
+    try {
+        switch (action) {
+            case 'CREATED':
+                if (d.code) return `<strong>${escapeHtml(d.code)}</strong> – ${escapeHtml(d.name || '')}`;
+                return Object.entries(d).map(([k,v]) => `${k}: ${v}`).join(', ');
+            case 'MOVED':
+                const from = d.from_location_code || d.from_location_id || '—';
+                const to = d.to_location_code || d.to_location_id || '—';
+                return `${escapeHtml(String(from))} → <strong>${escapeHtml(String(to))}</strong>`;
+            case 'UPDATED':
+                return Object.entries(d).map(([k,v]) => `${k}: ${escapeHtml(String(v))}`).join(', ');
+            case 'DELETED':
+                if (d.code) return `<strong>${escapeHtml(d.code)}</strong> – ${escapeHtml(d.name || '')}`;
+                return Object.entries(d).map(([k,v]) => `${k}: ${v}`).join(', ');
+            default:
+                return Object.entries(d).map(([k,v]) => `${k}: ${v}`).join(', ');
+        }
+    } catch (e) { return escapeHtml(JSON.stringify(d).substring(0, 80)); }
+}
+
 async function renderWarehouseAudit(container) {
     container.innerHTML = `
         <div class="page-header"><div><h1>${pt('whAuditTitle')}</h1><p>${pt('whAuditDesc')}</p></div></div>
@@ -3803,7 +3828,7 @@ async function renderWarehouseAudit(container) {
                             <td>${escapeHtml(l.user_name || '-')}</td>
                             <td><span class="badge badge-${l.action}">${l.action}</span></td>
                             <td>${l.entity} #${l.entity_id || '-'}</td>
-                            <td><small>${l.details ? escapeHtml(JSON.stringify(l.details).substring(0, 60)) : '-'}</small></td>
+                            <td><small>${formatAuditDetails(l.action, l.details, l.entity)}</small></td>
                         </tr>
                     `).join('')}
                 </tbody>

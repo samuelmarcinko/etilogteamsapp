@@ -149,14 +149,23 @@ router.patch('/materials/:id/move', asyncHandler(async (req, res) => {
   const { to_location_id, reason } = req.body;
   const material = await Material.move(req.params.id, to_location_id, currentUser(req), reason);
   if (!material) return res.status(404).json({ error: 'Material not found' });
-  await WarehouseAudit.log(currentUser(req), 'moved', 'material', material.id, { to_location_id: to_location_id || null });
+  const mi = material._moveInfo || {};
+  await WarehouseAudit.log(currentUser(req), 'moved', 'material', material.id, {
+    from_location_code: mi.fromCode || null,
+    to_location_code: mi.toCode || null
+  });
+  delete material._moveInfo;
   res.json({ data: material });
 }));
 
 // DELETE /api/warehouse/materials/:id
 router.delete('/materials/:id', asyncHandler(async (req, res) => {
+  const mat = await Material.findById(req.params.id);
   await Material.delete(req.params.id);
-  await WarehouseAudit.log(currentUser(req), 'deleted', 'material', Number(req.params.id));
+  await WarehouseAudit.log(currentUser(req), 'deleted', 'material', Number(req.params.id), {
+    code: mat?.code || null,
+    name: mat?.name || null
+  });
   res.json({ message: 'Material deleted' });
 }));
 

@@ -122,8 +122,21 @@ class Material {
         [id, fromLocationId, toLocationId || null, user?.id || null, user?.name || null, reason || null]
       );
 
+      // Fetch location codes for audit readability
+      let fromCode = null, toCode = null;
+      if (fromLocationId) {
+        const fRes = await client.query('SELECT code FROM pallet_locations WHERE id = $1', [fromLocationId]);
+        fromCode = fRes.rows[0]?.code || null;
+      }
+      if (toLocationId) {
+        const tRes = await client.query('SELECT code FROM pallet_locations WHERE id = $1', [toLocationId]);
+        toCode = tRes.rows[0]?.code || null;
+      }
+
       await client.query('COMMIT');
-      return upd.rows[0];
+      const mat = upd.rows[0];
+      mat._moveInfo = { fromLocationId, toLocationId, fromCode, toCode };
+      return mat;
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
