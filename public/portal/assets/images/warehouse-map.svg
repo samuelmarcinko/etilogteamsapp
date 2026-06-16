@@ -227,8 +227,6 @@
   </g>
   <g id="zone-A">
     <rect x="172" y="98" width="1454" height="222" fill="url(#grad-A)" stroke="#3b82f6" stroke-width="2" rx="10"/>
-    <rect x="869" y="187" width="60" height="44" rx="22" fill="#3b82f6" filter="url(#shadow-lg)" opacity="0.95"/>
-    <text x="899" y="221" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="36" font-weight="900" fill="#ffffff" filter="url(#glow)">A</text>
       <g class="loc-group">
         <rect id="loc-A-01" class="pallet-loc" data-zone="A" data-num="1" x="179" y="104" width="42.1875" height="210" rx="4" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.2"/>
         <text x="200.09375" y="120" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="13" font-weight="700" fill="#1e40af" pointer-events="none">1</text>
@@ -361,11 +359,11 @@
         <rect id="loc-A-32" class="pallet-loc" data-zone="A" data-num="32" x="1576.8125" y="104" width="42.1875" height="210" rx="4" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.2"/>
         <text x="1597.90625" y="120" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="13" font-weight="700" fill="#1e40af" pointer-events="none">32</text>
       </g>
+    <rect x="869" y="187" width="60" height="44" rx="22" fill="#3b82f6" filter="url(#shadow-lg)" opacity="0.95"/>
+    <text x="899" y="221" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="36" font-weight="900" fill="#ffffff" filter="url(#glow)">A</text>
   </g>
   <g id="zone-B">
     <rect x="172" y="354" width="1454" height="222" fill="url(#grad-B)" stroke="#22c55e" stroke-width="2" rx="10"/>
-    <rect x="869" y="443" width="60" height="44" rx="22" fill="#22c55e" filter="url(#shadow-lg)" opacity="0.95"/>
-    <text x="899" y="477" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="36" font-weight="900" fill="#ffffff" filter="url(#glow)">B</text>
       <g class="loc-group">
         <rect id="loc-B-01" class="pallet-loc" data-zone="B" data-num="1" x="179" y="360" width="39.5625" height="210" rx="4" fill="#dcfce7" stroke="#22c55e" stroke-width="1.2"/>
         <text x="198.78125" y="376" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="13" font-weight="700" fill="#166534" pointer-events="none">1</text>
@@ -516,11 +514,11 @@
         <rect id="loc-B-32" class="pallet-loc" data-zone="B" data-num="32" x="1579.4375" y="360" width="39.5625" height="210" rx="4" fill="#dcfce7" stroke="#22c55e" stroke-width="1.2"/>
         <text x="1599.21875" y="376" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="13" font-weight="700" fill="#166534" pointer-events="none">32</text>
       </g>
+    <rect x="869" y="443" width="60" height="44" rx="22" fill="#22c55e" filter="url(#shadow-lg)" opacity="0.95"/>
+    <text x="899" y="477" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="36" font-weight="900" fill="#ffffff" filter="url(#glow)">B</text>
   </g>
   <g id="zone-C">
     <rect x="172" y="610" width="1454" height="222" fill="url(#grad-C)" stroke="#f59e0b" stroke-width="2" rx="10"/>
-    <rect x="869" y="699" width="60" height="44" rx="22" fill="#f59e0b" filter="url(#shadow-lg)" opacity="0.95"/>
-    <text x="899" y="733" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="36" font-weight="900" fill="#ffffff" filter="url(#glow)">C</text>
       <g class="loc-group">
         <rect id="loc-C-01" class="pallet-loc" data-zone="C" data-num="1" x="179" y="616" width="40.411764705882355" height="210" rx="4" fill="#fef3c7" stroke="#f59e0b" stroke-width="1.2"/>
         <text x="199.2058823529412" y="632" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="13" font-weight="700" fill="#92400e" pointer-events="none">1</text>
@@ -660,6 +658,8 @@
         <rect id="loc-C-34" class="pallet-loc" data-zone="C" data-num="34" x="1578.5882352941185" y="616" width="40.411764705882355" height="210" rx="4" fill="#fef3c7" stroke="#f59e0b" stroke-width="1.2"/>
         <text x="1598.7941176470597" y="632" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="13" font-weight="700" fill="#92400e" pointer-events="none">34</text>
       </g>
+    <rect x="869" y="699" width="60" height="44" rx="22" fill="#f59e0b" filter="url(#shadow-lg)" opacity="0.95"/>
+    <text x="899" y="733" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="36" font-weight="900" fill="#ffffff" filter="url(#glow)">C</text>
   </g>
   <g id="legend">
     <rect x="550" y="845" width="700" height="50" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5" rx="10" filter="url(#shadow-sm)"/>

@@ -210,14 +210,8 @@ function drawHorizontalBand(zone, y, h, sections, pillars, blocked) {
   // Zone background with rounded corners
   p(`    <rect x="${mainX0 - 6}" y="${y - 2}" width="${mainW + 12}" height="${h + 4}" fill="url(#grad-${zone})" stroke="${z.stroke}" stroke-width="2" rx="10"/>`);
 
-  // Zone label badge (centered, prominent)
-  const totalCells = sections.reduce((a, s) => a + (s.to - s.from + 1), 0);
-  const labelX = mainX0 + mainW / 2;
-  const labelY = y + h / 2;
-  p(`    <rect x="${labelX - 30}" y="${labelY - 22}" width="60" height="44" rx="22" fill="${z.stroke}" filter="url(#shadow-lg)" opacity="0.95"/>`);
-  p(`    <text x="${labelX}" y="${labelY + 12}" text-anchor="middle" font-family="${FONT}" font-size="36" font-weight="900" fill="#ffffff" filter="url(#glow)">${zone}</text>`);
-
   // Calculate cell width
+  const totalCells = sections.reduce((a, s) => a + (s.to - s.from + 1), 0);
   const corridorsBetween = sections.length - 1;
   const innerCorridorW = 28;
   const blockedW = 28;
@@ -261,6 +255,12 @@ function drawHorizontalBand(zone, y, h, sections, pillars, blocked) {
       x += innerCorridorW;
     }
   });
+
+  // Zone label badge (centered, prominent) - draw LAST so it's on top of cells
+  const labelX = mainX0 + mainW / 2;
+  const labelY = y + h / 2;
+  p(`    <rect x="${labelX - 30}" y="${labelY - 22}" width="60" height="44" rx="22" fill="${z.stroke}" filter="url(#shadow-lg)" opacity="0.95"/>`);
+  p(`    <text x="${labelX}" y="${labelY + 12}" text-anchor="middle" font-family="${FONT}" font-size="36" font-weight="900" fill="#ffffff" filter="url(#glow)">${zone}</text>`);
 
   p(`  </g>`);
 }
