@@ -34,6 +34,7 @@ const portalTranslations = {
     hubAccessDenied: 'Prístup zamietnutý',
     hubAccessDeniedMsg: 'Nemáte oprávnenie pre tento modul. Kontaktujte administrátora.',
     hubBackToModules: 'Späť na moduly',
+    navSystem: 'Systém',
 
     // User section
     userLoading: 'Načítavam...',
@@ -539,6 +540,7 @@ const portalTranslations = {
     hubAccessDenied: 'Access Denied',
     hubAccessDeniedMsg: 'You do not have permission for this module. Contact the administrator.',
     hubBackToModules: 'Back to modules',
+    navSystem: 'System',
 
     // User section
     userLoading: 'Loading...',
@@ -1139,8 +1141,15 @@ function updateSidebarLanguage() {
     }
   });
 
-  // Section titles
+  // Back-to-modules label
+  const backLabel = document.getElementById('navBackLabel');
+  if (backLabel) backLabel.textContent = pt('hubBackToModules');
+
+  // Section titles (DOM order: HR main, HR admin, HR system, Fleet, Warehouse)
   const sections = document.querySelectorAll('.nav-section-title');
   if (sections[0]) sections[0].textContent = pt('navMain');
   if (sections[1]) sections[1].textContent = pt('navAdmin');
+  if (sections[2]) sections[2].textContent = pt('navSystem');
+  if (sections[3]) sections[3].textContent = pt('hubModuleFleet');
+  if (sections[4]) sections[4].textContent = pt('hubModuleWarehouse');
 }

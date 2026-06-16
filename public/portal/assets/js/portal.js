@@ -58,14 +58,7 @@ async function loadUserProfile() {
         document.getElementById('userRoleBadge').textContent = portalUser.role;
         document.getElementById('userAvatar').textContent = getInitials(portalUser.name || portalUser.email);
 
-        // Show manager menu for spravca and admin
-        if (portalUser.role === 'spravca' || portalUser.role === 'admin') {
-            document.getElementById('managerNav').style.display = 'block';
-        }
-        // Show admin-only menu for admin
-        if (portalUser.role === 'admin') {
-            document.getElementById('adminNav').style.display = 'block';
-        }
+        // Note: module/role-based sidebar visibility handled by applyModulePreset()
         return true;
     } catch (error) {
         console.error('Failed to load profile:', error);
@@ -97,6 +90,41 @@ function setupNavigation() {
     });
 }
 
+// Map each page to its parent module
+const PAGE_MODULE = {
+    'dashboard': 'hr', 'my-quotas': 'hr', 'my-sick-notes': 'hr',
+    'my-requests': 'hr', 'my-approvals': 'hr',
+    'admin-employees': 'hr', 'admin-quotas': 'hr', 'admin-sick-notes': 'hr',
+    'admin-tickets': 'hr', 'admin-dashboard': 'hr', 'admin-ticket-types': 'hr',
+    'admin-system': 'hr',
+    'admin-fleet': 'fleet'
+};
+
+/**
+ * Show only the sidebar block for the given module, role-gated.
+ */
+function applyModulePreset(module) {
+    // Hide all module nav blocks
+    ['hrNav', 'fleetNav', 'warehouseNav'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+
+    if (module === 'hr') {
+        document.getElementById('hrNav').style.display = 'block';
+        // Role-gate HR admin sub-sections
+        const role = portalUser?.role;
+        document.getElementById('managerNav').style.display =
+            (role === 'spravca' || role === 'admin') ? 'block' : 'none';
+        document.getElementById('adminNav').style.display =
+            (role === 'admin') ? 'block' : 'none';
+    } else if (module === 'fleet') {
+        document.getElementById('fleetNav').style.display = 'block';
+    } else if (module === 'warehouse') {
+        document.getElementById('warehouseNav').style.display = 'block';
+    }
+}
+
 function navigateToPage(page) {
     if (!page) page = 'hub';
 
@@ -105,7 +133,13 @@ function navigateToPage(page) {
 
     if (page.startsWith('admin-')) {
         const userRole = portalUser?.role;
-        if (userRole === 'admin') {
+        // Fleet is its own module - admin only
+        if (page === 'admin-fleet') {
+            if (userRole !== 'admin') {
+                showToast(pt('accessDenied'), 'error');
+                return;
+            }
+        } else if (userRole === 'admin') {
             // Admin has full access
         } else if (userRole === 'spravca' && spravcaPages.includes(page)) {
             // Spravca has limited access
@@ -120,6 +154,11 @@ function navigateToPage(page) {
 
     // Toggle hub layout (hide sidebar on hub page)
     document.body.classList.toggle('hub-active', page === 'hub');
+
+    // Apply the sidebar preset for this page's module
+    if (page !== 'hub') {
+        applyModulePreset(PAGE_MODULE[page] || 'hr');
+    }
 
     document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
     const activeLink = document.querySelector(`[data-page="${page}"]`);

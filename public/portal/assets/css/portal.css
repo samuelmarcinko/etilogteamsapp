@@ -1919,6 +1919,20 @@ body {
   color: var(--gray-900);
 }
 
+/* Back-to-modules link in sidebar */
+.nav-back {
+  margin-bottom: 0.75rem;
+  color: var(--gray-500) !important;
+  font-size: 0.85rem;
+  border-bottom: 1px solid var(--gray-200);
+  padding-bottom: 0.75rem;
+  border-radius: 0;
+}
+.nav-back:hover {
+  color: var(--etilog-red) !important;
+  background: transparent !important;
+}
+
 /* Hide sidebar on hub page */
 body.hub-active .sidebar,
 body.hub-active .mobile-toggle {
