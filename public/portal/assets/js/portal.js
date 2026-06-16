@@ -1358,7 +1358,7 @@ async function renderAdminEmployees(container) {
                                     ${portalUser?.role === 'admin' ? `<td>
                                         <div class="table-actions">
                                             <button class="btn-icon" onclick="toggleEmployeeVisibility('${e.id}', ${e.hidden})" title="${e.hidden ? pt('showUserTitle') : pt('hideUserTitle')}">${e.hidden ? '&#128065;' : '&#128683;'}</button>
-                                            <button class="btn-icon" onclick="openChangeRoleModal('${e.id}', '${e.role}', '${e.name.replace(/'/g, "\\'")}')" title="${pt('changeRoleTitle')}">${e.role === 'admin' ? '&#128081;' : e.role === 'spravca' ? '&#128188;' : '&#128100;'}</button>
+                                            <button class="btn-icon" onclick="openChangeRoleModal('${e.id}', '${e.role}', '${e.name.replace(/'/g, "\\'")}')" title="${pt('changeRoleTitle')}">${e.role === 'admin' ? '&#128081;' : e.role === 'spravca' ? '&#128188;' : e.role === 'sklad' ? '&#128230;' : '&#128100;'}</button>
                                         </div>
                                     </td>` : ''}
                                 </tr>
@@ -1420,6 +1420,7 @@ function openChangeRoleModal(userId, currentRole, userName) {
             <select id="roleSelect" class="form-control" style="margin-top: 0.5rem;">
                 <option value="user" ${currentRole === 'user' ? 'selected' : ''}>${pt('roleUser')}</option>
                 <option value="spravca" ${currentRole === 'spravca' ? 'selected' : ''}>${pt('roleSpravca')}</option>
+                <option value="sklad" ${currentRole === 'sklad' ? 'selected' : ''}>${pt('roleSklad')}</option>
                 <option value="admin" ${currentRole === 'admin' ? 'selected' : ''}>${pt('roleAdmin')}</option>
             </select>
         </div>
