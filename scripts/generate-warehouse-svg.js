@@ -210,6 +210,14 @@ function drawHorizontalBand(zone, y, h, sections, pillars, blocked) {
   // Zone background with rounded corners
   p(`    <rect x="${mainX0 - 6}" y="${y - 2}" width="${mainW + 12}" height="${h + 4}" fill="url(#grad-${zone})" stroke="${z.stroke}" stroke-width="2" rx="10"/>`);
 
+  // Reserve a top header strip for the zone label (like zone D), so cells
+  // start BELOW it and the badge never overlaps pallet locations.
+  const headerH = 32;
+  const cellsY = y + headerH;
+  const cellsH = h - headerH - 6;
+  const cellMid = cellsY + cellsH / 2;
+  const numY = cellsY + 16;
+
   // Calculate cell width
   const totalCells = sections.reduce((a, s) => a + (s.to - s.from + 1), 0);
   const corridorsBetween = sections.length - 1;
@@ -227,10 +235,10 @@ function drawHorizontalBand(zone, y, h, sections, pillars, blocked) {
       if (bk) {
         // Unused spot with pillar + first aid
         p(`      <g class="blocked-spot">`);
-        p(`        <rect x="${x}" y="${y + 4}" width="${blockedW}" height="${h - 8}" rx="4" fill="url(#hatch-blocked)" stroke="#94a3b8" stroke-width="1.2"/>`);
-        p(`        <rect x="${x + blockedW/2 - 5}" y="${y + h/2 - 18}" width="10" height="10" rx="2" fill="#64748b"/>`);
+        p(`        <rect x="${x}" y="${cellsY}" width="${blockedW}" height="${cellsH}" rx="4" fill="url(#hatch-blocked)" stroke="#94a3b8" stroke-width="1.2"/>`);
+        p(`        <rect x="${x + blockedW/2 - 5}" y="${cellMid - 18}" width="10" height="10" rx="2" fill="#64748b"/>`);
         // First aid cross
-        const fax = x + blockedW/2, fay = y + h/2 + 6;
+        const fax = x + blockedW/2, fay = cellMid + 6;
         p(`        <rect x="${fax - 8}" y="${fay - 8}" width="16" height="16" rx="3" fill="#dc2626"/>`);
         p(`        <rect x="${fax - 1.5}" y="${fay - 5}" width="3" height="10" fill="#fff"/>`);
         p(`        <rect x="${fax - 5}" y="${fay - 1.5}" width="10" height="3" fill="#fff"/>`);
@@ -241,25 +249,25 @@ function drawHorizontalBand(zone, y, h, sections, pillars, blocked) {
       // Regular cell
       const hasPillar = pillars && pillars.includes(n);
       p(`      <g class="loc-group">`);
-      p(`        <rect id="loc-${zone}-${pad(n)}" class="pallet-loc" data-zone="${zone}" data-num="${n}" x="${x + 1}" y="${y + 4}" width="${cw - 2}" height="${h - 8}" rx="4" fill="${z.fill}" stroke="${z.stroke}" stroke-width="1.2"/>`);
-      p(`        <text x="${x + cw/2}" y="${y + 20}" text-anchor="middle" font-family="${FONT}" font-size="13" font-weight="700" fill="${z.text}" pointer-events="none">${n}</text>`);
+      p(`        <rect id="loc-${zone}-${pad(n)}" class="pallet-loc" data-zone="${zone}" data-num="${n}" x="${x + 1}" y="${cellsY}" width="${cw - 2}" height="${cellsH}" rx="4" fill="${z.fill}" stroke="${z.stroke}" stroke-width="1.2"/>`);
+      p(`        <text x="${x + cw/2}" y="${numY}" text-anchor="middle" font-family="${FONT}" font-size="13" font-weight="700" fill="${z.text}" pointer-events="none">${n}</text>`);
       if (hasPillar) {
-        p(`        <rect class="pillar" x="${x + cw/2 - 5}" y="${y + h/2 - 2}" width="10" height="10" rx="2" fill="#64748b" stroke="#475569" stroke-width="0.8"/>`);
+        p(`        <rect class="pillar" x="${x + cw/2 - 5}" y="${cellMid - 2}" width="10" height="10" rx="2" fill="#64748b" stroke="#475569" stroke-width="0.8"/>`);
       }
       p(`      </g>`);
       x += cw;
     }
     // Inner corridor between sections
     if (si < sections.length - 1) {
-      p(`      <rect x="${x + 2}" y="${y + 4}" width="${innerCorridorW - 4}" height="${h - 8}" fill="url(#hatch-corridor)" stroke="#22d3ee" stroke-width="1" stroke-dasharray="5,3" rx="4"/>`);
+      p(`      <rect x="${x + 2}" y="${cellsY}" width="${innerCorridorW - 4}" height="${cellsH}" fill="url(#hatch-corridor)" stroke="#22d3ee" stroke-width="1" stroke-dasharray="5,3" rx="4"/>`);
       x += innerCorridorW;
     }
   });
 
-  // Zone label badge (inside zone, centered horizontally, top with padding like D)
-  const blx = mainX0 + mainW / 2, bly = y + 22;
-  p(`    <rect x="${blx - 22}" y="${bly - 16}" width="44" height="28" rx="14" fill="${z.stroke}" filter="url(#shadow-sm)"/>`);
-  p(`    <text x="${blx}" y="${bly + 5}" text-anchor="middle" font-family="${FONT}" font-size="17" font-weight="900" fill="#ffffff">${zone}</text>`);
+  // Zone label badge centered in the top header strip (own space, no overlap)
+  const blx = mainX0 + mainW / 2, bcy = y - 2 + headerH / 2;
+  p(`    <rect x="${blx - 22}" y="${bcy - 14}" width="44" height="28" rx="14" fill="${z.stroke}" filter="url(#shadow-sm)"/>`);
+  p(`    <text x="${blx}" y="${bcy + 5}" text-anchor="middle" font-family="${FONT}" font-size="17" font-weight="900" fill="#ffffff">${zone}</text>`);
 
   p(`  </g>`);
 }
