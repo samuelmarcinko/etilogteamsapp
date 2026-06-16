@@ -2034,3 +2034,76 @@ body.hub-active .portal-lang-switcher {
   border-radius: 999px;
 }
 .wh-search-empty { padding: 0.85rem; color: #94a3b8; text-align: center; }
+
+/* Filter bar */
+.wh-filter-bar {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+@media (max-width: 768px) {
+  .wh-filter-bar { flex-direction: column; }
+  .wh-filter-bar > * { flex: 1 1 100% !important; }
+}
+
+/* Location badge */
+.wh-loc-badge {
+  display: inline-block;
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: #0891b2;
+  background: #ecfeff;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+}
+
+/* Location picker map (in modal) */
+.wh-picker-map {
+  margin-top: 0.75rem;
+  border: 1px solid var(--gray-200, #e2e8f0);
+  border-radius: 8px;
+  background: #f8fafc;
+  max-height: 320px;
+  overflow: auto;
+}
+.wh-picker-map svg {
+  width: 100%;
+  height: auto;
+  min-width: 700px;
+}
+.wh-picker-map .pallet-loc.selected {
+  fill: #fbbf24 !important;
+  stroke: #d97706 !important;
+  stroke-width: 3px;
+}
+
+/* Location picker row */
+.wh-loc-picker {
+  display: flex;
+  gap: 0.5rem;
+}
+.wh-loc-picker input { flex: 1; }
+
+/* Form row for inline fields */
+.form-row {
+  display: flex;
+  gap: 1rem;
+}
+@media (max-width: 480px) {
+  .form-row { flex-direction: column; gap: 0; }
+}
+
+/* Audit action badges */
+.badge-created { background: #dcfce7; color: #166534; }
+.badge-updated { background: #dbeafe; color: #1e40af; }
+.badge-deleted { background: #fee2e2; color: #991b1b; }
+.badge-moved { background: #fef3c7; color: #92400e; }
+
+/* Highlight pulse */
+.pallet-loc.highlight {
+  animation: whPulse 1s ease-in-out infinite;
+}
+@keyframes whPulse {
+  0%, 100% { fill: #fbbf24; stroke-width: 2px; }
+  50% { fill: #fde68a; stroke-width: 4px; }
+}

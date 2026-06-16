@@ -3399,29 +3399,338 @@ function clearMapHighlights() {
     document.querySelectorAll('#whMap .pallet-loc.highlight').forEach(el => el.classList.remove('highlight'));
 }
 
-// --- Placeholder pages (implemented in later phases) ---
+// --- Materials CRUD (Fáza 4) ---
+let whCategories = [];
+let whMaterialsList = [];
+let whAllLocations = [];
+let whSelectedLocationId = null;
+
 async function renderWarehouseMaterials(container) {
     container.innerHTML = `
-        <div class="page-header"><div><h1>${pt('whMaterialsTitle')}</h1><p>${pt('whMaterialsDesc')}</p></div></div>
-        <div class="page-body"><div class="portal-card"><div class="card-body">
-            <div class="empty-state"><div class="empty-icon">&#128679;</div><div class="empty-text">${pt('whComingSoon')}</div></div>
-        </div></div></div>`;
+        <div class="page-header">
+            <div><h1>${pt('whMaterialsTitle')}</h1><p>${pt('whMaterialsDesc')}</p></div>
+            <button class="btn btn-primary" onclick="openMaterialModal()">+ ${pt('whAddMaterial')}</button>
+        </div>
+        <div class="page-body">
+            <div class="portal-card">
+                <div class="card-body">
+                    <div class="wh-filter-bar">
+                        <input type="text" id="whMatSearch" class="form-control" placeholder="${pt('whSearchPlaceholder')}" style="flex:2;">
+                        <select id="whMatCategory" class="form-control" style="flex:1;"><option value="">${pt('whAllCategories')}</option></select>
+                        <select id="whMatZone" class="form-control" style="flex:1;">
+                            <option value="">${pt('whAllZones')}</option>
+                            <option value="MINI">MINI</option><option value="D">D</option><option value="A">A</option><option value="B">B</option><option value="C">C</option>
+                        </select>
+                        <button class="btn btn-secondary" onclick="loadMaterialsTable()">${pt('whFilter')}</button>
+                    </div>
+                </div>
+            </div>
+            <div class="portal-card">
+                <div class="card-body">
+                    <div id="whMaterialsTable"><div class="empty-state"><div class="spinner"></div></div></div>
+                </div>
+            </div>
+        </div>
+    `;
+    // Load categories for filter + modal
+    try {
+        const catRes = await apiCall('/api/warehouse/categories');
+        whCategories = (await catRes.json()).data || [];
+        const catSel = document.getElementById('whMatCategory');
+        if (catSel) whCategories.forEach(c => {
+            const opt = document.createElement('option'); opt.value = c.id; opt.textContent = c.name; catSel.appendChild(opt);
+        });
+    } catch (e) { console.error('wh cats', e); }
+    // Load locations for map picker
+    try {
+        const locRes = await apiCall('/api/warehouse/locations');
+        whAllLocations = (await locRes.json()).data || [];
+    } catch (e) { console.error('wh locs', e); }
+    // Wire search
+    const searchEl = document.getElementById('whMatSearch');
+    if (searchEl) searchEl.addEventListener('keyup', e => { if (e.key === 'Enter') loadMaterialsTable(); });
+    await loadMaterialsTable();
 }
 
+async function loadMaterialsTable() {
+    const tableEl = document.getElementById('whMaterialsTable');
+    if (!tableEl) return;
+    const search = document.getElementById('whMatSearch')?.value || '';
+    const category = document.getElementById('whMatCategory')?.value || '';
+    const zone = document.getElementById('whMatZone')?.value || '';
+    let url = '/api/warehouse/materials?';
+    if (search) url += `search=${encodeURIComponent(search)}&`;
+    if (category) url += `category_id=${category}&`;
+    if (zone) url += `zone=${zone}&`;
+    try {
+        const res = await apiCall(url);
+        whMaterialsList = (await res.json()).data || [];
+        if (whMaterialsList.length === 0) {
+            tableEl.innerHTML = `<div class="empty-state"><div class="empty-icon">&#128230;</div><div class="empty-text">${pt('whMaterialsEmpty')}</div></div>`;
+            return;
+        }
+        tableEl.innerHTML = `
+            <table class="data-table">
+                <thead><tr>
+                    <th>${pt('whColCode')}</th><th>${pt('whColName')}</th><th>${pt('whColQty')}</th>
+                    <th>${pt('whColLocation')}</th><th>${pt('whColCategory')}</th><th>${pt('colActions')}</th>
+                </tr></thead>
+                <tbody>
+                    ${whMaterialsList.map(m => `
+                        <tr>
+                            <td><strong>${escapeHtml(m.code)}</strong></td>
+                            <td>${escapeHtml(m.name)}${m.description ? `<br><small style="color:#64748b">${escapeHtml(m.description.substring(0,60))}${m.description.length > 60 ? '...' : ''}</small>` : ''}</td>
+                            <td>${m.quantity} ${escapeHtml(m.unit || 'ks')}</td>
+                            <td>${m.location_code ? `<span class="wh-loc-badge">${escapeHtml(m.location_code)}</span>` : `<em style="color:#94a3b8">${pt('whNoLocation')}</em>`}</td>
+                            <td>${m.category_name ? `<span class="badge" style="background:${m.category_color || '#e2e8f0'}22;color:${m.category_color || '#475569'}">${escapeHtml(m.category_name)}</span>` : '-'}</td>
+                            <td>
+                                <div class="table-actions">
+                                    <button class="btn-icon" onclick="openMaterialModal(${m.id})" title="${pt('edit')}">&#9998;</button>
+                                    <button class="btn-icon" onclick="openMoveModal(${m.id}, '${escapeHtml(m.code)}')" title="${pt('whMove')}">&#128257;</button>
+                                    <button class="btn-icon" onclick="deleteMaterial(${m.id}, '${escapeHtml(m.code)}')" title="${pt('delete')}">&#128465;</button>
+                                </div>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    } catch (e) {
+        console.error('wh materials', e);
+        tableEl.innerHTML = `<div class="empty-state"><div class="empty-text">${pt('pageLoadError')}</div></div>`;
+    }
+}
+
+// --- Material modal (create / edit) ---
+async function openMaterialModal(materialId = null) {
+    const isEdit = !!materialId;
+    let mat = null;
+    if (isEdit) {
+        try {
+            const res = await apiCall(`/api/warehouse/materials/${materialId}`);
+            mat = (await res.json()).data;
+        } catch (e) { showToast(pt('pageLoadError'), 'error'); return; }
+    }
+    whSelectedLocationId = mat?.location_id || null;
+
+    document.getElementById('modalTitle').textContent = isEdit ? pt('whEditMaterial') : pt('whAddMaterial');
+    document.getElementById('modalBody').innerHTML = `
+        <div class="form-group"><label>${pt('whColCode')} *</label><input type="text" id="matCode" class="form-control" value="${mat ? escapeHtml(mat.code) : ''}" required></div>
+        <div class="form-group"><label>${pt('whColName')} *</label><input type="text" id="matName" class="form-control" value="${mat ? escapeHtml(mat.name) : ''}"></div>
+        <div class="form-group"><label>${pt('whDescription')}</label><textarea id="matDesc" class="form-control" rows="2">${mat ? escapeHtml(mat.description || '') : ''}</textarea></div>
+        <div class="form-row">
+            <div class="form-group" style="flex:1"><label>${pt('whColQty')}</label><input type="number" id="matQty" class="form-control" min="0" value="${mat ? mat.quantity : 1}"></div>
+            <div class="form-group" style="flex:1"><label>${pt('whUnit')}</label><input type="text" id="matUnit" class="form-control" value="${mat ? escapeHtml(mat.unit || 'ks') : 'ks'}"></div>
+        </div>
+        <div class="form-group">
+            <label>${pt('whColCategory')}</label>
+            <select id="matCategory" class="form-control">
+                <option value="">— ${pt('whNoCategory')} —</option>
+                ${whCategories.map(c => `<option value="${c.id}" ${mat && mat.category_id == c.id ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>${pt('whColLocation')}</label>
+            <div class="wh-loc-picker">
+                <input type="text" id="matLocDisplay" class="form-control" readonly placeholder="${pt('whClickMap')}" value="${mat?.location_code || ''}">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="toggleLocPicker()">${pt('whPickLocation')}</button>
+            </div>
+            <div id="whLocPickerMap" class="wh-picker-map" style="display:none;"></div>
+        </div>
+    `;
+    document.getElementById('modalFooter').innerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
+        <button class="btn btn-primary" onclick="saveMaterial(${materialId || 'null'})">${pt('save')}</button>
+    `;
+    openModal();
+}
+
+async function toggleLocPicker() {
+    const mapEl = document.getElementById('whLocPickerMap');
+    if (!mapEl) return;
+    if (mapEl.style.display === 'none') {
+        mapEl.style.display = 'block';
+        if (!mapEl.innerHTML || mapEl.innerHTML.trim() === '') {
+            const svgText = await fetch('/portal/assets/images/warehouse-map.svg').then(r => r.text());
+            mapEl.innerHTML = svgText;
+            mapEl.querySelectorAll('.pallet-loc').forEach(el => {
+                const zone = el.dataset.zone, num = el.dataset.num;
+                const loc = whAllLocations.find(l => l.zone === zone && l.position == num);
+                if (loc) {
+                    el.style.cursor = 'pointer';
+                    el.addEventListener('click', () => selectLocation(loc));
+                }
+            });
+        }
+    } else {
+        mapEl.style.display = 'none';
+    }
+}
+
+function selectLocation(loc) {
+    whSelectedLocationId = loc.id;
+    const disp = document.getElementById('matLocDisplay');
+    if (disp) disp.value = loc.code;
+    document.getElementById('whLocPickerMap').style.display = 'none';
+    showToast(`${pt('whLocationSelected')}: ${loc.code}`, 'success');
+}
+
+async function saveMaterial(materialId) {
+    const code = document.getElementById('matCode')?.value.trim();
+    const name = document.getElementById('matName')?.value.trim();
+    if (!code || !name) { showToast(pt('whRequiredFields'), 'error'); return; }
+    const body = {
+        code, name,
+        description: document.getElementById('matDesc')?.value || null,
+        quantity: parseInt(document.getElementById('matQty')?.value, 10) || 0,
+        unit: document.getElementById('matUnit')?.value || 'ks',
+        category_id: document.getElementById('matCategory')?.value || null,
+        location_id: whSelectedLocationId
+    };
+    try {
+        const url = materialId ? `/api/warehouse/materials/${materialId}` : '/api/warehouse/materials';
+        const method = materialId ? 'PUT' : 'POST';
+        const res = await apiCall(url, { method, body: JSON.stringify(body) });
+        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+        showToast(materialId ? pt('whMaterialUpdated') : pt('whMaterialCreated'), 'success');
+        closeModal();
+        await loadMaterialsTable();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+// --- Move / relocate modal ---
+async function openMoveModal(materialId, code) {
+    whSelectedLocationId = null;
+    document.getElementById('modalTitle').textContent = `${pt('whMove')}: ${code}`;
+    document.getElementById('modalBody').innerHTML = `
+        <p>${pt('whMoveInstructions')}</p>
+        <div id="whMovePickerMap" class="wh-picker-map" style="display:block;max-height:400px;overflow:auto;"></div>
+        <div class="form-group" style="margin-top:1rem;">
+            <label>${pt('whMoveReason')}</label>
+            <input type="text" id="moveReason" class="form-control" placeholder="${pt('whMoveReasonPlaceholder')}">
+        </div>
+        <input type="hidden" id="moveMatId" value="${materialId}">
+    `;
+    document.getElementById('modalFooter').innerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
+        <button class="btn btn-primary" onclick="submitMove()">${pt('whMoveConfirm')}</button>
+    `;
+    openModal();
+    // Load map
+    const mapEl = document.getElementById('whMovePickerMap');
+    const svgText = await fetch('/portal/assets/images/warehouse-map.svg').then(r => r.text());
+    mapEl.innerHTML = svgText;
+    mapEl.querySelectorAll('.pallet-loc').forEach(el => {
+        const zone = el.dataset.zone, num = el.dataset.num;
+        const loc = whAllLocations.find(l => l.zone === zone && l.position == num);
+        if (loc) {
+            el.style.cursor = 'pointer';
+            el.addEventListener('click', () => {
+                mapEl.querySelectorAll('.pallet-loc.selected').forEach(s => s.classList.remove('selected'));
+                el.classList.add('selected');
+                whSelectedLocationId = loc.id;
+            });
+        }
+    });
+}
+
+async function submitMove() {
+    const materialId = document.getElementById('moveMatId')?.value;
+    if (!whSelectedLocationId) { showToast(pt('whSelectLocation'), 'error'); return; }
+    const reason = document.getElementById('moveReason')?.value || null;
+    try {
+        const res = await apiCall(`/api/warehouse/materials/${materialId}/move`, {
+            method: 'PATCH', body: JSON.stringify({ to_location_id: whSelectedLocationId, reason })
+        });
+        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+        showToast(pt('whMaterialMoved'), 'success');
+        closeModal();
+        await loadMaterialsTable();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+// --- Delete ---
+async function deleteMaterial(id, code) {
+    if (!confirm(`${pt('whDeleteConfirm')} "${code}"?`)) return;
+    try {
+        const res = await apiCall(`/api/warehouse/materials/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed');
+        showToast(pt('whMaterialDeleted'), 'success');
+        await loadMaterialsTable();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+// --- Movements page ---
 async function renderWarehouseMovements(container) {
     container.innerHTML = `
         <div class="page-header"><div><h1>${pt('whMovementsTitle')}</h1><p>${pt('whMovementsDesc')}</p></div></div>
-        <div class="page-body"><div class="portal-card"><div class="card-body">
-            <div class="empty-state"><div class="empty-icon">&#128679;</div><div class="empty-text">${pt('whComingSoon')}</div></div>
+        <div class="page-body"><div class="portal-card"><div class="card-body" id="whMovementsTable">
+            <div class="empty-state"><div class="spinner"></div></div>
         </div></div></div>`;
+    try {
+        const res = await apiCall('/api/warehouse/movements');
+        const movements = (await res.json()).data || [];
+        const tableEl = document.getElementById('whMovementsTable');
+        if (movements.length === 0) {
+            tableEl.innerHTML = `<div class="empty-state"><div class="empty-icon">&#128257;</div><div class="empty-text">${pt('whMovementsEmpty')}</div></div>`;
+            return;
+        }
+        tableEl.innerHTML = `
+            <table class="data-table">
+                <thead><tr><th>${pt('whColDate')}</th><th>${pt('whColMaterial')}</th><th>${pt('whColFrom')}</th><th>${pt('whColTo')}</th><th>${pt('whColUser')}</th><th>${pt('whColReason')}</th></tr></thead>
+                <tbody>
+                    ${movements.map(m => `
+                        <tr>
+                            <td>${formatDate(m.moved_at)}</td>
+                            <td><strong>${escapeHtml(m.material_code || '-')}</strong><br><small>${escapeHtml(m.material_name || '')}</small></td>
+                            <td>${m.from_code ? `<span class="wh-loc-badge">${escapeHtml(m.from_code)}</span>` : '-'}</td>
+                            <td>${m.to_code ? `<span class="wh-loc-badge">${escapeHtml(m.to_code)}</span>` : '-'}</td>
+                            <td>${escapeHtml(m.moved_by_name || '-')}</td>
+                            <td>${escapeHtml(m.reason || '-')}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    } catch (e) {
+        document.getElementById('whMovementsTable').innerHTML = `<div class="empty-state"><div class="empty-text">${pt('pageLoadError')}</div></div>`;
+    }
 }
 
+// --- Audit page (admin only) ---
 async function renderWarehouseAudit(container) {
     container.innerHTML = `
         <div class="page-header"><div><h1>${pt('whAuditTitle')}</h1><p>${pt('whAuditDesc')}</p></div></div>
-        <div class="page-body"><div class="portal-card"><div class="card-body">
-            <div class="empty-state"><div class="empty-icon">&#128679;</div><div class="empty-text">${pt('whComingSoon')}</div></div>
+        <div class="page-body"><div class="portal-card"><div class="card-body" id="whAuditTable">
+            <div class="empty-state"><div class="spinner"></div></div>
         </div></div></div>`;
+    try {
+        const res = await apiCall('/api/warehouse/audit');
+        const logs = (await res.json()).data || [];
+        const tableEl = document.getElementById('whAuditTable');
+        if (logs.length === 0) {
+            tableEl.innerHTML = `<div class="empty-state"><div class="empty-icon">&#128203;</div><div class="empty-text">${pt('whAuditEmpty')}</div></div>`;
+            return;
+        }
+        tableEl.innerHTML = `
+            <table class="data-table">
+                <thead><tr><th>${pt('whColDate')}</th><th>${pt('whColUser')}</th><th>${pt('whColAction')}</th><th>${pt('whColEntity')}</th><th>${pt('whColDetails')}</th></tr></thead>
+                <tbody>
+                    ${logs.map(l => `
+                        <tr>
+                            <td>${formatDate(l.created_at)}</td>
+                            <td>${escapeHtml(l.user_name || '-')}</td>
+                            <td><span class="badge badge-${l.action}">${l.action}</span></td>
+                            <td>${l.entity} #${l.entity_id || '-'}</td>
+                            <td><small>${l.details ? escapeHtml(JSON.stringify(l.details).substring(0, 60)) : '-'}</small></td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    } catch (e) {
+        document.getElementById('whAuditTable').innerHTML = `<div class="empty-state"><div class="empty-text">${pt('pageLoadError')}</div></div>`;
+    }
 }
 
 // ============================================
