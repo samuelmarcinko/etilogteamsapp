@@ -3196,6 +3196,9 @@ function closeModal(eventOrElement) {
 
     // Handle standard modal overlay
     document.getElementById('modalOverlay').classList.remove('active');
+    // Reset any size modifiers applied by specific modals
+    const modalEl = document.getElementById('modal');
+    if (modalEl) modalEl.classList.remove('modal-xl');
 }
 
 // ============================================
@@ -3224,16 +3227,13 @@ async function renderWarehouseDashboard(container) {
             </div>
 
             <div class="portal-card">
-                <div class="card-body">
+                <div class="card-header wh-map-head">
+                    <h2>${pt('whMapTitle')}</h2>
                     <div class="wh-search-wrap">
                         <input type="text" id="whDashSearch" class="form-control wh-search-input" placeholder="${pt('whSearchPlaceholder')}" autocomplete="off">
                         <div class="wh-search-results" id="whDashResults"></div>
                     </div>
                 </div>
-            </div>
-
-            <div class="portal-card">
-                <div class="card-header"><h2>${pt('whMapTitle')}</h2></div>
                 <div class="card-body">
                     <div class="wh-map-container" id="whMap">
                         <div class="empty-state"><div class="spinner"></div></div>
@@ -3513,14 +3513,15 @@ async function openMaterialModal(materialId = null) {
     }
     whSelectedLocationId = mat?.location_id || null;
 
+    document.getElementById('modal').classList.add('modal-xl');
     document.getElementById('modalTitle').textContent = isEdit ? pt('whEditMaterial') : pt('whAddMaterial');
     document.getElementById('modalBody').innerHTML = `
         <div class="form-group"><label>${pt('whColCode')} *</label><input type="text" id="matCode" class="form-control" value="${mat ? escapeHtml(mat.code) : ''}" required></div>
         <div class="form-group"><label>${pt('whColName')} *</label><input type="text" id="matName" class="form-control" value="${mat ? escapeHtml(mat.name) : ''}"></div>
         <div class="form-group"><label>${pt('whDescription')}</label><textarea id="matDesc" class="form-control" rows="2">${mat ? escapeHtml(mat.description || '') : ''}</textarea></div>
         <div class="form-row">
-            <div class="form-group" style="flex:1"><label>${pt('whColQty')}</label><input type="number" id="matQty" class="form-control" min="0" value="${mat ? mat.quantity : 1}"></div>
-            <div class="form-group" style="flex:1"><label>${pt('whUnit')}</label><input type="text" id="matUnit" class="form-control" value="${mat ? escapeHtml(mat.unit || 'ks') : 'ks'}"></div>
+            <div class="form-group"><label>${pt('whColQty')}</label><input type="number" id="matQty" class="form-control" min="0" value="${mat ? mat.quantity : 1}"></div>
+            <div class="form-group"><label>${pt('whUnit')}</label><input type="text" id="matUnit" class="form-control" value="${mat ? escapeHtml(mat.unit || 'ks') : 'ks'}"></div>
         </div>
         <div class="form-group">
             <label>${pt('whColCategory')}</label>
@@ -3533,9 +3534,8 @@ async function openMaterialModal(materialId = null) {
             <label>${pt('whColLocation')}</label>
             <div class="wh-loc-picker">
                 <input type="text" id="matLocDisplay" class="form-control" readonly placeholder="${pt('whClickMap')}" value="${mat?.location_code || ''}">
-                <button type="button" class="btn btn-secondary btn-sm" onclick="toggleLocPicker()">${pt('whPickLocation')}</button>
+                <button type="button" class="btn btn-secondary" onclick="openMaterialLocPicker()">&#128506; ${pt('whPickLocation')}</button>
             </div>
-            <div id="whLocPickerMap" class="wh-picker-map" style="display:none;"></div>
         </div>
     `;
     document.getElementById('modalFooter').innerHTML = `
@@ -3545,34 +3545,74 @@ async function openMaterialModal(materialId = null) {
     openModal();
 }
 
-async function toggleLocPicker() {
-    const mapEl = document.getElementById('whLocPickerMap');
-    if (!mapEl) return;
-    if (mapEl.style.display === 'none') {
-        mapEl.style.display = 'block';
-        if (!mapEl.innerHTML || mapEl.innerHTML.trim() === '') {
-            const svgText = await fetch('/portal/assets/images/warehouse-map.svg').then(r => r.text());
-            mapEl.innerHTML = svgText;
-            mapEl.querySelectorAll('.pallet-loc').forEach(el => {
-                const zone = el.dataset.zone, num = el.dataset.num;
-                const loc = whAllLocations.find(l => l.zone === zone && l.position == num);
-                if (loc) {
-                    el.style.cursor = 'pointer';
-                    el.addEventListener('click', () => selectLocation(loc));
-                }
-            });
+// Open fullscreen picker for the material modal location field
+function openMaterialLocPicker() {
+    openMapPickerFS({
+        title: pt('whPickLocation'),
+        selectedId: whSelectedLocationId,
+        onSelect: (loc) => {
+            whSelectedLocationId = loc.id;
+            const disp = document.getElementById('matLocDisplay');
+            if (disp) disp.value = loc.code;
+            showToast(`${pt('whLocationSelected')}: ${loc.code}`, 'success');
         }
-    } else {
-        mapEl.style.display = 'none';
-    }
+    });
 }
 
-function selectLocation(loc) {
-    whSelectedLocationId = loc.id;
-    const disp = document.getElementById('matLocDisplay');
-    if (disp) disp.value = loc.code;
-    document.getElementById('whLocPickerMap').style.display = 'none';
-    showToast(`${pt('whLocationSelected')}: ${loc.code}`, 'success');
+// ===== Reusable fullscreen map picker =====
+async function openMapPickerFS({ title, selectedId = null, onSelect }) {
+    let chosen = null;
+    const overlay = document.createElement('div');
+    overlay.className = 'wh-map-fs';
+    overlay.innerHTML = `
+        <div class="wh-map-fs-panel">
+            <div class="wh-map-fs-header">
+                <h3>${title || pt('whPickLocation')}</h3>
+                <span class="wh-map-fs-hint">${pt('whClickMap')}</span>
+                <button class="modal-close" type="button" aria-label="close">&times;</button>
+            </div>
+            <div class="wh-map-fs-body"><div class="empty-state"><div class="spinner"></div></div></div>
+            <div class="wh-map-fs-footer">
+                <span class="wh-map-fs-selected" id="whFsSelected">—</span>
+                <div>
+                    <button class="btn btn-secondary" type="button" id="whFsCancel">${pt('cancel')}</button>
+                    <button class="btn btn-primary" type="button" id="whFsConfirm">${pt('whConfirmSelection')}</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.remove();
+    overlay.querySelector('.modal-close').addEventListener('click', close);
+    overlay.querySelector('#whFsCancel').addEventListener('click', close);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    overlay.querySelector('#whFsConfirm').addEventListener('click', () => {
+        if (!chosen) { showToast(pt('whSelectLocation'), 'error'); return; }
+        onSelect(chosen);
+        close();
+    });
+
+    const body = overlay.querySelector('.wh-map-fs-body');
+    try {
+        const svgText = await fetch('/portal/assets/images/warehouse-map.svg').then(r => r.text());
+        body.innerHTML = svgText;
+        body.querySelectorAll('.pallet-loc').forEach(el => {
+            const zone = el.dataset.zone, num = el.dataset.num;
+            const loc = whAllLocations.find(l => l.zone === zone && l.position == num);
+            if (!loc) return;
+            if (selectedId && loc.id === selectedId) { el.classList.add('selected'); chosen = loc; overlay.querySelector('#whFsSelected').textContent = loc.code; }
+            el.addEventListener('click', () => {
+                body.querySelectorAll('.pallet-loc.selected').forEach(s => s.classList.remove('selected'));
+                el.classList.add('selected');
+                chosen = loc;
+                overlay.querySelector('#whFsSelected').textContent = loc.code;
+            });
+            el.addEventListener('dblclick', () => { chosen = loc; onSelect(loc); close(); });
+        });
+    } catch (e) {
+        body.innerHTML = `<div class="empty-state"><div class="empty-text">${pt('pageLoadError')}</div></div>`;
+    }
 }
 
 async function saveMaterial(materialId) {
@@ -3601,11 +3641,21 @@ async function saveMaterial(materialId) {
 // --- Move / relocate modal ---
 async function openMoveModal(materialId, code) {
     whSelectedLocationId = null;
+    // Ensure locations loaded (e.g. when opened straight from dashboard)
+    if (!whAllLocations.length) {
+        try { const r = await apiCall('/api/warehouse/locations'); whAllLocations = (await r.json()).data || []; } catch (e) {}
+    }
     document.getElementById('modalTitle').textContent = `${pt('whMove')}: ${code}`;
     document.getElementById('modalBody').innerHTML = `
-        <p>${pt('whMoveInstructions')}</p>
-        <div id="whMovePickerMap" class="wh-picker-map" style="display:block;max-height:400px;overflow:auto;"></div>
-        <div class="form-group" style="margin-top:1rem;">
+        <p style="color:#64748b;margin-bottom:1rem;">${pt('whMoveInstructions')}</p>
+        <div class="form-group">
+            <label>${pt('whColLocation')}</label>
+            <div class="wh-loc-picker">
+                <input type="text" id="moveLocDisplay" class="form-control" readonly placeholder="${pt('whClickMap')}">
+                <button type="button" class="btn btn-secondary" onclick="openMoveLocPicker()">&#128506; ${pt('whPickLocation')}</button>
+            </div>
+        </div>
+        <div class="form-group">
             <label>${pt('whMoveReason')}</label>
             <input type="text" id="moveReason" class="form-control" placeholder="${pt('whMoveReasonPlaceholder')}">
         </div>
@@ -3616,20 +3666,16 @@ async function openMoveModal(materialId, code) {
         <button class="btn btn-primary" onclick="submitMove()">${pt('whMoveConfirm')}</button>
     `;
     openModal();
-    // Load map
-    const mapEl = document.getElementById('whMovePickerMap');
-    const svgText = await fetch('/portal/assets/images/warehouse-map.svg').then(r => r.text());
-    mapEl.innerHTML = svgText;
-    mapEl.querySelectorAll('.pallet-loc').forEach(el => {
-        const zone = el.dataset.zone, num = el.dataset.num;
-        const loc = whAllLocations.find(l => l.zone === zone && l.position == num);
-        if (loc) {
-            el.style.cursor = 'pointer';
-            el.addEventListener('click', () => {
-                mapEl.querySelectorAll('.pallet-loc.selected').forEach(s => s.classList.remove('selected'));
-                el.classList.add('selected');
-                whSelectedLocationId = loc.id;
-            });
+}
+
+function openMoveLocPicker() {
+    openMapPickerFS({
+        title: pt('whMove'),
+        selectedId: whSelectedLocationId,
+        onSelect: (loc) => {
+            whSelectedLocationId = loc.id;
+            const disp = document.getElementById('moveLocDisplay');
+            if (disp) disp.value = loc.code;
         }
     });
 }
