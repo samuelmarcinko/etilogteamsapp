@@ -256,9 +256,9 @@ function drawHorizontalBand(zone, y, h, sections, pillars, blocked) {
     }
   });
 
-  // Zone label badge (pill straddling top border, centered) - draw LAST so on top
-  const blx = mainX0 + mainW / 2, bly = y - 2;
-  p(`    <rect x="${blx - 24}" y="${bly - 14}" width="48" height="28" rx="14" fill="${z.stroke}" stroke="#ffffff" stroke-width="2" filter="url(#shadow-sm)"/>`);
+  // Zone label badge (inside zone, centered horizontally, top with padding like D)
+  const blx = mainX0 + mainW / 2, bly = y + 22;
+  p(`    <rect x="${blx - 22}" y="${bly - 16}" width="44" height="28" rx="14" fill="${z.stroke}" filter="url(#shadow-sm)"/>`);
   p(`    <text x="${blx}" y="${bly + 5}" text-anchor="middle" font-family="${FONT}" font-size="17" font-weight="900" fill="#ffffff">${zone}</text>`);
 
   p(`  </g>`);
