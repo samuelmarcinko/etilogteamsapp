@@ -9,6 +9,24 @@ let currentAccount = null;
  */
 async function initializeMsal() {
     try {
+        // If an already-authenticated user lands on the login page with a valid
+        // (non-expired) token, skip the login screen and go straight to the portal.
+        const onLoginPage = window.location.pathname === '/login' || window.location.pathname === '/login/';
+        if (onLoginPage) {
+            const stored = localStorage.getItem('etilog_token');
+            if (stored) {
+                try {
+                    const payload = JSON.parse(atob(stored.split('.')[1]));
+                    if (payload.exp * 1000 > Date.now() + 60 * 1000) {
+                        window.location.href = '/portal/';
+                        return;
+                    }
+                } catch (e) {
+                    // Invalid token format - fall through to normal login flow
+                }
+            }
+        }
+
         await loadAuthConfig();
         msalInstance = new msal.PublicClientApplication(msalConfig);
         await msalInstance.initialize();

@@ -122,9 +122,11 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Root endpoint
+// Root endpoint - redirect to portal login (browser users).
+// Note: the Teams app loads /pages/*.html directly via manifest contentUrl,
+// so it never hits this route and is unaffected.
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/index.html'));
+  res.redirect('/login');
 });
 
 // Portal login page
