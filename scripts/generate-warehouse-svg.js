@@ -54,6 +54,11 @@ p(`    <pattern id="hatch-corridor" patternUnits="userSpaceOnUse" width="8" heig
 p(`      <rect width="8" height="8" fill="#ecfeff"/>`);
 p(`      <circle cx="4" cy="4" r="1" fill="#67e8f9"/>`);
 p(`    </pattern>`);
+// Occupied pallet pattern (pink/magenta diagonal stripes)
+p(`    <pattern id="hatch-occupied" patternUnits="userSpaceOnUse" width="8" height="8">`);
+p(`      <rect width="8" height="8" fill="#fdf2f8"/>`);
+p(`      <path d="M0,8 l8,-8 M-2,2 l4,-4 M6,10 l4,-4" stroke="#db2777" stroke-width="1.8"/>`);
+p(`    </pattern>`);
 // Shadows & effects
 p(`    <filter id="shadow-sm" x="-20%" y="-20%" width="140%" height="140%">`);
 p(`      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#0f172a" flood-opacity="0.15"/>`);

@@ -1997,9 +1997,9 @@ body.hub-active .portal-lang-switcher {
   min-width: 900px;
   display: block;
 }
-/* Occupied pallet locations (CSS fill overrides SVG presentation attr) */
+/* Occupied pallet locations - uses SVG hatched pattern */
 .pallet-loc { transition: fill .15s ease; }
-.pallet-loc.wh-occupied { fill: #bbf7d0; stroke: #16a34a; }
+.pallet-loc.wh-occupied { fill: url(#hatch-occupied); stroke: #db2777; stroke-width: 2; }
 
 /* Tooltip */
 .wh-tooltip {

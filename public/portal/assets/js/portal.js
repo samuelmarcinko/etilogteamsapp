@@ -3479,7 +3479,7 @@ async function loadMaterialsTable() {
                     ${whMaterialsList.map(m => `
                         <tr>
                             <td><strong>${escapeHtml(m.code)}</strong></td>
-                            <td>${escapeHtml(m.name)}${m.description ? `<br><small style="color:#64748b">${escapeHtml(m.description.substring(0,60))}${m.description.length > 60 ? '...' : ''}</small>` : ''}</td>
+                            <td>${escapeHtml(m.name)}</td>
                             <td>${m.quantity} ${escapeHtml(m.unit || 'ks')}</td>
                             <td>${m.location_code ? `<span class="wh-loc-badge">${escapeHtml(m.location_code)}</span>` : `<em style="color:#94a3b8">${pt('whNoLocation')}</em>`}</td>
                             <td>${m.category_name ? `<span class="badge" style="background:${m.category_color || '#e2e8f0'}22;color:${m.category_color || '#475569'}">${escapeHtml(m.category_name)}</span>` : '-'}</td>
@@ -3518,17 +3518,9 @@ async function openMaterialModal(materialId = null) {
     document.getElementById('modalBody').innerHTML = `
         <div class="form-group"><label>${pt('whColCode')} *</label><input type="text" id="matCode" class="form-control" value="${mat ? escapeHtml(mat.code) : ''}" required></div>
         <div class="form-group"><label>${pt('whColName')} *</label><input type="text" id="matName" class="form-control" value="${mat ? escapeHtml(mat.name) : ''}"></div>
-        <div class="form-group"><label>${pt('whDescription')}</label><textarea id="matDesc" class="form-control" rows="2">${mat ? escapeHtml(mat.description || '') : ''}</textarea></div>
         <div class="form-row">
             <div class="form-group"><label>${pt('whColQty')}</label><input type="number" id="matQty" class="form-control" min="0" value="${mat ? mat.quantity : 1}"></div>
             <div class="form-group"><label>${pt('whUnit')}</label><input type="text" id="matUnit" class="form-control" value="${mat ? escapeHtml(mat.unit || 'ks') : 'ks'}"></div>
-        </div>
-        <div class="form-group">
-            <label>${pt('whColCategory')}</label>
-            <select id="matCategory" class="form-control">
-                <option value="">— ${pt('whNoCategory')} —</option>
-                ${whCategories.map(c => `<option value="${c.id}" ${mat && mat.category_id == c.id ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}
-            </select>
         </div>
         <div class="form-group">
             <label>${pt('whColLocation')}</label>
@@ -3621,10 +3613,8 @@ async function saveMaterial(materialId) {
     if (!code || !name) { showToast(pt('whRequiredFields'), 'error'); return; }
     const body = {
         code, name,
-        description: document.getElementById('matDesc')?.value || null,
         quantity: parseInt(document.getElementById('matQty')?.value, 10) || 0,
         unit: document.getElementById('matUnit')?.value || 'ks',
-        category_id: document.getElementById('matCategory')?.value || null,
         location_id: whSelectedLocationId
     };
     try {
