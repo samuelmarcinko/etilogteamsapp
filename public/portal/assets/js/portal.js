@@ -3199,6 +3199,8 @@ function closeModal(eventOrElement) {
     // Reset any size modifiers applied by specific modals
     const modalEl = document.getElementById('modal');
     if (modalEl) modalEl.classList.remove('modal-xl');
+    // Drop the warehouse location-modal return context when the modal fully closes
+    whLocReturnId = null;
 }
 
 // ============================================
@@ -3326,6 +3328,9 @@ function hideLocationTooltip() {
 
 // --- Location modal (materials at a location) ---
 async function openLocationModal(locationId) {
+    whLocReturnId = locationId;
+    // Reset size modifier in case we return here from the wider material modal
+    document.getElementById('modal').classList.remove('modal-xl');
     document.getElementById('modalTitle').textContent = pt('whLocationTitle');
     document.getElementById('modalBody').innerHTML = `<div class="empty-state"><div class="spinner"></div></div>`;
     document.getElementById('modalFooter').innerHTML = `<button class="btn btn-secondary" onclick="closeModal()">${pt('close')}</button>`;
@@ -3338,14 +3343,20 @@ async function openLocationModal(locationId) {
         document.getElementById('modalBody').innerHTML = `
             ${materials.length > 0 ? `
                 <table class="data-table">
-                    <thead><tr><th>${pt('whColCode')}</th><th>${pt('whColName')}</th><th>${pt('whColQty')}</th><th>${pt('whColCategory')}</th></tr></thead>
+                    <thead><tr><th>${pt('whColCode')}</th><th>${pt('whColName')}</th><th>${pt('whColQty')}</th><th>${pt('colActions')}</th></tr></thead>
                     <tbody>
                         ${materials.map(m => `
                             <tr>
                                 <td><strong>${escapeHtml(m.code)}</strong></td>
                                 <td>${escapeHtml(m.name)}</td>
                                 <td>${m.quantity} ${escapeHtml(m.unit || '')}</td>
-                                <td>${m.category_name ? `<span class="badge" style="background:${m.category_color || '#e2e8f0'}22;color:${m.category_color || '#475569'}">${escapeHtml(m.category_name)}</span>` : '-'}</td>
+                                <td>
+                                    <div class="table-actions">
+                                        <button class="btn-icon" onclick="whLocEditMaterial(${m.id})" title="${pt('edit')}">&#9998;</button>
+                                        <button class="btn-icon" onclick="whLocMoveMaterial(${m.id}, '${escapeHtml(m.code)}')" title="${pt('whMove')}">&#128257;</button>
+                                        <button class="btn-icon" onclick="whLocDeleteMaterial(${m.id}, '${escapeHtml(m.code)}')" title="${pt('delete')}">&#128465;</button>
+                                    </div>
+                                </td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -3353,9 +3364,25 @@ async function openLocationModal(locationId) {
             ` : `<div class="empty-state"><div class="empty-icon">&#128230;</div><div class="empty-text">${pt('whLocationEmpty')}</div></div>`}
             ${location.notes ? `<p style="margin-top:1rem;color:#64748b;"><strong>${pt('whNotes')}:</strong> ${escapeHtml(location.notes)}</p>` : ''}
         `;
+        document.getElementById('modalFooter').innerHTML = `
+            <button class="btn btn-secondary" onclick="closeModal()">${pt('close')}</button>
+            <button class="btn btn-primary" onclick="whLocAddMaterial(${locationId})">+ ${pt('whAddMaterial')}</button>
+        `;
     } catch (e) {
         document.getElementById('modalBody').innerHTML = `<div class="empty-state"><div class="empty-text">${pt('pageLoadError')}</div></div>`;
     }
+}
+
+// --- Action wrappers invoked from the location modal (keep return context) ---
+function whLocEditMaterial(id) { openMaterialModal(id); }
+function whLocAddMaterial(locationId) { whLocReturnId = locationId; openMaterialModal(null, locationId); }
+function whLocMoveMaterial(id, code) { openMoveModal(id, code); }
+function whLocDeleteMaterial(id, code) { deleteMaterial(id, code); }
+
+// Refresh whichever warehouse views are currently mounted, behind the modal
+function whRefreshViews() {
+    if (document.getElementById('whMaterialsTable')) loadMaterialsTable();
+    if (document.getElementById('whMap')) { loadWarehouseMap(); loadWarehouseStats(); }
 }
 
 // --- Dashboard search (find material -> highlight on map) ---
@@ -3404,6 +3431,7 @@ let whCategories = [];
 let whMaterialsList = [];
 let whAllLocations = [];
 let whSelectedLocationId = null;
+let whLocReturnId = null;   // location id to reopen after a sub-action (from map location modal)
 
 async function renderWarehouseMaterials(container) {
     container.innerHTML = `
@@ -3502,7 +3530,7 @@ async function loadMaterialsTable() {
 }
 
 // --- Material modal (create / edit) ---
-async function openMaterialModal(materialId = null) {
+async function openMaterialModal(materialId = null, presetLocationId = null) {
     const isEdit = !!materialId;
     let mat = null;
     if (isEdit) {
@@ -3511,7 +3539,17 @@ async function openMaterialModal(materialId = null) {
             mat = (await res.json()).data;
         } catch (e) { showToast(pt('pageLoadError'), 'error'); return; }
     }
-    whSelectedLocationId = mat?.location_id || null;
+    whSelectedLocationId = mat?.location_id || presetLocationId || null;
+
+    // Resolve the location code for the readonly display (preset from map click)
+    let presetLocCode = mat?.location_code || '';
+    if (!presetLocCode && presetLocationId) {
+        if (!whAllLocations.length) {
+            try { const r = await apiCall('/api/warehouse/locations'); whAllLocations = (await r.json()).data || []; } catch (e) {}
+        }
+        const pl = whAllLocations.find(l => l.id === presetLocationId);
+        if (pl) presetLocCode = pl.code;
+    }
 
     document.getElementById('modal').classList.add('modal-xl');
     document.getElementById('modalTitle').textContent = isEdit ? pt('whEditMaterial') : pt('whAddMaterial');
@@ -3525,7 +3563,7 @@ async function openMaterialModal(materialId = null) {
         <div class="form-group">
             <label>${pt('whColLocation')}</label>
             <div class="wh-loc-picker">
-                <input type="text" id="matLocDisplay" class="form-control" readonly placeholder="${pt('whClickMap')}" value="${mat?.location_code || ''}">
+                <input type="text" id="matLocDisplay" class="form-control" readonly placeholder="${pt('whClickMap')}" value="${escapeHtml(presetLocCode)}">
                 <button type="button" class="btn btn-secondary" onclick="openMaterialLocPicker()">&#128506; ${pt('whPickLocation')}</button>
             </div>
         </div>
@@ -3623,8 +3661,10 @@ async function saveMaterial(materialId) {
         const res = await apiCall(url, { method, body: JSON.stringify(body) });
         if (!res.ok) throw new Error((await res.json()).error || 'Failed');
         showToast(materialId ? pt('whMaterialUpdated') : pt('whMaterialCreated'), 'success');
-        closeModal();
-        await loadMaterialsTable();
+        const ret = whLocReturnId;
+        whRefreshViews();
+        if (ret) { openLocationModal(ret); }
+        else { closeModal(); await loadMaterialsTable(); }
     } catch (e) { showToast(e.message, 'error'); }
 }
 
@@ -3680,8 +3720,10 @@ async function submitMove() {
         });
         if (!res.ok) throw new Error((await res.json()).error || 'Failed');
         showToast(pt('whMaterialMoved'), 'success');
-        closeModal();
-        await loadMaterialsTable();
+        const ret = whLocReturnId;
+        whRefreshViews();
+        if (ret) { openLocationModal(ret); }
+        else { closeModal(); await loadMaterialsTable(); }
     } catch (e) { showToast(e.message, 'error'); }
 }
 
@@ -3692,7 +3734,10 @@ async function deleteMaterial(id, code) {
         const res = await apiCall(`/api/warehouse/materials/${id}`, { method: 'DELETE' });
         if (!res.ok) throw new Error('Failed');
         showToast(pt('whMaterialDeleted'), 'success');
-        await loadMaterialsTable();
+        const ret = whLocReturnId;
+        whRefreshViews();
+        if (ret) { openLocationModal(ret); }
+        else { await loadMaterialsTable(); }
     } catch (e) { showToast(e.message, 'error'); }
 }
 
