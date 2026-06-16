@@ -89,9 +89,25 @@
                     </a>
                 </div>
 
-                <!-- ===== WAREHOUSE MODULE (future) ===== -->
+                <!-- ===== WAREHOUSE MODULE ===== -->
                 <div id="warehouseNav" style="display: none;">
                     <div class="nav-section-title">Skladový systém</div>
+                    <a href="#warehouse-dashboard" class="sidebar-link" data-page="warehouse-dashboard">
+                        <span class="nav-icon">&#128506;</span> Dashboard
+                    </a>
+                    <a href="#warehouse-materials" class="sidebar-link" data-page="warehouse-materials">
+                        <span class="nav-icon">&#128230;</span> Evidencia materiálu
+                    </a>
+                    <a href="#warehouse-movements" class="sidebar-link" data-page="warehouse-movements">
+                        <span class="nav-icon">&#128257;</span> Pohyby
+                    </a>
+                    <!-- Admin-only -->
+                    <div id="warehouseAdminNav" style="display: none;">
+                        <div class="nav-section-title">Administrácia</div>
+                        <a href="#warehouse-audit" class="sidebar-link" data-page="warehouse-audit">
+                            <span class="nav-icon">&#128203;</span> Audit log
+                        </a>
+                    </div>
                 </div>
             </nav>
 

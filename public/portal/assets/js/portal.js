@@ -97,7 +97,9 @@ const PAGE_MODULE = {
     'admin-employees': 'hr', 'admin-quotas': 'hr', 'admin-sick-notes': 'hr',
     'admin-tickets': 'hr', 'admin-dashboard': 'hr', 'admin-ticket-types': 'hr',
     'admin-system': 'hr',
-    'admin-fleet': 'fleet'
+    'admin-fleet': 'fleet',
+    'warehouse-dashboard': 'warehouse', 'warehouse-materials': 'warehouse',
+    'warehouse-movements': 'warehouse', 'warehouse-audit': 'warehouse'
 };
 
 /**
@@ -122,6 +124,9 @@ function applyModulePreset(module) {
         document.getElementById('fleetNav').style.display = 'block';
     } else if (module === 'warehouse') {
         document.getElementById('warehouseNav').style.display = 'block';
+        // Audit sub-section is admin only
+        const waNav = document.getElementById('warehouseAdminNav');
+        if (waNav) waNav.style.display = (portalUser?.role === 'admin') ? 'block' : 'none';
     }
 }
 
@@ -130,6 +135,17 @@ function navigateToPage(page) {
 
     // Pages accessible to spravca role
     const spravcaPages = ['admin-employees', 'admin-quotas', 'admin-sick-notes', 'admin-tickets'];
+
+    // Warehouse pages require warehouse module access (admin or sklad)
+    if (page.startsWith('warehouse-') && !hasModuleAccess('warehouse')) {
+        showToast(pt('accessDenied'), 'error');
+        return;
+    }
+    // Audit sub-page is admin only
+    if (page === 'warehouse-audit' && portalUser?.role !== 'admin') {
+        showToast(pt('accessDenied'), 'error');
+        return;
+    }
 
     if (page.startsWith('admin-')) {
         const userRole = portalUser?.role;
@@ -204,6 +220,10 @@ async function renderPage(page) {
             case 'admin-ticket-types': await renderAdminTicketTypes(content); break;
             case 'admin-system': await renderAdminSystem(content); break;
             case 'admin-fleet': await renderAdminFleet(content); break;
+            case 'warehouse-dashboard': await renderWarehouseDashboard(content); break;
+            case 'warehouse-materials': await renderWarehouseMaterials(content); break;
+            case 'warehouse-movements': await renderWarehouseMovements(content); break;
+            case 'warehouse-audit': await renderWarehouseAudit(content); break;
             default: content.innerHTML = `<div class="page-body"><div class="empty-state"><div class="empty-icon">&#128533;</div><div class="empty-text">${pt('pageNotFound')}</div></div></div>`;
         }
     } catch (error) {
@@ -227,19 +247,14 @@ async function renderPage(page) {
  */
 function hasModuleAccess(module) {
     const role = portalUser?.role;
-    if (module === 'warehouse') return false; // Coming soon
     if (role === 'admin') return true;
     if (module === 'hr') return true; // All roles have HR access
     if (module === 'fleet') return role === 'admin';
+    if (module === 'warehouse') return role === 'sklad';
     return false;
 }
 
 function enterModule(module) {
-    if (module === 'warehouse') {
-        showToast(pt('hubBadgeComingSoon'), 'info');
-        return;
-    }
-
     if (!hasModuleAccess(module)) {
         openModal(pt('hubAccessDenied'), `
             <div style="text-align: center; padding: 1rem;">
@@ -253,6 +268,7 @@ function enterModule(module) {
     // Navigate to module's default page
     if (module === 'hr') navigateToPage('dashboard');
     if (module === 'fleet') navigateToPage('admin-fleet');
+    if (module === 'warehouse') navigateToPage('warehouse-dashboard');
 }
 
 async function renderHub(container) {
@@ -261,9 +277,10 @@ async function renderHub(container) {
     const fleetAccess = hasModuleAccess('fleet');
 
     // Determine badge for each module
+    const warehouseAccess = hasModuleAccess('warehouse');
     const hrBadge = hrAccess ? 'available' : 'locked';
     const fleetBadge = fleetAccess ? 'available' : 'locked';
-    const warehouseBadge = 'coming-soon';
+    const warehouseBadge = warehouseAccess ? 'available' : 'locked';
 
     container.innerHTML = `
         <div class="hub-layout">
@@ -318,7 +335,7 @@ async function renderHub(container) {
                     </div>
                     <h3 class="hub-card-title">${pt('hubModuleWarehouse')}</h3>
                     <p class="hub-card-desc">${pt('hubModuleWarehouseDesc')}</p>
-                    <span class="hub-card-badge ${warehouseBadge}">${pt('hubBadgeComingSoon')}</span>
+                    <span class="hub-card-badge ${warehouseBadge}">${pt('hubBadge' + warehouseBadge.charAt(0).toUpperCase() + warehouseBadge.slice(1))}</span>
                 </div>
             </div>
 
@@ -3179,6 +3196,232 @@ function closeModal(eventOrElement) {
 
     // Handle standard modal overlay
     document.getElementById('modalOverlay').classList.remove('active');
+}
+
+// ============================================
+// WAREHOUSE MODULE
+// ============================================
+
+// Module-level state
+let warehouseLocations = [];          // [{id, zone, position, code, material_count, total_quantity}]
+let warehouseLocByKey = {};           // "A-1" -> location
+let warehouseSearchTimer = null;
+
+function whLocKey(zone, num) {
+    return `${zone}-${num}`;
+}
+
+async function renderWarehouseDashboard(container) {
+    container.innerHTML = `
+        <div class="page-header">
+            <div><h1>${pt('whDashboardTitle')}</h1><p>${pt('whDashboardDesc')}</p></div>
+        </div>
+        <div class="page-body">
+            <div class="stats-grid" id="whStats">
+                <div class="stat-card"><div class="stat-icon" style="background:#dbeafe;color:#2563eb;">&#128230;</div><div><div class="stat-value" id="whStatMaterials">-</div><div class="stat-label">${pt('whStatMaterials')}</div></div></div>
+                <div class="stat-card"><div class="stat-icon" style="background:#dcfce7;color:#16a34a;">&#128205;</div><div><div class="stat-value" id="whStatOccupied">-</div><div class="stat-label">${pt('whStatOccupied')}</div></div></div>
+                <div class="stat-card"><div class="stat-icon" style="background:#fef3c7;color:#d97706;">&#128200;</div><div><div class="stat-value" id="whStatToday">-</div><div class="stat-label">${pt('whStatToday')}</div></div></div>
+            </div>
+
+            <div class="portal-card">
+                <div class="card-body">
+                    <div class="wh-search-wrap">
+                        <input type="text" id="whDashSearch" class="form-control wh-search-input" placeholder="${pt('whSearchPlaceholder')}" autocomplete="off">
+                        <div class="wh-search-results" id="whDashResults"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="portal-card">
+                <div class="card-header"><h2>${pt('whMapTitle')}</h2></div>
+                <div class="card-body">
+                    <div class="wh-map-container" id="whMap">
+                        <div class="empty-state"><div class="spinner"></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    await Promise.all([loadWarehouseStats(), loadWarehouseMap()]);
+
+    // Wire dashboard search
+    const searchInput = document.getElementById('whDashSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            clearTimeout(warehouseSearchTimer);
+            warehouseSearchTimer = setTimeout(() => warehouseDashSearch(searchInput.value), 300);
+        });
+    }
+}
+
+async function loadWarehouseStats() {
+    try {
+        const res = await apiCall('/api/warehouse/stats');
+        const s = (await res.json()).data || {};
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        set('whStatMaterials', s.total_materials ?? 0);
+        set('whStatOccupied', `${s.occupied_locations ?? 0}/${s.total_locations ?? 0}`);
+        set('whStatToday', s.added_today ?? 0);
+    } catch (e) { console.error('wh stats', e); }
+}
+
+async function loadWarehouseMap() {
+    const mapEl = document.getElementById('whMap');
+    if (!mapEl) return;
+    try {
+        const [locRes, svgText] = await Promise.all([
+            apiCall('/api/warehouse/locations'),
+            fetch('/portal/assets/images/warehouse-map.svg').then(r => r.text())
+        ]);
+        warehouseLocations = (await locRes.json()).data || [];
+        warehouseLocByKey = {};
+        warehouseLocations.forEach(l => { warehouseLocByKey[whLocKey(l.zone, l.position)] = l; });
+
+        mapEl.innerHTML = svgText;
+
+        // Color + wire each pallet location
+        mapEl.querySelectorAll('.pallet-loc').forEach(el => {
+            const zone = el.dataset.zone;
+            const num = el.dataset.num;
+            const loc = warehouseLocByKey[whLocKey(zone, num)];
+            if (loc) {
+                el.dataset.locationId = loc.id;
+                if (loc.material_count > 0) {
+                    el.classList.add('wh-occupied');
+                    el.parentElement && el.parentElement.classList.add('wh-has-items');
+                }
+                el.addEventListener('click', () => openLocationModal(loc.id));
+                el.addEventListener('mouseenter', (ev) => showLocationTooltip(ev, loc));
+                el.addEventListener('mouseleave', hideLocationTooltip);
+            }
+        });
+    } catch (e) {
+        console.error('wh map', e);
+        mapEl.innerHTML = `<div class="empty-state"><div class="empty-text">${pt('pageLoadError')}</div></div>`;
+    }
+}
+
+// --- Tooltip ---
+let whTooltipEl = null;
+function showLocationTooltip(ev, loc) {
+    hideLocationTooltip();
+    whTooltipEl = document.createElement('div');
+    whTooltipEl.className = 'wh-tooltip';
+    whTooltipEl.innerHTML = loc.material_count > 0
+        ? `<strong>${escapeHtml(loc.code)}</strong> · ${loc.material_count} ${pt('whTooltipItems')}`
+        : `<strong>${escapeHtml(loc.code)}</strong> · ${pt('whTooltipEmpty')}`;
+    document.body.appendChild(whTooltipEl);
+    moveTooltip(ev);
+    ev.target.addEventListener('mousemove', moveTooltip);
+}
+function moveTooltip(ev) {
+    if (!whTooltipEl) return;
+    whTooltipEl.style.left = (ev.clientX + 14) + 'px';
+    whTooltipEl.style.top = (ev.clientY + 14) + 'px';
+}
+function hideLocationTooltip() {
+    if (whTooltipEl) { whTooltipEl.remove(); whTooltipEl = null; }
+}
+
+// --- Location modal (materials at a location) ---
+async function openLocationModal(locationId) {
+    document.getElementById('modalTitle').textContent = pt('whLocationTitle');
+    document.getElementById('modalBody').innerHTML = `<div class="empty-state"><div class="spinner"></div></div>`;
+    document.getElementById('modalFooter').innerHTML = `<button class="btn btn-secondary" onclick="closeModal()">${pt('close')}</button>`;
+    openModal();
+
+    try {
+        const res = await apiCall(`/api/warehouse/locations/${locationId}/materials`);
+        const { location, materials } = (await res.json()).data;
+        document.getElementById('modalTitle').textContent = `${pt('whLocationTitle')} ${location.code}`;
+        document.getElementById('modalBody').innerHTML = `
+            ${materials.length > 0 ? `
+                <table class="data-table">
+                    <thead><tr><th>${pt('whColCode')}</th><th>${pt('whColName')}</th><th>${pt('whColQty')}</th><th>${pt('whColCategory')}</th></tr></thead>
+                    <tbody>
+                        ${materials.map(m => `
+                            <tr>
+                                <td><strong>${escapeHtml(m.code)}</strong></td>
+                                <td>${escapeHtml(m.name)}</td>
+                                <td>${m.quantity} ${escapeHtml(m.unit || '')}</td>
+                                <td>${m.category_name ? `<span class="badge" style="background:${m.category_color || '#e2e8f0'}22;color:${m.category_color || '#475569'}">${escapeHtml(m.category_name)}</span>` : '-'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            ` : `<div class="empty-state"><div class="empty-icon">&#128230;</div><div class="empty-text">${pt('whLocationEmpty')}</div></div>`}
+            ${location.notes ? `<p style="margin-top:1rem;color:#64748b;"><strong>${pt('whNotes')}:</strong> ${escapeHtml(location.notes)}</p>` : ''}
+        `;
+    } catch (e) {
+        document.getElementById('modalBody').innerHTML = `<div class="empty-state"><div class="empty-text">${pt('pageLoadError')}</div></div>`;
+    }
+}
+
+// --- Dashboard search (find material -> highlight on map) ---
+async function warehouseDashSearch(query) {
+    const resultsEl = document.getElementById('whDashResults');
+    if (!resultsEl) return;
+    clearMapHighlights();
+    if (!query || query.trim().length < 1) { resultsEl.innerHTML = ''; resultsEl.classList.remove('active'); return; }
+
+    try {
+        const res = await apiCall(`/api/warehouse/materials?search=${encodeURIComponent(query.trim())}`);
+        const materials = (await res.json()).data || [];
+        if (materials.length === 0) {
+            resultsEl.innerHTML = `<div class="wh-search-empty">${pt('whSearchNoResults')}</div>`;
+            resultsEl.classList.add('active');
+            return;
+        }
+        resultsEl.innerHTML = materials.slice(0, 20).map(m => `
+            <div class="wh-search-item" onclick="warehouseFocusMaterial(${m.location_id || 'null'}, '${escapeHtml(m.location_zone || '')}', ${m.location_position || 'null'})">
+                <span class="wh-search-code">${escapeHtml(m.code)}</span>
+                <span class="wh-search-name">${escapeHtml(m.name)}</span>
+                <span class="wh-search-loc">${m.location_code ? escapeHtml(m.location_code) : pt('whNoLocation')}</span>
+            </div>
+        `).join('');
+        resultsEl.classList.add('active');
+    } catch (e) { console.error('wh search', e); }
+}
+
+function warehouseFocusMaterial(locationId, zone, position) {
+    clearMapHighlights();
+    if (!zone || position == null) { showToast(pt('whNoLocation'), 'info'); return; }
+    const el = document.querySelector(`#whMap .pallet-loc[data-zone="${zone}"][data-num="${position}"]`);
+    if (el) {
+        el.classList.add('highlight');
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (locationId) openLocationModal(locationId);
+    }
+}
+
+function clearMapHighlights() {
+    document.querySelectorAll('#whMap .pallet-loc.highlight').forEach(el => el.classList.remove('highlight'));
+}
+
+// --- Placeholder pages (implemented in later phases) ---
+async function renderWarehouseMaterials(container) {
+    container.innerHTML = `
+        <div class="page-header"><div><h1>${pt('whMaterialsTitle')}</h1><p>${pt('whMaterialsDesc')}</p></div></div>
+        <div class="page-body"><div class="portal-card"><div class="card-body">
+            <div class="empty-state"><div class="empty-icon">&#128679;</div><div class="empty-text">${pt('whComingSoon')}</div></div>
+        </div></div></div>`;
+}
+
+async function renderWarehouseMovements(container) {
+    container.innerHTML = `
+        <div class="page-header"><div><h1>${pt('whMovementsTitle')}</h1><p>${pt('whMovementsDesc')}</p></div></div>
+        <div class="page-body"><div class="portal-card"><div class="card-body">
+            <div class="empty-state"><div class="empty-icon">&#128679;</div><div class="empty-text">${pt('whComingSoon')}</div></div>
+        </div></div></div>`;
+}
+
+async function renderWarehouseAudit(container) {
+    container.innerHTML = `
+        <div class="page-header"><div><h1>${pt('whAuditTitle')}</h1><p>${pt('whAuditDesc')}</p></div></div>
+        <div class="page-body"><div class="portal-card"><div class="card-body">
+            <div class="empty-state"><div class="empty-icon">&#128679;</div><div class="empty-text">${pt('whComingSoon')}</div></div>
+        </div></div></div>`;
 }
 
 // ============================================
