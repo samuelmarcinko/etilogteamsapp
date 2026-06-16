@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     updateSidebarLanguage();
     setupNavigation();
-    navigateToPage(window.location.hash.slice(1) || 'dashboard');
+    navigateToPage(window.location.hash.slice(1) || 'hub');
 });
 
 async function loadUserProfile() {
@@ -93,12 +93,12 @@ function setupNavigation() {
     });
 
     window.addEventListener('hashchange', () => {
-        navigateToPage(window.location.hash.slice(1) || 'dashboard');
+        navigateToPage(window.location.hash.slice(1) || 'hub');
     });
 }
 
 function navigateToPage(page) {
-    if (!page) page = 'dashboard';
+    if (!page) page = 'hub';
 
     // Pages accessible to spravca role
     const spravcaPages = ['admin-employees', 'admin-quotas', 'admin-sick-notes', 'admin-tickets'];
@@ -117,6 +117,9 @@ function navigateToPage(page) {
 
     currentPage = page;
     window.location.hash = page;
+
+    // Toggle hub layout (hide sidebar on hub page)
+    document.body.classList.toggle('hub-active', page === 'hub');
 
     document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
     const activeLink = document.querySelector(`[data-page="${page}"]`);
@@ -148,6 +151,7 @@ async function renderPage(page) {
 
     try {
         switch (page) {
+            case 'hub': await renderHub(content); break;
             case 'dashboard': await renderDashboard(content); break;
             case 'my-quotas': await renderMyQuotas(content); break;
             case 'my-sick-notes': await renderMySickNotes(content); break;
@@ -169,6 +173,126 @@ async function renderPage(page) {
     }
 
     loading.style.display = 'none';
+}
+
+// ============================================
+// MODULE HUB
+// ============================================
+
+/**
+ * Check if user has access to a module.
+ * - admin: all modules
+ * - spravca: HR only
+ * - user: HR only
+ * - warehouse module: coming soon (no access yet)
+ */
+function hasModuleAccess(module) {
+    const role = portalUser?.role;
+    if (module === 'warehouse') return false; // Coming soon
+    if (role === 'admin') return true;
+    if (module === 'hr') return true; // All roles have HR access
+    if (module === 'fleet') return role === 'admin';
+    return false;
+}
+
+function enterModule(module) {
+    if (module === 'warehouse') {
+        showToast(pt('hubBadgeComingSoon'), 'info');
+        return;
+    }
+
+    if (!hasModuleAccess(module)) {
+        openModal(pt('hubAccessDenied'), `
+            <div style="text-align: center; padding: 1rem;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">&#128274;</div>
+                <p>${pt('hubAccessDeniedMsg')}</p>
+            </div>
+        `, `<button class="btn btn-secondary" onclick="closeModal()">${pt('close')}</button>`);
+        return;
+    }
+
+    // Navigate to module's default page
+    if (module === 'hr') navigateToPage('dashboard');
+    if (module === 'fleet') navigateToPage('admin-fleet');
+}
+
+async function renderHub(container) {
+    const role = portalUser?.role || 'user';
+    const hrAccess = hasModuleAccess('hr');
+    const fleetAccess = hasModuleAccess('fleet');
+
+    // Determine badge for each module
+    const hrBadge = hrAccess ? 'available' : 'locked';
+    const fleetBadge = fleetAccess ? 'available' : 'locked';
+    const warehouseBadge = 'coming-soon';
+
+    container.innerHTML = `
+        <div class="hub-layout">
+            <div class="hub-header">
+                <img src="/assets/images/logo.png" alt="ETILOG" class="hub-logo">
+                <h1 class="hub-title">${pt('hubTitle')}</h1>
+                <p class="hub-subtitle">${pt('hubSubtitle')}</p>
+            </div>
+
+            <div class="hub-grid">
+                <!-- HR Module -->
+                <div class="hub-card hr" onclick="enterModule('hr')">
+                    <div class="hub-card-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                        </svg>
+                    </div>
+                    <h3 class="hub-card-title">${pt('hubModuleHR')}</h3>
+                    <p class="hub-card-desc">${pt('hubModuleHRDesc')}</p>
+                    <span class="hub-card-badge ${hrBadge}">${pt('hubBadge' + hrBadge.charAt(0).toUpperCase() + hrBadge.slice(1).replace('-s', 'S'))}</span>
+                </div>
+
+                <!-- Fleet Module -->
+                <div class="hub-card fleet" onclick="enterModule('fleet')">
+                    <div class="hub-card-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M5 17h14M5 17a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 1.5L19 10h-3v4h3l1 3a1 1 0 0 1-1 1h-1"/>
+                            <circle cx="7.5" cy="17" r="2"/>
+                            <circle cx="16.5" cy="17" r="2"/>
+                        </svg>
+                    </div>
+                    <h3 class="hub-card-title">${pt('hubModuleFleet')}</h3>
+                    <p class="hub-card-desc">${pt('hubModuleFleetDesc')}</p>
+                    <span class="hub-card-badge ${fleetBadge}">${pt('hubBadge' + fleetBadge.charAt(0).toUpperCase() + fleetBadge.slice(1).replace('-s', 'S'))}</span>
+                </div>
+
+                <!-- Warehouse Module -->
+                <div class="hub-card warehouse" onclick="enterModule('warehouse')">
+                    <div class="hub-card-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 21h18"/>
+                            <path d="M3 7v14"/>
+                            <path d="M21 7v14"/>
+                            <path d="M3 7l9-4 9 4"/>
+                            <path d="M8 14h8"/>
+                            <path d="M8 10h8"/>
+                            <path d="M8 18h8"/>
+                        </svg>
+                    </div>
+                    <h3 class="hub-card-title">${pt('hubModuleWarehouse')}</h3>
+                    <p class="hub-card-desc">${pt('hubModuleWarehouseDesc')}</p>
+                    <span class="hub-card-badge ${warehouseBadge}">${pt('hubBadgeComingSoon')}</span>
+                </div>
+            </div>
+
+            <div class="hub-user-footer">
+                <div class="hub-user-avatar">${getInitials(portalUser.name || portalUser.email)}</div>
+                <div class="hub-user-info">
+                    <div class="hub-user-name">${escapeHtml(portalUser.name || portalUser.email)}</div>
+                    <div class="hub-user-role">${portalUser.role}</div>
+                </div>
+                <button class="hub-logout-btn" onclick="handleLogout()">${pt('btnLogout')}</button>
+            </div>
+        </div>
+    `;
 }
 
 // ============================================

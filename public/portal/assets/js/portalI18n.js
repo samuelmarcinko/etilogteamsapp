@@ -19,6 +19,22 @@ const portalTranslations = {
     navAllSickNotes: 'Všetky paragrafy & OČR',
     navAllTickets: 'Všetky tikety',
 
+    // Module Hub
+    hubTitle: 'ETILOG Portal',
+    hubSubtitle: 'Vyberte modul pre pokračovanie',
+    hubModuleHR: 'HR Modul',
+    hubModuleHRDesc: 'Dovolenky, žiadosti, schválenia, kvóty a správa zamestnancov',
+    hubModuleFleet: 'Vozový park',
+    hubModuleFleetDesc: 'Správa vozidiel, STK, EK a diaľničné známky',
+    hubModuleWarehouse: 'Skladový systém',
+    hubModuleWarehouseDesc: 'Interaktívna mapa skladu a evidencia paletových miest',
+    hubBadgeAvailable: 'Dostupné',
+    hubBadgeComingSoon: 'Pripravujeme',
+    hubBadgeLocked: 'Zamknuté',
+    hubAccessDenied: 'Prístup zamietnutý',
+    hubAccessDeniedMsg: 'Nemáte oprávnenie pre tento modul. Kontaktujte administrátora.',
+    hubBackToModules: 'Späť na moduly',
+
     // User section
     userLoading: 'Načítavam...',
     btnLogout: 'Odhlásiť sa',
@@ -507,6 +523,22 @@ const portalTranslations = {
     navQuotas: 'Quotas',
     navAllSickNotes: 'All Paragraphs & FMC',
     navAllTickets: 'All Tickets',
+
+    // Module Hub
+    hubTitle: 'ETILOG Portal',
+    hubSubtitle: 'Select a module to continue',
+    hubModuleHR: 'HR Module',
+    hubModuleHRDesc: 'Vacations, requests, approvals, quotas and employee management',
+    hubModuleFleet: 'Fleet Management',
+    hubModuleFleetDesc: 'Vehicle management, MOT, emissions and highway stickers',
+    hubModuleWarehouse: 'Warehouse System',
+    hubModuleWarehouseDesc: 'Interactive warehouse map and pallet location tracking',
+    hubBadgeAvailable: 'Available',
+    hubBadgeComingSoon: 'Coming Soon',
+    hubBadgeLocked: 'Locked',
+    hubAccessDenied: 'Access Denied',
+    hubAccessDeniedMsg: 'You do not have permission for this module. Contact the administrator.',
+    hubBackToModules: 'Back to modules',
 
     // User section
     userLoading: 'Loading...',
