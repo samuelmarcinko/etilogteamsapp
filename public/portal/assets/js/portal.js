@@ -3413,12 +3413,15 @@ async function warehouseDashSearch(query) {
 
 function warehouseFocusMaterial(locationId, zone, position) {
     clearMapHighlights();
+    // Hide the search results dropdown so the map (and its pulse) is fully visible
+    const resultsEl = document.getElementById('whDashResults');
+    if (resultsEl) { resultsEl.innerHTML = ''; resultsEl.classList.remove('active'); }
     if (!zone || position == null) { showToast(pt('whNoLocation'), 'info'); return; }
     const el = document.querySelector(`#whMap .pallet-loc[data-zone="${zone}"][data-num="${position}"]`);
     if (el) {
         el.classList.add('highlight');
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        if (locationId) openLocationModal(locationId);
+        const mapEl = document.getElementById('whMap');
+        if (mapEl) mapEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 }
 
@@ -3444,7 +3447,6 @@ async function renderWarehouseMaterials(container) {
                 <div class="card-body">
                     <div class="wh-filter-bar">
                         <input type="text" id="whMatSearch" class="form-control" placeholder="${pt('whSearchPlaceholder')}" style="flex:2;">
-                        <select id="whMatCategory" class="form-control" style="flex:1;"><option value="">${pt('whAllCategories')}</option></select>
                         <select id="whMatZone" class="form-control" style="flex:1;">
                             <option value="">${pt('whAllZones')}</option>
                             <option value="MINI">MINI</option><option value="D">D</option><option value="A">A</option><option value="B">B</option><option value="C">C</option>
@@ -3460,15 +3462,6 @@ async function renderWarehouseMaterials(container) {
             </div>
         </div>
     `;
-    // Load categories for filter + modal
-    try {
-        const catRes = await apiCall('/api/warehouse/categories');
-        whCategories = (await catRes.json()).data || [];
-        const catSel = document.getElementById('whMatCategory');
-        if (catSel) whCategories.forEach(c => {
-            const opt = document.createElement('option'); opt.value = c.id; opt.textContent = c.name; catSel.appendChild(opt);
-        });
-    } catch (e) { console.error('wh cats', e); }
     // Load locations for map picker
     try {
         const locRes = await apiCall('/api/warehouse/locations');
@@ -3484,11 +3477,9 @@ async function loadMaterialsTable() {
     const tableEl = document.getElementById('whMaterialsTable');
     if (!tableEl) return;
     const search = document.getElementById('whMatSearch')?.value || '';
-    const category = document.getElementById('whMatCategory')?.value || '';
     const zone = document.getElementById('whMatZone')?.value || '';
     let url = '/api/warehouse/materials?';
     if (search) url += `search=${encodeURIComponent(search)}&`;
-    if (category) url += `category_id=${category}&`;
     if (zone) url += `zone=${zone}&`;
     try {
         const res = await apiCall(url);
@@ -3501,7 +3492,7 @@ async function loadMaterialsTable() {
             <table class="data-table">
                 <thead><tr>
                     <th>${pt('whColCode')}</th><th>${pt('whColName')}</th><th>${pt('whColQty')}</th>
-                    <th>${pt('whColLocation')}</th><th>${pt('whColCategory')}</th><th>${pt('colActions')}</th>
+                    <th>${pt('whColLocation')}</th><th>${pt('colActions')}</th>
                 </tr></thead>
                 <tbody>
                     ${whMaterialsList.map(m => `
@@ -3510,7 +3501,6 @@ async function loadMaterialsTable() {
                             <td>${escapeHtml(m.name)}</td>
                             <td>${m.quantity} ${escapeHtml(m.unit || 'ks')}</td>
                             <td>${m.location_code ? `<span class="wh-loc-badge">${escapeHtml(m.location_code)}</span>` : `<em style="color:#94a3b8">${pt('whNoLocation')}</em>`}</td>
-                            <td>${m.category_name ? `<span class="badge" style="background:${m.category_color || '#e2e8f0'}22;color:${m.category_color || '#475569'}">${escapeHtml(m.category_name)}</span>` : '-'}</td>
                             <td>
                                 <div class="table-actions">
                                     <button class="btn-icon" onclick="openMaterialModal(${m.id})" title="${pt('edit')}">&#9998;</button>

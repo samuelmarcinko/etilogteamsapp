@@ -2161,11 +2161,32 @@ body.hub-active .portal-lang-switcher {
 .badge-deleted { background: #fee2e2; color: #991b1b; }
 .badge-moved { background: #fef3c7; color: #92400e; }
 
-/* Highlight pulse */
+/* Highlight: strong attention-grabbing pulse for found pallet location */
 .pallet-loc.highlight {
-  animation: whPulse 1s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: whPulse 0.9s ease-in-out infinite;
 }
 @keyframes whPulse {
-  0%, 100% { fill: #fbbf24; stroke-width: 2px; }
-  50% { fill: #fde68a; stroke-width: 4px; }
+  0% {
+    fill: #ef4444;
+    stroke: #b91c1c;
+    stroke-width: 3px;
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 rgba(239, 68, 68, 0.9));
+  }
+  50% {
+    fill: #fca5a5;
+    stroke: #ef4444;
+    stroke-width: 7px;
+    transform: scale(1.18);
+    filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.95));
+  }
+  100% {
+    fill: #ef4444;
+    stroke: #b91c1c;
+    stroke-width: 3px;
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 rgba(239, 68, 68, 0.9));
+  }
 }
