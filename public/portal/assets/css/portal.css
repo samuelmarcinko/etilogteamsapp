@@ -200,6 +200,8 @@ body {
 .portal-layout {
   display: flex;
   min-height: 100vh;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 /* ============================================
@@ -359,6 +361,7 @@ body {
 
 .main-content {
   flex: 1;
+  min-width: 0; /* allow flex item to shrink below content width (prevents page overflow) */
   margin-left: var(--sidebar-width);
   padding: 0;
   background: var(--gray-50);
@@ -2238,77 +2241,96 @@ body.hub-active .portal-lang-switcher {
 #whSelectAll { width: 18px; height: 18px; cursor: pointer; accent-color: var(--etilog-red); }
 
 /* ============================================
-   MOBILE RESPONSIVE
+   MOBILE RESPONSIVE (professional overhaul)
    ============================================ */
 @media (max-width: 768px) {
-  /* Fix viewport zoom issue */
-  html, body { min-width: 100%; overflow-x: hidden; }
+  /* Layout: never exceed viewport, page itself does not scroll horizontally */
+  .main-content { margin-left: 0; min-width: 0; max-width: 100%; }
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    padding: 0.9rem 1rem 0.9rem 3.5rem;
+  }
+  /* Title block keeps clearance from the fixed SK/EN switcher */
+  .page-header > div:first-child { min-width: 0; padding-right: 4.5rem; }
+  .page-header h1 { font-size: 1.35rem; }
+  .page-header p { font-size: 0.75rem; }
+  .page-header .btn,
+  .page-header-actions { width: 100%; }
+  .page-header-actions { display: flex; gap: 0.5rem; }
+  .page-header-actions .btn { flex: 1; }
+  .page-body { padding: 1rem; }
 
-  /* Sidebar mobile */
-  .sidebar { width: 280px; transform: translateX(-100%); }
+  /* Sidebar slide-in */
+  .sidebar { width: 82%; max-width: 300px; transform: translateX(-100%); }
   .sidebar.open { transform: translateX(0); }
-  .mobile-toggle { display: flex; }
+  .mobile-toggle { display: block; }
 
-  /* Main content */
-  .main-content { margin-left: 0; padding: 1rem; }
-  .page-header { flex-direction: column; align-items: stretch; gap: 1rem; }
-  .page-header h1 { font-size: 1.4rem; }
-
-  /* Tables: horizontal scroll wrapper */
-  .data-table { display: block; overflow-x: auto; white-space: nowrap; }
-  .data-table th, .data-table td { padding: 0.6rem 0.75rem; font-size: 0.85rem; }
-
-  /* Filter bars */
-  .wh-filter-bar { flex-direction: column; }
-  .wh-filter-bar > * { flex: 1 1 100% !important; }
-
-  /* Bulk bar mobile */
-  .wh-bulk-bar { flex-direction: column; align-items: stretch; text-align: center; }
-  .wh-bulk-actions { justify-content: center; }
-
-  /* Cards */
-  .portal-card { border-radius: 8px; }
+  /* Cards fit width */
+  .portal-card { border-radius: 10px; }
   .card-body { padding: 1rem; }
 
-  /* Stat cards */
-  .stat-cards { grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  /* Stats: 1 column for readability */
+  .stats-grid { grid-template-columns: 1fr; gap: 0.75rem; }
   .stat-card { padding: 1rem; }
-  .stat-value { font-size: 1.5rem; }
 
-  /* Warehouse map mobile */
-  .wh-map-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .wh-map-wrapper svg { min-width: 900px; height: auto; }
-
-  /* Fullscreen map picker mobile */
-  .wh-map-fs-panel { width: 100%; height: 100%; border-radius: 0; }
-  .wh-map-fs-body { padding: 0.5rem; }
-  .wh-map-fs-body svg { min-width: 800px; }
-
-  /* Modal mobile */
-  .modal { width: 95%; max-width: none; max-height: 90vh; }
-  .modal-xl { width: 98%; }
-
-  /* Form elements */
-  .form-row { flex-direction: column; }
-  .form-row > .form-group { flex: 1 1 100%; }
-
-  /* Hub cards */
-  .hub-modules { grid-template-columns: 1fr; gap: 1rem; }
-  .hub-module-card { min-height: 140px; }
-
-  /* Actions column */
-  .table-actions { gap: 0.25rem; }
-  .btn-icon { padding: 0.4rem; font-size: 1rem; }
-
-  /* Hide less important columns on very small screens */
-  @media (max-width: 480px) {
-    .hide-mobile { display: none !important; }
+  /* Wide tables scroll INSIDE their card, page stays put.
+     Table keeps real table layout (aligned columns) with a min-width. */
+  .portal-card > .card-body,
+  #pageContent .card-body {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
+  .data-table { min-width: 540px; }
+  .data-table th, .data-table td { padding: 0.55rem 0.7rem; font-size: 0.82rem; }
+
+  /* Filter / bulk bars stack */
+  .wh-filter-bar { flex-direction: column; }
+  .wh-filter-bar > * { flex: 1 1 100% !important; width: 100%; }
+  .wh-bulk-bar { flex-direction: column; align-items: stretch; text-align: center; }
+  .wh-bulk-actions { justify-content: center; }
+  .wh-bulk-actions .btn { flex: 1; }
+
+  /* Warehouse map: scroll horizontally inside its container */
+  .wh-map-container { overflow: auto; -webkit-overflow-scrolling: touch; }
+  .wh-map-container svg { min-width: 760px; }
+
+  /* Fullscreen map picker fills screen */
+  .wh-map-fs-panel { width: 100%; height: 100%; max-height: 100%; border-radius: 0; }
+  .wh-map-fs-body { padding: 0.5rem; overflow: auto; -webkit-overflow-scrolling: touch; }
+  .wh-map-fs-body svg { min-width: 760px; }
+  .wh-map-fs-header h3 { font-size: 1rem; }
+  .wh-map-fs-footer { gap: 0.5rem; }
+  .wh-map-fs-footer .btn { flex: 1; }
+
+  /* Modals */
+  .modal { width: 94%; max-width: none; max-height: 92vh; overflow-y: auto; }
+  .modal.modal-xl { width: 97%; }
+  .form-row { grid-template-columns: 1fr; gap: 0.75rem; }
+  .form-row > .form-group { width: 100%; }
+
+  /* Hub cards single column */
+  .hub-modules { grid-template-columns: 1fr; gap: 1rem; }
+
+  /* Quota cards / detail grids stack */
+  .quota-cards, .detail-grid { grid-template-columns: 1fr !important; }
+
+  /* Action buttons tighter */
+  .table-actions { gap: 0.2rem; }
+
+  /* Language switcher smaller, out of the way */
+  .portal-lang-switcher { top: 0.6rem; right: 0.6rem; transform: scale(0.85); transform-origin: top right; }
+}
+
+@media (max-width: 480px) {
+  .page-header h1 { font-size: 1.2rem; }
+  .hide-mobile { display: none !important; }
+  .stat-value { font-size: 1.4rem; }
 }
 
 /* Tablet adjustments */
 @media (min-width: 769px) and (max-width: 1024px) {
-  .sidebar { width: 220px; }
-  .main-content { margin-left: 220px; }
-  .stat-cards { grid-template-columns: repeat(2, 1fr); }
+  :root { --sidebar-width: 220px; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
