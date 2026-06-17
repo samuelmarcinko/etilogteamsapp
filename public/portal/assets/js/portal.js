@@ -3435,8 +3435,10 @@ let whMaterialsList = [];
 let whAllLocations = [];
 let whSelectedLocationId = null;
 let whLocReturnId = null;   // location id to reopen after a sub-action (from map location modal)
+let whSelectedIds = new Set(); // bulk selection
 
 async function renderWarehouseMaterials(container) {
+    whSelectedIds.clear();
     container.innerHTML = `
         <div class="page-header">
             <div><h1>${pt('whMaterialsTitle')}</h1><p>${pt('whMaterialsDesc')}</p></div>
@@ -3453,6 +3455,15 @@ async function renderWarehouseMaterials(container) {
                         </select>
                         <button class="btn btn-secondary" onclick="loadMaterialsTable()">${pt('whFilter')}</button>
                     </div>
+                </div>
+            </div>
+            <!-- Bulk action bar (hidden by default) -->
+            <div class="wh-bulk-bar" id="whBulkBar" style="display:none;">
+                <span class="wh-bulk-count"><span id="whBulkCount">0</span> ${pt('whBulkSelected')}</span>
+                <div class="wh-bulk-actions">
+                    <button class="btn btn-secondary btn-sm" onclick="whBulkMove()">&#128257; ${pt('whBulkMove')}</button>
+                    <button class="btn btn-secondary btn-sm" onclick="whBulkExportPdf()">&#128196; ${pt('whBulkExportPdf')}</button>
+                    <button class="btn btn-danger btn-sm" onclick="whBulkDelete()">&#128465; ${pt('whBulkDelete')}</button>
                 </div>
             </div>
             <div class="portal-card">
@@ -3491,12 +3502,14 @@ async function loadMaterialsTable() {
         tableEl.innerHTML = `
             <table class="data-table">
                 <thead><tr>
+                    <th class="th-check"><input type="checkbox" id="whSelectAll" onchange="whToggleSelectAll(this.checked)" title="${pt('whSelectAll')}"></th>
                     <th>${pt('whColCode')}</th><th>${pt('whColName')}</th><th>${pt('whColQty')}</th>
                     <th>${pt('whColLocation')}</th><th>${pt('colActions')}</th>
                 </tr></thead>
                 <tbody>
                     ${whMaterialsList.map(m => `
-                        <tr>
+                        <tr data-id="${m.id}">
+                            <td class="td-check"><input type="checkbox" class="wh-row-check" value="${m.id}" onchange="whToggleRow(${m.id}, this.checked)" ${whSelectedIds.has(m.id) ? 'checked' : ''}></td>
                             <td><strong>${escapeHtml(m.code)}</strong></td>
                             <td>${escapeHtml(m.name)}</td>
                             <td>${m.quantity} ${escapeHtml(m.unit || 'ks')}</td>
@@ -3513,6 +3526,7 @@ async function loadMaterialsTable() {
                 </tbody>
             </table>
         `;
+        whUpdateBulkBar();
     } catch (e) {
         console.error('wh materials', e);
         tableEl.innerHTML = `<div class="empty-state"><div class="empty-text">${pt('pageLoadError')}</div></div>`;
@@ -3729,6 +3743,119 @@ async function deleteMaterial(id, code) {
         if (ret) { openLocationModal(ret); }
         else { await loadMaterialsTable(); }
     } catch (e) { showToast(e.message, 'error'); }
+}
+
+// --- Bulk actions ---
+function whToggleRow(id, checked) {
+    if (checked) whSelectedIds.add(id);
+    else whSelectedIds.delete(id);
+    whUpdateBulkBar();
+}
+
+function whToggleSelectAll(checked) {
+    document.querySelectorAll('.wh-row-check').forEach(cb => {
+        cb.checked = checked;
+        const id = parseInt(cb.value, 10);
+        if (checked) whSelectedIds.add(id);
+        else whSelectedIds.delete(id);
+    });
+    whUpdateBulkBar();
+}
+
+function whUpdateBulkBar() {
+    const bar = document.getElementById('whBulkBar');
+    const count = document.getElementById('whBulkCount');
+    if (!bar) return;
+    if (whSelectedIds.size > 0) {
+        bar.style.display = 'flex';
+        if (count) count.textContent = whSelectedIds.size;
+    } else {
+        bar.style.display = 'none';
+    }
+    // Sync select-all checkbox
+    const allCb = document.getElementById('whSelectAll');
+    const rowCbs = document.querySelectorAll('.wh-row-check');
+    if (allCb && rowCbs.length) {
+        allCb.checked = whSelectedIds.size === rowCbs.length;
+        allCb.indeterminate = whSelectedIds.size > 0 && whSelectedIds.size < rowCbs.length;
+    }
+}
+
+async function whBulkMove() {
+    if (!whSelectedIds.size) return;
+    openMapPickerFS({
+        title: `${pt('whBulkMove')} (${whSelectedIds.size})`,
+        onSelect: async (loc) => {
+            const ids = Array.from(whSelectedIds);
+            let ok = 0, fail = 0;
+            for (const id of ids) {
+                try {
+                    const res = await apiCall(`/api/warehouse/materials/${id}/move`, {
+                        method: 'PATCH', body: JSON.stringify({ to_location_id: loc.id })
+                    });
+                    if (res.ok) ok++; else fail++;
+                } catch { fail++; }
+            }
+            showToast(`${pt('whBulkMoveSuccess')}: ${ok}`, ok > 0 ? 'success' : 'error');
+            whSelectedIds.clear();
+            await loadMaterialsTable();
+            whRefreshViews();
+        }
+    });
+}
+
+async function whBulkDelete() {
+    if (!whSelectedIds.size) return;
+    if (!confirm(`${pt('whBulkDeleteConfirm')} ${whSelectedIds.size} ${pt('whBulkSelected').toLowerCase()}?`)) return;
+    const ids = Array.from(whSelectedIds);
+    let ok = 0, fail = 0;
+    for (const id of ids) {
+        try {
+            const res = await apiCall(`/api/warehouse/materials/${id}`, { method: 'DELETE' });
+            if (res.ok) ok++; else fail++;
+        } catch { fail++; }
+    }
+    showToast(`${pt('whBulkDeleteSuccess')}: ${ok}`, ok > 0 ? 'success' : 'error');
+    whSelectedIds.clear();
+    await loadMaterialsTable();
+    whRefreshViews();
+}
+
+function whBulkExportPdf() {
+    if (!whSelectedIds.size) return;
+    const selected = whMaterialsList.filter(m => whSelectedIds.has(m.id));
+    const html = `
+<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<title>ETILOG Sklad - Export</title>
+<style>
+body { font-family: Arial, sans-serif; padding: 20px; }
+h1 { color: #D9000C; margin-bottom: 5px; }
+.subtitle { color: #666; margin-bottom: 20px; }
+table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+th { background: #f5f5f5; font-weight: 600; }
+tr:nth-child(even) { background: #fafafa; }
+.loc { background: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+.footer { margin-top: 30px; font-size: 12px; color: #999; }
+@media print { body { padding: 0; } }
+</style>
+</head><body>
+<h1>ETILOG Sklad</h1>
+<div class="subtitle">Export materiálu · ${new Date().toLocaleDateString('sk-SK')} · ${selected.length} položiek</div>
+<table>
+<thead><tr><th>Kód</th><th>Názov</th><th>Množstvo</th><th>Jednotka</th><th>Pozícia</th></tr></thead>
+<tbody>
+${selected.map(m => `<tr><td><strong>${escapeHtml(m.code)}</strong></td><td>${escapeHtml(m.name)}</td><td>${m.quantity}</td><td>${escapeHtml(m.unit || 'ks')}</td><td>${m.location_code ? `<span class="loc">${escapeHtml(m.location_code)}</span>` : '-'}</td></tr>`).join('')}
+</tbody>
+</table>
+<div class="footer">Vygenerované: ${new Date().toLocaleString('sk-SK')}</div>
+</body></html>`;
+    const w = window.open('', '_blank');
+    w.document.write(html);
+    w.document.close();
+    w.onload = () => { w.print(); };
 }
 
 // --- Movements page ---

@@ -65,6 +65,8 @@ body {
   line-height: 1.6;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 /* ============================================
@@ -1990,12 +1992,19 @@ body.hub-active .portal-lang-switcher {
   overflow: auto;
   border-radius: 8px;
   background: #f8fafc;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y pinch-zoom;
 }
 .wh-map-container svg {
   width: 100%;
   height: auto;
   min-width: 900px;
   display: block;
+}
+/* Mobile: make pallet locations easier to tap */
+@media (max-width: 768px) {
+  .wh-map-container svg { min-width: 750px; }
+  .pallet-loc { stroke-width: 2px; }
 }
 /* Occupied pallet locations - uses SVG hatched pattern */
 .pallet-loc { transition: fill .15s ease; }
@@ -2189,4 +2198,117 @@ body.hub-active .portal-lang-switcher {
     transform: scale(1);
     filter: drop-shadow(0 0 0 rgba(239, 68, 68, 0.9));
   }
+}
+
+/* Bulk action bar */
+.wh-bulk-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 1px solid #fbbf24;
+  border-radius: 10px;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  animation: bulkSlideIn 0.25s ease-out;
+}
+@keyframes bulkSlideIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.wh-bulk-count {
+  font-weight: 600;
+  color: #92400e;
+  font-size: 0.95rem;
+}
+.wh-bulk-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.btn-sm { padding: 0.4rem 0.75rem; font-size: 0.85rem; }
+.btn-danger { background: #ef4444; color: white; }
+.btn-danger:hover { background: #dc2626; }
+
+/* Checkbox column */
+.th-check, .td-check { width: 40px; text-align: center; }
+.wh-row-check { width: 18px; height: 18px; cursor: pointer; accent-color: var(--etilog-red); }
+#whSelectAll { width: 18px; height: 18px; cursor: pointer; accent-color: var(--etilog-red); }
+
+/* ============================================
+   MOBILE RESPONSIVE
+   ============================================ */
+@media (max-width: 768px) {
+  /* Fix viewport zoom issue */
+  html, body { min-width: 100%; overflow-x: hidden; }
+
+  /* Sidebar mobile */
+  .sidebar { width: 280px; transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  .mobile-toggle { display: flex; }
+
+  /* Main content */
+  .main-content { margin-left: 0; padding: 1rem; }
+  .page-header { flex-direction: column; align-items: stretch; gap: 1rem; }
+  .page-header h1 { font-size: 1.4rem; }
+
+  /* Tables: horizontal scroll wrapper */
+  .data-table { display: block; overflow-x: auto; white-space: nowrap; }
+  .data-table th, .data-table td { padding: 0.6rem 0.75rem; font-size: 0.85rem; }
+
+  /* Filter bars */
+  .wh-filter-bar { flex-direction: column; }
+  .wh-filter-bar > * { flex: 1 1 100% !important; }
+
+  /* Bulk bar mobile */
+  .wh-bulk-bar { flex-direction: column; align-items: stretch; text-align: center; }
+  .wh-bulk-actions { justify-content: center; }
+
+  /* Cards */
+  .portal-card { border-radius: 8px; }
+  .card-body { padding: 1rem; }
+
+  /* Stat cards */
+  .stat-cards { grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  .stat-card { padding: 1rem; }
+  .stat-value { font-size: 1.5rem; }
+
+  /* Warehouse map mobile */
+  .wh-map-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .wh-map-wrapper svg { min-width: 900px; height: auto; }
+
+  /* Fullscreen map picker mobile */
+  .wh-map-fs-panel { width: 100%; height: 100%; border-radius: 0; }
+  .wh-map-fs-body { padding: 0.5rem; }
+  .wh-map-fs-body svg { min-width: 800px; }
+
+  /* Modal mobile */
+  .modal { width: 95%; max-width: none; max-height: 90vh; }
+  .modal-xl { width: 98%; }
+
+  /* Form elements */
+  .form-row { flex-direction: column; }
+  .form-row > .form-group { flex: 1 1 100%; }
+
+  /* Hub cards */
+  .hub-modules { grid-template-columns: 1fr; gap: 1rem; }
+  .hub-module-card { min-height: 140px; }
+
+  /* Actions column */
+  .table-actions { gap: 0.25rem; }
+  .btn-icon { padding: 0.4rem; font-size: 1rem; }
+
+  /* Hide less important columns on very small screens */
+  @media (max-width: 480px) {
+    .hide-mobile { display: none !important; }
+  }
+}
+
+/* Tablet adjustments */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .sidebar { width: 220px; }
+  .main-content { margin-left: 220px; }
+  .stat-cards { grid-template-columns: repeat(2, 1fr); }
 }
