@@ -3824,11 +3824,12 @@ async function whBulkDelete() {
 function whBulkExportPdf() {
     if (!whSelectedIds.size) return;
     const selected = whMaterialsList.filter(m => whSelectedIds.has(m.id));
+    const locale = (typeof portalLang !== 'undefined' && portalLang === 'en') ? 'en-GB' : 'sk-SK';
     const html = `
 <!DOCTYPE html>
-<html><head>
+<html lang="${(typeof portalLang !== 'undefined' && portalLang) || 'sk'}"><head>
 <meta charset="UTF-8">
-<title>ETILOG Sklad - Export</title>
+<title>${pt('whPdfHeading')} - ${pt('whBulkExportPdf')}</title>
 <style>
 body { font-family: Arial, sans-serif; padding: 20px; }
 h1 { color: #D9000C; margin-bottom: 5px; }
@@ -3842,15 +3843,15 @@ tr:nth-child(even) { background: #fafafa; }
 @media print { body { padding: 0; } }
 </style>
 </head><body>
-<h1>ETILOG Sklad</h1>
-<div class="subtitle">Export materiálu · ${new Date().toLocaleDateString('sk-SK')} · ${selected.length} položiek</div>
+<h1>${pt('whPdfHeading')}</h1>
+<div class="subtitle">${pt('whPdfSubtitle')} · ${new Date().toLocaleDateString(locale)} · ${selected.length} ${pt('whPdfItems')}</div>
 <table>
-<thead><tr><th>Kód</th><th>Názov</th><th>Množstvo</th><th>Jednotka</th><th>Pozícia</th></tr></thead>
+<thead><tr><th>${pt('whColCode')}</th><th>${pt('whColName')}</th><th>${pt('whColQty')}</th><th>${pt('whUnit')}</th><th>${pt('whColLocation')}</th></tr></thead>
 <tbody>
 ${selected.map(m => `<tr><td><strong>${escapeHtml(m.code)}</strong></td><td>${escapeHtml(m.name)}</td><td>${m.quantity}</td><td>${escapeHtml(m.unit || 'ks')}</td><td>${m.location_code ? `<span class="loc">${escapeHtml(m.location_code)}</span>` : '-'}</td></tr>`).join('')}
 </tbody>
 </table>
-<div class="footer">Vygenerované: ${new Date().toLocaleString('sk-SK')}</div>
+<div class="footer">${pt('whPdfGenerated')}: ${new Date().toLocaleString(locale)}</div>
 </body></html>`;
     const w = window.open('', '_blank');
     w.document.write(html);

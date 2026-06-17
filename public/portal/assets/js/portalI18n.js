@@ -452,6 +452,10 @@ const portalTranslations = {
     // Fleet Management
     navFleet: 'Vozový park',
     // Warehouse module
+    navWhDashboard: 'Dashboard',
+    navWhMaterials: 'Evidencia materiálu',
+    navWhMovements: 'Pohyby',
+    navWhAudit: 'Audit log',
     whDashboardTitle: 'Skladový dashboard',
     whDashboardDesc: 'Interaktívna mapa skladu a prehľad materiálu',
     whStatMaterials: 'Celkom materiálu',
@@ -522,6 +526,10 @@ const portalTranslations = {
     whBulkDeleteConfirm: 'Naozaj vymazať',
     whBulkDeleteSuccess: 'Materiály vymazané',
     whSelectAll: 'Vybrať všetko',
+    whPdfHeading: 'ETILOG Sklad',
+    whPdfSubtitle: 'Export materiálu',
+    whPdfItems: 'položiek',
+    whPdfGenerated: 'Vygenerované',
     fleetTitle: 'Vozový park',
     fleetDesc: 'Správa firemných vozidiel, STK, EK a diaľničných známok',
     fleetAddNew: 'Pridať vozidlo',
@@ -1030,6 +1038,10 @@ const portalTranslations = {
     // Fleet Management
     navFleet: 'Fleet',
     // Warehouse module
+    navWhDashboard: 'Dashboard',
+    navWhMaterials: 'Material registry',
+    navWhMovements: 'Movements',
+    navWhAudit: 'Audit log',
     whDashboardTitle: 'Warehouse dashboard',
     whDashboardDesc: 'Interactive warehouse map and material overview',
     whStatMaterials: 'Total materials',
@@ -1100,6 +1112,10 @@ const portalTranslations = {
     whBulkDeleteConfirm: 'Delete',
     whBulkDeleteSuccess: 'Materials deleted',
     whSelectAll: 'Select all',
+    whPdfHeading: 'ETILOG Warehouse',
+    whPdfSubtitle: 'Material export',
+    whPdfItems: 'items',
+    whPdfGenerated: 'Generated',
     fleetTitle: 'Fleet Management',
     fleetDesc: 'Manage company vehicles, STK, EK and highway stickers',
     fleetAddNew: 'Add Vehicle',
@@ -1273,7 +1289,11 @@ function updateSidebarLanguage() {
     'admin-tickets': pt('navAllTickets'),
     'admin-ticket-types': pt('navTicketTypes'),
     'admin-fleet': pt('navFleet'),
-    'admin-system': pt('navAdminSystem')
+    'admin-system': pt('navAdminSystem'),
+    'warehouse-dashboard': pt('navWhDashboard'),
+    'warehouse-materials': pt('navWhMaterials'),
+    'warehouse-movements': pt('navWhMovements'),
+    'warehouse-audit': pt('navWhAudit')
   };
 
   document.querySelectorAll('.sidebar-link').forEach(link => {
@@ -1289,11 +1309,12 @@ function updateSidebarLanguage() {
   const backLabel = document.getElementById('navBackLabel');
   if (backLabel) backLabel.textContent = pt('hubBackToModules');
 
-  // Section titles (DOM order: HR main, HR admin, HR system, Fleet, Warehouse)
+  // Section titles (DOM order: HR main, HR admin, HR system, Fleet, Warehouse, Warehouse admin)
   const sections = document.querySelectorAll('.nav-section-title');
   if (sections[0]) sections[0].textContent = pt('navMain');
   if (sections[1]) sections[1].textContent = pt('navAdmin');
   if (sections[2]) sections[2].textContent = pt('navSystem');
   if (sections[3]) sections[3].textContent = pt('hubModuleFleet');
   if (sections[4]) sections[4].textContent = pt('hubModuleWarehouse');
+  if (sections[5]) sections[5].textContent = pt('navAdmin');
 }
