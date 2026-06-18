@@ -281,12 +281,7 @@ function hasModuleAccess(module) {
 
 function enterModule(module) {
     if (!hasModuleAccess(module)) {
-        openModal(pt('hubAccessDenied'), `
-            <div style="text-align: center; padding: 1rem;">
-                <div style="font-size: 3rem; margin-bottom: 1rem;">&#128274;</div>
-                <p>${pt('hubAccessDeniedMsg')}</p>
-            </div>
-        `, `<button class="btn btn-secondary" onclick="closeModal()">${pt('close')}</button>`);
+        showAccessDeniedModal();
         return;
     }
 
@@ -294,6 +289,47 @@ function enterModule(module) {
     if (module === 'hr') navigateToPage('dashboard');
     if (module === 'fleet') navigateToPage('admin-fleet');
     if (module === 'warehouse') navigateToPage('warehouse-dashboard');
+}
+
+// Modern "access denied" modal with an animated cross icon
+function showAccessDeniedModal() {
+    const existing = document.getElementById('accessDeniedOverlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'access-denied-overlay';
+    overlay.id = 'accessDeniedOverlay';
+    overlay.innerHTML = `
+        <div class="access-denied-card">
+            <div class="access-denied-icon">
+                <svg viewBox="0 0 80 80">
+                    <circle class="ad-circle" cx="40" cy="40" r="36"/>
+                    <line class="ad-x1" x1="28" y1="28" x2="52" y2="52"/>
+                    <line class="ad-x2" x1="52" y1="28" x2="28" y2="52"/>
+                </svg>
+            </div>
+            <h3 class="access-denied-title">${pt('hubAccessDenied')}</h3>
+            <p class="access-denied-msg">${pt('hubAccessDeniedMsg')}</p>
+            <button class="btn btn-secondary" id="adCloseBtn">${pt('close')}</button>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const close = () => {
+        overlay.classList.add('closing');
+        setTimeout(() => overlay.remove(), 200);
+    };
+    overlay.querySelector('#adCloseBtn').addEventListener('click', close);
+    // Drag-safe backdrop close
+    let downSelf = false;
+    overlay.addEventListener('mousedown', (e) => { downSelf = (e.target === overlay); });
+    overlay.addEventListener('click', (e) => { if (e.target === overlay && downSelf) close(); downSelf = false; });
+    document.addEventListener('keydown', function esc(e) {
+        if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); }
+    });
+
+    // Trigger entrance animation
+    requestAnimationFrame(() => overlay.classList.add('active'));
 }
 
 async function renderHub(container) {
