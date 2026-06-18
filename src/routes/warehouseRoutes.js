@@ -130,17 +130,33 @@ router.post('/materials', asyncHandler(async (req, res) => {
   if (!code || !name) {
     return res.status(400).json({ error: 'code and name are required' });
   }
+  // App-level duplicate guard (DB UNIQUE added later once legacy dupes cleaned)
+  if (await Material.existsByCode(code)) {
+    return res.status(409).json({ error: 'code exists', message: 'Material with this code already exists' });
+  }
   const user = currentUser(req);
   const material = await Material.create({ ...req.body, created_by: user.id, created_by_name: user.name });
-  await WarehouseAudit.log(user, 'created', 'material', material.id, { code: material.code, name: material.name });
+  const placements = Array.isArray(req.body.placements) ? req.body.placements.filter(p => p.location_id) : [];
+  await WarehouseAudit.log(user, 'created', 'material', material.id, {
+    code: material.code, name: material.name,
+    placements: placements.map(p => ({ location_id: p.location_id, quantity: p.quantity }))
+  });
   res.status(201).json({ data: material });
 }));
 
 // PUT /api/warehouse/materials/:id
 router.put('/materials/:id', asyncHandler(async (req, res) => {
+  // Duplicate guard when code is being changed
+  if (req.body.code && await Material.existsByCode(req.body.code, Number(req.params.id))) {
+    return res.status(409).json({ error: 'code exists', message: 'Material with this code already exists' });
+  }
   const material = await Material.update(req.params.id, req.body);
   if (!material) return res.status(404).json({ error: 'Material not found' });
-  await WarehouseAudit.log(currentUser(req), 'updated', 'material', material.id, { code: material.code });
+  const placements = Array.isArray(req.body.placements) ? req.body.placements.filter(p => p.location_id) : [];
+  await WarehouseAudit.log(currentUser(req), 'updated', 'material', material.id, {
+    code: material.code,
+    placements: placements.map(p => ({ location_id: p.location_id, quantity: p.quantity }))
+  });
   res.json({ data: material });
 }));
 

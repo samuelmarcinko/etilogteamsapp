@@ -3374,7 +3374,7 @@ async function openLocationModal(locationId) {
                             <tr>
                                 <td><strong>${escapeHtml(m.code)}</strong></td>
                                 <td>${escapeHtml(m.name)}</td>
-                                <td>${m.quantity} ${escapeHtml(m.unit || '')}</td>
+                                <td>${m.placement_quantity != null ? m.placement_quantity : m.quantity} ${escapeHtml(m.unit || '')}</td>
                                 <td>
                                     <div class="table-actions">
                                         <button class="btn-icon" onclick="whLocEditMaterial(${m.id})" title="${pt('edit')}">&#9998;</button>
@@ -3411,6 +3411,8 @@ function whRefreshViews() {
 }
 
 // --- Dashboard search (find material -> highlight on map) ---
+let whDashSearchResults = [];   // cache of last search results (for multi-position highlight)
+
 async function warehouseDashSearch(query) {
     const resultsEl = document.getElementById('whDashResults');
     if (!resultsEl) return;
@@ -3420,34 +3422,53 @@ async function warehouseDashSearch(query) {
     try {
         const res = await apiCall(`/api/warehouse/materials?search=${encodeURIComponent(query.trim())}`);
         const materials = (await res.json()).data || [];
+        whDashSearchResults = materials;
         if (materials.length === 0) {
             resultsEl.innerHTML = `<div class="wh-search-empty">${pt('whSearchNoResults')}</div>`;
             resultsEl.classList.add('active');
             return;
         }
-        resultsEl.innerHTML = materials.slice(0, 20).map(m => `
-            <div class="wh-search-item" onclick="warehouseFocusMaterial(${m.location_id || 'null'}, '${escapeHtml(m.location_zone || '')}', ${m.location_position || 'null'})">
+        resultsEl.innerHTML = materials.slice(0, 20).map(m => {
+            const pl = Array.isArray(m.placements) ? m.placements : [];
+            const locText = pl.length
+                ? pl.map(p => escapeHtml(p.location_code)).join(', ')
+                : (m.location_code ? escapeHtml(m.location_code) : pt('whNoLocation'));
+            return `
+            <div class="wh-search-item" onclick="warehouseFocusMaterial(${m.id})">
                 <span class="wh-search-code">${escapeHtml(m.code)}</span>
                 <span class="wh-search-name">${escapeHtml(m.name)}</span>
-                <span class="wh-search-loc">${m.location_code ? escapeHtml(m.location_code) : pt('whNoLocation')}</span>
-            </div>
-        `).join('');
+                <span class="wh-search-loc">${locText}</span>
+            </div>`;
+        }).join('');
         resultsEl.classList.add('active');
     } catch (e) { console.error('wh search', e); }
 }
 
-function warehouseFocusMaterial(locationId, zone, position) {
+// Highlight ALL placements of the chosen material (blinks every position)
+function warehouseFocusMaterial(materialId) {
     clearMapHighlights();
     // Hide the search results dropdown so the map (and its pulse) is fully visible
     const resultsEl = document.getElementById('whDashResults');
     if (resultsEl) { resultsEl.innerHTML = ''; resultsEl.classList.remove('active'); }
-    if (!zone || position == null) { showToast(pt('whNoLocation'), 'info'); return; }
-    const el = document.querySelector(`#whMap .pallet-loc[data-zone="${zone}"][data-num="${position}"]`);
-    if (el) {
-        el.classList.add('highlight');
-        const mapEl = document.getElementById('whMap');
-        if (mapEl) mapEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
+
+    const mat = whDashSearchResults.find(m => m.id === materialId);
+    if (!mat) return;
+
+    // Collect every position: split placements, else legacy single location
+    let positions = (Array.isArray(mat.placements) && mat.placements.length)
+        ? mat.placements.map(p => ({ zone: p.zone, position: p.position }))
+        : (mat.location_zone != null ? [{ zone: mat.location_zone, position: mat.location_position }] : []);
+
+    if (positions.length === 0) { showToast(pt('whNoLocation'), 'info'); return; }
+
+    positions.forEach(pos => {
+        if (!pos.zone || pos.position == null) return;
+        const el = document.querySelector(`#whMap .pallet-loc[data-zone="${pos.zone}"][data-num="${pos.position}"]`);
+        if (el) el.classList.add('highlight');
+    });
+
+    const mapEl = document.getElementById('whMap');
+    if (mapEl) mapEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function clearMapHighlights() {
@@ -3509,6 +3530,22 @@ async function renderWarehouseMaterials(container) {
     await loadMaterialsTable();
 }
 
+// Render location badge(s) for a material; shows qty per position when split
+function whLocationBadges(m) {
+    const pl = Array.isArray(m.placements) ? m.placements : [];
+    if (pl.length === 0) {
+        return m.location_code
+            ? `<span class="wh-loc-badge">${escapeHtml(m.location_code)}</span>`
+            : `<em style="color:#94a3b8">${pt('whNoLocation')}</em>`;
+    }
+    if (pl.length === 1) {
+        return `<span class="wh-loc-badge">${escapeHtml(pl[0].location_code)}</span>`;
+    }
+    return `<div class="wh-loc-badges">` + pl.map(p =>
+        `<span class="wh-loc-badge" title="${p.quantity}">${escapeHtml(p.location_code)} <small>(${p.quantity})</small></span>`
+    ).join('') + `</div>`;
+}
+
 async function loadMaterialsTable() {
     const tableEl = document.getElementById('whMaterialsTable');
     if (!tableEl) return;
@@ -3538,7 +3575,7 @@ async function loadMaterialsTable() {
                             <td><strong>${escapeHtml(m.code)}</strong></td>
                             <td>${escapeHtml(m.name)}</td>
                             <td>${m.quantity} ${escapeHtml(m.unit || 'ks')}</td>
-                            <td>${m.location_code ? `<span class="wh-loc-badge">${escapeHtml(m.location_code)}</span>` : `<em style="color:#94a3b8">${pt('whNoLocation')}</em>`}</td>
+                            <td>${whLocationBadges(m)}</td>
                             <td>
                                 <div class="table-actions">
                                     <button class="btn-icon" onclick="openMaterialModal(${m.id})" title="${pt('edit')}">&#9998;</button>
@@ -3559,6 +3596,8 @@ async function loadMaterialsTable() {
 }
 
 // --- Material modal (create / edit) ---
+let whPlacements = [];   // split rows: [{ location_id, location_code, quantity }]
+
 async function openMaterialModal(materialId = null, presetLocationId = null) {
     const isEdit = !!materialId;
     let mat = null;
@@ -3580,31 +3619,53 @@ async function openMaterialModal(materialId = null, presetLocationId = null) {
         if (pl) presetLocCode = pl.code;
     }
 
+    // Build placement state from existing material (split = >1 placement)
+    const existing = (mat && Array.isArray(mat.placements)) ? mat.placements : [];
+    const startSplit = existing.length > 1;
+    whPlacements = existing.map(p => ({ location_id: p.location_id, location_code: p.location_code, quantity: p.quantity }));
+
     document.getElementById('modal').classList.add('modal-xl');
     document.getElementById('modalTitle').textContent = isEdit ? pt('whEditMaterial') : pt('whAddMaterial');
     document.getElementById('modalBody').innerHTML = `
         <div class="form-group"><label>${pt('whColCode')} *</label><input type="text" id="matCode" class="form-control" value="${mat ? escapeHtml(mat.code) : ''}" required></div>
         <div class="form-group"><label>${pt('whColName')} *</label><input type="text" id="matName" class="form-control" value="${mat ? escapeHtml(mat.name) : ''}"></div>
         <div class="form-row">
-            <div class="form-group"><label>${pt('whColQty')}</label><input type="number" id="matQty" class="form-control" min="0" value="${mat ? mat.quantity : 1}"></div>
+            <div class="form-group"><label>${pt('whTotalQuantity')}</label><input type="number" id="matQty" class="form-control" min="0" value="${mat ? mat.quantity : 1}" oninput="whUpdateSplitIndicator()"></div>
             <div class="form-group"><label>${pt('whUnit')}</label><input type="text" id="matUnit" class="form-control" value="${mat ? escapeHtml(mat.unit || 'ks') : 'ks'}"></div>
         </div>
-        <div class="form-group">
+
+        <div class="wh-split-toggle">
+            <label class="wh-checkbox">
+                <input type="checkbox" id="matSplit" ${startSplit ? 'checked' : ''} onchange="whToggleSplit(this.checked)">
+                <span>${pt('whSplitToggle')}</span>
+            </label>
+        </div>
+
+        <!-- Single location (default) -->
+        <div class="form-group" id="whSingleLoc" style="${startSplit ? 'display:none;' : ''}">
             <label>${pt('whColLocation')}</label>
             <div class="wh-loc-picker">
                 <input type="text" id="matLocDisplay" class="form-control" readonly placeholder="${pt('whClickMap')}" value="${escapeHtml(presetLocCode)}">
                 <button type="button" class="btn btn-secondary" onclick="openMaterialLocPicker()">&#128506; ${pt('whPickLocation')}</button>
             </div>
         </div>
+
+        <!-- Split into multiple locations -->
+        <div id="whSplitLoc" style="${startSplit ? '' : 'display:none;'}">
+            <div id="whPlacementRows"></div>
+            <button type="button" class="btn btn-secondary btn-sm wh-add-pos" onclick="whAddPlacementRow()">+ ${pt('whSplitAddPosition')}</button>
+            <div id="whSplitIndicator" class="wh-split-indicator"></div>
+        </div>
     `;
     document.getElementById('modalFooter').innerHTML = `
         <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
-        <button class="btn btn-primary" onclick="saveMaterial(${materialId || 'null'})">${pt('save')}</button>
+        <button class="btn btn-primary" id="whSaveBtn" onclick="saveMaterial(${materialId || 'null'})">${pt('save')}</button>
     `;
+    if (startSplit) whRenderPlacements();
     openModal();
 }
 
-// Open fullscreen picker for the material modal location field
+// Open fullscreen picker for the material modal single-location field
 function openMaterialLocPicker() {
     openMapPickerFS({
         title: pt('whPickLocation'),
@@ -3618,8 +3679,119 @@ function openMaterialLocPicker() {
     });
 }
 
+// ===== Split (multi-location) handling =====
+function whToggleSplit(checked) {
+    document.getElementById('whSingleLoc').style.display = checked ? 'none' : '';
+    document.getElementById('whSplitLoc').style.display = checked ? '' : 'none';
+    if (checked) {
+        // Seed from single-location selection or start with 2 empty rows
+        if (whPlacements.length === 0) {
+            const total = parseInt(document.getElementById('matQty')?.value, 10) || 0;
+            if (whSelectedLocationId) {
+                const loc = whAllLocations.find(l => l.id === whSelectedLocationId);
+                whPlacements.push({ location_id: whSelectedLocationId, location_code: loc?.code || '', quantity: total });
+            } else {
+                whPlacements.push({ location_id: null, location_code: '', quantity: total });
+            }
+            whPlacements.push({ location_id: null, location_code: '', quantity: 0 });
+        }
+        whRenderPlacements();
+    } else {
+        // Collapse back: keep first placement as single location
+        const first = whPlacements.find(p => p.location_id);
+        if (first) {
+            whSelectedLocationId = first.location_id;
+            const disp = document.getElementById('matLocDisplay');
+            if (disp) disp.value = first.location_code || '';
+        }
+    }
+}
+
+function whRemainingQty(excludeIdx = -1) {
+    const total = parseInt(document.getElementById('matQty')?.value, 10) || 0;
+    const allocated = whPlacements.reduce((s, p, i) => i === excludeIdx ? s : s + (parseInt(p.quantity, 10) || 0), 0);
+    return total - allocated;
+}
+
+function whAddPlacementRow() {
+    // New row auto-prefilled with remaining quantity (zero math for the user)
+    const remaining = Math.max(0, whRemainingQty());
+    whPlacements.push({ location_id: null, location_code: '', quantity: remaining });
+    whRenderPlacements();
+}
+
+function whRemovePlacementRow(idx) {
+    whPlacements.splice(idx, 1);
+    if (whPlacements.length === 0) whPlacements.push({ location_id: null, location_code: '', quantity: 0 });
+    whRenderPlacements();
+}
+
+function whPlacementQtyChange(idx, val) {
+    whPlacements[idx].quantity = Math.max(0, parseInt(val, 10) || 0);
+    whUpdateSplitIndicator();
+}
+
+function whPickPlacementLoc(idx) {
+    const usedIds = whPlacements.filter((p, i) => i !== idx && p.location_id).map(p => p.location_id);
+    openMapPickerFS({
+        title: pt('whPickLocation'),
+        selectedId: whPlacements[idx].location_id,
+        excludeIds: usedIds,
+        onSelect: (loc) => {
+            whPlacements[idx].location_id = loc.id;
+            whPlacements[idx].location_code = loc.code;
+            whRenderPlacements();
+        }
+    });
+}
+
+function whRenderPlacements() {
+    const wrap = document.getElementById('whPlacementRows');
+    if (!wrap) return;
+    wrap.innerHTML = whPlacements.map((p, i) => `
+        <div class="wh-placement-row">
+            <span class="wh-placement-num">${pt('whSplitPosition')} ${i + 1}</span>
+            <input type="text" class="form-control wh-placement-loc" readonly
+                   placeholder="${pt('whClickMap')}" value="${escapeHtml(p.location_code || '')}"
+                   onclick="whPickPlacementLoc(${i})">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="whPickPlacementLoc(${i})">&#128506;</button>
+            <input type="number" class="form-control wh-placement-qty" min="0" value="${p.quantity}"
+                   oninput="whPlacementQtyChange(${i}, this.value)">
+            <button type="button" class="btn-icon wh-placement-del" onclick="whRemovePlacementRow(${i})" title="${pt('delete')}">&#128465;</button>
+        </div>
+    `).join('');
+    whUpdateSplitIndicator();
+}
+
+function whUpdateSplitIndicator() {
+    const ind = document.getElementById('whSplitIndicator');
+    const split = document.getElementById('matSplit')?.checked;
+    const saveBtn = document.getElementById('whSaveBtn');
+    if (!ind || !split) { if (saveBtn) saveBtn.disabled = false; return; }
+
+    const total = parseInt(document.getElementById('matQty')?.value, 10) || 0;
+    const allocated = whPlacements.reduce((s, p) => s + (parseInt(p.quantity, 10) || 0), 0);
+    const unit = document.getElementById('matUnit')?.value || 'ks';
+    const diff = total - allocated;
+
+    let cls, msg;
+    if (diff === 0) {
+        cls = 'ok';
+        msg = `${pt('whSplitAllocated')}: ${allocated} / ${total} ${escapeHtml(unit)} &nbsp; ✓ ${pt('whSplitMatch')}`;
+    } else if (diff > 0) {
+        cls = 'under';
+        msg = `${pt('whSplitAllocated')}: ${allocated} / ${total} ${escapeHtml(unit)} &nbsp; ✗ ${pt('whSplitUnder').replace('{n}', diff)}`;
+    } else {
+        cls = 'over';
+        msg = `${pt('whSplitAllocated')}: ${allocated} / ${total} ${escapeHtml(unit)} &nbsp; ✗ ${pt('whSplitOver').replace('{n}', -diff)}`;
+    }
+    ind.className = 'wh-split-indicator ' + cls;
+    ind.innerHTML = msg;
+    if (saveBtn) saveBtn.disabled = (diff !== 0);
+}
+
 // ===== Reusable fullscreen map picker =====
-async function openMapPickerFS({ title, selectedId = null, onSelect }) {
+async function openMapPickerFS({ title, selectedId = null, onSelect, excludeIds = [] }) {
     let chosen = null;
     const overlay = document.createElement('div');
     overlay.className = 'wh-map-fs';
@@ -3660,6 +3832,8 @@ async function openMapPickerFS({ title, selectedId = null, onSelect }) {
             const zone = el.dataset.zone, num = el.dataset.num;
             const loc = whAllLocations.find(l => l.zone === zone && l.position == num);
             if (!loc) return;
+            // Positions already used by other split rows are disabled
+            if (excludeIds.includes(loc.id)) { el.classList.add('wh-loc-disabled'); return; }
             if (selectedId && loc.id === selectedId) { el.classList.add('selected'); chosen = loc; overlay.querySelector('#whFsSelected').textContent = loc.code; }
             el.addEventListener('click', () => {
                 body.querySelectorAll('.pallet-loc.selected').forEach(s => s.classList.remove('selected'));
@@ -3678,17 +3852,38 @@ async function saveMaterial(materialId) {
     const code = document.getElementById('matCode')?.value.trim();
     const name = document.getElementById('matName')?.value.trim();
     if (!code || !name) { showToast(pt('whRequiredFields'), 'error'); return; }
+    const total = parseInt(document.getElementById('matQty')?.value, 10) || 0;
+    const split = document.getElementById('matSplit')?.checked;
+
     const body = {
         code, name,
-        quantity: parseInt(document.getElementById('matQty')?.value, 10) || 0,
-        unit: document.getElementById('matUnit')?.value || 'ks',
-        location_id: whSelectedLocationId
+        quantity: total,
+        unit: document.getElementById('matUnit')?.value || 'ks'
     };
+
+    if (split) {
+        const rows = whPlacements.filter(p => p.location_id);
+        if (rows.length < 1) { showToast(pt('whSelectLocation'), 'error'); return; }
+        // Duplicate position guard
+        const ids = rows.map(p => p.location_id);
+        if (new Set(ids).size !== ids.length) { showToast(pt('whSplitDuplicateLoc'), 'error'); return; }
+        // Sum must equal total
+        const sum = rows.reduce((s, p) => s + (parseInt(p.quantity, 10) || 0), 0);
+        if (sum !== total) { showToast(pt('whSplitMismatch'), 'error'); return; }
+        body.placements = rows.map(p => ({ location_id: p.location_id, quantity: p.quantity }));
+    } else {
+        body.location_id = whSelectedLocationId;
+    }
+
     try {
         const url = materialId ? `/api/warehouse/materials/${materialId}` : '/api/warehouse/materials';
         const method = materialId ? 'PUT' : 'POST';
         const res = await apiCall(url, { method, body: JSON.stringify(body) });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            if (res.status === 409) { showToast(pt('whCodeExists'), 'error'); return; }
+            throw new Error(err.message || err.error || 'Failed');
+        }
         showToast(materialId ? pt('whMaterialUpdated') : pt('whMaterialCreated'), 'success');
         const ret = whLocReturnId;
         whRefreshViews();
@@ -3873,7 +4068,13 @@ tr:nth-child(even) { background: #fafafa; }
 <table>
 <thead><tr><th>${pt('whColCode')}</th><th>${pt('whColName')}</th><th>${pt('whColQty')}</th><th>${pt('whUnit')}</th><th>${pt('whColLocation')}</th></tr></thead>
 <tbody>
-${selected.map(m => `<tr><td><strong>${escapeHtml(m.code)}</strong></td><td>${escapeHtml(m.name)}</td><td>${m.quantity}</td><td>${escapeHtml(m.unit || 'ks')}</td><td>${m.location_code ? `<span class="loc">${escapeHtml(m.location_code)}</span>` : '-'}</td></tr>`).join('')}
+${selected.map(m => {
+    const pl = Array.isArray(m.placements) ? m.placements : [];
+    const locCell = pl.length
+        ? pl.map(p => `<span class="loc">${escapeHtml(p.location_code)} (${p.quantity})</span>`).join(' ')
+        : (m.location_code ? `<span class="loc">${escapeHtml(m.location_code)}</span>` : '-');
+    return `<tr><td><strong>${escapeHtml(m.code)}</strong></td><td>${escapeHtml(m.name)}</td><td>${m.quantity}</td><td>${escapeHtml(m.unit || 'ks')}</td><td>${locCell}</td></tr>`;
+}).join('')}
 </tbody>
 </table>
 <div class="footer">${pt('whPdfGenerated')}: ${new Date().toLocaleString(locale)}</div>
@@ -3927,22 +4128,27 @@ async function renderWarehouseMovements(container) {
 function formatAuditDetails(action, details, entity) {
     if (!details) return '-';
     const d = typeof details === 'string' ? JSON.parse(details) : details;
+    // Summarize placements (split material) into a short readable suffix
+    const placementSuffix = (Array.isArray(d.placements) && d.placements.length)
+        ? ` · ${d.placements.length}× ${pt('whSplitPosition')} (${d.placements.map(p => p.quantity).join('+')})`
+        : '';
     try {
-        switch (action) {
+        switch (String(action).toUpperCase()) {
             case 'CREATED':
-                if (d.code) return `<strong>${escapeHtml(d.code)}</strong> – ${escapeHtml(d.name || '')}`;
+                if (d.code) return `<strong>${escapeHtml(d.code)}</strong> – ${escapeHtml(d.name || '')}${placementSuffix}`;
                 return Object.entries(d).map(([k,v]) => `${k}: ${v}`).join(', ');
             case 'MOVED':
                 const from = d.from_location_code || d.from_location_id || '—';
                 const to = d.to_location_code || d.to_location_id || '—';
                 return `${escapeHtml(String(from))} → <strong>${escapeHtml(String(to))}</strong>`;
             case 'UPDATED':
-                return Object.entries(d).map(([k,v]) => `${k}: ${escapeHtml(String(v))}`).join(', ');
+                if (d.code) return `<strong>${escapeHtml(d.code)}</strong>${placementSuffix}`;
+                return Object.entries(d).filter(([k]) => k !== 'placements').map(([k,v]) => `${k}: ${escapeHtml(String(v))}`).join(', ') + placementSuffix;
             case 'DELETED':
                 if (d.code) return `<strong>${escapeHtml(d.code)}</strong> – ${escapeHtml(d.name || '')}`;
                 return Object.entries(d).map(([k,v]) => `${k}: ${v}`).join(', ');
             default:
-                return Object.entries(d).map(([k,v]) => `${k}: ${v}`).join(', ');
+                return Object.entries(d).filter(([k]) => k !== 'placements').map(([k,v]) => `${k}: ${v}`).join(', ') + placementSuffix;
         }
     } catch (e) { return escapeHtml(JSON.stringify(d).substring(0, 80)); }
 }

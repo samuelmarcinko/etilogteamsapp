@@ -2232,55 +2232,104 @@ body.hub-active .portal-lang-switcher {
 .badge-deleted { background: #fee2e2; color: #991b1b; }
 .badge-moved { background: #fef3c7; color: #92400e; }
 
-/* Highlight: beacon-style attention animation for found pallet location */
+/* Highlight: bold solid-RED pulse for found pallet location(s).
+   Pure red (not red->yellow) so it stands out against the pink occupied hatch.
+   When a material is split, every placement blinks simultaneously. */
 .pallet-loc.highlight {
   transform-box: fill-box;
   transform-origin: center;
-  animation: whBeacon 1.2s ease-in-out infinite, whGlow 0.6s ease-in-out infinite alternate;
+  fill: #ef4444 !important;
+  animation: whRedPulse 0.85s ease-in-out infinite, whRedGlow 0.85s ease-in-out infinite alternate;
   z-index: 100;
 }
 
-@keyframes whBeacon {
+@keyframes whRedPulse {
   0% {
-    fill: #dc2626;
+    fill: #b91c1c;
     stroke: #7f1d1d;
     stroke-width: 3px;
     transform: scale(1);
   }
-  25% {
-    fill: #f87171;
-    stroke: #dc2626;
-    stroke-width: 5px;
-    transform: scale(1.15);
-  }
   50% {
-    fill: #fef08a;
-    stroke: #f59e0b;
-    stroke-width: 6px;
-    transform: scale(1.25);
-  }
-  75% {
-    fill: #f87171;
+    fill: #ff1f1f;
     stroke: #dc2626;
-    stroke-width: 5px;
-    transform: scale(1.15);
+    stroke-width: 6px;
+    transform: scale(1.32);
   }
   100% {
-    fill: #dc2626;
+    fill: #b91c1c;
     stroke: #7f1d1d;
     stroke-width: 3px;
     transform: scale(1);
   }
 }
 
-@keyframes whGlow {
+@keyframes whRedGlow {
   0% {
-    filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.9)) drop-shadow(0 0 20px rgba(239, 68, 68, 0.6));
+    filter: drop-shadow(0 0 6px rgba(220, 38, 38, 0.95))
+            drop-shadow(0 0 14px rgba(220, 38, 38, 0.7));
   }
   100% {
-    filter: drop-shadow(0 0 16px rgba(250, 204, 21, 1)) drop-shadow(0 0 35px rgba(250, 204, 21, 0.8)) drop-shadow(0 0 50px rgba(239, 68, 68, 0.5));
+    filter: drop-shadow(0 0 18px rgba(255, 0, 0, 1))
+            drop-shadow(0 0 34px rgba(239, 68, 68, 0.9))
+            drop-shadow(0 0 55px rgba(220, 38, 38, 0.6));
   }
 }
+
+/* ============================================
+   MATERIAL SPLIT (multi-location) UI
+   ============================================ */
+.wh-split-toggle { margin: 0.5rem 0 1rem; }
+.wh-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--gray-700);
+  user-select: none;
+}
+.wh-checkbox input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--etilog-red); }
+
+.wh-placement-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.wh-placement-num {
+  flex-shrink: 0;
+  width: 78px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--gray-500);
+}
+.wh-placement-loc { flex: 1; min-width: 0; cursor: pointer; background: var(--white); }
+.wh-placement-qty { width: 90px; flex-shrink: 0; text-align: right; }
+.wh-placement-del { flex-shrink: 0; color: var(--gray-400); }
+.wh-placement-del:hover { color: var(--etilog-red); }
+.wh-add-pos { margin: 0.25rem 0 0.75rem; }
+
+.wh-split-indicator {
+  margin-top: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: center;
+  border: 1px solid transparent;
+}
+.wh-split-indicator.ok    { background: #dcfce7; color: #166534; border-color: #86efac; }
+.wh-split-indicator.under { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+.wh-split-indicator.over  { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+
+/* Multiple location badges in the materials table */
+.wh-loc-badges { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.wh-loc-badges .wh-loc-badge small { opacity: 0.75; font-weight: 500; }
+
+/* Disabled (already-used) location in the split map picker */
+.pallet-loc.wh-loc-disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
 
 /* Bulk action bar */
 .wh-bulk-bar {

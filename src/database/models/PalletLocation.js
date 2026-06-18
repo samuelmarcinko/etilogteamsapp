@@ -13,14 +13,15 @@ class PalletLocation {
     return result.rows;
   }
 
-  // Locations with material summary (count + total quantity) for the map
+  // Locations with material summary (count + total quantity) for the map.
+  // Counts via placements so split materials register on every location.
   static async findAllWithSummary() {
     const result = await pool.query(
       `SELECT l.*,
-              COUNT(m.id)::int AS material_count,
-              COALESCE(SUM(m.quantity), 0)::int AS total_quantity
+              COUNT(mp.id)::int AS material_count,
+              COALESCE(SUM(mp.quantity), 0)::int AS total_quantity
        FROM pallet_locations l
-       LEFT JOIN materials m ON m.location_id = l.id
+       LEFT JOIN material_placements mp ON mp.location_id = l.id
        GROUP BY l.id
        ORDER BY
          CASE l.zone WHEN 'MINI' THEN 0 WHEN 'D' THEN 1 WHEN 'A' THEN 2
