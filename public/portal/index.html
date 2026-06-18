@@ -137,7 +137,7 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <!-- MODAL -->
-    <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+    <div class="modal-overlay" id="modalOverlay" onmousedown="overlayMouseDown(event)" onclick="overlayClickClose(event)">
         <div class="modal" id="modal">
             <div class="modal-header">
                 <h3 id="modalTitle">Modal</h3>

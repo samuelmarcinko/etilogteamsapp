@@ -1151,7 +1151,7 @@ async function renderMyApprovals(container) {
         </div>
 
         <!-- Reject Modal -->
-        <div class="reject-modal-overlay" id="portalRejectOverlay" onclick="if(event.target===this)closePortalRejectModal()">
+        <div class="reject-modal-overlay" id="portalRejectOverlay" onmousedown="overlayMouseDown(event)" onclick="overlayClickClose(event, closePortalRejectModal)">
             <div class="reject-modal">
                 <h3>${pt('rejectModalTitle')}</h3>
                 <textarea id="portalRejectReason" placeholder="${pt('rejectModalPlaceholder')}"></textarea>
@@ -2026,7 +2026,7 @@ function openExportModal() {
     const yearStart = `${currentYear}-01-01`;
 
     const modalHtml = `
-        <div class="modal-backdrop" onclick="closeModal(this)">
+        <div class="modal-backdrop" onmousedown="overlayMouseDown(event)" onclick="overlayClickClose(event, () => closeModal(event.currentTarget))">
             <div class="modal modal-lg" onclick="event.stopPropagation()">
                 <div class="modal-header">
                     <h2><span style="margin-right:8px;">&#128190;</span>${pt('exportTitle')}</h2>
@@ -2197,7 +2197,7 @@ function openTicketDetailModal(ticketId) {
     const typeBadge = {'vacation':'vacation','sick-leave':'sick','paragraph':'paragraph','ocr':'ocr'}[ticket.ticket_type] || 'user';
 
     const modalHtml = `
-        <div class="modal-backdrop" onclick="closeModal(this)">
+        <div class="modal-backdrop" onmousedown="overlayMouseDown(event)" onclick="overlayClickClose(event, () => closeModal(event.currentTarget))">
             <div class="modal" onclick="event.stopPropagation()">
                 <div class="modal-header">
                     <h2>${pt('ticketDetailTitle')}: ${escapeHtml(ticket.ticket_id)}</h2>
@@ -2291,7 +2291,7 @@ async function openEditTicketModal(ticketId) {
     const priorityOptions = ['Low', 'Medium', 'High', 'Urgent'];
 
     const modalHtml = `
-        <div class="modal-backdrop" onclick="closeModal(this)">
+        <div class="modal-backdrop" onmousedown="overlayMouseDown(event)" onclick="overlayClickClose(event, () => closeModal(event.currentTarget))">
             <div class="modal modal-lg" onclick="event.stopPropagation()">
                 <div class="modal-header">
                     <h2>&#9999; ${pt('editTicketTitle') || 'Upraviť tiket'}: ${escapeHtml(ticket.ticket_id)}</h2>
@@ -3207,6 +3207,19 @@ function openModal() {
     document.getElementById('modalOverlay').classList.add('active');
 }
 
+// Drag-safe overlay close: only close when BOTH mousedown and the click land on
+// the overlay itself. Prevents closing when a drag (e.g. selecting text or a
+// dropdown) starts inside the modal and the mouse is released on the overlay.
+let _overlayDownOnSelf = false;
+function overlayMouseDown(e) {
+    _overlayDownOnSelf = (e.target === e.currentTarget);
+}
+function overlayClickClose(e, closer) {
+    const ok = (e.target === e.currentTarget) && _overlayDownOnSelf;
+    _overlayDownOnSelf = false;
+    if (ok) (closer || closeModal)();
+}
+
 function closeModal(eventOrElement) {
     // Handle ticket detail popup (modal-backdrop inserted into body)
     if (eventOrElement && eventOrElement.classList && eventOrElement.classList.contains('modal-backdrop')) {
@@ -3900,7 +3913,10 @@ async function openMapPickerFS({ title, selectedId = null, onSelect, excludeIds 
     const close = () => overlay.remove();
     overlay.querySelector('.modal-close').addEventListener('click', close);
     overlay.querySelector('#whFsCancel').addEventListener('click', close);
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    // Drag-safe close: require mousedown AND click both on the overlay backdrop
+    let fsDownOnSelf = false;
+    overlay.addEventListener('mousedown', (e) => { fsDownOnSelf = (e.target === overlay); });
+    overlay.addEventListener('click', (e) => { if (e.target === overlay && fsDownOnSelf) close(); fsDownOnSelf = false; });
     overlay.querySelector('#whFsConfirm').addEventListener('click', () => {
         if (!chosen) { showToast(pt('whSelectLocation'), 'error'); return; }
         onSelect(chosen);
