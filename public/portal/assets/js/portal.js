@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     updateSidebarLanguage();
+    initSidebarCollapse();
     setupNavigation();
     navigateToPage(window.location.hash.slice(1) || 'hub');
 });
@@ -187,6 +188,30 @@ function navigateToPage(page) {
 
 function toggleSidebar() {
     document.getElementById('sidebar').classList.toggle('open');
+}
+
+// Collapse/expand sidebar on desktop & tablet (persisted)
+function toggleSidebarCollapse() {
+    const collapsed = document.body.classList.toggle('sidebar-collapsed');
+    try { localStorage.setItem('portalSidebarCollapsed', collapsed ? '1' : '0'); } catch (e) {}
+    updateSidebarToggleLabel(collapsed);
+}
+
+function updateSidebarToggleLabel(collapsed) {
+    const btn = document.getElementById('sidebarToggle');
+    if (!btn) return;
+    const label = collapsed
+        ? (typeof pt === 'function' ? pt('sidebarShow') : 'Zobraziť menu')
+        : (typeof pt === 'function' ? pt('sidebarHide') : 'Skryť menu');
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+}
+
+function initSidebarCollapse() {
+    let collapsed = false;
+    try { collapsed = localStorage.getItem('portalSidebarCollapsed') === '1'; } catch (e) {}
+    if (collapsed) document.body.classList.add('sidebar-collapsed');
+    updateSidebarToggleLabel(collapsed);
 }
 
 async function handleLogout() {

@@ -449,6 +449,10 @@ const portalTranslations = {
     colSize: 'Veľkosť',
     andMore: '... a ďalších {count} záloh',
 
+    // Sidebar collapse
+    sidebarHide: 'Skryť menu',
+    sidebarShow: 'Zobraziť menu',
+
     // Fleet Management
     navFleet: 'Vozový park',
     // Warehouse module
@@ -1035,6 +1039,10 @@ const portalTranslations = {
     colSize: 'Size',
     andMore: '... and {count} more backups',
 
+    // Sidebar collapse
+    sidebarHide: 'Hide menu',
+    sidebarShow: 'Show menu',
+
     // Fleet Management
     navFleet: 'Fleet',
     // Warehouse module
@@ -1308,6 +1316,11 @@ function updateSidebarLanguage() {
   // Back-to-modules label
   const backLabel = document.getElementById('navBackLabel');
   if (backLabel) backLabel.textContent = pt('hubBackToModules');
+
+  // Sidebar collapse toggle label
+  if (typeof updateSidebarToggleLabel === 'function') {
+    updateSidebarToggleLabel(document.body.classList.contains('sidebar-collapsed'));
+  }
 
   // Section titles (DOM order: HR main, HR admin, HR system, Fleet, Warehouse, Warehouse admin)
   const sections = document.querySelectorAll('.nav-section-title');

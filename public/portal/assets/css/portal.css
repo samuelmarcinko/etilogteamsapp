@@ -365,6 +365,63 @@ body {
   margin-left: var(--sidebar-width);
   padding: 0;
   background: var(--gray-50);
+  transition: margin-left var(--transition);
+}
+
+/* ============================================
+   COLLAPSIBLE SIDEBAR (desktop + tablet)
+   ============================================ */
+
+/* Floating toggle pill sitting on the sidebar divider, vertically centered */
+.sidebar-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  top: 50%;
+  left: calc(var(--sidebar-width) - 16px);
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  z-index: 101;
+  background: var(--white);
+  color: var(--gray-500);
+  border: 1px solid var(--gray-200);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: left var(--transition), transform var(--transition),
+              background var(--transition), color var(--transition);
+}
+
+.sidebar-toggle:hover {
+  background: var(--etilog-red);
+  color: var(--white);
+  border-color: var(--etilog-red);
+}
+
+/* Chevron icon rotates between states */
+.sidebar-toggle .toggle-icon {
+  display: inline-block;
+  font-size: 0.9rem;
+  line-height: 1;
+  transition: transform var(--transition);
+}
+
+body.sidebar-collapsed .sidebar {
+  transform: translateX(-100%);
+}
+
+body.sidebar-collapsed .main-content {
+  margin-left: 0;
+}
+
+body.sidebar-collapsed .sidebar-toggle {
+  left: 12px;
+}
+
+body.sidebar-collapsed .sidebar-toggle .toggle-icon {
+  transform: rotate(180deg);
 }
 
 .page-header {
@@ -1449,6 +1506,7 @@ body {
   .sidebar.open { transform: translateX(0); }
   .main-content { margin-left: 0; }
   .mobile-toggle { display: block; }
+  .sidebar-toggle { display: none; }
   .page-header { padding-left: 3.5rem; }
   .page-body { padding: 1rem; }
   .stats-grid { grid-template-columns: 1fr 1fr; gap: 0.75rem; }
@@ -1956,7 +2014,8 @@ body {
 
 /* Hide sidebar on hub page */
 body.hub-active .sidebar,
-body.hub-active .mobile-toggle {
+body.hub-active .mobile-toggle,
+body.hub-active .sidebar-toggle {
   display: none;
 }
 
