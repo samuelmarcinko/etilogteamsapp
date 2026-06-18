@@ -3482,6 +3482,8 @@ let whAllLocations = [];
 let whSelectedLocationId = null;
 let whLocReturnId = null;   // location id to reopen after a sub-action (from map location modal)
 let whSelectedIds = new Set(); // bulk selection
+let whSortCol = 'updated_at'; // current sort column
+let whSortDir = 'desc';       // 'asc' or 'desc'
 
 async function renderWarehouseMaterials(container) {
     whSelectedIds.clear();
@@ -3498,6 +3500,17 @@ async function renderWarehouseMaterials(container) {
                         <select id="whMatZone" class="form-control" style="flex:1;">
                             <option value="">${pt('whAllZones')}</option>
                             <option value="MINI">MINI</option><option value="D">D</option><option value="A">A</option><option value="B">B</option><option value="C">C</option>
+                        </select>
+                        <select id="whMatSort" class="form-control" style="flex:1;" onchange="whChangeSort(this.value)">
+                            <option value="updated_at:desc">${pt('whSortUpdatedDesc')}</option>
+                            <option value="updated_at:asc">${pt('whSortUpdatedAsc')}</option>
+                            <option value="created_at:desc">${pt('whSortCreatedDesc')}</option>
+                            <option value="created_at:asc">${pt('whSortCreatedAsc')}</option>
+                            <option value="code:asc">${pt('whSortCodeAsc')}</option>
+                            <option value="code:desc">${pt('whSortCodeDesc')}</option>
+                            <option value="quantity:desc">${pt('whSortQtyDesc')}</option>
+                            <option value="quantity:asc">${pt('whSortQtyAsc')}</option>
+                            <option value="location:asc">${pt('whSortLocAsc')}</option>
                         </select>
                         <button class="btn btn-secondary" onclick="loadMaterialsTable()">${pt('whFilter')}</button>
                     </div>
@@ -3519,6 +3532,9 @@ async function renderWarehouseMaterials(container) {
             </div>
         </div>
     `;
+    // Sync sort dropdown with current state
+    const sortSel = document.getElementById('whMatSort');
+    if (sortSel) sortSel.value = `${whSortCol}:${whSortDir}`;
     // Load locations for map picker
     try {
         const locRes = await apiCall('/api/warehouse/locations');
@@ -3528,6 +3544,52 @@ async function renderWarehouseMaterials(container) {
     const searchEl = document.getElementById('whMatSearch');
     if (searchEl) searchEl.addEventListener('keyup', e => { if (e.key === 'Enter') loadMaterialsTable(); });
     await loadMaterialsTable();
+}
+
+function whChangeSort(val) {
+    const [col, dir] = val.split(':');
+    whSortCol = col;
+    whSortDir = dir || 'asc';
+    whSortAndRender();
+}
+
+function whHeaderSort(col) {
+    if (whSortCol === col) {
+        whSortDir = whSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+        whSortCol = col;
+        whSortDir = col === 'code' || col === 'location' ? 'asc' : 'desc';
+    }
+    // Sync dropdown
+    const sortSel = document.getElementById('whMatSort');
+    if (sortSel) sortSel.value = `${whSortCol}:${whSortDir}`;
+    whSortAndRender();
+}
+
+function whSortAndRender() {
+    whMaterialsList.sort((a, b) => {
+        let av, bv;
+        switch (whSortCol) {
+            case 'code': av = (a.code || '').toLowerCase(); bv = (b.code || '').toLowerCase(); break;
+            case 'name': av = (a.name || '').toLowerCase(); bv = (b.name || '').toLowerCase(); break;
+            case 'quantity': av = a.quantity || 0; bv = b.quantity || 0; break;
+            case 'location':
+                const pa = Array.isArray(a.placements) && a.placements[0] ? a.placements[0].location_code : (a.location_code || '');
+                const pb = Array.isArray(b.placements) && b.placements[0] ? b.placements[0].location_code : (b.location_code || '');
+                av = pa.toLowerCase(); bv = pb.toLowerCase(); break;
+            case 'created_at': av = a.created_at || ''; bv = b.created_at || ''; break;
+            case 'updated_at': default: av = a.updated_at || ''; bv = b.updated_at || ''; break;
+        }
+        if (av < bv) return whSortDir === 'asc' ? -1 : 1;
+        if (av > bv) return whSortDir === 'asc' ? 1 : -1;
+        return 0;
+    });
+    whRenderMaterialsTable();
+}
+
+function whSortIndicator(col) {
+    if (whSortCol !== col) return '';
+    return whSortDir === 'asc' ? ' ▲' : ' ▼';
 }
 
 // Render location badge(s) for a material; shows qty per position when split
@@ -3546,6 +3608,14 @@ function whLocationBadges(m) {
     ).join('') + `</div>`;
 }
 
+function whFormatDate(dt) {
+    if (!dt) return '-';
+    const d = new Date(dt);
+    const locale = (typeof portalLang !== 'undefined' && portalLang === 'en') ? 'en-GB' : 'sk-SK';
+    return d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' +
+           d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+}
+
 async function loadMaterialsTable() {
     const tableEl = document.getElementById('whMaterialsTable');
     if (!tableEl) return;
@@ -3557,42 +3627,55 @@ async function loadMaterialsTable() {
     try {
         const res = await apiCall(url);
         whMaterialsList = (await res.json()).data || [];
-        if (whMaterialsList.length === 0) {
-            tableEl.innerHTML = `<div class="empty-state"><div class="empty-icon">&#128230;</div><div class="empty-text">${pt('whMaterialsEmpty')}</div></div>`;
-            return;
-        }
-        tableEl.innerHTML = `
-            <table class="data-table">
-                <thead><tr>
-                    <th class="th-check"><input type="checkbox" id="whSelectAll" onchange="whToggleSelectAll(this.checked)" title="${pt('whSelectAll')}"></th>
-                    <th>${pt('whColCode')}</th><th>${pt('whColName')}</th><th>${pt('whColQty')}</th>
-                    <th>${pt('whColLocation')}</th><th>${pt('colActions')}</th>
-                </tr></thead>
-                <tbody>
-                    ${whMaterialsList.map(m => `
-                        <tr data-id="${m.id}">
-                            <td class="td-check"><input type="checkbox" class="wh-row-check" value="${m.id}" onchange="whToggleRow(${m.id}, this.checked)" ${whSelectedIds.has(m.id) ? 'checked' : ''}></td>
-                            <td><strong>${escapeHtml(m.code)}</strong></td>
-                            <td>${escapeHtml(m.name)}</td>
-                            <td>${m.quantity} ${escapeHtml(m.unit || 'ks')}</td>
-                            <td>${whLocationBadges(m)}</td>
-                            <td>
-                                <div class="table-actions">
-                                    <button class="btn-icon" onclick="openMaterialModal(${m.id})" title="${pt('edit')}">&#9998;</button>
-                                    <button class="btn-icon" onclick="openMoveModal(${m.id}, '${escapeHtml(m.code)}')" title="${pt('whMove')}">&#128257;</button>
-                                    <button class="btn-icon" onclick="deleteMaterial(${m.id}, '${escapeHtml(m.code)}')" title="${pt('delete')}">&#128465;</button>
-                                </div>
-                            </td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        `;
-        whUpdateBulkBar();
+        whSortAndRender();
     } catch (e) {
         console.error('wh materials', e);
         tableEl.innerHTML = `<div class="empty-state"><div class="empty-text">${pt('pageLoadError')}</div></div>`;
     }
+}
+
+function whRenderMaterialsTable() {
+    const tableEl = document.getElementById('whMaterialsTable');
+    if (!tableEl) return;
+    if (whMaterialsList.length === 0) {
+        tableEl.innerHTML = `<div class="empty-state"><div class="empty-icon">&#128230;</div><div class="empty-text">${pt('whMaterialsEmpty')}</div></div>`;
+        return;
+    }
+    tableEl.innerHTML = `
+        <table class="data-table wh-sortable">
+            <thead><tr>
+                <th class="th-check"><input type="checkbox" id="whSelectAll" onchange="whToggleSelectAll(this.checked)" title="${pt('whSelectAll')}"></th>
+                <th class="sortable" onclick="whHeaderSort('code')">${pt('whColCode')}${whSortIndicator('code')}</th>
+                <th class="sortable" onclick="whHeaderSort('name')">${pt('whColName')}${whSortIndicator('name')}</th>
+                <th class="sortable" onclick="whHeaderSort('quantity')">${pt('whColQty')}${whSortIndicator('quantity')}</th>
+                <th class="sortable" onclick="whHeaderSort('location')">${pt('whColLocation')}${whSortIndicator('location')}</th>
+                <th class="sortable" onclick="whHeaderSort('created_at')">${pt('whColCreated')}${whSortIndicator('created_at')}</th>
+                <th class="sortable" onclick="whHeaderSort('updated_at')">${pt('whColUpdated')}${whSortIndicator('updated_at')}</th>
+                <th>${pt('colActions')}</th>
+            </tr></thead>
+            <tbody>
+                ${whMaterialsList.map(m => `
+                    <tr data-id="${m.id}">
+                        <td class="td-check"><input type="checkbox" class="wh-row-check" value="${m.id}" onchange="whToggleRow(${m.id}, this.checked)" ${whSelectedIds.has(m.id) ? 'checked' : ''}></td>
+                        <td><strong>${escapeHtml(m.code)}</strong></td>
+                        <td>${escapeHtml(m.name)}</td>
+                        <td>${m.quantity} ${escapeHtml(m.unit || 'ks')}</td>
+                        <td>${whLocationBadges(m)}</td>
+                        <td class="wh-date-cell">${whFormatDate(m.created_at)}</td>
+                        <td class="wh-date-cell">${whFormatDate(m.updated_at)}</td>
+                        <td>
+                            <div class="table-actions">
+                                <button class="btn-icon" onclick="openMaterialModal(${m.id})" title="${pt('edit')}">&#9998;</button>
+                                <button class="btn-icon" onclick="openMoveModal(${m.id}, '${escapeHtml(m.code)}')" title="${pt('whMove')}">&#128257;</button>
+                                <button class="btn-icon" onclick="deleteMaterial(${m.id}, '${escapeHtml(m.code)}')" title="${pt('delete')}">&#128465;</button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+    whUpdateBulkBar();
 }
 
 // --- Material modal (create / edit) ---
