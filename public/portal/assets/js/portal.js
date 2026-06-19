@@ -268,15 +268,23 @@ async function renderPage(page) {
  * - admin: all modules
  * - spravca: HR only
  * - user: HR only
- * - warehouse module: coming soon (no access yet)
+ * - sklad / sklad_read: warehouse
  */
 function hasModuleAccess(module) {
     const role = portalUser?.role;
     if (role === 'admin') return true;
     if (module === 'hr') return true; // All roles have HR access
     if (module === 'fleet') return role === 'admin';
-    if (module === 'warehouse') return role === 'sklad';
+    if (module === 'warehouse') return role === 'sklad' || role === 'sklad_read';
     return false;
+}
+
+/**
+ * Check if user can edit warehouse (not read-only)
+ */
+function canEditWarehouse() {
+    const role = portalUser?.role;
+    return role === 'admin' || role === 'sklad';
 }
 
 function enterModule(module) {
@@ -1436,7 +1444,7 @@ async function renderAdminEmployees(container) {
                                     ${portalUser?.role === 'admin' ? `<td>
                                         <div class="table-actions">
                                             <button class="btn-icon" onclick="toggleEmployeeVisibility('${e.id}', ${e.hidden})" title="${e.hidden ? pt('showUserTitle') : pt('hideUserTitle')}">${e.hidden ? '&#128065;' : '&#128683;'}</button>
-                                            <button class="btn-icon" onclick="openChangeRoleModal('${e.id}', '${e.role}', '${e.name.replace(/'/g, "\\'")}')" title="${pt('changeRoleTitle')}">${e.role === 'admin' ? '&#128081;' : e.role === 'spravca' ? '&#128188;' : e.role === 'sklad' ? '&#128230;' : '&#128100;'}</button>
+                                            <button class="btn-icon" onclick="openChangeRoleModal('${e.id}', '${e.role}', '${e.name.replace(/'/g, "\\'")}')" title="${pt('changeRoleTitle')}">${e.role === 'admin' ? '&#128081;' : e.role === 'spravca' ? '&#128188;' : e.role === 'sklad' ? '&#128230;' : e.role === 'sklad_read' ? '&#128270;' : '&#128100;'}</button>
                                         </div>
                                     </td>` : ''}
                                 </tr>
@@ -1499,6 +1507,7 @@ function openChangeRoleModal(userId, currentRole, userName) {
                 <option value="user" ${currentRole === 'user' ? 'selected' : ''}>${pt('roleUser')}</option>
                 <option value="spravca" ${currentRole === 'spravca' ? 'selected' : ''}>${pt('roleSpravca')}</option>
                 <option value="sklad" ${currentRole === 'sklad' ? 'selected' : ''}>${pt('roleSklad')}</option>
+                <option value="sklad_read" ${currentRole === 'sklad_read' ? 'selected' : ''}>${pt('roleSkladRead')}</option>
                 <option value="admin" ${currentRole === 'admin' ? 'selected' : ''}>${pt('roleAdmin')}</option>
             </select>
         </div>
@@ -3403,6 +3412,7 @@ function hideLocationTooltip() {
 // --- Location modal (materials at a location) ---
 async function openLocationModal(locationId) {
     whLocReturnId = locationId;
+    const canEdit = canEditWarehouse();
     // Reset size modifier in case we return here from the wider material modal
     document.getElementById('modal').classList.remove('modal-xl');
     document.getElementById('modalTitle').textContent = pt('whLocationTitle');
@@ -3417,20 +3427,20 @@ async function openLocationModal(locationId) {
         document.getElementById('modalBody').innerHTML = `
             ${materials.length > 0 ? `
                 <table class="data-table">
-                    <thead><tr><th>${pt('whColCode')}</th><th>${pt('whColName')}</th><th>${pt('whColQty')}</th><th>${pt('colActions')}</th></tr></thead>
+                    <thead><tr><th>${pt('whColCode')}</th><th>${pt('whColName')}</th><th>${pt('whColQty')}</th>${canEdit ? `<th>${pt('colActions')}</th>` : ''}</tr></thead>
                     <tbody>
                         ${materials.map(m => `
                             <tr>
                                 <td><strong>${escapeHtml(m.code)}</strong></td>
                                 <td>${escapeHtml(m.name)}</td>
                                 <td>${m.placement_quantity != null ? m.placement_quantity : m.quantity} ${escapeHtml(m.unit || '')}</td>
-                                <td>
+                                ${canEdit ? `<td>
                                     <div class="table-actions">
                                         <button class="btn-icon" onclick="whLocEditMaterial(${m.id})" title="${pt('edit')}">&#9998;</button>
                                         <button class="btn-icon" onclick="whLocMoveMaterial(${m.id}, '${escapeHtml(m.code)}')" title="${pt('whMove')}">&#128257;</button>
                                         <button class="btn-icon" onclick="whLocDeleteMaterial(${m.id}, '${escapeHtml(m.code)}')" title="${pt('delete')}">&#128465;</button>
                                     </div>
-                                </td>
+                                </td>` : ''}
                             </tr>
                         `).join('')}
                     </tbody>
@@ -3440,7 +3450,7 @@ async function openLocationModal(locationId) {
         `;
         document.getElementById('modalFooter').innerHTML = `
             <button class="btn btn-secondary" onclick="closeModal()">${pt('close')}</button>
-            <button class="btn btn-primary" onclick="whLocAddMaterial(${locationId})">+ ${pt('whAddMaterial')}</button>
+            ${canEdit ? `<button class="btn btn-primary" onclick="whLocAddMaterial(${locationId})">+ ${pt('whAddMaterial')}</button>` : ''}
         `;
     } catch (e) {
         document.getElementById('modalBody').innerHTML = `<div class="empty-state"><div class="empty-text">${pt('pageLoadError')}</div></div>`;
@@ -3536,10 +3546,11 @@ let whSortDir = 'desc';       // 'asc' or 'desc'
 
 async function renderWarehouseMaterials(container) {
     whSelectedIds.clear();
+    const canEdit = canEditWarehouse();
     container.innerHTML = `
         <div class="page-header">
             <div><h1>${pt('whMaterialsTitle')}</h1><p>${pt('whMaterialsDesc')}</p></div>
-            <button class="btn btn-primary" onclick="openMaterialModal()">+ ${pt('whAddMaterial')}</button>
+            ${canEdit ? `<button class="btn btn-primary" onclick="openMaterialModal()">+ ${pt('whAddMaterial')}</button>` : ''}
         </div>
         <div class="page-body">
             <div class="portal-card">
@@ -3565,7 +3576,7 @@ async function renderWarehouseMaterials(container) {
                     </div>
                 </div>
             </div>
-            <!-- Bulk action bar (hidden by default) -->
+            ${canEdit ? `<!-- Bulk action bar (hidden by default) -->
             <div class="wh-bulk-bar" id="whBulkBar" style="display:none;">
                 <span class="wh-bulk-count"><span id="whBulkCount">0</span> ${pt('whBulkSelected')}</span>
                 <div class="wh-bulk-actions">
@@ -3573,7 +3584,7 @@ async function renderWarehouseMaterials(container) {
                     <button class="btn btn-secondary btn-sm" onclick="whBulkExportPdf()">&#128196; ${pt('whBulkExportPdf')}</button>
                     <button class="btn btn-danger btn-sm" onclick="whBulkDelete()">&#128465; ${pt('whBulkDelete')}</button>
                 </div>
-            </div>
+            </div>` : ''}
             <div class="portal-card">
                 <div class="card-body">
                     <div id="whMaterialsTable"><div class="empty-state"><div class="spinner"></div></div></div>
@@ -3690,35 +3701,36 @@ function whRenderMaterialsTable() {
         tableEl.innerHTML = `<div class="empty-state"><div class="empty-icon">&#128230;</div><div class="empty-text">${pt('whMaterialsEmpty')}</div></div>`;
         return;
     }
+    const canEdit = canEditWarehouse();
     tableEl.innerHTML = `
         <table class="data-table wh-sortable">
             <thead><tr>
-                <th class="th-check"><input type="checkbox" id="whSelectAll" onchange="whToggleSelectAll(this.checked)" title="${pt('whSelectAll')}"></th>
+                ${canEdit ? `<th class="th-check"><input type="checkbox" id="whSelectAll" onchange="whToggleSelectAll(this.checked)" title="${pt('whSelectAll')}"></th>` : ''}
                 <th class="sortable" onclick="whHeaderSort('code')">${pt('whColCode')}${whSortIndicator('code')}</th>
                 <th class="sortable" onclick="whHeaderSort('name')">${pt('whColName')}${whSortIndicator('name')}</th>
                 <th class="sortable" onclick="whHeaderSort('quantity')">${pt('whColQty')}${whSortIndicator('quantity')}</th>
                 <th class="sortable" onclick="whHeaderSort('location')">${pt('whColLocation')}${whSortIndicator('location')}</th>
                 <th class="sortable" onclick="whHeaderSort('created_at')">${pt('whColCreated')}${whSortIndicator('created_at')}</th>
                 <th class="sortable" onclick="whHeaderSort('updated_at')">${pt('whColUpdated')}${whSortIndicator('updated_at')}</th>
-                <th>${pt('colActions')}</th>
+                ${canEdit ? `<th>${pt('colActions')}</th>` : ''}
             </tr></thead>
             <tbody>
                 ${whMaterialsList.map(m => `
                     <tr data-id="${m.id}">
-                        <td class="td-check"><input type="checkbox" class="wh-row-check" value="${m.id}" onchange="whToggleRow(${m.id}, this.checked)" ${whSelectedIds.has(m.id) ? 'checked' : ''}></td>
+                        ${canEdit ? `<td class="td-check"><input type="checkbox" class="wh-row-check" value="${m.id}" onchange="whToggleRow(${m.id}, this.checked)" ${whSelectedIds.has(m.id) ? 'checked' : ''}></td>` : ''}
                         <td><strong>${escapeHtml(m.code)}</strong></td>
                         <td>${escapeHtml(m.name)}</td>
                         <td>${m.quantity} ${escapeHtml(m.unit || 'ks')}</td>
                         <td>${whLocationBadges(m)}</td>
                         <td class="wh-date-cell">${whFormatDate(m.created_at)}</td>
                         <td class="wh-date-cell">${whFormatDate(m.updated_at)}</td>
-                        <td>
+                        ${canEdit ? `<td>
                             <div class="table-actions">
                                 <button class="btn-icon" onclick="openMaterialModal(${m.id})" title="${pt('edit')}">&#9998;</button>
                                 <button class="btn-icon" onclick="openMoveModal(${m.id}, '${escapeHtml(m.code)}')" title="${pt('whMove')}">&#128257;</button>
                                 <button class="btn-icon" onclick="deleteMaterial(${m.id}, '${escapeHtml(m.code)}')" title="${pt('delete')}">&#128465;</button>
                             </div>
-                        </td>
+                        </td>` : ''}
                     </tr>
                 `).join('')}
             </tbody>
