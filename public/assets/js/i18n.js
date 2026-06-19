@@ -152,6 +152,7 @@ const translations = {
     cancelReasonRequired: 'Cancellation reason is required',
     cancelSuccess: 'Request cancelled successfully!',
     cancelFailed: 'Failed to cancel request',
+    cancelAfterStart: 'This request can no longer be cancelled – its start date has already begun or passed.',
     cancelReason: 'Cancellation reason',
 
     // Confirm dialogs
@@ -412,6 +413,7 @@ const translations = {
     cancelReasonRequired: 'Dôvod zrušenia je povinný',
     cancelSuccess: 'Žiadosť bola úspešne zrušená!',
     cancelFailed: 'Nepodarilo sa zrušiť žiadosť',
+    cancelAfterStart: 'Žiadosť už nie je možné zrušiť – dátum začiatku už nastal alebo prebehol.',
     cancelReason: 'Dôvod zrušenia',
 
     // Confirm dialogs

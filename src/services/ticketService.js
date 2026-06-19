@@ -249,6 +249,17 @@ class TicketService {
         throw new Error('Only the ticket creator can cancel this request');
       }
 
+      // Block self-cancellation once the request period has started
+      if (ticket.start_date) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const startDate = new Date(ticket.start_date);
+        startDate.setHours(0, 0, 0, 0);
+        if (today >= startDate) {
+          throw new Error('Cannot cancel request after start date');
+        }
+      }
+
       const wasApproved = ticket.status === 'Approved';
 
       // Update ticket status to Cancelled

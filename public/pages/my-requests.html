@@ -250,7 +250,7 @@
                                     &#128206; ${t('attachments')}
                                 </button>
                             ` : ''}
-                            ${(ticket.status === 'Pending' || ticket.status === 'Approved') ? `
+                            ${canCancelTicket(ticket) ? `
                                 <button class="btn btn-sm" style="background:#ef4444;color:#fff;border:none;font-weight:600;cursor:pointer;padding:6px 12px;border-radius:6px;font-size:0.8rem;" onclick="openCancelModal('${ticket.ticket_id}', '${ticket.title.replace(/'/g, '&#39;')}')">
                                     &#10005; ${t('btnCancelTicket')}
                                 </button>
@@ -405,6 +405,17 @@
             document.addEventListener('keydown', escHandler);
         }
 
+        // A ticket can be cancelled only while Pending/Approved AND before its start date
+        function canCancelTicket(ticket) {
+            if (ticket.status !== 'Pending' && ticket.status !== 'Approved') return false;
+            if (ticket.start_date) {
+                const today = new Date(); today.setHours(0, 0, 0, 0);
+                const start = new Date(ticket.start_date); start.setHours(0, 0, 0, 0);
+                if (today >= start) return false;
+            }
+            return true;
+        }
+
         // Cancel modal functions
         function openCancelModal(ticketId, title) {
             cancelTicketId = ticketId;
@@ -453,6 +464,9 @@
 
                 const result = await response.json();
                 if (!response.ok) {
+                    if (result.message === 'Cannot cancel request after start date') {
+                        throw new Error(t('cancelAfterStart'));
+                    }
                     throw new Error(result.message || t('cancelFailed'));
                 }
 

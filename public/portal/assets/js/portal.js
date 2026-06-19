@@ -3039,7 +3039,7 @@ function renderTicketsTable(tickets) {
                                     ${t.attachment_count > 0 ? `<button class="btn btn-ghost btn-sm" onclick="openTicketAttachments('${t.ticket_id}', '${escapeHtml(t.title)}')">&#128206; ${pt('attachments')} (${t.attachment_count})</button>` : '<span style="color:var(--gray-300)">—</span>'}
                                 </td>
                                 <td>
-                                    ${(t.status === 'Pending' || t.status === 'Approved') ? `<button class="btn-icon danger" onclick="openCancelTicketModal('${t.ticket_id}', '${escapeHtml(t.title)}')" title="${pt('btnCancelTicket')}">&#10005;</button>` : '<span style="color:var(--gray-300)">—</span>'}
+                                    ${canCancelTicket(t) ? `<button class="btn-icon danger" onclick="openCancelTicketModal('${t.ticket_id}', '${escapeHtml(t.title)}')" title="${pt('btnCancelTicket')}">&#10005;</button>` : '<span style="color:var(--gray-300)">—</span>'}
                                 </td>
                             </tr>
                         `).join('')}
@@ -3052,6 +3052,17 @@ function renderTicketsTable(tickets) {
 
 // Cancel ticket modal & logic
 let _pendingCancelTicketId = null;
+
+// A ticket can be cancelled only while Pending/Approved AND before its start date
+function canCancelTicket(t) {
+    if (t.status !== 'Pending' && t.status !== 'Approved') return false;
+    if (t.start_date) {
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const start = new Date(t.start_date); start.setHours(0, 0, 0, 0);
+        if (today >= start) return false;
+    }
+    return true;
+}
 
 function openCancelTicketModal(ticketId, title) {
     _pendingCancelTicketId = ticketId;
@@ -3084,6 +3095,9 @@ async function submitCancelTicket() {
         });
         if (!response.ok) {
             const err = await response.json().catch(() => null);
+            if (err?.message === 'Cannot cancel request after start date') {
+                throw new Error(pt('cancelAfterStart'));
+            }
             throw new Error(err?.message || pt('cancelFailed'));
         }
         closeModal();

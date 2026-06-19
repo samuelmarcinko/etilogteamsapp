@@ -271,7 +271,8 @@ class TicketController {
         return res.status(404).json({ error: 'Not Found', message: error.message });
       }
       if (error.message === 'Only pending or approved tickets can be cancelled' ||
-          error.message === 'Only the ticket creator can cancel this request') {
+          error.message === 'Only the ticket creator can cancel this request' ||
+          error.message === 'Cannot cancel request after start date') {
         return res.status(400).json({ error: 'Bad Request', message: error.message });
       }
       next(error);
