@@ -2325,8 +2325,24 @@ body.hub-active .portal-lang-switcher {
 .wh-split-indicator.over  { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
 
 /* Multiple location badges in the materials table */
-.wh-loc-badges { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.wh-loc-badges { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; }
 .wh-loc-badges .wh-loc-badge small { opacity: 0.75; font-weight: 500; }
+
+/* "+X" chip that opens the full placements modal */
+.wh-loc-more {
+  display: inline-block;
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: #475569;
+  background: #e2e8f0;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  user-select: none;
+}
+.wh-loc-more:hover { background: #cbd5e1; color: #1e293b; }
+.wh-placement-row:hover { background: #f1f5f9; }
 
 /* Disabled (already-used) location in the split map picker */
 .pallet-loc.wh-loc-disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }

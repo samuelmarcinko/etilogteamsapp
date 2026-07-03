@@ -3677,9 +3677,51 @@ function whLocationBadges(m) {
     if (pl.length === 1) {
         return `<span class="wh-loc-badge">${escapeHtml(pl[0].location_code)}</span>`;
     }
-    return `<div class="wh-loc-badges">` + pl.map(p =>
-        `<span class="wh-loc-badge" title="${p.quantity}">${escapeHtml(p.location_code)} <small>(${p.quantity})</small></span>`
-    ).join('') + `</div>`;
+    const MAX = 5;
+    const shown = pl.slice(0, MAX);
+    const rest = pl.length - MAX;
+    return `<div class="wh-loc-badges">`
+        + shown.map(p =>
+            `<span class="wh-loc-badge" title="${p.quantity}">${escapeHtml(p.location_code)} <small>(${p.quantity})</small></span>`
+          ).join('')
+        + (rest > 0
+            ? `<span class="wh-loc-more" onclick="whShowAllPlacements(${m.id})" title="${pt('whShowAllPositions')}">+${rest}</span>`
+            : '')
+        + `</div>`;
+}
+
+// Modal listing every placement of a material (opened from the "+X" chip)
+function whShowAllPlacements(materialId) {
+    const m = whMaterialsList.find(x => x.id === materialId);
+    if (!m) return;
+    const pl = Array.isArray(m.placements) ? m.placements : [];
+    const total = pl.reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
+    const unit = escapeHtml(m.unit || 'ks');
+
+    document.getElementById('modal').classList.remove('modal-xl');
+    document.getElementById('modalTitle').textContent = `${pt('whPlacementsTitle')} — ${m.code}`;
+    document.getElementById('modalBody').innerHTML = `
+        <div style="margin-bottom:0.75rem;color:#64748b;">${escapeHtml(m.name)}</div>
+        <table class="data-table">
+            <thead><tr><th>${pt('whColLocation')}</th><th style="text-align:right;">${pt('whColQty')}</th></tr></thead>
+            <tbody>
+                ${pl.map(p => `
+                    <tr class="wh-placement-row" onclick="closeModal(); openLocationModal(${p.location_id});" style="cursor:pointer;">
+                        <td><span class="wh-loc-badge">${escapeHtml(p.location_code)}</span></td>
+                        <td style="text-align:right;">${p.quantity} ${unit}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+            <tfoot><tr>
+                <td style="font-weight:700;">${pt('whTotal')}</td>
+                <td style="text-align:right;font-weight:700;">${total} ${unit}</td>
+            </tr></tfoot>
+        </table>
+    `;
+    document.getElementById('modalFooter').innerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">${pt('close')}</button>
+    `;
+    openModal();
 }
 
 function whFormatDate(dt) {
