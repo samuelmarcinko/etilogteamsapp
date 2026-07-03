@@ -3382,7 +3382,15 @@ async function loadWarehouseMap() {
         warehouseLocByKey = {};
         warehouseLocations.forEach(l => { warehouseLocByKey[whLocKey(l.zone, l.position)] = l; });
 
-        mapEl.innerHTML = svgText;
+        // Wrap the SVG in a transform stage so we can zoom/pan just the map
+        // (not the whole page). Zoom controls float in the corner.
+        mapEl.innerHTML = `
+            <div class="wh-map-stage" id="whMapStage">${svgText}</div>
+            <div class="wh-map-zoom-controls">
+                <button type="button" class="wh-map-zoom-btn" onclick="whMapZoom(1.3)" title="${pt('whZoomIn') || 'Priblížiť'}" aria-label="zoom in">+</button>
+                <button type="button" class="wh-map-zoom-btn" onclick="whMapZoom(1/1.3)" title="${pt('whZoomOut') || 'Oddialiť'}" aria-label="zoom out">&minus;</button>
+                <button type="button" class="wh-map-zoom-btn" onclick="whMapZoomReset()" title="${pt('whZoomReset') || 'Obnoviť'}" aria-label="reset zoom">&#8634;</button>
+            </div>`;
 
         // Color + wire each pallet location
         mapEl.querySelectorAll('.pallet-loc').forEach(el => {
@@ -3400,10 +3408,140 @@ async function loadWarehouseMap() {
                 el.addEventListener('mouseleave', hideLocationTooltip);
             }
         });
+
+        initMapZoomPan(mapEl);
     } catch (e) {
         console.error('wh map', e);
         mapEl.innerHTML = `<div class="empty-state"><div class="empty-text">${pt('pageLoadError')}</div></div>`;
     }
+}
+
+// ===== Interactive map zoom & pan (isolated to the map, not the page) =====
+let whMapState = { scale: 1, tx: 0, ty: 0 };
+const WH_MAP_MIN = 1;
+const WH_MAP_MAX = 6;
+
+function whMapApply() {
+    const stage = document.getElementById('whMapStage');
+    if (!stage) return;
+    const s = whMapState;
+    stage.style.transform = `translate(${s.tx}px, ${s.ty}px) scale(${s.scale})`;
+}
+
+// Clamp translate so the map can't be dragged fully out of view
+function whMapClamp(container) {
+    const s = whMapState;
+    if (s.scale <= 1) { s.tx = 0; s.ty = 0; return; }
+    const w = container.clientWidth, h = container.clientHeight;
+    const maxX = w * (s.scale - 1);
+    const maxY = h * (s.scale - 1);
+    s.tx = Math.min(0, Math.max(-maxX, s.tx));
+    s.ty = Math.min(0, Math.max(-maxY, s.ty));
+}
+
+// Zoom around a focal point (cx, cy) in container-local coordinates
+function whMapZoomAt(factor, cx, cy, container) {
+    const s = whMapState;
+    const newScale = Math.min(WH_MAP_MAX, Math.max(WH_MAP_MIN, s.scale * factor));
+    if (newScale === s.scale) return;
+    // Keep the focal point stationary during the zoom
+    s.tx = cx - (cx - s.tx) * (newScale / s.scale);
+    s.ty = cy - (cy - s.ty) * (newScale / s.scale);
+    s.scale = newScale;
+    whMapClamp(container);
+    whMapApply();
+}
+
+// Button zoom (focuses the map center)
+function whMapZoom(factor) {
+    const container = document.getElementById('whMap');
+    if (!container) return;
+    whMapZoomAt(factor, container.clientWidth / 2, container.clientHeight / 2, container);
+}
+
+function whMapZoomReset() {
+    whMapState = { scale: 1, tx: 0, ty: 0 };
+    whMapApply();
+}
+
+function initMapZoomPan(container) {
+    whMapState = { scale: 1, tx: 0, ty: 0 };
+    whMapApply();
+
+    const pointers = new Map();     // active pointers by id
+    let startDist = 0, startScale = 1;
+    let lastX = 0, lastY = 0;
+    let moved = false;              // did we pan/pinch enough to suppress a click?
+
+    const rectPoint = (e) => {
+        const r = container.getBoundingClientRect();
+        return { x: e.clientX - r.left, y: e.clientY - r.top };
+    };
+
+    container.addEventListener('pointerdown', (e) => {
+        container.setPointerCapture(e.pointerId);
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        moved = false;
+        if (pointers.size === 1) {
+            lastX = e.clientX; lastY = e.clientY;
+        } else if (pointers.size === 2) {
+            const pts = [...pointers.values()];
+            startDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+            startScale = whMapState.scale;
+        }
+    });
+
+    container.addEventListener('pointermove', (e) => {
+        if (!pointers.has(e.pointerId)) return;
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+        if (pointers.size === 2) {
+            // Pinch zoom around the midpoint of the two fingers
+            const pts = [...pointers.values()];
+            const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+            if (startDist > 0) {
+                const r = container.getBoundingClientRect();
+                const midX = (pts[0].x + pts[1].x) / 2 - r.left;
+                const midY = (pts[0].y + pts[1].y) / 2 - r.top;
+                const target = Math.min(WH_MAP_MAX, Math.max(WH_MAP_MIN, startScale * (dist / startDist)));
+                whMapZoomAt(target / whMapState.scale, midX, midY, container);
+            }
+            moved = true;
+            e.preventDefault();
+        } else if (pointers.size === 1 && whMapState.scale > 1) {
+            // Pan (only meaningful when zoomed in)
+            const dx = e.clientX - lastX, dy = e.clientY - lastY;
+            if (Math.abs(dx) + Math.abs(dy) > 3) moved = true;
+            whMapState.tx += dx; whMapState.ty += dy;
+            lastX = e.clientX; lastY = e.clientY;
+            whMapClamp(container);
+            whMapApply();
+            e.preventDefault();
+        }
+    });
+
+    const endPointer = (e) => {
+        if (pointers.has(e.pointerId)) pointers.delete(e.pointerId);
+        if (pointers.size < 2) startDist = 0;
+        if (pointers.size === 1) {
+            const p = [...pointers.values()][0];
+            lastX = p.x; lastY = p.y;
+        }
+    };
+    container.addEventListener('pointerup', endPointer);
+    container.addEventListener('pointercancel', endPointer);
+
+    // Suppress click on a pallet location if it was actually a pan/pinch gesture
+    container.addEventListener('click', (e) => {
+        if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; }
+    }, true);
+
+    // Desktop wheel zoom (focuses the cursor)
+    container.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const p = rectPoint(e);
+        whMapZoomAt(e.deltaY < 0 ? 1.15 : 1 / 1.15, p.x, p.y, container);
+    }, { passive: false });
 }
 
 // --- Tooltip ---
@@ -3682,7 +3820,7 @@ function whLocationBadges(m) {
     if (pl.length === 1) {
         return `<span class="wh-loc-badge">${escapeHtml(pl[0].location_code)}</span>`;
     }
-    const MAX = 5;
+    const MAX = 3;
     const shown = pl.slice(0, MAX);
     const rest = pl.length - MAX;
     return `<div class="wh-loc-badges">`
