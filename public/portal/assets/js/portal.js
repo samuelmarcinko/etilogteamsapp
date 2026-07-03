@@ -18,8 +18,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     if (!isLoggedIn()) {
-        window.location.href = '/login';
-        return;
+        // May be returning from a Microsoft sign-in redirect that hasn't been
+        // processed yet — let MSAL finish (handleRedirectPromise) then re-check.
+        try { await initializeMsal(); } catch (e) { /* ignore, handled below */ }
+        if (!isLoggedIn()) {
+            window.location.href = '/login';
+            return;
+        }
     }
 
     const profileLoaded = await loadUserProfile();
