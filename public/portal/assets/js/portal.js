@@ -3469,6 +3469,7 @@ function initMapZoomPan(container) {
     whMapApply();
 
     const pointers = new Map();     // active pointers by id
+    const captured = new Set();      // pointer ids we've captured (gesture started)
     let startDist = 0, startScale = 1;
     let lastX = 0, lastY = 0;
     let moved = false;              // did we pan/pinch enough to suppress a click?
@@ -3478,8 +3479,16 @@ function initMapZoomPan(container) {
         return { x: e.clientX - r.left, y: e.clientY - r.top };
     };
 
+    // Capture a pointer only once a real gesture starts. Capturing on
+    // pointerdown would steal the click from child elements (pallet
+    // locations, zoom buttons), so we defer it to the first qualifying move.
+    const capture = (e) => {
+        if (captured.has(e.pointerId)) return;
+        try { container.setPointerCapture(e.pointerId); } catch (_) {}
+        captured.add(e.pointerId);
+    };
+
     container.addEventListener('pointerdown', (e) => {
-        container.setPointerCapture(e.pointerId);
         pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
         moved = false;
         if (pointers.size === 1) {
@@ -3507,11 +3516,14 @@ function initMapZoomPan(container) {
                 whMapZoomAt(target / whMapState.scale, midX, midY, container);
             }
             moved = true;
+            capture(e);
             e.preventDefault();
         } else if (pointers.size === 1 && whMapState.scale > 1) {
             // Pan (only meaningful when zoomed in)
             const dx = e.clientX - lastX, dy = e.clientY - lastY;
-            if (Math.abs(dx) + Math.abs(dy) > 3) moved = true;
+            if (!moved && Math.abs(dx) + Math.abs(dy) <= 3) return; // ignore micro-jitter, keep click alive
+            moved = true;
+            capture(e);
             whMapState.tx += dx; whMapState.ty += dy;
             lastX = e.clientX; lastY = e.clientY;
             whMapClamp(container);
@@ -3522,6 +3534,7 @@ function initMapZoomPan(container) {
 
     const endPointer = (e) => {
         if (pointers.has(e.pointerId)) pointers.delete(e.pointerId);
+        captured.delete(e.pointerId);
         if (pointers.size < 2) startDist = 0;
         if (pointers.size === 1) {
             const p = [...pointers.values()][0];
