@@ -573,6 +573,18 @@ body.sidebar-collapsed .sidebar-toggle .toggle-icon {
 .data-table tr:hover td { background: var(--gray-25); }
 .data-table tr:last-child td { border-bottom: none; }
 
+/* Wide tables scroll horizontally inside their own container at EVERY screen
+   size. Tablets in landscape are wider than the mobile breakpoint, yet tables
+   (Movements, Materials, admin lists) can still overflow — without this the
+   overflow is clipped and unreachable. Scoped to table-holding containers so
+   filter cards with dropdowns are unaffected. */
+#whMovementsTable,
+#whMaterialsTable,
+.card-body:has(table.data-table) {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 /* Sticky header table */
 .scrollable-table-container {
   max-height: 70vh;
