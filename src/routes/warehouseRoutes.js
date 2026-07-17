@@ -4,6 +4,8 @@ const Material = require('../database/models/Material');
 const MaterialCategory = require('../database/models/MaterialCategory');
 const PalletLocation = require('../database/models/PalletLocation');
 const WarehouseAudit = require('../database/models/WarehouseAudit');
+const WarehouseBackupService = require('../services/warehouseBackupService');
+const warehouseBackup = new WarehouseBackupService();
 const { verifyToken } = require('../middleware/auth');
 const { attachDbRole, requireDbRole } = require('../middleware/portalAuth');
 const { asyncHandler } = require('../middleware/errorHandler');
@@ -112,6 +114,34 @@ const placementSnapshot = (mat) =>
 router.get('/audit', readAccess, requireAdmin, asyncHandler(async (req, res) => {
   const log = await WarehouseAudit.findAll({ entity: req.query.entity || null });
   res.json({ data: log });
+}));
+
+// =========================================================
+// Warehouse backups (admin only) — separate from the full-app backup
+// =========================================================
+// GET /api/warehouse/backups — list available warehouse snapshots
+router.get('/backups', readAccess, requireAdmin, asyncHandler(async (req, res) => {
+  res.json({ data: warehouseBackup.listBackups() });
+}));
+
+// POST /api/warehouse/backups — create a snapshot now
+router.post('/backups', readAccess, requireAdmin, asyncHandler(async (req, res) => {
+  const info = await warehouseBackup.createBackup('manual');
+  await WarehouseAudit.log(currentUser(req), 'backup', 'warehouse', null, { name: info.name, counts: info.counts });
+  res.status(201).json({ data: info });
+}));
+
+// POST /api/warehouse/backups/:name/restore — restore from a snapshot (destructive)
+router.post('/backups/:name/restore', readAccess, requireAdmin, asyncHandler(async (req, res) => {
+  try {
+    const result = await warehouseBackup.restoreBackup(req.params.name);
+    await WarehouseAudit.log(currentUser(req), 'restore', 'warehouse', null, { name: req.params.name, restored: result.restored });
+    res.json({ data: result });
+  } catch (e) {
+    if (e.message === 'Backup not found') return res.status(404).json({ error: e.message });
+    if (e.message === 'Invalid backup file') return res.status(400).json({ error: e.message });
+    throw e;
+  }
 }));
 
 // =========================================================

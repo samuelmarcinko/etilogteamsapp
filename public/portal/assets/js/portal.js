@@ -2722,6 +2722,13 @@ async function renderAdminSystem(container) {
     const backupsRes = await apiCall('/api/admin/backups');
     const backups = (await backupsRes.json()).data || [];
 
+    // Load warehouse backups list
+    let whBackups = [];
+    try {
+        const whRes = await apiCall('/api/warehouse/backups');
+        if (whRes.ok) whBackups = (await whRes.json()).data || [];
+    } catch (e) { /* warehouse module may be unavailable */ }
+
     // Load SMTP config
     const smtpRes = await apiCall('/api/admin/settings/smtp');
     const smtp = smtpRes.ok ? ((await smtpRes.json()).data || {}) : {};
@@ -2820,6 +2827,20 @@ async function renderAdminSystem(container) {
                             <div class="empty-text">${pt('noBackups')}</div>
                         </div>
                     `}
+                </div>
+            </div>
+
+            <!-- Warehouse Backups -->
+            <div class="portal-card" style="margin-top: 1.5rem;">
+                <div class="card-header">
+                    <h3>&#128230; ${pt('whBackupTitle')}</h3>
+                    <button class="btn btn-primary" onclick="triggerWarehouseBackup()" id="whBackupBtn">
+                        ${pt('whBackupCreate')}
+                    </button>
+                </div>
+                <div class="card-body">
+                    <p style="color: var(--gray-600); margin-bottom: 1rem;">${pt('whBackupInfo')}</p>
+                    <div id="whBackupList">${renderWhBackupList(whBackups)}</div>
                 </div>
             </div>
 
@@ -2940,6 +2961,91 @@ async function triggerBackup() {
         showToast(error.message, 'error');
         btn.disabled = false;
         btn.textContent = pt('createBackup');
+    }
+}
+
+// ---- Warehouse backups (admin) ----
+function renderWhBackupList(list) {
+    if (!list || list.length === 0) {
+        return `<div class="empty-state" style="padding:2rem;"><div class="empty-icon">&#128230;</div><div class="empty-text">${pt('whBackupEmpty')}</div></div>`;
+    }
+    return `
+        <table class="data-table">
+            <thead><tr>
+                <th>${pt('whBackupColDate')}</th>
+                <th>${pt('whBackupColRows')}</th>
+                <th>${pt('colSize')}</th>
+                <th>${pt('colActions')}</th>
+            </tr></thead>
+            <tbody>
+                ${list.map(b => `
+                    <tr>
+                        <td>${formatDateTime(b.created_at)}</td>
+                        <td>${b.total_rows != null ? b.total_rows : '-'}</td>
+                        <td>${whFormatBytes(b.size)}</td>
+                        <td><button class="btn btn-warning btn-sm" onclick="confirmRestoreWarehouseBackup('${escapeHtml(b.name)}', '${formatDateTime(b.created_at)}')">${pt('whBackupRestore')}</button></td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>`;
+}
+
+function whFormatBytes(bytes) {
+    if (bytes == null) return '-';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+}
+
+async function reloadWhBackups() {
+    const el = document.getElementById('whBackupList');
+    if (!el) return;
+    try {
+        const res = await apiCall('/api/warehouse/backups');
+        const list = res.ok ? ((await res.json()).data || []) : [];
+        el.innerHTML = renderWhBackupList(list);
+    } catch (e) { /* ignore */ }
+}
+
+async function triggerWarehouseBackup() {
+    const btn = document.getElementById('whBackupBtn');
+    if (btn) { btn.disabled = true; btn.textContent = pt('creatingBackup'); }
+    try {
+        const res = await apiCall('/api/warehouse/backups', { method: 'POST' });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.message || pt('whBackupFailed'));
+        showToast(pt('whBackupCreated'), 'success');
+        await reloadWhBackups();
+    } catch (error) {
+        showToast(error.message, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = pt('whBackupCreate'); }
+    }
+}
+
+function confirmRestoreWarehouseBackup(name, dateLabel) {
+    document.getElementById('modalTitle').textContent = pt('whBackupRestoreTitle');
+    document.getElementById('modalBody').innerHTML = `
+        <div style="background:#fef2f2;border-left:3px solid #ef4444;padding:12px;border-radius:6px;margin-bottom:1rem;">
+            &#9888; ${pt('whBackupRestoreWarning')}
+        </div>
+        <p>${pt('whBackupRestoreConfirm')}</p>
+        <p style="margin-top:0.5rem;color:#64748b;"><strong>${escapeHtml(dateLabel)}</strong><br><code>${escapeHtml(name)}</code></p>`;
+    document.getElementById('modalFooter').innerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
+        <button class="btn btn-danger" onclick="restoreWarehouseBackup('${escapeHtml(name)}')">${pt('whBackupRestore')}</button>`;
+    openModal();
+}
+
+async function restoreWarehouseBackup(name) {
+    try {
+        const res = await apiCall(`/api/warehouse/backups/${encodeURIComponent(name)}/restore`, { method: 'POST' });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || result.message || pt('whBackupRestoreFailed'));
+        closeModal();
+        showToast(pt('whBackupRestored'), 'success');
+    } catch (error) {
+        showToast(error.message, 'error');
     }
 }
 

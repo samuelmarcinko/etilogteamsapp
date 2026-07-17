@@ -9,6 +9,7 @@ const apiRoutes = require('./routes');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const ReminderService = require('./services/reminderService');
 const FleetNotificationService = require('./services/fleetNotificationService');
+const WarehouseBackupService = require('./services/warehouseBackupService');
 const logger = require('./utils/logger');
 
 // Initialize Express app
@@ -75,6 +76,10 @@ reminderService.start();
 // Initialize fleet notification service
 const fleetNotificationService = new FleetNotificationService();
 fleetNotificationService.start();
+
+// Initialize warehouse backup service (daily snapshot, 3-day retention)
+const warehouseBackupService = new WarehouseBackupService();
+warehouseBackupService.start();
 
 // Bot Framework endpoint
 app.post('/api/messages', async (req, res) => {
