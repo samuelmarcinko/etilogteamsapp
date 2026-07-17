@@ -88,13 +88,22 @@ router.delete('/categories/:id', writeAccess, asyncHandler(async (req, res) => {
 }));
 
 // =========================================================
-// Movements history
+// Movements / activity feed
 // =========================================================
-// GET /api/warehouse/movements?material_id=
+// GET /api/warehouse/movements?action=&search=
+// Unified feed: created / updated / deleted / moved (from the audit log).
 router.get('/movements', readAccess, asyncHandler(async (req, res) => {
-  const movements = await Material.getMovements(req.query.material_id || null);
-  res.json({ data: movements });
+  const feed = await WarehouseAudit.findFeed({
+    action: req.query.action || null,
+    search: req.query.search || null
+  });
+  res.json({ data: feed });
 }));
+
+// Helper: compact placements [{code, quantity}] from a full material row
+const placementSnapshot = (mat) =>
+  (Array.isArray(mat?.placements) ? mat.placements : [])
+    .map(p => ({ code: p.location_code, quantity: p.quantity }));
 
 // =========================================================
 // Audit log (admin only)
@@ -137,10 +146,11 @@ router.post('/materials', writeAccess, asyncHandler(async (req, res) => {
   }
   const user = currentUser(req);
   const material = await Material.create({ ...req.body, created_by: user.id, created_by_name: user.name });
-  const placements = Array.isArray(req.body.placements) ? req.body.placements.filter(p => p.location_id) : [];
+  const full = await Material.findById(material.id);
   await WarehouseAudit.log(user, 'created', 'material', material.id, {
     code: material.code, name: material.name,
-    placements: placements.map(p => ({ location_id: p.location_id, quantity: p.quantity }))
+    quantity: full?.quantity ?? null,
+    placements: placementSnapshot(full)
   });
   res.status(201).json({ data: material });
 }));
@@ -151,12 +161,18 @@ router.put('/materials/:id', writeAccess, asyncHandler(async (req, res) => {
   if (req.body.code && await Material.existsByCode(req.body.code, Number(req.params.id))) {
     return res.status(409).json({ error: 'code exists', message: 'Material with this code already exists' });
   }
+  // Snapshot before-state so the movement can show exactly what changed
+  const before = await Material.findById(req.params.id);
   const material = await Material.update(req.params.id, req.body);
   if (!material) return res.status(404).json({ error: 'Material not found' });
-  const placements = Array.isArray(req.body.placements) ? req.body.placements.filter(p => p.location_id) : [];
+  const after = await Material.findById(material.id);
   await WarehouseAudit.log(currentUser(req), 'updated', 'material', material.id, {
     code: material.code,
-    placements: placements.map(p => ({ location_id: p.location_id, quantity: p.quantity }))
+    name: after?.name ?? before?.name ?? null,
+    quantity_before: before?.quantity ?? null,
+    quantity_after: after?.quantity ?? null,
+    placements_before: placementSnapshot(before),
+    placements_after: placementSnapshot(after)
   });
   res.json({ data: material });
 }));
@@ -168,8 +184,11 @@ router.patch('/materials/:id/move', writeAccess, asyncHandler(async (req, res) =
   if (!material) return res.status(404).json({ error: 'Material not found' });
   const mi = material._moveInfo || {};
   await WarehouseAudit.log(currentUser(req), 'moved', 'material', material.id, {
+    code: material.code,
     from_location_code: mi.fromCode || null,
-    to_location_code: mi.toCode || null
+    to_location_code: mi.toCode || null,
+    quantity: material.quantity ?? null,
+    reason: reason || null
   });
   delete material._moveInfo;
   res.json({ data: material });
@@ -181,7 +200,9 @@ router.delete('/materials/:id', writeAccess, asyncHandler(async (req, res) => {
   await Material.delete(req.params.id);
   await WarehouseAudit.log(currentUser(req), 'deleted', 'material', Number(req.params.id), {
     code: mat?.code || null,
-    name: mat?.name || null
+    name: mat?.name || null,
+    quantity: mat?.quantity ?? null,
+    placements: placementSnapshot(mat)   // positions that were freed by this delete
   });
   res.json({ message: 'Material deleted' });
 }));

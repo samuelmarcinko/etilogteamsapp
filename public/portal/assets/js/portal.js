@@ -105,7 +105,7 @@ const PAGE_MODULE = {
     'admin-system': 'hr',
     'admin-fleet': 'fleet',
     'warehouse-dashboard': 'warehouse', 'warehouse-materials': 'warehouse',
-    'warehouse-movements': 'warehouse', 'warehouse-audit': 'warehouse'
+    'warehouse-movements': 'warehouse'
 };
 
 /**
@@ -130,9 +130,6 @@ function applyModulePreset(module) {
         document.getElementById('fleetNav').style.display = 'block';
     } else if (module === 'warehouse') {
         document.getElementById('warehouseNav').style.display = 'block';
-        // Audit sub-section is admin only
-        const waNav = document.getElementById('warehouseAdminNav');
-        if (waNav) waNav.style.display = (portalUser?.role === 'admin') ? 'block' : 'none';
     }
 }
 
@@ -147,12 +144,6 @@ function navigateToPage(page) {
         showToast(pt('accessDenied'), 'error');
         return;
     }
-    // Audit sub-page is admin only
-    if (page === 'warehouse-audit' && portalUser?.role !== 'admin') {
-        showToast(pt('accessDenied'), 'error');
-        return;
-    }
-
     if (page.startsWith('admin-')) {
         const userRole = portalUser?.role;
         // Fleet is its own module - admin only
@@ -253,7 +244,6 @@ async function renderPage(page) {
             case 'warehouse-dashboard': await renderWarehouseDashboard(content); break;
             case 'warehouse-materials': await renderWarehouseMaterials(content); break;
             case 'warehouse-movements': await renderWarehouseMovements(content); break;
-            case 'warehouse-audit': await renderWarehouseAudit(content); break;
             default: content.innerHTML = `<div class="page-body"><div class="empty-state"><div class="empty-icon">&#128533;</div><div class="empty-text">${pt('pageNotFound')}</div></div></div>`;
         }
     } catch (error) {
@@ -4444,107 +4434,172 @@ ${selected.map(m => {
     w.onload = () => { w.print(); };
 }
 
-// --- Movements page ---
+// --- Movements page (unified activity feed: created/updated/deleted/moved) ---
 async function renderWarehouseMovements(container) {
     container.innerHTML = `
         <div class="page-header"><div><h1>${pt('whMovementsTitle')}</h1><p>${pt('whMovementsDesc')}</p></div></div>
-        <div class="page-body"><div class="portal-card"><div class="card-body" id="whMovementsTable">
-            <div class="empty-state"><div class="spinner"></div></div>
-        </div></div></div>`;
+        <div class="page-body">
+            <div class="portal-card"><div class="card-body">
+                <div class="wh-filter-bar">
+                    <input type="text" id="whMovSearch" class="form-control" placeholder="${pt('whMovSearchPlaceholder')}" style="flex:2;">
+                    <select id="whMovAction" class="form-control" style="flex:1;" onchange="loadMovements()">
+                        <option value="">${pt('whMovAllActions')}</option>
+                        <option value="created">${pt('whActCreated')}</option>
+                        <option value="updated">${pt('whActUpdated')}</option>
+                        <option value="deleted">${pt('whActDeleted')}</option>
+                        <option value="moved">${pt('whActMoved')}</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="loadMovements()">${pt('whFilter')}</button>
+                </div>
+            </div></div>
+            <div class="portal-card"><div class="card-body" id="whMovementsTable">
+                <div class="empty-state"><div class="spinner"></div></div>
+            </div></div>
+        </div>`;
+    const searchEl = document.getElementById('whMovSearch');
+    if (searchEl) searchEl.addEventListener('keyup', e => { if (e.key === 'Enter') loadMovements(); });
+    await loadMovements();
+}
+
+async function loadMovements() {
+    const tableEl = document.getElementById('whMovementsTable');
+    if (!tableEl) return;
+    const action = document.getElementById('whMovAction')?.value || '';
+    const search = document.getElementById('whMovSearch')?.value || '';
+    let url = '/api/warehouse/movements?';
+    if (action) url += `action=${encodeURIComponent(action)}&`;
+    if (search) url += `search=${encodeURIComponent(search)}&`;
+    tableEl.innerHTML = `<div class="empty-state"><div class="spinner"></div></div>`;
     try {
-        const res = await apiCall('/api/warehouse/movements');
-        const movements = (await res.json()).data || [];
-        const tableEl = document.getElementById('whMovementsTable');
-        if (movements.length === 0) {
+        const res = await apiCall(url);
+        const feed = (await res.json()).data || [];
+        if (feed.length === 0) {
             tableEl.innerHTML = `<div class="empty-state"><div class="empty-icon">&#128257;</div><div class="empty-text">${pt('whMovementsEmpty')}</div></div>`;
             return;
         }
         tableEl.innerHTML = `
-            <table class="data-table">
-                <thead><tr><th>${pt('whColDate')}</th><th>${pt('whColMaterial')}</th><th>${pt('whColFrom')}</th><th>${pt('whColTo')}</th><th>${pt('whColUser')}</th><th>${pt('whColReason')}</th></tr></thead>
+            <table class="data-table wh-movements-table">
+                <thead><tr>
+                    <th>${pt('whColDateTime')}</th>
+                    <th>${pt('whColAction')}</th>
+                    <th>${pt('whColMaterial')}</th>
+                    <th>${pt('whColDetails')}</th>
+                    <th>${pt('whColUser')}</th>
+                </tr></thead>
                 <tbody>
-                    ${movements.map(m => `
+                    ${feed.map(l => {
+                        const meta = whActionMeta(l.action);
+                        const code = l.material_code || whDetailCode(l.details) || '-';
+                        const name = l.material_name || whDetailName(l.details) || '';
+                        return `
                         <tr>
-                            <td>${formatDate(m.moved_at)}</td>
-                            <td><strong>${escapeHtml(m.material_code || '-')}</strong><br><small>${escapeHtml(m.material_name || '')}</small></td>
-                            <td>${m.from_code ? `<span class="wh-loc-badge">${escapeHtml(m.from_code)}</span>` : '-'}</td>
-                            <td>${m.to_code ? `<span class="wh-loc-badge">${escapeHtml(m.to_code)}</span>` : '-'}</td>
-                            <td>${escapeHtml(m.moved_by_name || '-')}</td>
-                            <td>${escapeHtml(m.reason || '-')}</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        `;
-    } catch (e) {
-        document.getElementById('whMovementsTable').innerHTML = `<div class="empty-state"><div class="empty-text">${pt('pageLoadError')}</div></div>`;
-    }
-}
-
-// --- Audit page (admin only) ---
-
-// Format audit details for human reading
-function formatAuditDetails(action, details, entity) {
-    if (!details) return '-';
-    const d = typeof details === 'string' ? JSON.parse(details) : details;
-    // Summarize placements (split material) into a short readable suffix
-    const placementSuffix = (Array.isArray(d.placements) && d.placements.length)
-        ? ` · ${d.placements.length}× ${pt('whSplitPosition')} (${d.placements.map(p => p.quantity).join('+')})`
-        : '';
-    try {
-        switch (String(action).toUpperCase()) {
-            case 'CREATED':
-                if (d.code) return `<strong>${escapeHtml(d.code)}</strong> – ${escapeHtml(d.name || '')}${placementSuffix}`;
-                return Object.entries(d).map(([k,v]) => `${k}: ${v}`).join(', ');
-            case 'MOVED':
-                const from = d.from_location_code || d.from_location_id || '—';
-                const to = d.to_location_code || d.to_location_id || '—';
-                return `${escapeHtml(String(from))} → <strong>${escapeHtml(String(to))}</strong>`;
-            case 'UPDATED':
-                if (d.code) return `<strong>${escapeHtml(d.code)}</strong>${placementSuffix}`;
-                return Object.entries(d).filter(([k]) => k !== 'placements').map(([k,v]) => `${k}: ${escapeHtml(String(v))}`).join(', ') + placementSuffix;
-            case 'DELETED':
-                if (d.code) return `<strong>${escapeHtml(d.code)}</strong> – ${escapeHtml(d.name || '')}`;
-                return Object.entries(d).map(([k,v]) => `${k}: ${v}`).join(', ');
-            default:
-                return Object.entries(d).filter(([k]) => k !== 'placements').map(([k,v]) => `${k}: ${v}`).join(', ') + placementSuffix;
-        }
-    } catch (e) { return escapeHtml(JSON.stringify(d).substring(0, 80)); }
-}
-
-async function renderWarehouseAudit(container) {
-    container.innerHTML = `
-        <div class="page-header"><div><h1>${pt('whAuditTitle')}</h1><p>${pt('whAuditDesc')}</p></div></div>
-        <div class="page-body"><div class="portal-card"><div class="card-body" id="whAuditTable">
-            <div class="empty-state"><div class="spinner"></div></div>
-        </div></div></div>`;
-    try {
-        const res = await apiCall('/api/warehouse/audit');
-        const logs = (await res.json()).data || [];
-        const tableEl = document.getElementById('whAuditTable');
-        if (logs.length === 0) {
-            tableEl.innerHTML = `<div class="empty-state"><div class="empty-icon">&#128203;</div><div class="empty-text">${pt('whAuditEmpty')}</div></div>`;
-            return;
-        }
-        tableEl.innerHTML = `
-            <table class="data-table">
-                <thead><tr><th>${pt('whColDate')}</th><th>${pt('whColUser')}</th><th>${pt('whColAction')}</th><th>${pt('whColEntity')}</th><th>${pt('whColDetails')}</th></tr></thead>
-                <tbody>
-                    ${logs.map(l => `
-                        <tr>
-                            <td>${formatDate(l.created_at)}</td>
+                            <td class="wh-date-cell">${whFormatDate(l.created_at)}</td>
+                            <td><span class="badge badge-${meta.cls}">${meta.icon} ${meta.label}</span></td>
+                            <td><strong>${escapeHtml(code)}</strong>${name ? `<br><small>${escapeHtml(name)}</small>` : ''}</td>
+                            <td class="wh-mov-details">${formatMovementDetails(l.action, l.details)}</td>
                             <td>${escapeHtml(l.user_name || '-')}</td>
-                            <td><span class="badge badge-${l.action}">${l.action}</span></td>
-                            <td>${l.entity} #${l.entity_id || '-'}</td>
-                            <td><small>${formatAuditDetails(l.action, l.details, l.entity)}</small></td>
-                        </tr>
-                    `).join('')}
+                        </tr>`;
+                    }).join('')}
                 </tbody>
             </table>
         `;
     } catch (e) {
-        document.getElementById('whAuditTable').innerHTML = `<div class="empty-state"><div class="empty-text">${pt('pageLoadError')}</div></div>`;
+        tableEl.innerHTML = `<div class="empty-state"><div class="empty-text">${pt('pageLoadError')}</div></div>`;
     }
+}
+
+// Action → { label, badge class, icon }
+function whActionMeta(action) {
+    switch (String(action).toLowerCase()) {
+        case 'created': return { label: pt('whActCreated'), cls: 'created', icon: '&#10133;' };
+        case 'updated': return { label: pt('whActUpdated'), cls: 'updated', icon: '&#9998;' };
+        case 'deleted': return { label: pt('whActDeleted'), cls: 'deleted', icon: '&#128465;' };
+        case 'moved':   return { label: pt('whActMoved'),   cls: 'moved',   icon: '&#128257;' };
+        default:        return { label: action, cls: 'user', icon: '&#8226;' };
+    }
+}
+
+function whParseDetails(details) {
+    if (!details) return {};
+    try { return typeof details === 'string' ? JSON.parse(details) : details; }
+    catch (e) { return {}; }
+}
+function whDetailCode(details) { return whParseDetails(details).code || ''; }
+function whDetailName(details) { return whParseDetails(details).name || ''; }
+
+// Render a placements array [{code, quantity}] as location badges
+function whFmtPlacements(arr) {
+    if (!Array.isArray(arr) || !arr.length) return '';
+    return arr.map(p => `<span class="wh-loc-badge">${escapeHtml(p.code || '?')} <small>(${p.quantity})</small></span>`).join(' ');
+}
+
+// Diff two placement snapshots by location code
+function whPlacementDiff(before, after) {
+    const bMap = new Map((before || []).map(p => [p.code, p.quantity]));
+    const aMap = new Map((after || []).map(p => [p.code, p.quantity]));
+    const added = [], removed = [], changed = [];
+    aMap.forEach((q, code) => {
+        if (!bMap.has(code)) added.push({ code, quantity: q });
+        else if (bMap.get(code) !== q) changed.push({ code, from: bMap.get(code), to: q });
+    });
+    bMap.forEach((q, code) => { if (!aMap.has(code)) removed.push({ code, quantity: q }); });
+    return { added, removed, changed };
+}
+
+// Human-readable, detailed description of one movement/action
+function formatMovementDetails(action, details) {
+    const d = whParseDetails(details);
+    const line = (s) => `<div class="wh-mov-sub">${s}</div>`;
+    try {
+        switch (String(action).toLowerCase()) {
+            case 'created': {
+                const head = [];
+                if (d.quantity != null) head.push(`<strong>${d.quantity}</strong> ks`);
+                let html = head.join(' · ');
+                const pl = whFmtPlacements(d.placements);
+                if (pl) html += line(`${pt('whMovPositions')}: ${pl}`);
+                return html || '-';
+            }
+            case 'deleted': {
+                const head = [];
+                if (d.quantity != null) head.push(`<strong>${d.quantity}</strong> ks`);
+                let html = head.join(' · ');
+                const pl = whFmtPlacements(d.placements);
+                if (pl) html += line(`${pt('whMovFreed')}: ${pl}`);
+                return html || '-';
+            }
+            case 'moved': {
+                const from = d.from_location_code || '—';
+                const to = d.to_location_code || '—';
+                let html = `<span class="wh-loc-badge">${escapeHtml(from)}</span> &rarr; <span class="wh-loc-badge">${escapeHtml(to)}</span>`;
+                if (d.quantity != null) html += ` · <strong>${d.quantity}</strong> ks`;
+                if (d.reason) html += line(`${pt('whColReason')}: ${escapeHtml(d.reason)}`);
+                return html;
+            }
+            case 'updated': {
+                const rows = [];
+                if (d.quantity_before != null && d.quantity_after != null && d.quantity_before !== d.quantity_after) {
+                    const dir = d.quantity_after > d.quantity_before ? '&#9650;' : '&#9660;';
+                    rows.push(`${pt('whMovQty')}: <strong>${d.quantity_before}</strong> &rarr; <strong>${d.quantity_after}</strong> ks ${dir}`);
+                }
+                if (Array.isArray(d.placements_before) || Array.isArray(d.placements_after)) {
+                    const diff = whPlacementDiff(d.placements_before, d.placements_after);
+                    if (diff.added.length)   rows.push(`${pt('whMovAdded')}: ${whFmtPlacements(diff.added)}`);
+                    if (diff.removed.length) rows.push(`${pt('whMovRemoved')}: ${whFmtPlacements(diff.removed)}`);
+                    if (diff.changed.length) rows.push(`${pt('whMovChanged')}: ` +
+                        diff.changed.map(c => `<span class="wh-loc-badge">${escapeHtml(c.code)}</span> ${c.from}&rarr;${c.to}`).join(', '));
+                    const afterCount = (d.placements_after || []).length;
+                    if (afterCount > 1 && (diff.added.length || diff.removed.length)) {
+                        rows.push(`<em>${pt('whMovSplit')}: ${afterCount}× ${pt('whSplitPosition')}</em>`);
+                    }
+                }
+                if (!rows.length) return `<span style="color:#94a3b8">${pt('whMovNoDetail')}</span>`;
+                return rows.map(line).join('');
+            }
+            default:
+                return '-';
+        }
+    } catch (e) { return '-'; }
 }
 
 // ============================================

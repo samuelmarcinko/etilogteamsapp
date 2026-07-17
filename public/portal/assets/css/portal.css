@@ -2270,6 +2270,12 @@ body.hub-active .portal-lang-switcher {
 .badge-deleted { background: #fee2e2; color: #991b1b; }
 .badge-moved { background: #fef3c7; color: #92400e; }
 
+/* Movements feed — detailed change lines */
+.wh-movements-table td { vertical-align: top; }
+.wh-mov-details { font-size: 0.85rem; line-height: 1.55; }
+.wh-mov-sub { margin: 3px 0; color: #475569; }
+.wh-mov-details .wh-loc-badge { margin: 1px 2px 1px 0; }
+
 /* Highlight: bold solid-RED pulse for found pallet location(s).
    Pure red (not red->yellow) so it stands out against the pink occupied hatch.
    When a material is split, every placement blinks simultaneously. */
