@@ -2269,6 +2269,7 @@ body.hub-active .portal-lang-switcher {
 .badge-updated { background: #dbeafe; color: #1e40af; }
 .badge-deleted { background: #fee2e2; color: #991b1b; }
 .badge-moved { background: #fef3c7; color: #92400e; }
+.badge-restored { background: #ccfbf1; color: #0f766e; }
 
 /* Movements feed — detailed change lines */
 .wh-movements-table td { vertical-align: top; }

@@ -227,14 +227,28 @@ router.patch('/materials/:id/move', writeAccess, asyncHandler(async (req, res) =
 // DELETE /api/warehouse/materials/:id
 router.delete('/materials/:id', writeAccess, asyncHandler(async (req, res) => {
   const mat = await Material.findById(req.params.id);
-  await Material.delete(req.params.id);
+  await Material.delete(req.params.id, currentUser(req));   // soft delete
   await WarehouseAudit.log(currentUser(req), 'deleted', 'material', Number(req.params.id), {
     code: mat?.code || null,
     name: mat?.name || null,
     quantity: mat?.quantity ?? null,
-    placements: placementSnapshot(mat)   // positions that were freed by this delete
+    placements: placementSnapshot(mat)   // positions freed (kept for restore)
   });
   res.json({ message: 'Material deleted' });
+}));
+
+// POST /api/warehouse/materials/:id/restore - undo a soft delete
+router.post('/materials/:id/restore', writeAccess, asyncHandler(async (req, res) => {
+  const material = await Material.restore(req.params.id);
+  if (!material) return res.status(404).json({ error: 'Material not found or not deleted' });
+  const full = await Material.findById(material.id);
+  await WarehouseAudit.log(currentUser(req), 'restored', 'material', material.id, {
+    code: material.code,
+    name: material.name,
+    quantity: full?.quantity ?? null,
+    placements: placementSnapshot(full)   // positions brought back
+  });
+  res.json({ data: material });
 }));
 
 module.exports = router;

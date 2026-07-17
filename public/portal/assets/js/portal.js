@@ -4554,6 +4554,7 @@ async function renderWarehouseMovements(container) {
                         <option value="updated">${pt('whActUpdated')}</option>
                         <option value="deleted">${pt('whActDeleted')}</option>
                         <option value="moved">${pt('whActMoved')}</option>
+                        <option value="restored">${pt('whActRestored')}</option>
                     </select>
                     <button class="btn btn-secondary" onclick="loadMovements()">${pt('whFilter')}</button>
                 </div>
@@ -4583,6 +4584,7 @@ async function loadMovements() {
             tableEl.innerHTML = `<div class="empty-state"><div class="empty-icon">&#128257;</div><div class="empty-text">${pt('whMovementsEmpty')}</div></div>`;
             return;
         }
+        const canEdit = canEditWarehouse();
         tableEl.innerHTML = `
             <table class="data-table wh-movements-table">
                 <thead><tr>
@@ -4591,12 +4593,15 @@ async function loadMovements() {
                     <th>${pt('whColMaterial')}</th>
                     <th>${pt('whColDetails')}</th>
                     <th>${pt('whColUser')}</th>
+                    ${canEdit ? `<th></th>` : ''}
                 </tr></thead>
                 <tbody>
                     ${feed.map(l => {
                         const meta = whActionMeta(l.action);
                         const code = l.material_code || whDetailCode(l.details) || '-';
                         const name = l.material_name || whDetailName(l.details) || '';
+                        // Restorable = a soft-deleted material that still exists
+                        const restorable = l.action === 'deleted' && l.material_exists && l.material_deleted_at;
                         return `
                         <tr>
                             <td class="wh-date-cell">${whFormatDate(l.created_at)}</td>
@@ -4604,6 +4609,7 @@ async function loadMovements() {
                             <td><strong>${escapeHtml(code)}</strong>${name ? `<br><small>${escapeHtml(name)}</small>` : ''}</td>
                             <td class="wh-mov-details">${formatMovementDetails(l.action, l.details)}</td>
                             <td>${escapeHtml(l.user_name || '-')}</td>
+                            ${canEdit ? `<td>${restorable ? `<button class="btn btn-secondary btn-sm" onclick="restoreMaterial(${l.entity_id}, '${escapeHtml(code)}')">&#8630; ${pt('whRestore')}</button>` : ''}</td>` : ''}
                         </tr>`;
                     }).join('')}
                 </tbody>
@@ -4617,11 +4623,24 @@ async function loadMovements() {
 // Action → { label, badge class, icon }
 function whActionMeta(action) {
     switch (String(action).toLowerCase()) {
-        case 'created': return { label: pt('whActCreated'), cls: 'created', icon: '&#10133;' };
-        case 'updated': return { label: pt('whActUpdated'), cls: 'updated', icon: '&#9998;' };
-        case 'deleted': return { label: pt('whActDeleted'), cls: 'deleted', icon: '&#128465;' };
-        case 'moved':   return { label: pt('whActMoved'),   cls: 'moved',   icon: '&#128257;' };
-        default:        return { label: action, cls: 'user', icon: '&#8226;' };
+        case 'created':  return { label: pt('whActCreated'),  cls: 'created',  icon: '&#10133;' };
+        case 'updated':  return { label: pt('whActUpdated'),  cls: 'updated',  icon: '&#9998;' };
+        case 'deleted':  return { label: pt('whActDeleted'),  cls: 'deleted',  icon: '&#128465;' };
+        case 'moved':    return { label: pt('whActMoved'),    cls: 'moved',    icon: '&#128257;' };
+        case 'restored': return { label: pt('whActRestored'), cls: 'restored', icon: '&#8630;' };
+        default:         return { label: action, cls: 'user', icon: '&#8226;' };
+    }
+}
+
+async function restoreMaterial(id, code) {
+    try {
+        const res = await apiCall(`/api/warehouse/materials/${id}/restore`, { method: 'POST' });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || result.message || pt('whRestoreFailed'));
+        showToast(`${pt('whRestored')}: ${code}`, 'success');
+        await loadMovements();
+    } catch (error) {
+        showToast(error.message, 'error');
     }
 }
 
@@ -4672,6 +4691,14 @@ function formatMovementDetails(action, details) {
                 let html = head.join(' · ');
                 const pl = whFmtPlacements(d.placements);
                 if (pl) html += line(`${pt('whMovFreed')}: ${pl}`);
+                return html || '-';
+            }
+            case 'restored': {
+                const head = [];
+                if (d.quantity != null) head.push(`<strong>${d.quantity}</strong> ks`);
+                let html = head.join(' · ');
+                const pl = whFmtPlacements(d.placements);
+                if (pl) html += line(`${pt('whMovPositions')}: ${pl}`);
                 return html || '-';
             }
             case 'moved': {

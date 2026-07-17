@@ -52,7 +52,8 @@ class WarehouseAudit {
     }
     values.push(limit);
     const query = `
-      SELECT a.*, m.code AS material_code, m.name AS material_name
+      SELECT a.*, m.code AS material_code, m.name AS material_name,
+             m.deleted_at AS material_deleted_at, (m.id IS NOT NULL) AS material_exists
       FROM warehouse_audit_log a
       LEFT JOIN materials m ON a.entity = 'material' AND m.id = a.entity_id
       WHERE ${where.join(' AND ')}

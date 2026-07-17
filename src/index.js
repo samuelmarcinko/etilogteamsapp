@@ -81,6 +81,21 @@ fleetNotificationService.start();
 const warehouseBackupService = new WarehouseBackupService();
 warehouseBackupService.start();
 
+// Idempotent schema top-up for material soft-delete (migration 023).
+// Numbered migrations are applied manually; these IF NOT EXISTS statements
+// make the soft-delete columns available even if the SQL wasn't run yet.
+(async () => {
+  try {
+    const dbPool = require('./database/config');
+    await dbPool.query('ALTER TABLE materials ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP');
+    await dbPool.query('ALTER TABLE materials ADD COLUMN IF NOT EXISTS deleted_by VARCHAR(255)');
+    await dbPool.query('ALTER TABLE materials ADD COLUMN IF NOT EXISTS deleted_by_name VARCHAR(255)');
+    await dbPool.query('CREATE INDEX IF NOT EXISTS idx_materials_deleted_at ON materials(deleted_at)');
+  } catch (e) {
+    logger.warn('Soft-delete schema ensure skipped', { error: e.message });
+  }
+})();
+
 // Bot Framework endpoint
 app.post('/api/messages', async (req, res) => {
   await adapter.process(req, res, (context) => bot.run(context));

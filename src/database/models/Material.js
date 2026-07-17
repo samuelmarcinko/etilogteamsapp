@@ -43,9 +43,10 @@ function normalizePlacements(data) {
 
 class Material {
   // Case-insensitive code existence check (app-level duplicate guard).
+  // Ignores soft-deleted materials so a freed code can be reused.
   static async existsByCode(code, excludeId = null) {
     const values = [code];
-    let query = 'SELECT id FROM materials WHERE LOWER(code) = LOWER($1)';
+    let query = 'SELECT id FROM materials WHERE LOWER(code) = LOWER($1) AND deleted_at IS NULL';
     if (excludeId) { values.push(excludeId); query += ` AND id <> $${values.length}`; }
     const result = await pool.query(query, values);
     return result.rows.length > 0;
@@ -119,8 +120,11 @@ class Material {
       where.push(`m.category_id = $${values.length}`);
     }
 
+    // Hide soft-deleted materials from normal listings
+    where.push('m.deleted_at IS NULL');
+
     let query = BASE_SELECT;
-    if (where.length) query += ` WHERE ${where.join(' AND ')}`;
+    query += ` WHERE ${where.join(' AND ')}`;
     query += ' ORDER BY m.updated_at DESC';
 
     const result = await pool.query(query, values);
@@ -145,7 +149,7 @@ class Material {
        JOIN materials m ON m.id = mp.material_id
        JOIN pallet_locations pl ON pl.id = mp.location_id
        LEFT JOIN material_categories c ON m.category_id = c.id
-       WHERE mp.location_id = $1
+       WHERE mp.location_id = $1 AND m.deleted_at IS NULL
        ORDER BY m.name ASC`,
       [locationId]
     );
@@ -206,8 +210,31 @@ class Material {
     }
   }
 
-  static async delete(id) {
-    await pool.query('DELETE FROM materials WHERE id = $1', [id]);
+  // Soft delete: mark as deleted (placements are kept intact so a restore
+  // brings the positions back). Hidden from the map/lists via deleted_at.
+  static async delete(id, user = null) {
+    const result = await pool.query(
+      `UPDATE materials
+       SET deleted_at = CURRENT_TIMESTAMP, deleted_by = $2, deleted_by_name = $3,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1 AND deleted_at IS NULL
+       RETURNING *`,
+      [id, user?.id || null, user?.name || null]
+    );
+    return result.rows[0] || null;
+  }
+
+  // Restore a soft-deleted material (clears deleted_at).
+  static async restore(id) {
+    const result = await pool.query(
+      `UPDATE materials
+       SET deleted_at = NULL, deleted_by = NULL, deleted_by_name = NULL,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1 AND deleted_at IS NOT NULL
+       RETURNING *`,
+      [id]
+    );
+    return result.rows[0] || null;
   }
 
   // Relocate material to a new location. Collapses placements into a single
@@ -294,10 +321,13 @@ class Material {
   static async getStats() {
     const result = await pool.query(`
       SELECT
-        (SELECT COUNT(*) FROM materials)::int AS total_materials,
-        (SELECT COUNT(DISTINCT location_id) FROM material_placements)::int AS occupied_locations,
+        (SELECT COUNT(*) FROM materials WHERE deleted_at IS NULL)::int AS total_materials,
+        (SELECT COUNT(DISTINCT mp.location_id)
+           FROM material_placements mp
+           JOIN materials m ON m.id = mp.material_id
+           WHERE m.deleted_at IS NULL)::int AS occupied_locations,
         (SELECT COUNT(*) FROM pallet_locations)::int AS total_locations,
-        (SELECT COUNT(*) FROM materials WHERE created_at::date = CURRENT_DATE)::int AS added_today
+        (SELECT COUNT(*) FROM materials WHERE created_at::date = CURRENT_DATE AND deleted_at IS NULL)::int AS added_today
     `);
     return result.rows[0];
   }

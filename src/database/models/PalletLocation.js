@@ -18,10 +18,11 @@ class PalletLocation {
   static async findAllWithSummary() {
     const result = await pool.query(
       `SELECT l.*,
-              COUNT(mp.id)::int AS material_count,
-              COALESCE(SUM(mp.quantity), 0)::int AS total_quantity
+              COUNT(mp.id) FILTER (WHERE m.id IS NOT NULL)::int AS material_count,
+              COALESCE(SUM(mp.quantity) FILTER (WHERE m.id IS NOT NULL), 0)::int AS total_quantity
        FROM pallet_locations l
        LEFT JOIN material_placements mp ON mp.location_id = l.id
+       LEFT JOIN materials m ON m.id = mp.material_id AND m.deleted_at IS NULL
        GROUP BY l.id
        ORDER BY
          CASE l.zone WHEN 'MINI' THEN 0 WHEN 'D' THEN 1 WHEN 'A' THEN 2
