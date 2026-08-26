@@ -1,4 +1,55 @@
 const User = require('../database/models/User');
+const Role = require('../database/models/Role');
+const logger = require('../utils/logger');
+
+/**
+ * The access rules exactly as the portal enforces them today, expressed as
+ * permission keys.
+ *
+ * This is a transcription, not a new policy - portal.js hasModuleAccess() and
+ * canEditWarehouse() for the module tiles, and the requireDbRole(...) lists on
+ * the routes for the server side. It exists for two reasons: it is the fallback
+ * when the permission matrix cannot be read, and it is the reference the shadow
+ * comparison checks the matrix against.
+ *
+ * Do not "improve" these rules. They are correct when they match production.
+ */
+function legacyPermissions(roleName) {
+  if (roleName === 'admin') return [...Role.PERMISSION_KEYS];
+
+  const granted = ['hr.access']; // hasModuleAccess: every role has HR
+
+  if (roleName === 'spravca') {
+    // requireDbRole('admin','spravca') on adminRoutes, quotaRoutes, sickNoteRoutes
+    granted.push('hr.manage');
+  }
+  if (roleName === 'sklad') {
+    granted.push('warehouse.read', 'warehouse.write');
+  }
+  if (roleName === 'sklad_read') {
+    granted.push('warehouse.read');
+  }
+  // fleet.access is admin-only today, so no non-admin role gets it.
+  // production.* does not exist yet.
+
+  return granted;
+}
+
+/**
+ * Permissions held by a role, resolved from the admin-managed matrix.
+ *
+ * Falls back to the legacy rules if the matrix cannot be read, so a database
+ * hiccup degrades to today's behaviour instead of locking everyone out.
+ */
+async function getUserPermissions(roleName) {
+  const role = roleName || 'user';
+
+  const fromMatrix = await Role.getPermissionsForRole(role);
+  if (fromMatrix) return fromMatrix;
+
+  logger.warn('Permission matrix unavailable, falling back to legacy rules', { role });
+  return legacyPermissions(role);
+}
 
 /**
  * Attach DB role to request (after verifyToken)
@@ -67,5 +118,7 @@ function requireDbRole(...roles) {
 
 module.exports = {
   attachDbRole,
-  requireDbRole
+  requireDbRole,
+  getUserPermissions,
+  legacyPermissions
 };

@@ -14,6 +14,7 @@
  */
 
 const pool = require('../src/database/config');
+const { getUserPermissions, legacyPermissions } = require('../src/middleware/portalAuth');
 
 // ---------------------------------------------------------------------------
 // The rules as they exist today, transcribed from the running code.
@@ -64,23 +65,9 @@ function legacyGrants(role) {
 
 const PERMISSION_KEYS = Object.keys(legacyGrants('user'));
 
-// ---------------------------------------------------------------------------
-// The same answer, derived from the database.
-// ---------------------------------------------------------------------------
-
-/**
- * Mirrors the resolver the app will use: admin holds everything, everyone else
- * gets hr.access plus whatever the matrix grants their role.
- */
-function resolveFromMatrix(role, matrix) {
-  const granted = new Set(['hr.access']);
-  if (role === 'admin') {
-    PERMISSION_KEYS.forEach((k) => granted.add(k));
-    return granted;
-  }
-  (matrix[role] || []).forEach((k) => granted.add(k));
-  return granted;
-}
+// legacyGrants() above is written independently of the transcription in
+// src/middleware/portalAuth.js on purpose. Comparing the two catches a typo in
+// either one, which a single shared copy never would.
 
 // ---------------------------------------------------------------------------
 
@@ -115,17 +102,6 @@ async function main() {
   const { rows: roleRows } = await pool.query(
     'SELECT id, name, label, is_system FROM roles ORDER BY id'
   );
-  const { rows: permRows } = await pool.query(
-    `SELECT r.name AS role_name, rp.permission_key
-       FROM role_permissions rp
-       JOIN roles r ON r.id = rp.role_id`
-  );
-
-  const matrix = {};
-  for (const row of permRows) {
-    (matrix[row.role_name] = matrix[row.role_name] || []).push(row.permission_key);
-  }
-
   // --- 1. the five roles that exist today are present and locked -----------
   console.log('\nSystem roles');
   const EXPECTED_SYSTEM = ['user', 'spravca', 'sklad', 'sklad_read', 'admin'];
@@ -135,12 +111,16 @@ async function main() {
     if (role) report(role.is_system === true, `role "${name}" is locked as a system role`);
   }
 
-  // --- 2. permission matrix reproduces today's access ----------------------
-  console.log('\nPermission parity');
+  // --- 2. the resolver reproduces today's access ---------------------------
+  // Exercises getUserPermissions() itself, so this checks the code that will
+  // actually make the decision, not a copy of its logic.
+  console.log('\nPermission parity (resolver vs portal today)');
   const allRoles = roleRows.map((r) => r.name);
+  const resolved = {};
   for (const role of allRoles) {
     const expected = legacyGrants(role);
-    const actual = resolveFromMatrix(role, matrix);
+    const actual = new Set(await getUserPermissions(role));
+    resolved[role] = actual;
     const wrong = PERMISSION_KEYS.filter((key) => expected[key] !== actual.has(key));
 
     if (wrong.length === 0) {
@@ -150,19 +130,28 @@ async function main() {
       for (const key of wrong) {
         report(
           false,
-          `${role.padEnd(11)} ${key}: matrix says ${actual.has(key)}, portal grants ${expected[key]}`
+          `${role.padEnd(11)} ${key}: resolver says ${actual.has(key)}, portal grants ${expected[key]}`
         );
       }
     }
   }
 
-  // --- 3. HR can never be switched off ------------------------------------
-  console.log('\nHR is always on');
+  // --- 3. the database-outage fallback also matches -------------------------
+  console.log('\nFallback parity (used only if the matrix cannot be read)');
   for (const role of allRoles) {
-    report(resolveFromMatrix(role, matrix).has('hr.access'), `${role} keeps hr.access`);
+    const expected = legacyGrants(role);
+    const fallback = new Set(legacyPermissions(role));
+    const wrong = PERMISSION_KEYS.filter((key) => expected[key] !== fallback.has(key));
+    report(wrong.length === 0, `${role.padEnd(11)} ${DIM}${wrong.join(', ') || 'matches'}${OFF}`);
   }
 
-  // --- 4. every users.role value maps to a known role ----------------------
+  // --- 4. HR can never be switched off ------------------------------------
+  console.log('\nHR is always on');
+  for (const role of allRoles) {
+    report(resolved[role].has('hr.access'), `${role} keeps hr.access`);
+  }
+
+  // --- 5. every users.role value maps to a known role ----------------------
   console.log('\nUsers vs roles');
   const { rows: userRoles } = await pool.query(
     `SELECT COALESCE(role, '(null)') AS role, count(*)::int AS count

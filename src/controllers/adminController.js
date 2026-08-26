@@ -3,6 +3,7 @@ const User = require('../database/models/User');
 const Quota = require('../database/models/Quota');
 const Ticket = require('../database/models/Ticket');
 const GraphService = require('../services/graphService');
+const { getUserPermissions } = require('../middleware/portalAuth');
 
 class AdminController {
   /**
@@ -218,6 +219,11 @@ class AdminController {
       const year = new Date().getFullYear();
       const quota = await Quota.getOrCreate(userId, year);
 
+      // Resolved from the role/permission matrix. Sent alongside role so the
+      // portal can switch off the hardcoded hasModuleAccess() rules without a
+      // second request; nothing reads it yet.
+      const permissions = await getUserPermissions(dbUser.role);
+
       res.json({
         success: true,
         data: {
@@ -225,6 +231,7 @@ class AdminController {
           email: req.user.email,
           name: req.user.name,
           role: dbUser.role,
+          permissions,
           quota: quota ? {
             year,
             vacation_days_total: quota.vacation_days_total,
