@@ -94,7 +94,7 @@ export function groupEntries(entries) {
   return byDay;
 }
 
-/** Day flags keyed by date, for the FREE / critical column treatment. */
+/** Day flags keyed by date, for the FREE / IMPORTANT column treatment. */
 export function indexDayFlags(dayFlags) {
   const map = {};
   for (const flag of dayFlags) {
@@ -102,6 +102,26 @@ export function indexDayFlags(dayFlags) {
       ? flag.production_date.slice(0, 10)
       : toISODate(parseISO(flag.production_date));
     map[iso] = flag;
+  }
+  return map;
+}
+
+/**
+ * Shift notes keyed by "date|shiftId", since a note belongs to one shift on one
+ * day rather than to the day as a whole - the morning and the afternoon shift
+ * are often running different orders.
+ */
+export function shiftNoteKey(iso, shiftId) {
+  return `${iso}|${shiftId}`;
+}
+
+export function indexShiftNotes(notes) {
+  const map = {};
+  for (const note of notes) {
+    const iso = typeof note.production_date === 'string'
+      ? note.production_date.slice(0, 10)
+      : toISODate(parseISO(note.production_date));
+    map[shiftNoteKey(iso, note.shift_id)] = note;
   }
   return map;
 }

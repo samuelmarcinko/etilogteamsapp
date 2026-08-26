@@ -152,6 +152,13 @@ export const api = {
   restoreFromHistory: (logId) =>
     request(`/api/production/activity/${logId}/restore`, { method: 'POST' }).then((r) => r.data),
 
+  /** The note under one shift on one day. Empty text clears it. */
+  setShiftNote: ({ location, date, shiftId, note }) =>
+    request('/api/production/shift-notes', {
+      method: 'PUT',
+      body: JSON.stringify({ location, date, shiftId, note })
+    }).then((r) => r.data),
+
   setDayFlag: ({ location, date, flag, note }) =>
     request('/api/production/day-flags', {
       method: 'PUT',

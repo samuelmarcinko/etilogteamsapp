@@ -30,7 +30,7 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const PRIORITIES = ['normal', 'high', 'urgent', 'blocked'];
 const STATUSES = ['planned', 'in_progress', 'done', 'cancelled'];
-const DAY_FLAGS = ['free', 'critical', 'urgent'];
+const DAY_FLAGS = ['free', 'important', 'urgent'];
 
 /**
  * Validate and normalise a card payload.
@@ -189,11 +189,12 @@ router.get('/plan', viewAccess, asyncHandler(async (req, res) => {
   const location = await ProductionPlan.findLocationByCode(code);
   if (!location) return res.status(404).json({ error: 'Location not found' });
 
-  const [shifts, entries, dayFlags, exceptions] = await Promise.all([
+  const [shifts, entries, dayFlags, exceptions, shiftNotes] = await Promise.all([
     ProductionPlan.findShifts(location.id),
     ProductionPlan.findEntries(location.id, from, to),
     ProductionPlan.findDayFlags(location.id, from, to),
-    ProductionPlan.findCalendarExceptions(location.id, from, to)
+    ProductionPlan.findCalendarExceptions(location.id, from, to),
+    ProductionPlan.findShiftNotes(location.id, from, to)
   ]);
 
   res.json({
@@ -203,6 +204,7 @@ router.get('/plan', viewAccess, asyncHandler(async (req, res) => {
       shifts,
       entries,
       dayFlags,
+      shiftNotes,
       calendarExceptions: exceptions
     }
   });
@@ -542,7 +544,7 @@ router.post('/activity/:id/restore', manageAccess, asyncHandler(async (req, res)
   res.json({ data: result.entry });
 }));
 
-// PUT /api/production/day-flags - mark a day free/critical/urgent, or clear it
+// PUT /api/production/day-flags - mark a day free/important/urgent, or clear it
 router.put('/day-flags', manageAccess, asyncHandler(async (req, res) => {
   const { location: code, date, flag, note } = req.body;
 
@@ -561,6 +563,30 @@ router.put('/day-flags', manageAccess, asyncHandler(async (req, res) => {
 
   const result = await ProductionEntry.setDayFlag(location.id, date, flag || null, note, currentUser(req));
   res.json({ data: result.flag || null });
+}));
+
+// PUT /api/production/shift-notes - the note under one shift on one day.
+// Blank note clears it.
+router.put('/shift-notes', manageAccess, asyncHandler(async (req, res) => {
+  const { location: code, date, shiftId, note } = req.body;
+
+  if (!ISO_DATE.test(date || '')) {
+    return res.status(400).json({ error: 'Bad Request', message: 'date must be YYYY-MM-DD' });
+  }
+  if (!Number(shiftId)) {
+    return res.status(400).json({ error: 'Bad Request', message: 'shiftId is required' });
+  }
+  if (typeof note === 'string' && note.length > 2000) {
+    return res.status(400).json({ error: 'Bad Request', message: 'note is too long (max 2000)' });
+  }
+
+  const location = await ProductionPlan.findLocationByCode(code);
+  if (!location) return res.status(404).json({ error: 'Location not found' });
+
+  const result = await ProductionEntry.setShiftNote(
+    location.id, date, Number(shiftId), note, currentUser(req)
+  );
+  res.json({ data: result.note });
 }));
 
 module.exports = router;

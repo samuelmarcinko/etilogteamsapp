@@ -103,6 +103,24 @@ class ProductionPlan {
     return rows;
   }
 
+  // -------------------------------------------------------------- shift notes
+  /**
+   * One note per shift per day (migration 027). Morning and afternoon often run
+   * different orders, so they get a line each rather than sharing one.
+   */
+  static async findShiftNotes(locationId, fromDate, toDate) {
+    const { rows } = await pool.query(
+      `SELECT n.id, n.production_date, n.shift_id, n.note,
+              n.updated_at, n.updated_by_name, s.name AS shift_name
+         FROM production_shift_notes n
+         LEFT JOIN production_shifts s ON s.id = n.shift_id
+        WHERE n.location_id = $1 AND n.production_date BETWEEN $2 AND $3
+        ORDER BY n.production_date, s.sort_order NULLS LAST`,
+      [locationId, fromDate, toDate]
+    );
+    return rows;
+  }
+
   // -------------------------------------------------------- calendar exceptions
   /**
    * Exceptions for this location plus the global ones (location_id IS NULL).

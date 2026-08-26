@@ -542,6 +542,78 @@ class ProductionEntry {
     return { flag: rows[0] };
   }
 
+  // --------------------------------------------------------------- shift notes
+  /**
+   * The note under one shift on one day (migration 027).
+   *
+   * Blank clears it - there is no separate delete, because "select the text,
+   * delete it, click away" is what people do to remove a note and it would be
+   * surprising if that left an empty row behind.
+   */
+  static async setShiftNote(locationId, date, shiftId, note, user) {
+    const text = (note || '').trim();
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const { rows: existing } = await client.query(
+        `SELECT id, note FROM production_shift_notes
+          WHERE location_id = $1 AND production_date = $2 AND shift_id = $3`,
+        [locationId, date, shiftId]
+      );
+      const before = existing[0] || null;
+
+      if (!text) {
+        if (before) {
+          await client.query('DELETE FROM production_shift_notes WHERE id = $1', [before.id]);
+          await logChange(client, {
+            locationId,
+            entryId: null,
+            action: 'shift_note_cleared',
+            summary: `Note cleared on ${date}`,
+            before: { note: before.note, production_date: date, shift_id: shiftId },
+            after: null,
+            user
+          });
+        }
+        await client.query('COMMIT');
+        return { note: null };
+      }
+
+      const { rows } = await client.query(
+        `INSERT INTO production_shift_notes
+           (location_id, production_date, shift_id, note,
+            created_by, created_by_name, updated_by, updated_by_name)
+         VALUES ($1, $2, $3, $4, $5, $6, $5, $6)
+         ON CONFLICT (location_id, production_date, shift_id)
+         DO UPDATE SET note = EXCLUDED.note,
+                       updated_by = EXCLUDED.updated_by,
+                       updated_by_name = EXCLUDED.updated_by_name,
+                       updated_at = CURRENT_TIMESTAMP
+         RETURNING *`,
+        [locationId, date, shiftId, text, user?.id || null, user?.name || null]
+      );
+
+      await logChange(client, {
+        locationId,
+        entryId: null,
+        action: 'shift_note_set',
+        summary: `Note on ${date}: ${text.slice(0, 80)}`,
+        before: before ? { note: before.note, production_date: date, shift_id: shiftId } : null,
+        after: { note: text, production_date: date, shift_id: shiftId },
+        user
+      });
+
+      await client.query('COMMIT');
+      return { note: rows[0] };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   // ------------------------------------------------------------------- bulk
   /**
    * Move, copy or swap whole days, shift a date range, and split a card.

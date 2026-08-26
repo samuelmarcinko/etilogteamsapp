@@ -22,8 +22,19 @@ const ACTION_STYLE = {
   unscheduled: 'bg-gray-100 text-gray-700',
   scheduled: 'bg-gray-100 text-gray-700',
   day_flag_set: 'bg-gray-100 text-gray-700',
-  day_flag_cleared: 'bg-gray-100 text-gray-700'
+  day_flag_cleared: 'bg-gray-100 text-gray-700',
+  shift_note_set: 'bg-gray-100 text-gray-700',
+  shift_note_cleared: 'bg-gray-100 text-gray-700'
 };
+
+/**
+ * Actions that never carry a card snapshot - a note or a day flag is not an
+ * entry. Without this they would be reported as "beyond restore window", which
+ * would read as data loss where there was never anything to restore.
+ */
+const NO_SNAPSHOT_ACTIONS = new Set([
+  'created', 'day_flag_set', 'day_flag_cleared', 'shift_note_set', 'shift_note_cleared'
+]);
 
 function when(value) {
   const date = typeof value === 'string' ? parseISO(value) : new Date(value);
@@ -110,7 +121,8 @@ export default function ActivityDrawer({
                 const isGone = Boolean(item.before_state?.id) && !item.entry_exists;
                 // Past the retention window the snapshot is gone, so there is
                 // nothing left to replay even though the record remains.
-                const expired = canManage && !item.before_state && item.action !== 'created';
+                const expired =
+                  canManage && !item.before_state && !NO_SNAPSHOT_ACTIONS.has(item.action);
 
                 return (
                   <li key={item.id} className="flex flex-col gap-1.5 px-4 py-3">

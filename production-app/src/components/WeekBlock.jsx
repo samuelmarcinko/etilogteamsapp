@@ -1,10 +1,13 @@
+import { Fragment } from 'react';
 import clsx from 'clsx';
-import { Copy, Plus } from 'lucide-react';
+import { AlertTriangle, Copy, Plus } from 'lucide-react';
 
 import ProductionCard from './ProductionCard';
 import WeekDayList from './WeekDayList';
 import DayMenu from './DayMenu';
+import ShiftNoteCell from './ShiftNoteCell';
 import useMediaQuery from '../lib/useMediaQuery';
+import { shiftNoteKey } from '../lib/weeks';
 import { DraggableCard, DroppableSlot, slotId } from './dnd';
 
 /**
@@ -17,7 +20,7 @@ import { DraggableCard, DroppableSlot, slotId } from './dnd';
 
 const DAY_FLAG_STYLE = {
   free: 'bg-emerald-50',
-  critical: 'bg-etilog-light',
+  important: 'bg-etilog-light',
   urgent: 'bg-etilog-light'
 };
 
@@ -56,8 +59,15 @@ function DayHeader({ day, flag, exception, compact, canManage, onSetFlag, onAdd,
       {flag?.flag === 'free' && (
         <div className="text-[9px] font-bold uppercase tracking-wide text-emerald-700">Free</div>
       )}
+      {/* A flagged day has to survive being scanned at 8-week density from
+          across a room, so it gets a filled badge rather than small red text. */}
       {flag && flag.flag !== 'free' && (
-        <div className="text-[9px] font-bold uppercase tracking-wide text-etilog">{flag.flag}</div>
+        <div className="mt-0.5 flex items-center justify-center">
+          <span className="inline-flex items-center gap-0.5 rounded bg-etilog px-1 py-px text-[9px] font-bold uppercase tracking-wide text-white">
+            <AlertTriangle className="h-2.5 w-2.5" aria-hidden="true" />
+            Important !
+          </span>
+        </div>
       )}
       {!flag && exception && (
         <div className="line-clamp-1 text-[9px] text-gray-500" title={exception.note || exception.type}>
@@ -73,23 +83,23 @@ export default function WeekBlock({
   shifts,
   entriesByDay,
   dayFlags,
+  shiftNotes,
   exceptions,
   onOpenEntry,
   onAddEntry,
   onSetDayFlag,
+  onSetShiftNote,
   onBulk,
   canManage,
   compact
 }) {
   const isWide = useMediaQuery('(min-width: 768px)');
 
-  const notesForDay = (iso) => {
-    const perShift = entriesByDay[iso] || {};
-    return Object.values(perShift)
-      .flat()
-      .map((e) => e.notes)
-      .filter(Boolean);
-  };
+  /** Notes written on the cards in one slot - shown under the shift note. */
+  const cardNotesFor = (iso, shiftId) =>
+    (entriesByDay[iso]?.[shiftId] || [])
+      .filter((entry) => entry.notes)
+      .map((entry) => `${entry.fg_number || entry.custom_product_name}: ${entry.notes}`);
 
   // Days with no production at all, across every shift.
   const emptyDays = new Set(
@@ -135,6 +145,7 @@ export default function WeekBlock({
           shifts={shifts}
           entriesByDay={entriesByDay}
           dayFlags={dayFlags}
+          shiftNotes={shiftNotes}
           exceptions={exceptions}
           onOpenEntry={onOpenEntry}
         />
@@ -157,9 +168,10 @@ export default function WeekBlock({
               />
             ))}
 
-            {/* one row per shift */}
+            {/* one row per shift, each with its own notes row underneath */}
             {shifts.map((shift, shiftIndex) => (
-              <Row key={shift.id} label={shift.name}>
+              <Fragment key={shift.id}>
+              <Row label={shift.name}>
                 {week.days.map((day) => {
                   const cards = entriesByDay[day.iso]?.[shift.id] || [];
                   const flag = dayFlags[day.iso];
@@ -222,29 +234,25 @@ export default function WeekBlock({
                   );
                 })}
               </Row>
-            ))}
 
-            {/* notes row */}
-            <Row label="Notes">
-              {week.days.map((day) => {
-                const notes = notesForDay(day.iso);
-                return (
-                  <div
+              {/* Notes for this shift, directly under it - a note about the
+                  morning belongs next to the morning, not in one shared row at
+                  the bottom that says nothing about which shift it means. */}
+              <Row label="Notes" muted>
+                {week.days.map((day) => (
+                  <ShiftNoteCell
                     key={day.iso}
-                    className={clsx(
-                      'week-cell min-h-[30px] bg-gray-25 px-2 py-1',
-                      day.isWeekend && 'bg-gray-50'
-                    )}
-                  >
-                    {notes.map((note, i) => (
-                      <p key={i} className="whitespace-pre-line text-[10px] leading-snug text-gray-600">
-                        {note}
-                      </p>
-                    ))}
-                  </div>
-                );
-              })}
-            </Row>
+                    note={shiftNotes[shiftNoteKey(day.iso, shift.id)]}
+                    cardNotes={cardNotesFor(day.iso, shift.id)}
+                    canManage={canManage}
+                    weekend={day.isWeekend}
+                    label={`${shift.name}, ${day.weekday} ${day.dayOfMonth}`}
+                    onSave={(text) => onSetShiftNote(day.iso, shift.id, text)}
+                  />
+                ))}
+              </Row>
+              </Fragment>
+            ))}
           </div>
         </div>
       )}
@@ -252,10 +260,17 @@ export default function WeekBlock({
   );
 }
 
-function Row({ label, children }) {
+function Row({ label, children, muted = false }) {
   return (
     <>
-      <div className="row-label flex items-center">{label}</div>
+      <div
+        className={clsx(
+          'row-label flex items-center',
+          muted && 'text-[10px] font-normal normal-case text-gray-400'
+        )}
+      >
+        {label}
+      </div>
       {children}
     </>
   );

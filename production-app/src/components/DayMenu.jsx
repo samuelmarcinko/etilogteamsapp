@@ -6,14 +6,14 @@ import {
 import clsx from 'clsx';
 
 /**
- * Per-day actions: mark the day critical or free, or add production to it.
+ * Per-day actions: mark the day important or free, or add production to it.
  *
  * This replaces the coloured Excel cells - same effect, but the meaning ends up
  * in the data rather than in a fill colour nobody can query.
  */
 
 const FLAGS = [
-  { value: 'critical', label: 'Mark day as critical', icon: AlertTriangle },
+  { value: 'important', label: 'Mark day as IMPORTANT !', icon: AlertTriangle },
   { value: 'free', label: 'Mark day as free', icon: CalendarOff }
 ];
 

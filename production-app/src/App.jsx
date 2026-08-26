@@ -17,6 +17,7 @@ import {
   groupEntries,
   indexCalendarExceptions,
   indexDayFlags,
+  indexShiftNotes,
   rangeForWeeks,
   weekStart
 } from './lib/weeks';
@@ -270,6 +271,15 @@ export default function App() {
     onError: (error) => toast.error(error.message)
   });
 
+  const shiftNoteMutation = useMutation({
+    mutationFn: ({ date, shiftId, note }) =>
+      api.setShiftNote({ location: locationCode, date, shiftId, note }),
+    onSuccess: () => refresh(),
+    // The cell keeps whatever was typed on failure - losing a note to a dropped
+    // connection would be worse than showing it as unsaved.
+    onError: (error) => toast.error(error.message)
+  });
+
   // ------------------------------------------------------------------- drag
   const sensors = useSensors(
     // A small distance threshold so a click still opens the card rather than
@@ -296,6 +306,7 @@ export default function App() {
 
   const entriesByDay = useMemo(() => groupEntries(plan.data?.entries || []), [plan.data]);
   const dayFlags = useMemo(() => indexDayFlags(plan.data?.dayFlags || []), [plan.data]);
+  const shiftNotes = useMemo(() => indexShiftNotes(plan.data?.shiftNotes || []), [plan.data]);
   const exceptions = useMemo(
     () => indexCalendarExceptions(plan.data?.calendarExceptions || []),
     [plan.data]
@@ -385,10 +396,13 @@ export default function App() {
                   shifts={shifts}
                   entriesByDay={entriesByDay}
                   dayFlags={dayFlags}
+                  shiftNotes={shiftNotes}
                   exceptions={exceptions}
                   onOpenEntry={setOpenEntry}
                   onAddEntry={(slot) => setFormState({ slot })}
                   onSetDayFlag={(day, flag) => dayFlagMutation.mutate({ date: day.iso, flag })}
+                  onSetShiftNote={(date, shiftId, note) =>
+                    shiftNoteMutation.mutate({ date, shiftId, note })}
                   onBulk={(kind, day) => setBulk({ kind, sourceDate: day.iso })}
                   canManage={canManage}
                   compact={spanWeeks === 8}

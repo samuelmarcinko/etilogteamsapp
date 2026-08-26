@@ -6,7 +6,7 @@
  * be exercised properly before then - which means it has to look like real
  * production, not like three tidy cards. It seeds several locations at once,
  * weeks either side of today, uneven density, multi-card slots, free weekends,
- * a critical day, custom free-text production, quantity breakdowns, notes, and
+ * an important day, custom free-text production, quantity breakdowns, notes, and
  * a queue with an overdue item.
  *
  *   node scripts/seed-production-demo.js --confirm
@@ -145,11 +145,11 @@ async function seedLocation(client, location, productIds, index) {
       continue;
     }
 
-    // One critical day a fortnight or so, to exercise the day-flag rendering.
+    // One important day a fortnight or so, to exercise the day-flag rendering.
     if (!isWeekend && random() < 0.04) {
       await client.query(
         `INSERT INTO production_day_flags (location_id, production_date, flag, note)
-         VALUES ($1, $2, 'critical', $3)
+         VALUES ($1, $2, 'important', $3)
          ON CONFLICT (location_id, production_date) DO NOTHING`,
         [location.id, date, SOURCE_TAG]
       );
