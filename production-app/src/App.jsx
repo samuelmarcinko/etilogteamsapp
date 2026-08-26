@@ -15,7 +15,7 @@ import {
 import AppHeader from './components/AppHeader';
 import WeekBlock from './components/WeekBlock';
 import EntryDetailDialog from './components/EntryDetailDialog';
-import { EmptyWeeks, ErrorState, NoAccess, WeekSkeleton } from './components/states';
+import { EmptyRangeNote, ErrorState, NoAccess, WeekSkeleton } from './components/states';
 
 /**
  * Read-only planner. Drag & drop, editing and draft/publish come next; the
@@ -140,10 +140,15 @@ export default function App() {
           <ErrorState error={plan.error} onRetry={() => plan.refetch()} />
         ) : plan.isPending || locations.isPending ? (
           <WeekSkeleton weeks={Math.min(spanWeeks, 4)} />
-        ) : !hasEntries ? (
-          <EmptyWeeks locationName={activeLocation?.name || 'this location'} />
         ) : (
           <div className="flex flex-col gap-4">
+            {/* The calendar always renders, however far ahead you look - an
+                unplanned week is exactly what you need to see in order to plan
+                it. A note sits above the grid rather than replacing it. */}
+            {!hasEntries && (
+              <EmptyRangeNote locationName={activeLocation?.name || 'this location'} />
+            )}
+
             {weeks.map((week) => (
               <WeekBlock
                 key={week.key}

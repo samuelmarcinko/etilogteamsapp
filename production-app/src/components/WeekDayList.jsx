@@ -55,7 +55,7 @@ export default function WeekDayList({ week, shifts, entriesByDay, dayFlags, exce
             </header>
 
             {total === 0 ? (
-              <p className="text-[12px] text-gray-400">Nothing planned</p>
+              <p className="text-[12px] text-gray-300">Nothing planned yet</p>
             ) : (
               <div className="flex flex-col gap-2">
                 {shifts.map((shift) => {

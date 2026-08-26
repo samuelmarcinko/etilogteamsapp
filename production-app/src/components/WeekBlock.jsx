@@ -73,6 +73,18 @@ export default function WeekBlock({ week, shifts, entriesByDay, dayFlags, except
       .filter(Boolean);
   };
 
+  // Days with no production at all, across every shift.
+  const emptyDays = new Set(
+    week.days
+      .filter((day) => Object.values(entriesByDay[day.iso] || {}).flat().length === 0)
+      .map((day) => day.iso)
+  );
+
+  // When nothing at all is planned, the week is labelled once in its header
+  // rather than seven times across the row - the per-day note earns its place
+  // by contrast with the days around it, and there is no contrast here.
+  const weekIsEmpty = emptyDays.size === week.days.length;
+
   return (
     <section className="print-block overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
       {/* week header */}
@@ -81,6 +93,9 @@ export default function WeekBlock({ week, shifts, entriesByDay, dayFlags, except
           CW {week.calendarWeek}
         </h2>
         <span className="text-[12px] text-gray-500">{week.rangeLabel}</span>
+        {weekIsEmpty && (
+          <span className="ml-auto text-[11px] text-gray-400">Nothing planned yet</span>
+        )}
       </header>
 
       {/* phones get the stacked day list instead of a sideways-scrolling grid */}
@@ -109,12 +124,13 @@ export default function WeekBlock({ week, shifts, entriesByDay, dayFlags, except
           ))}
 
           {/* one row per shift */}
-          {shifts.map((shift) => (
+          {shifts.map((shift, shiftIndex) => (
             <Row key={shift.id} label={shift.name}>
               {week.days.map((day) => {
                 const cards = entriesByDay[day.iso]?.[shift.id] || [];
                 const flag = dayFlags[day.iso];
                 const isFree = flag?.flag === 'free';
+                const dayIsEmpty = emptyDays.has(day.iso);
 
                 return (
                   <div
@@ -134,6 +150,21 @@ export default function WeekBlock({ week, shifts, entriesByDay, dayFlags, except
                         compact={compact}
                       />
                     ))}
+
+                    {/* Marked once per day, on the first shift row, so a day
+                        with nothing planned reads as deliberate rather than as
+                        a rendering gap. An empty shift on an otherwise busy day
+                        is left blank - that blank is itself the information. */}
+                    {dayIsEmpty && !weekIsEmpty && shiftIndex === 0 && !isFree && (
+                      <span
+                        className={clsx(
+                          'select-none self-center pt-1 text-center leading-tight text-gray-300',
+                          compact ? 'text-[9px]' : 'text-[10px]'
+                        )}
+                      >
+                        {compact ? '—' : 'Nothing planned yet'}
+                      </span>
+                    )}
                   </div>
                 );
               })}

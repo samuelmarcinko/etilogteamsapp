@@ -74,12 +74,22 @@ function Panel({ icon: Icon, tone = 'neutral', title, children, action }) {
   );
 }
 
-export function EmptyWeeks({ locationName }) {
+/**
+ * Shown above the grid when nothing is planned anywhere in the visible range.
+ *
+ * Deliberately not a replacement for the calendar: an empty week is what you
+ * look at in order to plan it, so the grid stays and this only explains why it
+ * is bare.
+ */
+export function EmptyRangeNote({ locationName }) {
   return (
-    <Panel icon={CalendarRange} title="Nothing planned yet">
-      No production is scheduled for {locationName} in these weeks. Move to another range, or import
-      the history from the Excel workbook to fill the plan.
-    </Panel>
+    <div className="flex items-start gap-2.5 rounded-lg border border-gray-200 bg-white px-4 py-3">
+      <CalendarRange className="mt-px h-4 w-4 shrink-0 text-gray-400" strokeWidth={1.5} aria-hidden="true" />
+      <p className="text-[13px] leading-relaxed text-gray-500">
+        <span className="font-medium text-gray-700">Nothing planned yet</span> for {locationName} in
+        these weeks. The calendar below is ready to plan into.
+      </p>
+    </div>
   );
 }
 
