@@ -411,7 +411,8 @@ git pull origin main
 # Install dependencies
 npm install --production
 
-# Run migrations if needed
+# Apply pending numbered migrations (024+). Optional - the app also runs
+# them on start, so a plain restart is enough.
 npm run migrate
 
 # Restart application

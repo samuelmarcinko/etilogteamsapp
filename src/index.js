@@ -96,6 +96,18 @@ warehouseBackupService.start();
   }
 })();
 
+// Apply pending numbered migrations (024 and above). Migrations 001-023 were
+// applied by hand and are recorded as a baseline on first run, never executed.
+// A failure is logged rather than thrown, so a bad migration cannot stop the
+// portal from booting - see src/database/runMigrations.js.
+(async () => {
+  const { runMigrations } = require('./database/runMigrations');
+  const result = await runMigrations();
+  if (result.failed) {
+    logger.error('Pending migration did not apply - schema may be out of date', result.failed);
+  }
+})();
+
 // Bot Framework endpoint
 app.post('/api/messages', async (req, res) => {
   await adapter.process(req, res, (context) => bot.run(context));
