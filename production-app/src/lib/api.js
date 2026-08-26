@@ -135,9 +135,12 @@ export const api = {
 
   undo: (payload) => request('/api/production/entries/undo', json(payload)),
 
-  activity: (location, limit = 100) =>
-    request(`/api/production/activity?location=${encodeURIComponent(location)}&limit=${limit}`)
-      .then((r) => r.data),
+  /** One page of the log. `before` is the smallest id already seen. */
+  activity: ({ location, limit = 50, before = null }) =>
+    request(
+      `/api/production/activity?location=${encodeURIComponent(location)}&limit=${limit}` +
+      (before ? `&before=${before}` : '')
+    ),
 
   restoreFromHistory: (logId) =>
     request(`/api/production/activity/${logId}/restore`, { method: 'POST' }).then((r) => r.data),

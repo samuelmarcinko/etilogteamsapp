@@ -5,6 +5,7 @@ const ProductionEntry = require('../database/models/ProductionEntry');
 const { verifyToken } = require('../middleware/auth');
 const { attachDbRole, requirePermission } = require('../middleware/portalAuth');
 const { asyncHandler } = require('../middleware/errorHandler');
+const ProductionRetentionService = require('../services/productionRetentionService');
 
 /**
  * Production Plan API.
@@ -353,9 +354,13 @@ router.get('/activity', viewAccess, asyncHandler(async (req, res) => {
 
   const activity = await ProductionEntry.findActivity(location.id, {
     limit: req.query.limit,
+    before: req.query.before ? Number(req.query.before) : null,
     entryId: req.query.entryId ? Number(req.query.entryId) : null
   });
-  res.json({ data: activity });
+
+  // The UI says how far back restoring reaches rather than letting someone
+  // discover the limit by finding a Restore button missing.
+  res.json({ data: activity, restoreWindowDays: ProductionRetentionService.detailDays });
 }));
 
 // POST /api/production/activity/:id/restore

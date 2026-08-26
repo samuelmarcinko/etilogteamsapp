@@ -503,7 +503,7 @@ class ProductionEntry {
    * difference between "this was deleted and is still gone" - which can be put
    * back - and "this was deleted and someone has already restored it".
    */
-  static async findActivity(locationId, { limit = 100, entryId = null } = {}) {
+  static async findActivity(locationId, { limit = 50, before = null, entryId = null } = {}) {
     const { rows } = await pool.query(
       `SELECT l.id, l.entry_id, l.action, l.summary, l.before_state, l.after_state,
               l.changed_by_name, l.changed_at,
@@ -516,9 +516,12 @@ class ProductionEntry {
          LEFT JOIN products p                ON p.id = e.product_id
         WHERE l.location_id = $1
           AND ($2::int IS NULL OR l.entry_id = $2)
-        ORDER BY l.changed_at DESC, l.id DESC
-        LIMIT $3`,
-      [locationId, entryId, Math.min(Number(limit) || 100, 500)]
+          -- Keyset rather than OFFSET: the log only grows, and paging by id
+          -- stays correct even as new rows land at the top while reading.
+          AND ($3::bigint IS NULL OR l.id < $3)
+        ORDER BY l.id DESC
+        LIMIT $4`,
+      [locationId, entryId, before, Math.min(Number(limit) || 50, 200)]
     );
     return rows;
   }

@@ -10,6 +10,7 @@ const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const ReminderService = require('./services/reminderService');
 const FleetNotificationService = require('./services/fleetNotificationService');
 const WarehouseBackupService = require('./services/warehouseBackupService');
+const ProductionRetentionService = require('./services/productionRetentionService');
 const logger = require('./utils/logger');
 
 // Initialize Express app
@@ -80,6 +81,10 @@ fleetNotificationService.start();
 // Initialize warehouse backup service (daily snapshot, 3-day retention)
 const warehouseBackupService = new WarehouseBackupService();
 warehouseBackupService.start();
+
+// Keeps the production change log bounded - see the service for the sizing.
+const productionRetentionService = new ProductionRetentionService();
+productionRetentionService.start();
 
 // Idempotent schema top-up for material soft-delete (migration 023).
 // Numbered migrations are applied manually; these IF NOT EXISTS statements
@@ -203,6 +208,7 @@ process.on('SIGINT', () => {
   logger.info('Shutting down gracefully (SIGINT)');
   reminderService.stop();
   fleetNotificationService.stop();
+  productionRetentionService.stop();
   process.exit(0);
 });
 
@@ -210,6 +216,7 @@ process.on('SIGTERM', () => {
   logger.info('Shutting down gracefully (SIGTERM)');
   reminderService.stop();
   fleetNotificationService.stop();
+  productionRetentionService.stop();
   process.exit(0);
 });
 

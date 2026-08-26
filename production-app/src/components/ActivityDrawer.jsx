@@ -34,7 +34,19 @@ function when(value) {
   };
 }
 
-export default function ActivityDrawer({ open, onClose, activity, isLoading, canManage, onRestore, restoringId }) {
+export default function ActivityDrawer({
+  open,
+  onClose,
+  activity,
+  isLoading,
+  canManage,
+  onRestore,
+  restoringId,
+  restoreWindowDays,
+  hasMore,
+  isLoadingMore,
+  onLoadMore
+}) {
   return (
     <>
       {open && (
@@ -69,6 +81,13 @@ export default function ActivityDrawer({ open, onClose, activity, isLoading, can
           </button>
         </header>
 
+        {canManage && restoreWindowDays > 0 && (
+          <p className="border-b border-gray-200 bg-gray-25 px-4 py-2 text-[11px] leading-snug text-gray-500">
+            Changes can be restored for {restoreWindowDays} days. Older entries stay in the
+            record but can no longer be put back.
+          </p>
+        )}
+
         <div className="flex-1 overflow-y-auto">
           {isLoading ? (
             <div className="flex flex-col gap-2 p-3">
@@ -89,6 +108,9 @@ export default function ActivityDrawer({ open, onClose, activity, isLoading, can
                 const canRestore =
                   canManage && Boolean(item.before_state?.id) && item.entry_exists;
                 const isGone = Boolean(item.before_state?.id) && !item.entry_exists;
+                // Past the retention window the snapshot is gone, so there is
+                // nothing left to replay even though the record remains.
+                const expired = canManage && !item.before_state && item.action !== 'created';
 
                 return (
                   <li key={item.id} className="flex flex-col gap-1.5 px-4 py-3">
@@ -140,11 +162,28 @@ export default function ActivityDrawer({ open, onClose, activity, isLoading, can
                       {isGone && (
                         <span className="shrink-0 text-[11px] text-gray-300">permanently removed</span>
                       )}
+
+                      {expired && !isGone && (
+                        <span className="shrink-0 text-[11px] text-gray-300">beyond restore window</span>
+                      )}
                     </div>
                   </li>
                 );
               })}
             </ol>
+          )}
+
+          {hasMore && (
+            <div className="p-3">
+              <button
+                type="button"
+                onClick={onLoadMore}
+                disabled={isLoadingMore}
+                className="w-full rounded-md border border-gray-300 py-2 text-[12px] font-medium text-gray-600 transition hover:bg-gray-50 disabled:opacity-60"
+              >
+                {isLoadingMore ? 'Loading…' : 'Load older changes'}
+              </button>
+            </div>
           )}
         </div>
       </aside>

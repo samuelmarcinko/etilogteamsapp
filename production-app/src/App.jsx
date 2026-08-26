@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   DndContext,
   DragOverlay,
@@ -119,9 +119,14 @@ export default function App() {
     enabled: Boolean(canView && locationCode)
   });
 
-  const activity = useQuery({
+  // Paged with a keyset cursor rather than loaded whole: the log only grows,
+  // and nobody needs three years of it to see what changed this morning.
+  const activity = useInfiniteQuery({
     queryKey: ['production', 'activity', locationCode],
-    queryFn: () => api.activity(locationCode),
+    queryFn: ({ pageParam }) => api.activity({ location: locationCode, before: pageParam }),
+    initialPageParam: null,
+    getNextPageParam: (lastPage) =>
+      lastPage.data.length < 50 ? undefined : lastPage.data[lastPage.data.length - 1].id,
     // Only fetched while the panel is open; there is no reason to poll a log
     // nobody is looking at.
     enabled: Boolean(canView && locationCode && historyOpen)
@@ -343,8 +348,12 @@ export default function App() {
         <ActivityDrawer
           open={historyOpen}
           onClose={() => setHistoryOpen(false)}
-          activity={activity.data}
+          activity={activity.data?.pages.flatMap((page) => page.data)}
+          restoreWindowDays={activity.data?.pages[0]?.restoreWindowDays}
           isLoading={activity.isPending}
+          hasMore={activity.hasNextPage}
+          isLoadingMore={activity.isFetchingNextPage}
+          onLoadMore={() => activity.fetchNextPage()}
           canManage={canManage}
           restoringId={restoringId}
           onRestore={async (item) => {
