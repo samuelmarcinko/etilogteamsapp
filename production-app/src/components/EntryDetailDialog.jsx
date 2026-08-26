@@ -1,5 +1,5 @@
 import * as Dialog from '@radix-ui/react-dialog';
-import { X } from 'lucide-react';
+import { Pencil, X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { formatQuantity } from '../lib/weeks';
 
@@ -40,7 +40,7 @@ function asDate(value) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-export default function EntryDetailDialog({ entry, open, onOpenChange }) {
+export default function EntryDetailDialog({ entry, open, onOpenChange, canManage, onEdit }) {
   if (!entry) return null;
 
   const quantity = formatQuantity(entry);
@@ -122,6 +122,19 @@ export default function EntryDetailDialog({ entry, open, onOpenChange }) {
               </div>
             )}
           </dl>
+
+          {canManage && (
+            <div className="flex justify-end border-t border-gray-200 px-5 py-3">
+              <button
+                type="button"
+                onClick={() => onEdit(entry)}
+                className="flex items-center gap-1.5 rounded-md bg-etilog px-3 py-1.5 text-[13px] font-medium text-white transition hover:bg-etilog-hover"
+              >
+                <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                Edit
+              </button>
+            </div>
+          )}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

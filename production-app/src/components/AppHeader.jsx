@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { format } from 'date-fns';
-import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Eye, Printer } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Eye, Inbox, Printer } from 'lucide-react';
 import { WEEK_SPANS } from '../lib/weeks';
 
 /**
@@ -53,7 +53,9 @@ export default function AppHeader({
   onPrev,
   onNext,
   onToday,
-  readOnly
+  readOnly,
+  unscheduledCount,
+  onToggleUnscheduled
 }) {
   const first = weeks[0];
   const last = weeks[weeks.length - 1];
@@ -82,14 +84,30 @@ export default function AppHeader({
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="no-print flex shrink-0 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-[12px] font-medium text-gray-700 transition hover:bg-gray-50"
-          >
-            <Printer className="h-3.5 w-3.5" aria-hidden="true" />
-            <span className="hidden sm:inline">Print</span>
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={onToggleUnscheduled}
+              className="no-print flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-[12px] font-medium text-gray-700 transition hover:bg-gray-50"
+            >
+              <Inbox className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="hidden sm:inline">Unscheduled</span>
+              {unscheduledCount > 0 && (
+                <span className="rounded bg-etilog px-1.5 py-px text-[10px] font-bold tabular-nums text-white">
+                  {unscheduledCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="no-print flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-[12px] font-medium text-gray-700 transition hover:bg-gray-50"
+            >
+              <Printer className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="hidden sm:inline">Print</span>
+            </button>
+          </div>
         </div>
 
         <LocationTabs locations={locations} activeCode={activeCode} onSelect={onSelectLocation} />
