@@ -171,6 +171,14 @@ app.get('/portal/*', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/portal/index.html'));
 });
 
+// Production Plan SPA - a separate React bundle under the same origin as
+// /portal/, so it reuses the Azure AD token already in localStorage. Its built
+// assets sit in public/production/ and are served by the static middleware
+// above; this only needs to hand back index.html for client-side routes.
+app.get('/production/*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/production/index.html'));
+});
+
 // Error handlers (must be last)
 app.use(notFoundHandler);
 app.use(errorHandler);

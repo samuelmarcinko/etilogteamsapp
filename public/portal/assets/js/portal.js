@@ -345,6 +345,13 @@ function enterModule(module) {
         return;
     }
 
+    // Production Plan is a separate SPA served at /production/, not a hash
+    // route inside this one, so it needs a real navigation.
+    if (module === 'production') {
+        window.location.href = '/production/';
+        return;
+    }
+
     // Navigate to module's default page
     if (module === 'hr') navigateToPage('dashboard');
     if (module === 'fleet') navigateToPage('admin-fleet');
@@ -399,9 +406,11 @@ async function renderHub(container) {
 
     // Determine badge for each module
     const warehouseAccess = hasModuleAccess('warehouse');
+    const productionAccess = hasModuleAccess('production');
     const hrBadge = hrAccess ? 'available' : 'locked';
     const fleetBadge = fleetAccess ? 'available' : 'locked';
     const warehouseBadge = warehouseAccess ? 'available' : 'locked';
+    const productionBadge = productionAccess ? 'available' : 'locked';
 
     container.innerHTML = `
         <div class="hub-layout">
@@ -457,6 +466,21 @@ async function renderHub(container) {
                     <h3 class="hub-card-title">${pt('hubModuleWarehouse')}</h3>
                     <p class="hub-card-desc">${pt('hubModuleWarehouseDesc')}</p>
                     <span class="hub-card-badge ${warehouseBadge}">${pt('hubBadge' + warehouseBadge.charAt(0).toUpperCase() + warehouseBadge.slice(1))}</span>
+                </div>
+
+                <!-- Production Plan Module -->
+                <div class="hub-card production" onclick="enterModule('production')">
+                    <div class="hub-card-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#D9000C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 21h18"/>
+                            <path d="M4 21V9l6 4V9l6 4V6l4-3v18"/>
+                            <path d="M7 21v-3"/>
+                            <path d="M13 21v-3"/>
+                        </svg>
+                    </div>
+                    <h3 class="hub-card-title">${pt('hubModuleProduction')}</h3>
+                    <p class="hub-card-desc">${pt('hubModuleProductionDesc')}</p>
+                    <span class="hub-card-badge ${productionBadge}">${pt('hubBadge' + productionBadge.charAt(0).toUpperCase() + productionBadge.slice(1))}</span>
                 </div>
             </div>
 

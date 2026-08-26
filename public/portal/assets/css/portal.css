@@ -1888,10 +1888,12 @@ body.sidebar-collapsed .sidebar-toggle .toggle-icon {
 .hub-card.hr::before { background: linear-gradient(90deg, #3b82f6, #8b5cf6); }
 .hub-card.fleet::before { background: linear-gradient(90deg, #16a34a, #22d3ee); }
 .hub-card.warehouse::before { background: linear-gradient(90deg, #f59e0b, #ef4444); }
+.hub-card.production::before { background: linear-gradient(90deg, #D9000C, #f97316); }
 
 .hub-card:hover.hr { border-color: #3b82f6; }
 .hub-card:hover.fleet { border-color: #16a34a; }
 .hub-card:hover.warehouse { border-color: #f59e0b; }
+.hub-card:hover.production { border-color: #D9000C; }
 
 .hub-card-icon {
   width: 80px;
@@ -1912,6 +1914,7 @@ body.sidebar-collapsed .sidebar-toggle .toggle-icon {
 .hub-card.hr .hub-card-icon { background: linear-gradient(135deg, #dbeafe, #ede9fe); }
 .hub-card.fleet .hub-card-icon { background: linear-gradient(135deg, #dcfce7, #cffafe); }
 .hub-card.warehouse .hub-card-icon { background: linear-gradient(135deg, #fef3c7, #fee2e2); }
+.hub-card.production .hub-card-icon { background: linear-gradient(135deg, #fee2e2, #ffedd5); }
 
 .hub-card-title {
   font-size: 1.25rem;

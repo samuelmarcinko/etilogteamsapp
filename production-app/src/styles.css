@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900;
+    margin: 0;
+    line-height: 1.6;
+  }
+
+  /* Keyboard focus stays visible everywhere; drag & drop will lean on it. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-etilog ring-offset-2 ring-offset-white;
+  }
+}
+
+@layer components {
+  /* One week block. The label column is sticky so the shift names stay put
+     while the days scroll sideways on a tablet or phone. */
+  .week-grid {
+    display: grid;
+    /* Natural width is 104 + 7x132 = 1028px. Above that the day columns share
+       the space evenly; below it the wrapper scrolls sideways and the sticky
+       label column keeps the shift names in view. */
+    grid-template-columns: 104px repeat(7, minmax(132px, 1fr));
+    min-width: 1028px;
+  }
+
+  .week-cell {
+    @apply border-b border-r border-gray-200 bg-white;
+  }
+
+  .row-label {
+    @apply sticky left-0 z-10 border-b border-r border-gray-200 bg-gray-50
+           px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Print: the plan for this week, replacing the printed Excel sheet. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  .week-grid {
+    grid-template-columns: 90px repeat(7, 1fr);
+  }
+
+  .print-block {
+    break-inside: avoid;
+  }
+}
