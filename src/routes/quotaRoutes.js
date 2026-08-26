@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const QuotaController = require('../controllers/quotaController');
 const { verifyToken } = require('../middleware/auth');
-const { requireDbRole } = require('../middleware/portalAuth');
+const { requireDbRole, requirePermission } = require('../middleware/portalAuth');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 // All quota routes require authentication

@@ -11,7 +11,8 @@
     "migrate": "node src/database/migrate.js",
     "check:access-parity": "node scripts/check-access-parity.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "seed:production-demo": "node scripts/seed-production-demo.js"
+    "seed:production-demo": "node scripts/seed-production-demo.js",
+    "smoke": "node scripts/smoke-boot.js"
   },
   "keywords": [
     "microsoft-teams",

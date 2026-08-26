@@ -106,7 +106,12 @@ warehouseBackupService.start();
   if (result.failed) {
     logger.error('Pending migration did not apply - schema may be out of date', result.failed);
   }
-})();
+})().catch((error) => {
+  // runMigrations resolves rather than throws, but an unhandled rejection here
+  // would terminate the process and take the whole portal offline. Never let
+  // schema work do that.
+  logger.error('Migration runner crashed', { error: error.message });
+});
 
 // Bot Framework endpoint
 app.post('/api/messages', async (req, res) => {
