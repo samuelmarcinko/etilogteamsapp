@@ -27,6 +27,8 @@ import ProductionCard from './components/ProductionCard';
 import EntryDetailDialog from './components/EntryDetailDialog';
 import EntryFormDialog from './components/EntryFormDialog';
 import OccupiedSlotDialog from './components/OccupiedSlotDialog';
+import BulkDialog from './components/BulkDialog';
+import SplitDialog from './components/SplitDialog';
 import UnscheduledDrawer from './components/UnscheduledDrawer';
 import ActivityDrawer from './components/ActivityDrawer';
 import { collisionDetection, parseSlotId } from './components/dnd';
@@ -57,6 +59,14 @@ function writeHash({ location, span, anchor }) {
   window.history.replaceState(null, '', `#${params.toString()}`);
 }
 
+const BULK_PAST_TENSE = {
+  moveDay: 'moved',
+  copyDay: 'copied',
+  copyWeek: 'copied',
+  swapDays: 'swapped',
+  shiftRange: 'shifted'
+};
+
 const cardLabel = (entry) =>
   entry?.fg_number || entry?.custom_product_name || `#${entry?.id}`;
 
@@ -83,6 +93,8 @@ export default function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [restoringId, setRestoringId] = useState(null);
+  const [bulk, setBulk] = useState(null);          // { kind, sourceDate }
+  const [splitting, setSplitting] = useState(null); // card being split
 
   const profile = useQuery({ queryKey: ['me'], queryFn: api.me, staleTime: 5 * 60 * 1000 });
   const canView = profile.data?.permissions?.includes('production.view');
@@ -212,6 +224,46 @@ export default function App() {
     onError: (error) => toast.error(error.message)
   });
 
+  // One mutation for every bulk operation: they differ only in which endpoint
+  // they call, and all of them come back with the same undo snapshot.
+  const bulkMutation = useMutation({
+    mutationFn: ({ kind, sourceDate, target, rangeTo, days, mode }) => {
+      const location = locationCode;
+      switch (kind) {
+        case 'moveDay':
+          return api.moveDay({ location, fromDate: sourceDate, toDate: target, mode });
+        case 'copyDay':
+          return api.copyDays({ location, fromDate: sourceDate, toDate: target, dayCount: 1, mode });
+        case 'copyWeek':
+          return api.copyDays({ location, fromDate: sourceDate, toDate: target, dayCount: 7, mode });
+        case 'swapDays':
+          return api.swapDays({ location, dateA: sourceDate, dateB: target });
+        case 'shiftRange':
+          return api.shiftRange({ location, fromDate: sourceDate, toDate: rangeTo, days });
+        default:
+          throw new Error(`Unknown bulk operation: ${kind}`);
+      }
+    },
+    onSuccess: (result, variables) => {
+      setBulk(null);
+      refresh();
+      const counts = result.data || {};
+      const n = counts.moved ?? counts.copied ?? counts.swapped ?? counts.shifted ?? 0;
+      offerUndo(`${n} card${n === 1 ? '' : 's'} ${BULK_PAST_TENSE[variables.kind]}`, result.undo);
+    },
+    onError: (error) => toast.error(error.message)
+  });
+
+  const splitMutation = useMutation({
+    mutationFn: ({ entry, payload }) => api.splitEntry(entry.id, payload),
+    onSuccess: (result, variables) => {
+      setSplitting(null);
+      refresh();
+      offerUndo(`${cardLabel(variables.entry)} split`, result.undo);
+    },
+    onError: (error) => toast.error(error.message)
+  });
+
   const dayFlagMutation = useMutation({
     mutationFn: ({ date, flag }) => api.setDayFlag({ location: locationCode, date, flag }),
     onSuccess: () => refresh(),
@@ -337,6 +389,7 @@ export default function App() {
                   onOpenEntry={setOpenEntry}
                   onAddEntry={(slot) => setFormState({ slot })}
                   onSetDayFlag={(day, flag) => dayFlagMutation.mutate({ date: day.iso, flag })}
+                  onBulk={(kind, day) => setBulk({ kind, sourceDate: day.iso })}
                   canManage={canManage}
                   compact={spanWeeks === 8}
                 />
@@ -398,6 +451,10 @@ export default function App() {
             setOpenEntry(null);
             setFormState({ entry });
           }}
+          onSplit={(entry) => {
+            setOpenEntry(null);
+            setSplitting(entry);
+          }}
         />
 
         <EntryFormDialog
@@ -420,6 +477,24 @@ export default function App() {
               }
             })
           }
+        />
+
+        <BulkDialog
+          open={Boolean(bulk)}
+          onOpenChange={(open) => !open && setBulk(null)}
+          kind={bulk?.kind}
+          sourceDate={bulk?.sourceDate}
+          busy={bulkMutation.isPending}
+          onSubmit={(payload) => bulkMutation.mutate(payload)}
+        />
+
+        <SplitDialog
+          open={Boolean(splitting)}
+          onOpenChange={(open) => !open && setSplitting(null)}
+          entry={splitting}
+          shifts={shifts}
+          busy={splitMutation.isPending}
+          onSubmit={(payload) => splitMutation.mutate({ entry: splitting, payload })}
         />
 
         <OccupiedSlotDialog

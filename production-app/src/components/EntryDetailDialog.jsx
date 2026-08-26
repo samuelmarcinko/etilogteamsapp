@@ -1,5 +1,5 @@
 import * as Dialog from '@radix-ui/react-dialog';
-import { Pencil, X } from 'lucide-react';
+import { Pencil, Split, X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { formatQuantity } from '../lib/weeks';
 
@@ -40,7 +40,7 @@ function asDate(value) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-export default function EntryDetailDialog({ entry, open, onOpenChange, canManage, onEdit }) {
+export default function EntryDetailDialog({ entry, open, onOpenChange, canManage, onEdit, onSplit }) {
   if (!entry) return null;
 
   const quantity = formatQuantity(entry);
@@ -124,7 +124,18 @@ export default function EntryDetailDialog({ entry, open, onOpenChange, canManage
           </dl>
 
           {canManage && (
-            <div className="flex justify-end border-t border-gray-200 px-5 py-3">
+            <div className="flex justify-end gap-2 border-t border-gray-200 px-5 py-3">
+              {/* Only a card with a plain number can be split in two. */}
+              {entry.planned_quantity != null && Number(entry.planned_quantity) > 1 && (
+                <button
+                  type="button"
+                  onClick={() => onSplit(entry)}
+                  className="flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-[13px] font-medium text-gray-700 transition hover:bg-gray-50"
+                >
+                  <Split className="h-3.5 w-3.5" aria-hidden="true" />
+                  Split
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => onEdit(entry)}

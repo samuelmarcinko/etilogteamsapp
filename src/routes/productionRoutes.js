@@ -328,17 +328,172 @@ router.post('/entries/:id/move', manageAccess, asyncHandler(async (req, res) => 
 router.post('/entries/undo', manageAccess, asyncHandler(async (req, res) => {
   const { positions, deleteIds } = req.body;
 
-  if (Array.isArray(deleteIds) && deleteIds.length > 0) {
-    const result = await ProductionEntry.hardDelete(deleteIds.map(Number), currentUser(req));
-    return res.json({ data: result });
-  }
+  const hasPositions = Array.isArray(positions) && positions.length > 0;
+  const hasDeletes = Array.isArray(deleteIds) && deleteIds.length > 0;
 
-  if (!Array.isArray(positions) || positions.length === 0) {
+  if (!hasPositions && !hasDeletes) {
     return res.status(400).json({ error: 'Bad Request', message: 'positions or deleteIds is required' });
   }
 
-  const result = await ProductionEntry.restorePositions(positions, currentUser(req));
-  res.json({ data: result.restored });
+  // Both, when the operation did both - splitting a card reduces the original
+  // and creates a second one, so undoing it means restoring one and removing
+  // the other.
+  const removed = hasDeletes
+    ? await ProductionEntry.hardDelete(deleteIds.map(Number), currentUser(req))
+    : { removed: [] };
+  const restored = hasPositions
+    ? await ProductionEntry.restorePositions(positions, currentUser(req))
+    : { restored: [] };
+
+  res.json({ data: { restored: restored.restored, removed: removed.removed } });
+}));
+
+// =========================================================
+// Bulk operations (section 4.5)
+// =========================================================
+// A plan is rarely rearranged one card at a time - when a day falls out, the
+// rest of the week slides. Each of these is one transaction and returns the
+// same undo snapshot a single move does.
+
+const DAY_MODES = ['merge', 'replace'];
+
+/** Shared prologue: resolve the location and validate the dates. */
+async function bulkContext(req, res, dateFields) {
+  const location = await ProductionPlan.findLocationByCode(req.body.location);
+  if (!location) {
+    res.status(404).json({ error: 'Location not found' });
+    return null;
+  }
+
+  for (const field of dateFields) {
+    if (!ISO_DATE.test(req.body[field] || '')) {
+      res.status(400).json({ error: 'Bad Request', message: `${field} must be YYYY-MM-DD` });
+      return null;
+    }
+  }
+
+  const mode = req.body.mode || 'merge';
+  if (!DAY_MODES.includes(mode)) {
+    res.status(400).json({ error: 'Bad Request', message: `mode must be one of ${DAY_MODES.join(', ')}` });
+    return null;
+  }
+
+  return { location, mode };
+}
+
+// POST /api/production/bulk/move-day  { location, fromDate, toDate, mode }
+router.post('/bulk/move-day', manageAccess, asyncHandler(async (req, res) => {
+  const ctx = await bulkContext(req, res, ['fromDate', 'toDate']);
+  if (!ctx) return;
+
+  const result = await ProductionEntry.moveDay(
+    ctx.location.id, req.body.fromDate, req.body.toDate, ctx.mode, currentUser(req)
+  );
+  if (result.empty) {
+    return res.status(400).json({ error: 'Bad Request', message: 'That day has nothing to move' });
+  }
+  res.json({ data: { moved: result.moved }, undo: result.undo });
+}));
+
+// POST /api/production/bulk/swap-days  { location, dateA, dateB }
+router.post('/bulk/swap-days', manageAccess, asyncHandler(async (req, res) => {
+  const ctx = await bulkContext(req, res, ['dateA', 'dateB']);
+  if (!ctx) return;
+
+  if (req.body.dateA === req.body.dateB) {
+    return res.status(400).json({ error: 'Bad Request', message: 'Pick two different days' });
+  }
+
+  const result = await ProductionEntry.swapDays(
+    ctx.location.id, req.body.dateA, req.body.dateB, currentUser(req)
+  );
+  if (result.empty) {
+    return res.status(400).json({ error: 'Bad Request', message: 'Both days are empty' });
+  }
+  res.json({ data: { swapped: result.swapped }, undo: result.undo });
+}));
+
+// POST /api/production/bulk/shift-range  { location, fromDate, toDate, days }
+//
+// The one from section 4.5 worth having: select a range, move everything in it
+// by a number of days.
+router.post('/bulk/shift-range', manageAccess, asyncHandler(async (req, res) => {
+  const ctx = await bulkContext(req, res, ['fromDate', 'toDate']);
+  if (!ctx) return;
+
+  const days = Number(req.body.days);
+  if (!Number.isInteger(days) || days === 0) {
+    return res.status(400).json({ error: 'Bad Request', message: 'days must be a non-zero whole number' });
+  }
+  // A range shift is a nudge, not a relocation across the year.
+  if (Math.abs(days) > 90) {
+    return res.status(400).json({ error: 'Bad Request', message: 'days must be within 90 either way' });
+  }
+  if (req.body.toDate < req.body.fromDate) {
+    return res.status(400).json({ error: 'Bad Request', message: 'toDate must not be earlier than fromDate' });
+  }
+
+  const result = await ProductionEntry.shiftRange(
+    ctx.location.id, req.body.fromDate, req.body.toDate, days, currentUser(req)
+  );
+  if (result.empty) {
+    return res.status(400).json({ error: 'Bad Request', message: 'Nothing is planned in that range' });
+  }
+  res.json({ data: { shifted: result.shifted }, undo: result.undo });
+}));
+
+// POST /api/production/bulk/copy  { location, fromDate, toDate, dayCount, mode }
+//
+// dayCount 1 copies a day, 7 copies a week - the same operation either way.
+router.post('/bulk/copy', manageAccess, asyncHandler(async (req, res) => {
+  const ctx = await bulkContext(req, res, ['fromDate', 'toDate']);
+  if (!ctx) return;
+
+  const dayCount = Number(req.body.dayCount || 1);
+  if (!Number.isInteger(dayCount) || dayCount < 1 || dayCount > 31) {
+    return res.status(400).json({ error: 'Bad Request', message: 'dayCount must be between 1 and 31' });
+  }
+
+  const result = await ProductionEntry.copyDays(
+    ctx.location.id, req.body.fromDate, req.body.toDate, dayCount, ctx.mode, currentUser(req)
+  );
+  if (result.empty) {
+    return res.status(400).json({ error: 'Bad Request', message: 'There is nothing to copy' });
+  }
+  res.json({ data: { copied: result.copied }, undo: result.undo });
+}));
+
+// POST /api/production/entries/:id/split  { keepQuantity, productionDate, shiftId }
+router.post('/entries/:id/split', manageAccess, asyncHandler(async (req, res) => {
+  const keepQuantity = Number(req.body.keepQuantity);
+  if (!Number.isFinite(keepQuantity) || keepQuantity <= 0) {
+    return res.status(400).json({ error: 'Bad Request', message: 'keepQuantity must be a positive number' });
+  }
+  if (req.body.productionDate && !ISO_DATE.test(req.body.productionDate)) {
+    return res.status(400).json({ error: 'Bad Request', message: 'productionDate must be YYYY-MM-DD' });
+  }
+
+  const result = await ProductionEntry.splitQuantity(
+    req.params.id,
+    keepQuantity,
+    { productionDate: req.body.productionDate || null, shiftId: req.body.shiftId || null },
+    currentUser(req)
+  );
+
+  if (result.notFound) return res.status(404).json({ error: 'Entry not found' });
+  if (result.notSplittable) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: 'This card has no numeric quantity to split'
+    });
+  }
+  if (result.badSplit) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: `The kept amount must be between 1 and ${result.total - 1}`
+    });
+  }
+  res.json({ data: result.entry, undo: result.undo });
 }));
 
 // =========================================================

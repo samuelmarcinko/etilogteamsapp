@@ -135,6 +135,13 @@ export const api = {
 
   undo: (payload) => request('/api/production/entries/undo', json(payload)),
 
+  // ------------------------------------------------------- bulk (section 4.5)
+  moveDay: (payload) => request('/api/production/bulk/move-day', json(payload)),
+  swapDays: (payload) => request('/api/production/bulk/swap-days', json(payload)),
+  shiftRange: (payload) => request('/api/production/bulk/shift-range', json(payload)),
+  copyDays: (payload) => request('/api/production/bulk/copy', json(payload)),
+  splitEntry: (id, payload) => request(`/api/production/entries/${id}/split`, json(payload)),
+
   /** One page of the log. `before` is the smallest id already seen. */
   activity: ({ location, limit = 50, before = null }) =>
     request(

@@ -15,6 +15,17 @@ const pool = require('../config');
 
 const POSITION_FIELDS = 'id, production_date, shift_id, sort_order, deleted_at';
 
+/**
+ * Pushed onto the sort_order of cards arriving in a slot, before renumbering.
+ *
+ * Without it the tie between an arriving card and a resident with the same
+ * sort_order breaks on id, so whichever was created first wins - which from the
+ * planner's side looks random. Cards that were already in the slot keep their
+ * order and arrivals go underneath, which is what "add below" means everywhere
+ * else in the app.
+ */
+const ARRIVAL_OFFSET = 100000;
+
 /** Fields the undo snapshot restores. */
 function snapshot(row) {
   return {
@@ -23,6 +34,23 @@ function snapshot(row) {
     shift_id: row.shift_id,
     sort_order: row.sort_order,
     deleted_at: row.deleted_at
+  };
+}
+
+/**
+ * A snapshot that also carries the quantity, for operations that change it.
+ *
+ * Splitting a card is the only one so far. Kept separate from snapshot() so the
+ * common case does not haul quantity around, and so restore can tell the two
+ * apart: an older snapshot has no quantity keys and must not have its quantity
+ * reset to null on the way back.
+ */
+function snapshotWithQuantity(row) {
+  return {
+    ...snapshot(row),
+    planned_quantity: row.planned_quantity,
+    quantity_breakdown: row.quantity_breakdown,
+    raw_quantity: row.raw_quantity
   };
 }
 
@@ -387,12 +415,24 @@ class ProductionEntry {
 
       const restored = [];
       for (const position of positions) {
+        // Only snapshots from an operation that changed the quantity carry it.
+        // Restoring one that does not must leave the quantity alone, or undoing
+        // a plain move would blank it.
+        const hasQuantity = Object.prototype.hasOwnProperty.call(position, 'planned_quantity');
+
         const { rows } = await client.query(
-          `UPDATE production_plan_entries
-              SET production_date = $2, shift_id = $3, sort_order = $4, deleted_at = $5,
-                  version = version + 1, updated_by = $6, updated_by_name = $7
-            WHERE id = $1
-            RETURNING *`,
+          hasQuantity
+            ? `UPDATE production_plan_entries
+                  SET production_date = $2, shift_id = $3, sort_order = $4, deleted_at = $5,
+                      planned_quantity = $8, quantity_breakdown = $9, raw_quantity = $10,
+                      version = version + 1, updated_by = $6, updated_by_name = $7
+                WHERE id = $1
+                RETURNING *`
+            : `UPDATE production_plan_entries
+                  SET production_date = $2, shift_id = $3, sort_order = $4, deleted_at = $5,
+                      version = version + 1, updated_by = $6, updated_by_name = $7
+                WHERE id = $1
+                RETURNING *`,
           [
             position.id,
             position.production_date || null,
@@ -400,7 +440,14 @@ class ProductionEntry {
             position.sort_order ?? 0,
             position.deleted_at || null,
             user?.id || null,
-            user?.name || null
+            user?.name || null,
+            ...(hasQuantity
+              ? [
+                  position.planned_quantity ?? null,
+                  position.quantity_breakdown ? JSON.stringify(position.quantity_breakdown) : null,
+                  position.raw_quantity ?? null
+                ]
+              : [])
           ]
         );
         if (rows[0]) restored.push(rows[0]);
@@ -493,6 +540,424 @@ class ProductionEntry {
       [locationId, date, flag, note || null, user?.id || null]
     );
     return { flag: rows[0] };
+  }
+
+  // ------------------------------------------------------------------- bulk
+  /**
+   * Move, copy or swap whole days, shift a date range, and split a card.
+   *
+   * These exist because a plan is rarely rearranged one card at a time. When a
+   * day falls out, everything after it slides - doing that by dragging thirty
+   * cards is how people end up back in Excel.
+   *
+   * All of them go through the same two rules as a single move: one
+   * transaction, and an undo snapshot taken before anything changes.
+   */
+
+  /** Live entries on one day, whatever shift. */
+  static async _dayEntries(client, locationId, date) {
+    const { rows } = await client.query(
+      `SELECT ${POSITION_FIELDS}
+         FROM production_plan_entries
+        WHERE location_id = $1 AND production_date = $2 AND deleted_at IS NULL
+        ORDER BY shift_id, sort_order, id`,
+      [locationId, date]
+    );
+    return rows;
+  }
+
+  /**
+   * Renumber sort_order within every slot in a range, so cards that arrive from
+   * elsewhere land in a defined order rather than sharing a number with what
+   * was already there.
+   */
+  static async _renumber(client, locationId, fromDate, toDate) {
+    await client.query(
+      `WITH ordered AS (
+         SELECT id,
+                ROW_NUMBER() OVER (PARTITION BY production_date, shift_id
+                                   ORDER BY sort_order, id) - 1 AS rn
+           FROM production_plan_entries
+          WHERE location_id = $1
+            AND production_date BETWEEN $2 AND $3
+            AND deleted_at IS NULL
+       )
+       UPDATE production_plan_entries e
+          SET sort_order = o.rn
+         FROM ordered o
+        WHERE e.id = o.id AND e.sort_order <> o.rn`,
+      [locationId, fromDate, toDate]
+    );
+  }
+
+  /** Soft-delete everything on a day. Used by the "replace" modes. */
+  static async _clearDay(client, locationId, date, user) {
+    const existing = await ProductionEntry._dayEntries(client, locationId, date);
+    if (existing.length) {
+      await client.query(
+        `UPDATE production_plan_entries
+            SET deleted_at = CURRENT_TIMESTAMP, version = version + 1,
+                updated_by = $2, updated_by_name = $3
+          WHERE id = ANY($1::int[])`,
+        [existing.map((e) => e.id), user?.id || null, user?.name || null]
+      );
+    }
+    return existing;
+  }
+
+  /**
+   * Move every card from one day to another, keeping each card's shift.
+   *
+   * mode 'merge'   the cards join whatever is already on the target day
+   *      'replace' the target day is cleared first
+   */
+  static async moveDay(locationId, fromDate, toDate, mode, user) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const moving = await ProductionEntry._dayEntries(client, locationId, fromDate);
+      if (!moving.length) {
+        await client.query('ROLLBACK');
+        return { empty: true };
+      }
+
+      const undoPositions = moving.map(snapshot);
+
+      if (mode === 'replace') {
+        const cleared = await ProductionEntry._clearDay(client, locationId, toDate, user);
+        undoPositions.push(...cleared.map(snapshot));
+      }
+
+      await client.query(
+        `UPDATE production_plan_entries
+            SET production_date = $2, sort_order = sort_order + ${ARRIVAL_OFFSET},
+                version = version + 1, updated_by = $3, updated_by_name = $4
+          WHERE id = ANY($1::int[])`,
+        [moving.map((e) => e.id), toDate, user?.id || null, user?.name || null]
+      );
+
+      await ProductionEntry._renumber(client, locationId, toDate, toDate);
+
+      await logChange(client, {
+        locationId,
+        entryId: moving[0].id,
+        action: 'moved',
+        summary: `Moved ${moving.length} card(s) from ${fromDate} to ${toDate}`,
+        before: undoPositions,
+        user
+      });
+
+      await client.query('COMMIT');
+      return { moved: moving.length, undo: { positions: undoPositions } };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /** Exchange two whole days, both shifts included. */
+  static async swapDays(locationId, dateA, dateB, user) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const a = await ProductionEntry._dayEntries(client, locationId, dateA);
+      const b = await ProductionEntry._dayEntries(client, locationId, dateB);
+
+      if (!a.length && !b.length) {
+        await client.query('ROLLBACK');
+        return { empty: true };
+      }
+
+      const undoPositions = [...a, ...b].map(snapshot);
+
+      // Two updates by explicit id list, so neither can pick up rows the other
+      // just moved.
+      if (a.length) {
+        await client.query(
+          `UPDATE production_plan_entries SET production_date = $2, version = version + 1,
+                  updated_by = $3, updated_by_name = $4
+            WHERE id = ANY($1::int[])`,
+          [a.map((e) => e.id), dateB, user?.id || null, user?.name || null]
+        );
+      }
+      if (b.length) {
+        await client.query(
+          `UPDATE production_plan_entries SET production_date = $2, version = version + 1,
+                  updated_by = $3, updated_by_name = $4
+            WHERE id = ANY($1::int[])`,
+          [b.map((e) => e.id), dateA, user?.id || null, user?.name || null]
+        );
+      }
+
+      await logChange(client, {
+        locationId,
+        entryId: (a[0] || b[0]).id,
+        action: 'moved',
+        summary: `Swapped ${dateA} (${a.length} cards) with ${dateB} (${b.length} cards)`,
+        before: undoPositions,
+        user
+      });
+
+      await client.query('COMMIT');
+      return { swapped: a.length + b.length, undo: { positions: undoPositions } };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Shift everything in a date range by a number of days.
+   *
+   * The reason this exists: a day falls out and the rest of the week has to
+   * slide. One statement moves the whole range, so nothing can collide with
+   * itself part-way through.
+   */
+  static async shiftRange(locationId, fromDate, toDate, days, user) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const { rows: affected } = await client.query(
+        `SELECT ${POSITION_FIELDS}
+           FROM production_plan_entries
+          WHERE location_id = $1
+            AND production_date BETWEEN $2 AND $3
+            AND deleted_at IS NULL`,
+        [locationId, fromDate, toDate]
+      );
+
+      if (!affected.length) {
+        await client.query('ROLLBACK');
+        return { empty: true };
+      }
+
+      const undoPositions = affected.map(snapshot);
+
+      await client.query(
+        `UPDATE production_plan_entries
+            SET production_date = production_date + ($2 || ' days')::interval,
+                sort_order = sort_order + ${ARRIVAL_OFFSET},
+                version = version + 1, updated_by = $3, updated_by_name = $4
+          WHERE id = ANY($1::int[])`,
+        [affected.map((e) => e.id), days, user?.id || null, user?.name || null]
+      );
+
+      // Renumber across both the old and the new footprint, since cards may
+      // have landed on days that already held production.
+      await ProductionEntry._renumber(client, locationId, fromDate, toDate);
+      const shiftedFrom = new Date(fromDate);
+      shiftedFrom.setDate(shiftedFrom.getDate() + days);
+      const shiftedTo = new Date(toDate);
+      shiftedTo.setDate(shiftedTo.getDate() + days);
+      await ProductionEntry._renumber(
+        client,
+        locationId,
+        shiftedFrom.toISOString().slice(0, 10),
+        shiftedTo.toISOString().slice(0, 10)
+      );
+
+      await logChange(client, {
+        locationId,
+        entryId: affected[0].id,
+        action: 'moved',
+        summary: `Shifted ${affected.length} card(s) in ${fromDate}..${toDate} by ${days > 0 ? '+' : ''}${days} day(s)`,
+        before: undoPositions,
+        user
+      });
+
+      await client.query('COMMIT');
+      return { shifted: affected.length, undo: { positions: undoPositions } };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Copy a run of days onto another start date. One day for "copy day", seven
+   * for "copy week" - the same operation either way.
+   *
+   * Copies are new cards, so undoing means deleting them rather than moving
+   * anything back.
+   */
+  static async copyDays(locationId, fromDate, toDate, dayCount, mode, user) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const from = new Date(fromDate);
+      const to = new Date(toDate);
+      const createdIds = [];
+      const clearedPositions = [];
+      let sourceCount = 0;
+
+      for (let offset = 0; offset < dayCount; offset++) {
+        const sourceDate = new Date(from);
+        sourceDate.setDate(from.getDate() + offset);
+        const targetDate = new Date(to);
+        targetDate.setDate(to.getDate() + offset);
+
+        const sourceIso = sourceDate.toISOString().slice(0, 10);
+        const targetIso = targetDate.toISOString().slice(0, 10);
+
+        if (mode === 'replace') {
+          const cleared = await ProductionEntry._clearDay(client, locationId, targetIso, user);
+          clearedPositions.push(...cleared.map(snapshot));
+        }
+
+        // Copy the plan, not its history: source cell references, timestamps and
+        // authorship belong to the original.
+        const { rows } = await client.query(
+          `INSERT INTO production_plan_entries
+             (location_id, production_date, shift_id, product_id, custom_product_name,
+              planned_quantity, quantity_breakdown, raw_quantity, priority, status, notes,
+              sort_order, created_by, created_by_name, updated_by, updated_by_name)
+           SELECT location_id, $3::date, shift_id, product_id, custom_product_name,
+                  planned_quantity, quantity_breakdown, raw_quantity, priority, 'planned', notes,
+                  sort_order + ${ARRIVAL_OFFSET}, $4, $5, $4, $5
+             FROM production_plan_entries
+            WHERE location_id = $1 AND production_date = $2 AND deleted_at IS NULL
+           RETURNING id`,
+          [locationId, sourceIso, targetIso, user?.id || null, user?.name || null]
+        );
+
+        createdIds.push(...rows.map((r) => r.id));
+        sourceCount += rows.length;
+      }
+
+      if (!sourceCount) {
+        await client.query('ROLLBACK');
+        return { empty: true };
+      }
+
+      const lastTarget = new Date(to);
+      lastTarget.setDate(to.getDate() + dayCount - 1);
+      await ProductionEntry._renumber(client, locationId, toDate, lastTarget.toISOString().slice(0, 10));
+
+      await logChange(client, {
+        locationId,
+        entryId: createdIds[0],
+        action: 'created',
+        summary: `Copied ${sourceCount} card(s) from ${fromDate} to ${toDate}`,
+        after: { createdIds },
+        user
+      });
+
+      await client.query('COMMIT');
+      return {
+        copied: sourceCount,
+        // Undo removes the copies and puts back anything "replace" cleared.
+        undo: { deleteIds: createdIds, positions: clearedPositions }
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Split a card's quantity across two slots.
+   *
+   * The original keeps `keepQuantity`; the remainder becomes a new card on the
+   * target date and shift. Undo restores the original quantity and removes the
+   * new card, which is why the snapshot here carries quantity.
+   */
+  static async splitQuantity(id, keepQuantity, target, user) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const { rows: current } = await client.query(
+        'SELECT * FROM production_plan_entries WHERE id = $1 AND deleted_at IS NULL FOR UPDATE',
+        [id]
+      );
+      if (!current[0]) {
+        await client.query('ROLLBACK');
+        return { notFound: true };
+      }
+
+      const entry = current[0];
+      const total = Number(entry.planned_quantity);
+      if (!Number.isFinite(total) || total <= 0) {
+        await client.query('ROLLBACK');
+        return { notSplittable: true };
+      }
+      if (!(keepQuantity > 0) || keepQuantity >= total) {
+        await client.query('ROLLBACK');
+        return { badSplit: true, total };
+      }
+
+      const remainder = total - keepQuantity;
+      const undoSnapshot = snapshotWithQuantity(entry);
+
+      // Splitting invalidates the original breakdown and its raw string: the
+      // card no longer holds what that text described.
+      await client.query(
+        `UPDATE production_plan_entries
+            SET planned_quantity = $2, quantity_breakdown = NULL, raw_quantity = NULL,
+                version = version + 1, updated_by = $3, updated_by_name = $4
+          WHERE id = $1`,
+        [id, keepQuantity, user?.id || null, user?.name || null]
+      );
+
+      const targetDate = target.productionDate || entry.production_date;
+      const targetShift = target.shiftId ?? entry.shift_id;
+      const sortOrder = await nextSortOrder(client, entry.location_id, targetDate, targetShift);
+
+      const { rows: created } = await client.query(
+        `INSERT INTO production_plan_entries
+           (location_id, production_date, shift_id, product_id, custom_product_name,
+            planned_quantity, priority, status, notes, sort_order,
+            created_by, created_by_name, updated_by, updated_by_name)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,'planned',$8,$9,$10,$11,$10,$11)
+         RETURNING *`,
+        [
+          entry.location_id,
+          targetDate,
+          targetShift,
+          entry.product_id,
+          entry.custom_product_name,
+          remainder,
+          entry.priority,
+          entry.notes,
+          sortOrder,
+          user?.id || null,
+          user?.name || null
+        ]
+      );
+
+      await logChange(client, {
+        locationId: entry.location_id,
+        entryId: id,
+        action: 'updated',
+        summary: `Split ${total} into ${keepQuantity} + ${remainder}`,
+        before: undoSnapshot,
+        after: snapshot(created[0]),
+        user
+      });
+
+      await client.query('COMMIT');
+      return {
+        entry: created[0],
+        undo: { positions: [undoSnapshot], deleteIds: [created[0].id] }
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   // ------------------------------------------------------------------ history

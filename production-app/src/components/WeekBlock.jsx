@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { Plus } from 'lucide-react';
+import { Copy, Plus } from 'lucide-react';
 
 import ProductionCard from './ProductionCard';
 import WeekDayList from './WeekDayList';
@@ -21,7 +21,7 @@ const DAY_FLAG_STYLE = {
   urgent: 'bg-etilog-light'
 };
 
-function DayHeader({ day, flag, exception, compact, canManage, onSetFlag, onAdd }) {
+function DayHeader({ day, flag, exception, compact, canManage, onSetFlag, onAdd, onBulk }) {
   return (
     <div
       className={clsx(
@@ -31,7 +31,7 @@ function DayHeader({ day, flag, exception, compact, canManage, onSetFlag, onAdd 
         day.isToday && 'shadow-[inset_0_-2px_0_0_#D9000C]'
       )}
     >
-      {canManage && <DayMenu day={day} flag={flag} onSetFlag={onSetFlag} onAdd={onAdd} />}
+      {canManage && <DayMenu day={day} flag={flag} onSetFlag={onSetFlag} onAdd={onAdd} onBulk={onBulk} />}
 
       <div className="flex items-baseline justify-center gap-1">
         <span
@@ -77,6 +77,7 @@ export default function WeekBlock({
   onOpenEntry,
   onAddEntry,
   onSetDayFlag,
+  onBulk,
   canManage,
   compact
 }) {
@@ -113,6 +114,18 @@ export default function WeekBlock({
         {weekIsEmpty && (
           <span className="ml-auto text-[11px] text-gray-400">Nothing planned yet</span>
         )}
+
+        {canManage && !weekIsEmpty && (
+          <button
+            type="button"
+            onClick={() => onBulk('copyWeek', week.days[0])}
+            className="no-print ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px]
+                       font-medium text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+          >
+            <Copy className="h-3 w-3" aria-hidden="true" />
+            Copy week
+          </button>
+        )}
       </header>
 
       {/* phones get the stacked day list instead of a sideways-scrolling grid */}
@@ -140,6 +153,7 @@ export default function WeekBlock({
                 canManage={canManage}
                 onSetFlag={onSetDayFlag}
                 onAdd={(d) => onAddEntry({ date: d.iso, shiftId: shifts[0]?.id, shiftName: shifts[0]?.name })}
+                onBulk={onBulk}
               />
             ))}
 
