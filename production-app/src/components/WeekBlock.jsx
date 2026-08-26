@@ -113,6 +113,16 @@ export default function WeekBlock({
   // by contrast with the days around it, and there is no contrast here.
   const weekIsEmpty = emptyDays.size === week.days.length;
 
+  /**
+   * What an empty slot says, if anything. Marked once per day, on the first
+   * shift row: an empty shift on an otherwise busy day is left blank, because
+   * that blank is itself the information.
+   */
+  const emptyLabel = (day, shiftIndex, isFree) => {
+    if (!emptyDays.has(day.iso) || weekIsEmpty || shiftIndex !== 0 || isFree) return null;
+    return compact ? '—' : 'Nothing planned yet';
+  };
+
   return (
     <section className="print-block overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
       {/* week header */}
@@ -197,31 +207,67 @@ export default function WeekBlock({
                         </DraggableCard>
                       ))}
 
-                      {/* Marked once per day, on the first shift row, so a day
-                          with nothing planned reads as deliberate rather than as
-                          a rendering gap. An empty shift on an otherwise busy day
-                          is left blank - that blank is itself the information. */}
-                      {dayIsEmpty && !weekIsEmpty && shiftIndex === 0 && !isFree && (
-                        <span
-                          className={clsx(
-                            'select-none self-center pt-1 text-center leading-tight text-gray-300',
-                            compact ? 'text-[9px]' : 'text-[10px]'
-                          )}
-                        >
-                          {compact ? '—' : 'Nothing planned yet'}
-                        </span>
-                      )}
-
-                      {/* Appears on hover, so an empty slot is a place to click
-                          rather than dead space. */}
-                      {canManage && !compact && (
+                      {/* An empty slot is the whole click target, not a strip
+                          along its bottom edge: aiming for a 14px band inside a
+                          cell is a worse job than the Excel sheet, where you
+                          clicked the cell and typed. The "nothing planned"
+                          label lives inside it and gives way to "Add" on hover,
+                          so the two never compete for the same space. */}
+                      {cards.length === 0 && canManage ? (
                         <button
                           type="button"
                           onClick={() =>
                             onAddEntry({ date: day.iso, shiftId: shift.id, shiftName: shift.name })
                           }
                           aria-label={`Add production to ${day.weekday} ${day.dayOfMonth}, ${shift.name}`}
-                          className="mt-auto flex items-center justify-center gap-1 rounded border border-dashed
+                          className="group/add absolute inset-0 flex items-center justify-center rounded
+                                     transition hover:bg-etilog-light/60 focus-visible:outline-none
+                                     focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-etilog"
+                        >
+                          {emptyLabel(day, shiftIndex, isFree) && (
+                            <span
+                              className={clsx(
+                                'select-none text-center leading-tight text-gray-300',
+                                'group-hover/add:opacity-0',
+                                compact ? 'text-[9px]' : 'text-[10px]'
+                              )}
+                            >
+                              {emptyLabel(day, shiftIndex, isFree)}
+                            </span>
+                          )}
+                          <span
+                            className="no-print absolute flex items-center gap-1 text-[10px] font-medium
+                                       text-etilog opacity-0 transition group-hover/add:opacity-100
+                                       group-focus-visible/add:opacity-100"
+                          >
+                            <Plus className="h-3 w-3" aria-hidden="true" />
+                            Add
+                          </span>
+                        </button>
+                      ) : (
+                        emptyLabel(day, shiftIndex, isFree) && (
+                          <span
+                            className={clsx(
+                              'select-none self-center pt-1 text-center leading-tight text-gray-300',
+                              compact ? 'text-[9px]' : 'text-[10px]'
+                            )}
+                          >
+                            {emptyLabel(day, shiftIndex, isFree)}
+                          </span>
+                        )
+                      )}
+
+                      {/* A slot that already holds cards keeps the quiet strip:
+                          the cards own the space, and this only has to say
+                          "another one goes underneath". */}
+                      {canManage && cards.length > 0 && !compact && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onAddEntry({ date: day.iso, shiftId: shift.id, shiftName: shift.name })
+                          }
+                          aria-label={`Add production to ${day.weekday} ${day.dayOfMonth}, ${shift.name}`}
+                          className="no-print mt-auto flex items-center justify-center gap-1 rounded border border-dashed
                                      border-gray-300 py-0.5 text-[10px] text-gray-400 opacity-0 transition
                                      hover:border-etilog hover:text-etilog focus-visible:opacity-100
                                      group-hover/slot:opacity-100"
