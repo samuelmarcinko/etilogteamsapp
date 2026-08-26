@@ -28,12 +28,20 @@ const STATUSES = [
   ['cancelled', 'Cancelled']
 ];
 
-function Field({ label, children, className }) {
+/**
+ * A labelled field.
+ *
+ * `as="div"` for anything containing its own interactive list: a <label>
+ * forwards every click inside it to its first labelable control, so clicking a
+ * result in the FG picker was being redirected into the search input instead of
+ * selecting the row.
+ */
+function Field({ label, children, className, as: Element = 'label' }) {
   return (
-    <label className={clsx('flex flex-col gap-1', className)}>
+    <Element className={clsx('flex flex-col gap-1', className)}>
       <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{label}</span>
       {children}
-    </label>
+    </Element>
   );
 }
 
@@ -141,8 +149,8 @@ export default function EntryFormDialog({
               </Dialog.Close>
             </div>
 
-            <div className="flex max-h-[70vh] flex-col gap-3.5 overflow-y-auto px-5 py-4">
-              <Field label="Product">
+            <div className="flex max-h-[70vh] min-h-[26rem] flex-col gap-3.5 overflow-y-auto px-5 py-4">
+              <Field label="Product" as="div">
                 <FgCombobox value={product} onChange={setProduct} autoFocus={!isEdit} />
               </Field>
 

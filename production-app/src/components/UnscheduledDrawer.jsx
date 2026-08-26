@@ -43,7 +43,11 @@ export default function UnscheduledDrawer({ open, onClose, entries, canManage, o
         />
       )}
 
-      <aside
+      <DroppableSlot
+        id={UNSCHEDULED_ID}
+        disabled={!canManage || !open}
+        hasCards={false}
+        as="aside"
         aria-label="Unscheduled production"
         aria-hidden={!open}
         className={clsx(
@@ -70,12 +74,7 @@ export default function UnscheduledDrawer({ open, onClose, entries, canManage, o
           </button>
         </header>
 
-        <DroppableSlot
-          id={UNSCHEDULED_ID}
-          disabled={!canManage}
-          hasCards={entries.length > 0}
-          className="flex-1 overflow-y-auto p-3"
-        >
+        <div className="flex-1 overflow-y-auto p-3">
           {entries.length === 0 ? (
             <p className="px-1 py-6 text-center text-[12px] leading-relaxed text-gray-400">
               Nothing waiting.
@@ -98,7 +97,7 @@ export default function UnscheduledDrawer({ open, onClose, entries, canManage, o
               ))}
             </div>
           )}
-        </DroppableSlot>
+        </div>
 
         {canManage && (
           <div className="border-t border-gray-200 p-3">
@@ -112,7 +111,7 @@ export default function UnscheduledDrawer({ open, onClose, entries, canManage, o
             </button>
           </div>
         )}
-      </aside>
+      </DroppableSlot>
     </>
   );
 }

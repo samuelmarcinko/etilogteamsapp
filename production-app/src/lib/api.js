@@ -135,6 +135,13 @@ export const api = {
 
   undo: (payload) => request('/api/production/entries/undo', json(payload)),
 
+  activity: (location, limit = 100) =>
+    request(`/api/production/activity?location=${encodeURIComponent(location)}&limit=${limit}`)
+      .then((r) => r.data),
+
+  restoreFromHistory: (logId) =>
+    request(`/api/production/activity/${logId}/restore`, { method: 'POST' }).then((r) => r.data),
+
   setDayFlag: ({ location, date, flag, note }) =>
     request('/api/production/day-flags', {
       method: 'PUT',

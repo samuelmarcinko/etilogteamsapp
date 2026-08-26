@@ -1,5 +1,22 @@
-import { useDraggable, useDroppable } from '@dnd-kit/core';
+import { pointerWithin, rectIntersection, useDraggable, useDroppable } from '@dnd-kit/core';
 import clsx from 'clsx';
+
+/**
+ * Collision detection.
+ *
+ * closestCenter compares the dragged card's centre against each target's
+ * centre, which works for a grid of same-sized cells but fails badly for the
+ * Unscheduled drawer: it is tall and narrow, so its centre sits far to the
+ * right and a card had to be dragged almost onto it before the drawer won.
+ *
+ * Whatever is under the pointer is what the user means. Fall back to rectangle
+ * overlap only when the pointer is outside every target, so a drag that leaves
+ * the window still resolves sensibly.
+ */
+export function collisionDetection(args) {
+  const byPointer = pointerWithin(args);
+  return byPointer.length > 0 ? byPointer : rectIntersection(args);
+}
 
 /**
  * Drag & drop wiring for the planner.
@@ -56,22 +73,34 @@ export function DraggableCard({ entry, disabled, children }) {
  * A drop target. `isOver` highlights it, and when it already holds cards an
  * insertion line shows where the dropped card would land.
  */
-export function DroppableSlot({ id, disabled, hasCards, className, children }) {
+export function DroppableSlot({
+  id,
+  disabled,
+  hasCards,
+  className,
+  as: Element = 'div',
+  children,
+  ...rest
+}) {
   const { setNodeRef, isOver, active } = useDroppable({ id, disabled });
   const dragging = Boolean(active);
 
   return (
-    <div
+    <Element
       ref={setNodeRef}
       data-over={isOver || undefined}
       className={clsx(
+        // No positioning here on purpose: adding `relative` overrode the
+        // drawer's `fixed` and dropped it into the middle of the page. Callers
+        // that need the insertion indicator position themselves.
         className,
-        'relative transition-colors duration-150',
+        'transition-colors duration-150',
         // Faint outline on every valid target while a drag is in flight, so it
         // is obvious where a card may go before hovering anything.
         dragging && !disabled && 'ring-1 ring-inset ring-gray-200',
         isOver && !disabled && 'bg-etilog-light ring-2 ring-inset ring-etilog'
       )}
+      {...rest}
     >
       {children}
 
@@ -81,6 +110,6 @@ export function DroppableSlot({ id, disabled, hasCards, className, children }) {
           className="pointer-events-none absolute inset-x-1 bottom-0.5 h-0.5 rounded-full bg-etilog"
         />
       )}
-    </div>
+    </Element>
   );
 }

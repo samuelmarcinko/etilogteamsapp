@@ -340,6 +340,48 @@ router.post('/entries/undo', manageAccess, asyncHandler(async (req, res) => {
   res.json({ data: result.restored });
 }));
 
+// =========================================================
+// Activity log
+// =========================================================
+// GET /api/production/activity?location=PO1&limit=100&entryId=42
+//
+// Readable by anyone who can see the plan: knowing what changed and who
+// changed it is part of reading the plan, not a privilege.
+router.get('/activity', viewAccess, asyncHandler(async (req, res) => {
+  const location = await ProductionPlan.findLocationByCode(req.query.location);
+  if (!location) return res.status(404).json({ error: 'Location not found' });
+
+  const activity = await ProductionEntry.findActivity(location.id, {
+    limit: req.query.limit,
+    entryId: req.query.entryId ? Number(req.query.entryId) : null
+  });
+  res.json({ data: activity });
+}));
+
+// POST /api/production/activity/:id/restore
+//
+// Puts an entry back to the state recorded before that change - the recovery
+// path once the Undo toast is gone. Restoring needs production.manage, unlike
+// reading the log.
+router.post('/activity/:id/restore', manageAccess, asyncHandler(async (req, res) => {
+  const result = await ProductionEntry.restoreFromLog(Number(req.params.id), currentUser(req));
+
+  if (result.notFound) return res.status(404).json({ error: 'History entry not found' });
+  if (result.notRestorable) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: 'This change recorded no previous state to restore'
+    });
+  }
+  if (result.gone) {
+    return res.status(410).json({
+      error: 'Gone',
+      message: 'The card was permanently removed and cannot be restored'
+    });
+  }
+  res.json({ data: result.entry });
+}));
+
 // PUT /api/production/day-flags - mark a day free/critical/urgent, or clear it
 router.put('/day-flags', manageAccess, asyncHandler(async (req, res) => {
   const { location: code, date, flag, note } = req.body;

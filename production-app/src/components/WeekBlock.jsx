@@ -159,7 +159,7 @@ export default function WeekBlock({
                       disabled={!canManage}
                       hasCards={cards.length > 0}
                       className={clsx(
-                        'week-cell group/slot flex flex-col gap-1 p-1',
+                        'week-cell group/slot relative flex flex-col gap-1 p-1',
                         compact ? 'min-h-[42px]' : 'min-h-[56px]',
                         day.isWeekend && !cards.length && 'bg-gray-50/60',
                         isFree && 'bg-emerald-50/50'

@@ -495,6 +495,106 @@ class ProductionEntry {
     return { flag: rows[0] };
   }
 
+  // ------------------------------------------------------------------ history
+  /**
+   * Recent changes for a location, newest first.
+   *
+   * Joined against the entry as it stands now, so the UI can tell the
+   * difference between "this was deleted and is still gone" - which can be put
+   * back - and "this was deleted and someone has already restored it".
+   */
+  static async findActivity(locationId, { limit = 100, entryId = null } = {}) {
+    const { rows } = await pool.query(
+      `SELECT l.id, l.entry_id, l.action, l.summary, l.before_state, l.after_state,
+              l.changed_by_name, l.changed_at,
+              e.id IS NOT NULL              AS entry_exists,
+              e.deleted_at IS NOT NULL      AS entry_deleted,
+              e.production_date             AS entry_date,
+              COALESCE(p.fg_number, e.custom_product_name) AS entry_label
+         FROM production_change_log l
+         LEFT JOIN production_plan_entries e ON e.id = l.entry_id
+         LEFT JOIN products p                ON p.id = e.product_id
+        WHERE l.location_id = $1
+          AND ($2::int IS NULL OR l.entry_id = $2)
+        ORDER BY l.changed_at DESC, l.id DESC
+        LIMIT $3`,
+      [locationId, entryId, Math.min(Number(limit) || 100, 500)]
+    );
+    return rows;
+  }
+
+  /**
+   * Put an entry back to the state a log row recorded before that change.
+   *
+   * This is what makes a deletion recoverable long after the Undo toast has
+   * gone: the log keeps the position, so restoring is the same replay Undo
+   * uses. Restoring is itself logged - the log is append-only, so undoing
+   * something never erases the record that it happened.
+   */
+  static async restoreFromLog(logId, user) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const { rows: logRows } = await client.query(
+        'SELECT * FROM production_change_log WHERE id = $1',
+        [logId]
+      );
+      const entry = logRows[0];
+      if (!entry) {
+        await client.query('ROLLBACK');
+        return { notFound: true };
+      }
+
+      const before = entry.before_state;
+      if (!before || !before.id) {
+        await client.query('ROLLBACK');
+        return { notRestorable: true };
+      }
+
+      const { rows: updated } = await client.query(
+        `UPDATE production_plan_entries
+            SET production_date = $2, shift_id = $3, sort_order = $4, deleted_at = $5,
+                version = version + 1, updated_by = $6, updated_by_name = $7
+          WHERE id = $1
+          RETURNING *`,
+        [
+          before.id,
+          before.production_date || null,
+          before.shift_id || null,
+          before.sort_order ?? 0,
+          before.deleted_at || null,
+          user?.id || null,
+          user?.name || null
+        ]
+      );
+
+      if (!updated[0]) {
+        // The row was hard-deleted; the log remains but there is nothing left
+        // to put back.
+        await client.query('ROLLBACK');
+        return { gone: true };
+      }
+
+      await logChange(client, {
+        locationId: entry.location_id,
+        entryId: before.id,
+        action: 'restored',
+        summary: `Restored from history (${entry.action} on ${new Date(entry.changed_at).toISOString().slice(0, 10)})`,
+        after: snapshot(updated[0]),
+        user
+      });
+
+      await client.query('COMMIT');
+      return { entry: updated[0] };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   /** Find or create an FG so a card can reference a number typed by hand. */
   static async findOrCreateProduct(fgNumber, description) {
     const { rows } = await pool.query(

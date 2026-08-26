@@ -67,7 +67,7 @@ export default function FgCombobox({ value, onChange, autoFocus }) {
             />
           </div>
 
-          <Command.List className="max-h-52 overflow-y-auto p-1">
+          <Command.List className="h-52 overflow-y-auto p-1">
             {products.isFetching && (
               <div className="px-2 py-3 text-[12px] text-gray-400">Searching…</div>
             )}

@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { format } from 'date-fns';
-import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Eye, Inbox, Printer } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Eye, History, Inbox, Printer } from 'lucide-react';
 import { WEEK_SPANS } from '../lib/weeks';
 
 /**
@@ -55,7 +55,8 @@ export default function AppHeader({
   onToday,
   readOnly,
   unscheduledCount,
-  onToggleUnscheduled
+  onToggleUnscheduled,
+  onToggleHistory
 }) {
   const first = weeks[0];
   const last = weeks[weeks.length - 1];
@@ -97,6 +98,15 @@ export default function AppHeader({
                   {unscheduledCount}
                 </span>
               )}
+            </button>
+
+            <button
+              type="button"
+              onClick={onToggleHistory}
+              className="no-print flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-[12px] font-medium text-gray-700 transition hover:bg-gray-50"
+            >
+              <History className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="hidden sm:inline">History</span>
             </button>
 
             <button

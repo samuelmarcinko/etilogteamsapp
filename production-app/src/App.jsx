@@ -5,7 +5,6 @@ import {
   DragOverlay,
   KeyboardSensor,
   PointerSensor,
-  closestCenter,
   useSensor,
   useSensors
 } from '@dnd-kit/core';
@@ -29,7 +28,8 @@ import EntryDetailDialog from './components/EntryDetailDialog';
 import EntryFormDialog from './components/EntryFormDialog';
 import OccupiedSlotDialog from './components/OccupiedSlotDialog';
 import UnscheduledDrawer from './components/UnscheduledDrawer';
-import { parseSlotId, UNSCHEDULED_ID } from './components/dnd';
+import ActivityDrawer from './components/ActivityDrawer';
+import { collisionDetection, parseSlotId } from './components/dnd';
 import { EmptyRangeNote, ErrorState, NoAccess, WeekSkeleton } from './components/states';
 
 /**
@@ -81,6 +81,8 @@ export default function App() {
   const [dragging, setDragging] = useState(null);        // entry under the pointer
   const [conflict, setConflict] = useState(null);        // occupied-slot decision
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [restoringId, setRestoringId] = useState(null);
 
   const profile = useQuery({ queryKey: ['me'], queryFn: api.me, staleTime: 5 * 60 * 1000 });
   const canView = profile.data?.permissions?.includes('production.view');
@@ -117,10 +119,19 @@ export default function App() {
     enabled: Boolean(canView && locationCode)
   });
 
+  const activity = useQuery({
+    queryKey: ['production', 'activity', locationCode],
+    queryFn: () => api.activity(locationCode),
+    // Only fetched while the panel is open; there is no reason to poll a log
+    // nobody is looking at.
+    enabled: Boolean(canView && locationCode && historyOpen)
+  });
+
   /** Everything a write may have changed. */
   const refresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['production', 'plan'] });
     queryClient.invalidateQueries({ queryKey: ['production', 'unscheduled'] });
+    queryClient.invalidateQueries({ queryKey: ['production', 'activity'] });
   }, [queryClient]);
 
   // ------------------------------------------------------------------ undo
@@ -265,7 +276,7 @@ export default function App() {
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={collisionDetection}
       onDragStart={({ active }) => setDragging(active.data.current?.entry || null)}
       onDragCancel={() => setDragging(null)}
       onDragEnd={handleDragEnd}
@@ -285,7 +296,14 @@ export default function App() {
             onToday={() => setAnchor(new Date())}
             readOnly={!canManage}
             unscheduledCount={unscheduled.data?.length || 0}
-            onToggleUnscheduled={() => setDrawerOpen((v) => !v)}
+            onToggleUnscheduled={() => {
+              setHistoryOpen(false);
+              setDrawerOpen((v) => !v);
+            }}
+            onToggleHistory={() => {
+              setDrawerOpen(false);
+              setHistoryOpen((v) => !v);
+            }}
           />
         )}
 
@@ -321,6 +339,27 @@ export default function App() {
             </div>
           )}
         </main>
+
+        <ActivityDrawer
+          open={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+          activity={activity.data}
+          isLoading={activity.isPending}
+          canManage={canManage}
+          restoringId={restoringId}
+          onRestore={async (item) => {
+            setRestoringId(item.id);
+            try {
+              await api.restoreFromHistory(item.id);
+              refresh();
+              toast.success('Restored from history');
+            } catch (error) {
+              toast.error(error.message);
+            } finally {
+              setRestoringId(null);
+            }
+          }}
+        />
 
         <UnscheduledDrawer
           open={drawerOpen}
