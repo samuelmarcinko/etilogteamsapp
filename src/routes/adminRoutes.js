@@ -18,9 +18,9 @@ router.get('/stats', requireDbRole('admin'), asyncHandler(AdminController.getSta
 router.get('/diagnose-user', requireDbRole('admin'), asyncHandler(AdminController.diagnoseUser));
 
 // Routes accessible by admin and spravca (read-only for spravca)
-router.get('/employees', requireDbRole('admin', 'spravca'), asyncHandler(AdminController.getEmployees));
-router.get('/tickets', requireDbRole('admin', 'spravca'), asyncHandler(AdminController.getAllTickets));
-router.get('/all-azure-users', requireDbRole('admin', 'spravca'), asyncHandler(AdminController.getAllAzureUsers));
+router.get('/employees', requirePermission('hr.manage', { legacyRoles: ['admin', 'spravca'] }), asyncHandler(AdminController.getEmployees));
+router.get('/tickets', requirePermission('hr.manage', { legacyRoles: ['admin', 'spravca'] }), asyncHandler(AdminController.getAllTickets));
+router.get('/all-azure-users', requirePermission('hr.manage', { legacyRoles: ['admin', 'spravca'] }), asyncHandler(AdminController.getAllAzureUsers));
 
 // Admin-only ticket edit
 router.put('/tickets/:ticketId', requireDbRole('admin'), asyncHandler(AdminController.updateTicket));
@@ -45,7 +45,7 @@ router.post('/backup', requireDbRole('admin'), asyncHandler(AdminController.trig
 router.get('/backups', requireDbRole('admin'), asyncHandler(AdminController.listBackups));
 
 // Export routes (admin and spravca)
-router.get('/export/tickets', requireDbRole('admin', 'spravca'), asyncHandler(AdminController.exportTickets));
+router.get('/export/tickets', requirePermission('hr.manage', { legacyRoles: ['admin', 'spravca'] }), asyncHandler(AdminController.exportTickets));
 
 // SMTP Settings (admin only)
 router.get('/settings/smtp', requireDbRole('admin'), asyncHandler(async (req, res) => {

@@ -259,14 +259,15 @@ async function renderPage(page) {
 // ============================================
 
 /**
- * Check if user has access to a module.
+ * The original role rules, kept as the reference the permission matrix is
+ * checked against. Do not change these - they are correct when they match what
+ * the portal did before the matrix existed.
  * - admin: all modules
  * - spravca: HR only
  * - user: HR only
  * - sklad / sklad_read: warehouse
  */
-function hasModuleAccess(module) {
-    const role = portalUser?.role;
+function legacyModuleAccess(module, role) {
     if (role === 'admin') return true;
     if (module === 'hr') return true; // All roles have HR access
     if (module === 'fleet') return role === 'admin';
@@ -274,12 +275,68 @@ function hasModuleAccess(module) {
     return false;
 }
 
+function legacyCanEditWarehouse(role) {
+    return role === 'admin' || role === 'sklad';
+}
+
+// Permission key backing each module tile.
+const MODULE_PERMISSION = {
+    hr: 'hr.access',
+    fleet: 'fleet.access',
+    warehouse: 'warehouse.read',
+    production: 'production.view'
+};
+
+function hasPermission(key) {
+    return Array.isArray(portalUser?.permissions) && portalUser.permissions.includes(key);
+}
+
+/**
+ * Decide an access question under the current access-control mode, which the
+ * server reports in the profile response.
+ *
+ *   legacy   role rules decide
+ *   shadow   role rules decide, but a disagreement is logged to the console
+ *   enforce  the permission matrix decides
+ *
+ * Same three modes as the server, driven by the same ACCESS_CONTROL_MODE
+ * variable, so the two sides can never end up on different rules.
+ */
+function resolveAccess(label, permissionKey, legacyAllowed) {
+    const mode = portalUser?.accessControlMode || 'shadow';
+    if (mode === 'legacy') return legacyAllowed;
+
+    const matrixAllowed = hasPermission(permissionKey);
+
+    if (mode === 'shadow') {
+        if (matrixAllowed !== legacyAllowed) {
+            console.warn(
+                `[access shadow] ${label}: role rules say ${legacyAllowed}, ` +
+                `matrix says ${matrixAllowed} (role=${portalUser?.role}, key=${permissionKey})`
+            );
+        }
+        return legacyAllowed;
+    }
+
+    return matrixAllowed;
+}
+
+/**
+ * Check if user has access to a module.
+ */
+function hasModuleAccess(module) {
+    const role = portalUser?.role;
+    const key = MODULE_PERMISSION[module];
+    if (!key) return false;
+    return resolveAccess(`module:${module}`, key, legacyModuleAccess(module, role));
+}
+
 /**
  * Check if user can edit warehouse (not read-only)
  */
 function canEditWarehouse() {
     const role = portalUser?.role;
-    return role === 'admin' || role === 'sklad';
+    return resolveAccess('warehouse:edit', 'warehouse.write', legacyCanEditWarehouse(role));
 }
 
 function enterModule(module) {

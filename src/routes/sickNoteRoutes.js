@@ -49,8 +49,8 @@ router.use(verifyToken);
 router.use(attachDbRole);
 
 // Admin and spravca routes (read-only access for all sick notes)
-router.get('/all', requireDbRole('admin', 'spravca'), asyncHandler(SickNoteController.getAll));
-router.get('/stats/:userId', requireDbRole('admin', 'spravca'), asyncHandler(SickNoteController.getUserStats));
+router.get('/all', requirePermission('hr.manage', { legacyRoles: ['admin', 'spravca'] }), asyncHandler(SickNoteController.getAll));
+router.get('/stats/:userId', requirePermission('hr.manage', { legacyRoles: ['admin', 'spravca'] }), asyncHandler(SickNoteController.getUserStats));
 
 // User routes
 router.get('/me', asyncHandler(SickNoteController.getMySickNotes));
