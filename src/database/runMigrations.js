@@ -125,10 +125,14 @@ async function applyMigration(client, file) {
  */
 async function runMigrations(pool) {
   const db = pool || require('./config');
-  const client = await db.connect();
   const applied = [];
+  let client;
 
   try {
+    // Inside the try: if the database is briefly unreachable at boot, connect()
+    // rejects, and outside it that rejection would escape and kill the process.
+    client = await db.connect();
+
     await client.query('SELECT pg_advisory_lock($1)', [ADVISORY_LOCK_KEY]);
 
     await ensureBookkeepingTable(client);
@@ -164,12 +168,15 @@ async function runMigrations(pool) {
     logger.error('Migration runner error', { error: error.message });
     return { applied, failed: { name: null, error: error.message } };
   } finally {
-    try {
-      await client.query('SELECT pg_advisory_unlock($1)', [ADVISORY_LOCK_KEY]);
-    } catch (_) {
-      // Connection already gone; the lock dies with the session anyway.
+    // client is undefined when connect() itself failed.
+    if (client) {
+      try {
+        await client.query('SELECT pg_advisory_unlock($1)', [ADVISORY_LOCK_KEY]);
+      } catch (_) {
+        // Connection already gone; the lock dies with the session anyway.
+      }
+      client.release();
     }
-    client.release();
   }
 }
 

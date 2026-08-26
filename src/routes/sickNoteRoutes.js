@@ -4,7 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const SickNoteController = require('../controllers/sickNoteController');
 const { verifyToken } = require('../middleware/auth');
-const { attachDbRole, requireDbRole } = require('../middleware/portalAuth');
+const { attachDbRole, requireDbRole, requirePermission } = require('../middleware/portalAuth');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { getUploadPath, ensureUploadDirectories } = require('../config/uploadConfig');
 

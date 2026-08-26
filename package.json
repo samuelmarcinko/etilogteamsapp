@@ -8,7 +8,8 @@
     "dev": "nodemon src/index.js",
     "migrate": "node src/database/migrate.js",
     "check:access-parity": "node scripts/check-access-parity.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "smoke": "node scripts/smoke-boot.js"
   },
   "keywords": [
     "microsoft-teams",
