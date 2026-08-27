@@ -81,6 +81,16 @@ export default function ProductionCard({ entry, onOpen, compact = false }) {
           <span className="text-[11px] text-gray-600">· {STATUS_LABEL[entry.status]}</span>
         )}
       </div>
+
+      {/* The card's own note, on the card. It used to be collected into a Notes
+          row under the whole shift, where it needed its FG number in front of it
+          to say which card it belonged to; here that is obvious. Hidden at
+          8-week density, where a card is barely two lines tall. */}
+      {entry.notes && !compact && (
+        <span className="line-clamp-2 whitespace-pre-line text-[11px] leading-snug text-gray-500">
+          {entry.notes}
+        </span>
+      )}
     </button>
   );
 }

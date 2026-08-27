@@ -1,19 +1,18 @@
-import { Fragment } from 'react';
 import clsx from 'clsx';
 import { AlertTriangle, Copy, Leaf, Plus } from 'lucide-react';
 
 import ProductionCard from './ProductionCard';
 import WeekDayList from './WeekDayList';
 import DayMenu from './DayMenu';
-import ShiftNoteCell from './ShiftNoteCell';
+import ShiftNote from './ShiftNote';
 import useMediaQuery from '../lib/useMediaQuery';
 import { shiftAccent } from '../lib/shifts';
 import { shiftNoteKey } from '../lib/weeks';
 import { DraggableCard, DroppableSlot, slotId } from './dnd';
 
 /**
- * One calendar week: a day header row, one row per shift, and a notes row -
- * the Excel layout from section 4.1, as a real grid.
+ * One calendar week: a day header row and one row per shift - the Excel layout
+ * from section 4.1, as a real grid.
  *
  * Slots are already built to hold several cards, because the historical data
  * does. Nothing here assumes exactly one.
@@ -116,13 +115,6 @@ export default function WeekBlock({
     normal: 'min-h-[56px]',
     compact: 'min-h-[42px]'
   }[density];
-  const noteMinHeight = density === 'roomy' ? 'min-h-[40px]' : 'min-h-[26px]';
-
-  /** Notes written on the cards in one slot - shown under the shift note. */
-  const cardNotesFor = (iso, shiftId) =>
-    (entriesByDay[iso]?.[shiftId] || [])
-      .filter((entry) => entry.notes)
-      .map((entry) => `${entry.fg_number || entry.custom_product_name}: ${entry.notes}`);
 
   // Days with no production at all, across every shift.
   const emptyDays = new Set(
@@ -268,10 +260,9 @@ export default function WeekBlock({
               />
             ))}
 
-            {/* one row per shift, each with its own notes row underneath */}
+            {/* one row per shift */}
             {shifts.map((shift, shiftIndex) => (
-              <Fragment key={shift.id}>
-              <Row label={shift.name} accent={shiftAccent(shiftIndex)} divide={shiftIndex > 0}>
+              <Row key={shift.id} label={shift.name} accent={shiftAccent(shiftIndex)} divide={shiftIndex > 0}>
                 {week.days.map((day) => {
                   const cards = entriesByDay[day.iso]?.[shift.id] || [];
                   const isFree = freeDays.has(day.iso);
@@ -367,30 +358,22 @@ export default function WeekBlock({
                           Add
                         </button>
                       )}
+
+                      {/* The note about the shift itself, in the cell that is
+                          that shift on that day. Last, so it sits under the
+                          cards it qualifies. */}
+                      {!compact && (
+                        <ShiftNote
+                          note={shiftNotes[shiftNoteKey(day.iso, shift.id)]}
+                          canManage={canManage}
+                          label={`${shift.name}, ${day.weekday} ${day.dayOfMonth}`}
+                          onSave={(text) => onSetShiftNote(day.iso, shift.id, text)}
+                        />
+                      )}
                     </DroppableSlot>
                   );
                 })}
               </Row>
-
-              {/* Notes for this shift, directly under it - a note about the
-                  morning belongs next to the morning, not in one shared row at
-                  the bottom that says nothing about which shift it means. */}
-              <Row label="Notes" muted accent={shiftAccent(shiftIndex)}>
-                {week.days.map((day) => (
-                  <ShiftNoteCell
-                    key={day.iso}
-                    note={shiftNotes[shiftNoteKey(day.iso, shift.id)]}
-                    cardNotes={cardNotesFor(day.iso, shift.id)}
-                    canManage={canManage}
-                    weekend={day.isWeekend}
-                    free={freeDays.has(day.iso)}
-                    minHeight={noteMinHeight}
-                    label={`${shift.name}, ${day.weekday} ${day.dayOfMonth}`}
-                    onSave={(text) => onSetShiftNote(day.iso, shift.id, text)}
-                  />
-                ))}
-              </Row>
-              </Fragment>
             ))}
           </div>
         </div>

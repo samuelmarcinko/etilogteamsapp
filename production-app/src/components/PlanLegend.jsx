@@ -75,7 +75,7 @@ export default function PlanLegend({ shifts, canManage }) {
       {canManage && (
         <>
           <Divider />
-          <span className="no-print">Click an empty cell to add · click a Notes cell to write</span>
+          <span className="no-print">Click an empty cell to add · hover a cell for its shift note</span>
         </>
       )}
     </div>

@@ -85,7 +85,7 @@ export default function WeekDayList({
                         <ProductionCard key={entry.id} entry={entry} onOpen={onOpenEntry} />
                       ))}
                       {note && (
-                        <p className="rounded border border-gray-200 bg-gray-25 px-2 py-1.5 text-[12px] leading-snug text-gray-600">
+                        <p className="rounded border border-dashed border-gray-300 bg-gray-50 px-2 py-1.5 text-[12px] leading-snug text-gray-700">
                           {note.note}
                         </p>
                       )}
