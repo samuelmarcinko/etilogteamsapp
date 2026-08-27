@@ -1138,10 +1138,21 @@ class ProductionEntry {
               e.id IS NOT NULL              AS entry_exists,
               e.deleted_at IS NOT NULL      AS entry_deleted,
               e.production_date             AS entry_date,
-              COALESCE(p.fg_number, e.custom_product_name) AS entry_label
+              COALESCE(p.fg_number, e.custom_product_name) AS entry_label,
+              -- The snapshots hold a product_id, and "product 41 became product
+              -- 58" tells a reader nothing. Resolving both ends here is one
+              -- primary-key lookup each and lets the viewer say what actually
+              -- changed. Guarded by the regex because a bulk operation's
+              -- snapshot is a different shape entirely.
+              bp.fg_number AS before_fg_number,
+              ap.fg_number AS after_fg_number
          FROM production_change_log l
          LEFT JOIN production_plan_entries e ON e.id = l.entry_id
          LEFT JOIN products p                ON p.id = e.product_id
+         LEFT JOIN products bp ON bp.id = CASE WHEN l.before_state ->> 'product_id' ~ '^\\d+$'
+                                               THEN (l.before_state ->> 'product_id')::int END
+         LEFT JOIN products ap ON ap.id = CASE WHEN l.after_state  ->> 'product_id' ~ '^\\d+$'
+                                               THEN (l.after_state  ->> 'product_id')::int END
         WHERE l.location_id = $1
           AND ($2::int IS NULL OR l.entry_id = $2)
           -- Keyset rather than OFFSET: the log only grows, and paging by id

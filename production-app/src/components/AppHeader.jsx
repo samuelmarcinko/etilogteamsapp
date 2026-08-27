@@ -117,11 +117,20 @@ export default function AppHeader({
             <span className="print-only text-[14px] font-semibold text-gray-700">
               {locations.find((location) => location.code === activeCode)?.name || activeCode}
             </span>
+            {/* Someone who cannot change anything is on the wrong screen: the
+                viewer is the same plan, read the way they need to read it. So
+                the badge that told them their limits is now the way out of
+                it. */}
             {readOnly && (
-              <span className="no-print inline-flex shrink-0 items-center gap-1 rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+              <a
+                href={`/production/view/${activeCode || ''}`}
+                className="no-print inline-flex shrink-0 items-center gap-1 rounded border border-gray-200 bg-gray-50
+                           px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500 transition
+                           hover:border-etilog hover:bg-etilog-light hover:text-etilog"
+              >
                 <Eye className="h-3 w-3" aria-hidden="true" />
                 View only
-              </span>
+              </a>
             )}
           </div>
 

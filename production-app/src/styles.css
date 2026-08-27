@@ -33,6 +33,23 @@
     min-width: 1178px;
   }
 
+  /* The viewer's week. Same shape as the planner's - a supervisor reads both
+     and should not have to re-learn the layout - but wider, because everything
+     inside it is set larger for a screen someone is standing in front of
+     rather than sitting at. 168 + 7x196 = 1540px; below that it scrolls
+     sideways exactly as the planner does. */
+  .viewer-grid {
+    display: grid;
+    grid-template-columns: 168px repeat(7, minmax(196px, 1fr));
+    min-width: 1540px;
+  }
+
+  @media (min-width: 1600px) {
+    .viewer-spread {
+      overflow: visible;
+    }
+  }
+
   /* Light rules. The structure is carried by the tinted bands - the header
      row, the free-day columns, today - rather than by heavy lines; drawn dark
      enough to read as a table, the lines fought those bands instead. */

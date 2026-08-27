@@ -348,8 +348,14 @@ function enterModule(module) {
 
     // Production Plan is a separate SPA served at /production/, not a hash
     // route inside this one, so it needs a real navigation.
+    //
+    // Someone who can only read the plan is sent to the view rather than to the
+    // planner with everything disabled: it is the same week, laid out to be read
+    // from a bench rather than arranged from a desk.
     if (module === 'production') {
-        window.location.href = '/production/';
+        const canPlan = resolveAccess('module:production:manage', 'production.manage',
+            ['admin'].includes(portalUser?.role));
+        window.location.href = canPlan ? '/production/' : '/production/view/';
         return;
     }
 
