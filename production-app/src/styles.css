@@ -25,11 +25,12 @@
      while the days scroll sideways on a tablet or phone. */
   .week-grid {
     display: grid;
-    /* Natural width is 104 + 7x132 = 1028px. Above that the day columns share
+    /* Natural width is 116 + 7x132 = 1040px. Above that the day columns share
        the space evenly; below it the wrapper scrolls sideways and the sticky
-       label column keeps the shift names in view. */
-    grid-template-columns: 104px repeat(7, minmax(132px, 1fr));
-    min-width: 1028px;
+       label column keeps the shift names in view. The label column fits
+       "AFTERNOON" alongside its icon - it was truncating at 104px. */
+    grid-template-columns: 116px repeat(7, minmax(132px, 1fr));
+    min-width: 1040px;
   }
 
   .week-cell {
@@ -38,7 +39,7 @@
 
   .row-label {
     @apply sticky left-0 z-10 border-b border-r border-gray-200 bg-gray-50
-           px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500;
+           px-2 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500;
   }
 }
 
@@ -62,7 +63,7 @@
   }
 
   .week-grid {
-    grid-template-columns: 90px repeat(7, 1fr);
+    grid-template-columns: 100px repeat(7, 1fr);
   }
 
   .print-block {

@@ -12,10 +12,20 @@ import clsx from 'clsx';
  * Whatever is under the pointer is what the user means. Fall back to rectangle
  * overlap only when the pointer is outside every target, so a drag that leaves
  * the window still resolves sensibly.
+ *
+ * The drawer needs one more rule. It is an overlay: the grid cells it covers
+ * are still under the pointer and still collide, and pointerWithin ranks by
+ * distance to each rectangle's centre - which a small day cell always wins
+ * against a panel the height of the window. So a card dropped onto the open
+ * drawer landed in whatever cell happened to be behind it. What is drawn on
+ * top is what the user is aiming at.
  */
 export function collisionDetection(args) {
   const byPointer = pointerWithin(args);
-  return byPointer.length > 0 ? byPointer : rectIntersection(args);
+  if (byPointer.length === 0) return rectIntersection(args);
+
+  const drawer = byPointer.find((collision) => collision.id === UNSCHEDULED_ID);
+  return drawer ? [drawer] : byPointer;
 }
 
 /**

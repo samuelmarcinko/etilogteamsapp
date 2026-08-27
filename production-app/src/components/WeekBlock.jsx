@@ -7,6 +7,7 @@ import WeekDayList from './WeekDayList';
 import DayMenu from './DayMenu';
 import ShiftNoteCell from './ShiftNoteCell';
 import useMediaQuery from '../lib/useMediaQuery';
+import { shiftAccent } from '../lib/shifts';
 import { shiftNoteKey } from '../lib/weeks';
 import { DraggableCard, DroppableSlot, slotId } from './dnd';
 
@@ -181,12 +182,11 @@ export default function WeekBlock({
             {/* one row per shift, each with its own notes row underneath */}
             {shifts.map((shift, shiftIndex) => (
               <Fragment key={shift.id}>
-              <Row label={shift.name}>
+              <Row label={shift.name} accent={shiftAccent(shiftIndex)} divide={shiftIndex > 0}>
                 {week.days.map((day) => {
                   const cards = entriesByDay[day.iso]?.[shift.id] || [];
                   const flag = dayFlags[day.iso];
                   const isFree = flag?.flag === 'free';
-                  const dayIsEmpty = emptyDays.has(day.iso);
 
                   return (
                     <DroppableSlot
@@ -197,6 +197,8 @@ export default function WeekBlock({
                       className={clsx(
                         'week-cell group/slot relative flex flex-col gap-1 p-1',
                         compact ? 'min-h-[42px]' : 'min-h-[56px]',
+                        // The rule that separates one shift block from the next.
+                        shiftIndex > 0 && 'border-t-2 border-t-gray-300',
                         day.isWeekend && !cards.length && 'bg-gray-50/60',
                         isFree && 'bg-emerald-50/50'
                       )}
@@ -221,8 +223,9 @@ export default function WeekBlock({
                           }
                           aria-label={`Add production to ${day.weekday} ${day.dayOfMonth}, ${shift.name}`}
                           className="group/add absolute inset-0 flex items-center justify-center rounded
-                                     transition hover:bg-etilog-light/60 focus-visible:outline-none
-                                     focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-etilog"
+                                     transition hover:bg-gray-100 focus-visible:outline-none
+                                     focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-etilog
+                                     group-data-[over]/slot:bg-transparent"
                         >
                           {emptyLabel(day, shiftIndex, isFree) && (
                             <span
@@ -237,7 +240,7 @@ export default function WeekBlock({
                           )}
                           <span
                             className="no-print absolute flex items-center gap-1 text-[10px] font-medium
-                                       text-etilog opacity-0 transition group-hover/add:opacity-100
+                                       text-gray-500 opacity-0 transition group-hover/add:opacity-100
                                        group-focus-visible/add:opacity-100"
                           >
                             <Plus className="h-3 w-3" aria-hidden="true" />
@@ -284,7 +287,7 @@ export default function WeekBlock({
               {/* Notes for this shift, directly under it - a note about the
                   morning belongs next to the morning, not in one shared row at
                   the bottom that says nothing about which shift it means. */}
-              <Row label="Notes" muted>
+              <Row label="Notes" muted accent={shiftAccent(shiftIndex)}>
                 {week.days.map((day) => (
                   <ShiftNoteCell
                     key={day.iso}
@@ -306,16 +309,31 @@ export default function WeekBlock({
   );
 }
 
-function Row({ label, children, muted = false }) {
+/**
+ * A grid row: its sticky label, then its seven day cells.
+ *
+ * `accent` marks which shift the row belongs to - a colour bar down the left of
+ * the label, and an icon on the shift row itself. Two rows of white cells stack
+ * into one undifferentiated block otherwise, and at 8-week density it stops
+ * being obvious which row is the morning.
+ */
+function Row({ label, children, muted = false, accent = null, divide = false }) {
+  const Icon = accent?.icon;
+
   return (
     <>
       <div
         className={clsx(
-          'row-label flex items-center',
-          muted && 'text-[10px] font-normal normal-case text-gray-400'
+          'row-label relative flex items-center gap-1.5',
+          muted && 'text-[10px] font-normal normal-case text-gray-400',
+          divide && 'border-t-2 border-t-gray-300'
         )}
       >
-        {label}
+        {accent && (
+          <span aria-hidden="true" className={clsx('absolute inset-y-0 left-0 w-[3px]', accent.bar)} />
+        )}
+        {Icon && !muted && <Icon className={clsx('h-3.5 w-3.5 shrink-0', accent.text)} aria-hidden="true" />}
+        <span className="truncate">{label}</span>
       </div>
       {children}
     </>

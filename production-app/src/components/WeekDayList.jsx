@@ -1,5 +1,6 @@
 import clsx from 'clsx';
 import ProductionCard from './ProductionCard';
+import { shiftAccent } from '../lib/shifts';
 import { shiftNoteKey } from '../lib/weeks';
 
 /**
@@ -63,16 +64,19 @@ export default function WeekDayList({
               <p className="text-[12px] text-gray-300">Nothing planned yet</p>
             ) : (
               <div className="flex flex-col gap-2">
-                {shifts.map((shift) => {
+                {shifts.map((shift, shiftIndex) => {
                   const cards = perShift[shift.id] || [];
                   const note = shiftNotes[shiftNoteKey(day.iso, shift.id)];
+                  const accent = shiftAccent(shiftIndex);
+                  const ShiftIcon = accent.icon;
                   // A shift with only a note still earns its heading - "morning
                   // is down for maintenance" is exactly the case with no cards.
                   if (!cards.length && !note) return null;
 
                   return (
                     <div key={shift.id} className="flex flex-col gap-1">
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                      <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                        <ShiftIcon className={clsx('h-3 w-3', accent.text)} aria-hidden="true" />
                         {shift.name}
                       </span>
                       {cards.map((entry) => (

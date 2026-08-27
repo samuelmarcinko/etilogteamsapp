@@ -4,6 +4,7 @@ import {
   DndContext,
   DragOverlay,
   KeyboardSensor,
+  MeasuringStrategy,
   PointerSensor,
   useSensor,
   useSensors
@@ -23,6 +24,7 @@ import {
 } from './lib/weeks';
 
 import AppHeader from './components/AppHeader';
+import PlanLegend from './components/PlanLegend';
 import WeekBlock from './components/WeekBlock';
 import ProductionCard from './components/ProductionCard';
 import EntryDetailDialog from './components/EntryDetailDialog';
@@ -281,6 +283,46 @@ export default function App() {
   });
 
   // ------------------------------------------------------------------- drag
+  /**
+   * Dragging a card off the right-hand edge opens the Unscheduled queue.
+   *
+   * Otherwise taking something out of the plan means dropping the card,
+   * opening the drawer from the toolbar, and picking the card up again - three
+   * steps for one intention. Hold near the edge for a moment and the drawer
+   * comes to meet the card, which is the same gesture as dragging a file onto
+   * a folder that is not open yet.
+   */
+  useEffect(() => {
+    if (!dragging || !canManage || drawerOpen) return;
+
+    const EDGE_PX = 72;
+    const DWELL_MS = 200; // long enough that crossing the edge by accident does nothing
+    let timer = null;
+
+    const cancel = () => {
+      if (timer) clearTimeout(timer);
+      timer = null;
+    };
+
+    const onMove = (event) => {
+      const atEdge = event.clientX > window.innerWidth - EDGE_PX;
+      if (atEdge && !timer) {
+        timer = setTimeout(() => {
+          setHistoryOpen(false);
+          setDrawerOpen(true);
+        }, DWELL_MS);
+      } else if (!atEdge) {
+        cancel();
+      }
+    };
+
+    window.addEventListener('pointermove', onMove);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      cancel();
+    };
+  }, [dragging, canManage, drawerOpen]);
+
   const sensors = useSensors(
     // A small distance threshold so a click still opens the card rather than
     // starting a drag the moment the pointer twitches.
@@ -349,6 +391,11 @@ export default function App() {
       onDragCancel={() => setDragging(null)}
       onDragEnd={handleDragEnd}
       autoScroll={{ threshold: { x: 0, y: 0.2 } }}
+      // Targets are measured continuously rather than once at drag start,
+      // because the Unscheduled panel slides in mid-drag: measured once, its
+      // rectangle would still be the off-screen one it had while closed, and
+      // the card would drop straight through it into Sunday.
+      measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
     >
       <div className="min-h-screen">
         {locations.data?.length > 0 && (
@@ -388,6 +435,8 @@ export default function App() {
               {!hasEntries && (
                 <EmptyRangeNote locationName={activeLocation?.name || 'this location'} />
               )}
+
+              {shifts.length > 0 && <PlanLegend shifts={shifts} canManage={canManage} />}
 
               {weeks.map((week) => (
                 <WeekBlock
@@ -445,6 +494,21 @@ export default function App() {
           onOpenEntry={setOpenEntry}
           onAdd={() => setFormState({ slot: null })}
         />
+
+        {/* Where to go to get the card out of the plan. Shown only while a drag
+            is in flight and the queue is closed, so it teaches the gesture
+            without occupying the screen the rest of the time. */}
+        {dragging && canManage && !drawerOpen && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none fixed inset-y-24 right-0 z-30 flex w-14 items-center justify-center
+                       rounded-l-lg border border-r-0 border-dashed border-gray-300 bg-white/85 backdrop-blur-[2px]"
+          >
+            <span className="rotate-90 whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+              Unscheduled
+            </span>
+          </div>
+        )}
 
         {/* The card that follows the pointer. Rendering it here rather than
             moving the original keeps the grid from reflowing mid-drag. */}
