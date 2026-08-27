@@ -180,28 +180,27 @@ async function seedLocation(client, location, productIds, index) {
         const color = priority === 'urgent' ? null
           : roll < 0.16 ? 'orange' : roll < 0.24 ? 'teal' : roll < 0.3 ? 'violet' : null;
 
-        // Past days are mostly finished; today and ahead are planned.
-        const status = day < -1 ? 'done' : day < 0 ? 'in_progress' : 'planned';
+        // Past days are finished; today and ahead are planned. Two statuses
+        // only, since migration 029.
+        const status = day < 0 ? 'done' : 'planned';
 
-        const split = random() < 0.12;
-        const a = 20 + Math.floor(random() * 130);
-        const b = 10 + Math.floor(random() * 40);
+        // A whole number of pieces, always: the "130+22" cells the Excel sheet
+        // carried are gone, and two deliveries are two cards.
+        const quantity = 20 + Math.floor(random() * 160);
 
         await client.query(
           `INSERT INTO production_plan_entries
              (location_id, production_date, shift_id, product_id, custom_product_name,
-              planned_quantity, quantity_breakdown, raw_quantity, priority, color, status, notes,
+              planned_quantity, priority, color, status, notes,
               sort_order, source_file, created_by, created_by_name, updated_by, updated_by_name)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'demo-seed','Demo seed','demo-seed','Demo seed')`,
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'demo-seed','Demo seed','demo-seed','Demo seed')`,
           [
             location.id,
             date,
             shift.id,
             useCustom ? null : productIds[fg],
             useCustom ? pick(CUSTOM_PRODUCTS) : null,
-            split ? a + b : a,
-            split ? JSON.stringify({ parts: [a, b] }) : null,
-            split ? `${a}+${b}` : null,
+            quantity,
             priority,
             color,
             status,

@@ -48,9 +48,7 @@ function snapshot(row) {
 function snapshotWithQuantity(row) {
   return {
     ...snapshot(row),
-    planned_quantity: row.planned_quantity,
-    quantity_breakdown: row.quantity_breakdown,
-    raw_quantity: row.raw_quantity
+    planned_quantity: row.planned_quantity
   };
 }
 
@@ -120,9 +118,9 @@ class ProductionEntry {
       const { rows } = await client.query(
         `INSERT INTO production_plan_entries
            (location_id, production_date, shift_id, product_id, custom_product_name,
-            planned_quantity, quantity_breakdown, raw_quantity, priority, color, status, notes,
+            planned_quantity, priority, color, status, notes,
             due_date, sort_order, created_by, created_by_name, updated_by, updated_by_name)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$15,$16)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$13,$14)
          RETURNING *`,
         [
           data.locationId,
@@ -131,8 +129,6 @@ class ProductionEntry {
           data.productId || null,
           data.customProductName || null,
           data.plannedQuantity ?? null,
-          data.quantityBreakdown ? JSON.stringify(data.quantityBreakdown) : null,
-          data.rawQuantity || null,
           data.priority || 'normal',
           data.color || null,
           data.status || 'planned',
@@ -195,16 +191,14 @@ class ProductionEntry {
             product_id          = $2,
             custom_product_name = $3,
             planned_quantity    = $4,
-            quantity_breakdown  = $5,
-            raw_quantity        = $6,
-            priority            = $7,
-            color               = $8,
-            status              = $9,
-            notes               = $10,
-            due_date            = $11,
+            priority            = $5,
+            color               = $6,
+            status              = $7,
+            notes               = $8,
+            due_date            = $9,
             version             = version + 1,
-            updated_by          = $12,
-            updated_by_name     = $13
+            updated_by          = $10,
+            updated_by_name     = $11
           WHERE id = $1
           RETURNING *`,
         [
@@ -212,8 +206,6 @@ class ProductionEntry {
           data.productId ?? null,
           data.customProductName ?? null,
           data.plannedQuantity ?? null,
-          data.quantityBreakdown ? JSON.stringify(data.quantityBreakdown) : null,
-          data.rawQuantity ?? null,
           data.priority || 'normal',
           data.color ?? null,
           data.status || 'planned',
@@ -229,7 +221,64 @@ class ProductionEntry {
         entryId: id,
         action: 'updated',
         summary: 'Card edited',
-        before: { ...before, quantity_breakdown: before.quantity_breakdown },
+        before,
+        after: rows[0],
+        user
+      });
+
+      await client.query('COMMIT');
+      return { entry: rows[0] };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // ------------------------------------------------------------------ status
+  /**
+   * Close a card, or reopen it.
+   *
+   * Deliberately not version-checked. Everything else on a card is an opinion
+   * two planners can hold differently at once; "this was made" is not, and a
+   * 409 here would only send a supervisor back to reload and click again.
+   * Setting the status it already has is a no-op rather than a fresh log line.
+   */
+  static async setStatus(id, status, user) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const { rows: current } = await client.query(
+        'SELECT * FROM production_plan_entries WHERE id = $1 AND deleted_at IS NULL FOR UPDATE',
+        [id]
+      );
+      if (!current[0]) {
+        await client.query('ROLLBACK');
+        return { notFound: true };
+      }
+
+      const before = current[0];
+      if (before.status === status) {
+        await client.query('ROLLBACK');
+        return { entry: before };
+      }
+
+      const { rows } = await client.query(
+        `UPDATE production_plan_entries
+            SET status = $2, version = version + 1, updated_by = $3, updated_by_name = $4
+          WHERE id = $1
+          RETURNING *`,
+        [id, status, user?.id || null, user?.name || null]
+      );
+
+      await logChange(client, {
+        locationId: before.location_id,
+        entryId: id,
+        action: 'updated',
+        summary: status === 'done' ? 'Marked as done' : 'Reopened',
+        before,
         after: rows[0],
         user
       });
@@ -427,7 +476,7 @@ class ProductionEntry {
           hasQuantity
             ? `UPDATE production_plan_entries
                   SET production_date = $2, shift_id = $3, sort_order = $4, deleted_at = $5,
-                      planned_quantity = $8, quantity_breakdown = $9, raw_quantity = $10,
+                      planned_quantity = $8,
                       version = version + 1, updated_by = $6, updated_by_name = $7
                 WHERE id = $1
                 RETURNING *`
@@ -444,13 +493,10 @@ class ProductionEntry {
             position.deleted_at || null,
             user?.id || null,
             user?.name || null,
-            ...(hasQuantity
-              ? [
-                  position.planned_quantity ?? null,
-                  position.quantity_breakdown ? JSON.stringify(position.quantity_breakdown) : null,
-                  position.raw_quantity ?? null
-                ]
-              : [])
+            // Snapshots written before migration 029 also carry the retired
+            // breakdown columns; the total beside them is what survived, and it
+            // is the only part still restorable.
+            ...(hasQuantity ? [position.planned_quantity ?? null] : [])
           ]
         );
         if (rows[0]) restored.push(rows[0]);
@@ -509,7 +555,7 @@ class ProductionEntry {
   static async findUnscheduled(locationId) {
     const { rows } = await pool.query(
       `SELECT e.id, e.location_id, e.product_id, p.fg_number, p.description AS product_description,
-              e.custom_product_name, e.planned_quantity, e.quantity_breakdown, e.raw_quantity,
+              e.custom_product_name, e.planned_quantity,
               e.priority, e.color, e.status, e.notes, e.due_date, e.version, e.updated_at, e.updated_by_name
          FROM production_plan_entries e
          LEFT JOIN products p ON p.id = e.product_id
@@ -894,10 +940,10 @@ class ProductionEntry {
         const { rows } = await client.query(
           `INSERT INTO production_plan_entries
              (location_id, production_date, shift_id, product_id, custom_product_name,
-              planned_quantity, quantity_breakdown, raw_quantity, priority, color, status, notes,
+              planned_quantity, priority, color, status, notes,
               sort_order, created_by, created_by_name, updated_by, updated_by_name)
            SELECT location_id, $3::date, shift_id, product_id, custom_product_name,
-                  planned_quantity, quantity_breakdown, raw_quantity, priority, color, 'planned', notes,
+                  planned_quantity, priority, color, 'planned', notes,
                   sort_order + ${ARRIVAL_OFFSET}, $4, $5, $4, $5
              FROM production_plan_entries
             WHERE location_id = $1 AND production_date = $2 AND deleted_at IS NULL
@@ -976,11 +1022,9 @@ class ProductionEntry {
       const remainder = total - keepQuantity;
       const undoSnapshot = snapshotWithQuantity(entry);
 
-      // Splitting invalidates the original breakdown and its raw string: the
-      // card no longer holds what that text described.
       await client.query(
         `UPDATE production_plan_entries
-            SET planned_quantity = $2, quantity_breakdown = NULL, raw_quantity = NULL,
+            SET planned_quantity = $2,
                 version = version + 1, updated_by = $3, updated_by_name = $4
           WHERE id = $1`,
         [id, keepQuantity, user?.id || null, user?.name || null]
@@ -1150,6 +1194,22 @@ class ProductionEntry {
       [fgNumber, description || null]
     );
     return rows[0];
+  }
+
+  /**
+   * Correct an FG's description.
+   *
+   * The master list came out of Excel, where a wrong or missing description
+   * stayed wrong forever. It belongs to the FG, so this shows up on every card
+   * carrying that number - which is the behaviour a planner expects when they
+   * fix a product name.
+   */
+  static async setProductDescription(id, description) {
+    const { rows } = await pool.query(
+      'UPDATE products SET description = $2 WHERE id = $1 RETURNING *',
+      [id, description]
+    );
+    return rows[0] || null;
   }
 }
 

@@ -10,9 +10,10 @@ import { CARD_COLORS, DEFAULT_COLOR } from '../lib/colors';
 /**
  * Add or edit a card.
  *
- * Quantity is a free text field on purpose: the sheets contain "30", "130+22"
- * and the occasional note a number cannot hold, and the server keeps all three
- * shapes rather than forcing one.
+ * Quantity is a plain count of pieces. It used to be free text, because the
+ * Excel sheets held cells like "130+22" - two deliveries against one FG,
+ * written into the one cell a spreadsheet gave them. Here two deliveries are
+ * two cards, so the field is a number and nothing else (migration 029).
  */
 
 // Two, and no more. A planner marking everything "high" tells nobody anything;
@@ -23,11 +24,10 @@ const PRIORITIES = [
   ['urgent', 'Urgent']
 ];
 
+// Likewise two: still to make, or made.
 const STATUSES = [
   ['planned', 'Planned'],
-  ['in_progress', 'In progress'],
-  ['done', 'Done'],
-  ['cancelled', 'Cancelled']
+  ['done', 'Done']
 ];
 
 /**
@@ -76,10 +76,8 @@ const inputClass =
 
 /** The card's stored quantity, as the input should show it. */
 function initialQuantity(entry) {
-  if (!entry) return '';
-  if (entry.raw_quantity) return entry.raw_quantity;
-  if (entry.planned_quantity != null) return String(Number(entry.planned_quantity));
-  return '';
+  if (!entry || entry.planned_quantity == null) return '';
+  return String(Number(entry.planned_quantity));
 }
 
 export default function EntryFormDialog({
@@ -95,6 +93,11 @@ export default function EntryFormDialog({
   const isEdit = Boolean(entry);
 
   const [product, setProduct] = useState(null);
+  // The FG's description, and what it was when the dialog opened - it belongs
+  // to the product rather than this card, so it is only written back when
+  // someone actually changed it here.
+  const [description, setDescription] = useState('');
+  const [descriptionBase, setDescriptionBase] = useState('');
   const [quantity, setQuantity] = useState('');
   const [priority, setPriority] = useState('normal');
   const [color, setColor] = useState(null);
@@ -113,10 +116,13 @@ export default function EntryFormDialog({
         ? {
             productId: entry.product_id || null,
             fgNumber: entry.fg_number || null,
-            customProductName: entry.custom_product_name || null
+            customProductName: entry.custom_product_name || null,
+            description: entry.product_description || ''
           }
         : null
     );
+    setDescription(entry?.product_id ? entry.product_description || '' : '');
+    setDescriptionBase(entry?.product_id ? entry.product_description || '' : '');
     setQuantity(initialQuantity(entry));
     setPriority(entry?.priority || 'normal');
     setColor(entry?.color || null);
@@ -126,17 +132,35 @@ export default function EntryFormDialog({
     setShiftId(String(entry?.shift_id || slot?.shiftId || ''));
   }, [open, entry, slot]);
 
+  /** Picking a different FG brings that FG's own description with it. */
+  const chooseProduct = (next) => {
+    setProduct(next);
+    const nextDescription = next?.productId ? next.description || '' : '';
+    setDescription(nextDescription);
+    setDescriptionBase(nextDescription);
+  };
+
   const submit = (event) => {
     event.preventDefault();
     if (!product || (!product.productId && !product.customProductName)) {
       setError('Choose an FG number or type a product name.');
       return;
     }
+    if (quantity !== '' && !/^\d+$/.test(quantity.trim())) {
+      setError('Quantity is a whole number of pieces.');
+      return;
+    }
     setError(null);
+
+    const descriptionChanged =
+      Boolean(product.productId) && description.trim() !== descriptionBase.trim();
 
     onSubmit({
       productId: product.productId,
       customProductName: product.customProductName,
+      // undefined rather than null when untouched, so nothing is written to the
+      // product master on an ordinary card edit.
+      productDescription: descriptionChanged ? description.trim() : undefined,
       quantity,
       priority,
       color: priority === 'urgent' ? null : color,
@@ -179,17 +203,41 @@ export default function EntryFormDialog({
 
             <div className="flex max-h-[70vh] min-h-[26rem] flex-col gap-3.5 overflow-y-auto px-5 py-4">
               <Field label="Product" as="div">
-                <FgCombobox value={product} onChange={setProduct} autoFocus={!isEdit} />
+                <FgCombobox value={product} onChange={chooseProduct} autoFocus={!isEdit} />
               </Field>
+
+              {/* The FG master list arrived from Excel, where a missing or wrong
+                  description stayed that way. A custom product has no master
+                  row - its name is already the description. */}
+              {product?.productId && (
+                <Field label="Product description">
+                  <input
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="e.g. GLT 70A541155 Sicherheitsg. VO EBSS ESD"
+                    maxLength={200}
+                    className={inputClass}
+                  />
+                  <span className="text-[12px] text-gray-500">
+                    Belongs to {product.fgNumber} — every card with this FG shows it.
+                  </span>
+                </Field>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Quantity">
+                  {/* Deliberately not type="number": there, a browser reports
+                      anything it considers invalid as an empty value, so typing
+                      the old "130+22" would leave the field showing "130+" while
+                      the form held nothing. Filtering the text keeps what is on
+                      screen and what will be saved the same thing. */}
                   <input
                     value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
-                    placeholder="30, or 130+22"
-                    inputMode="text"
-                    className={inputClass}
+                    onChange={(e) => setQuantity(e.target.value.replace(/\D/g, ''))}
+                    placeholder="pieces, e.g. 240"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    className={clsx(inputClass, 'tabular-nums')}
                   />
                 </Field>
 

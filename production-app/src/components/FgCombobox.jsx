@@ -77,7 +77,12 @@ export default function FgCombobox({ value, onChange, autoFocus }) {
                 key={product.id}
                 value={String(product.id)}
                 onSelect={() =>
-                  onChange({ productId: product.id, fgNumber: product.fg_number, customProductName: null })
+                  onChange({
+                    productId: product.id,
+                    fgNumber: product.fg_number,
+                    customProductName: null,
+                    description: product.description || ''
+                  })
                 }
                 className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[14px] data-[selected=true]:bg-gray-100"
               >
@@ -96,7 +101,8 @@ export default function FgCombobox({ value, onChange, autoFocus }) {
                   onChange({
                     productId: created.id,
                     fgNumber: created.fg_number,
-                    customProductName: null
+                    customProductName: null,
+                    description: created.description || ''
                   });
                 }}
                 className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[14px] data-[selected=true]:bg-gray-100"
@@ -113,7 +119,9 @@ export default function FgCombobox({ value, onChange, autoFocus }) {
               <Command.Item
                 value="__custom"
                 onSelect={() =>
-                  onChange({ productId: null, fgNumber: null, customProductName: query.trim() })
+                  onChange({
+                    productId: null, fgNumber: null, customProductName: query.trim(), description: ''
+                  })
                 }
                 className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[14px] data-[selected=true]:bg-gray-100"
               >

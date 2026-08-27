@@ -201,10 +201,21 @@ export default function App() {
   });
 
   const saveMutation = useMutation({
-    mutationFn: ({ entry, payload }) =>
-      entry
-        ? api.updateEntry(entry.id, { ...payload, version: entry.version })
-        : api.createEntry(payload),
+    mutationFn: async ({ entry, payload }) => {
+      const { productDescription, ...card } = payload;
+
+      const result = entry
+        ? await api.updateEntry(entry.id, { ...card, version: entry.version })
+        : await api.createEntry(card);
+
+      // The description lives on the FG, so it is a second write - and it goes
+      // after the card, so a version conflict on the card leaves the product
+      // master untouched.
+      if (productDescription !== undefined && card.productId) {
+        await api.updateProduct(card.productId, productDescription);
+      }
+      return result;
+    },
     onSuccess: (result, variables) => {
       setFormState(null);
       refresh();
@@ -213,6 +224,19 @@ export default function App() {
       } else {
         offerUndo('Production added', result.undo);
       }
+    },
+    onError: (error) => toast.error(error.message)
+  });
+
+  // Closing a card from its detail popup, and reopening one closed by mistake.
+  const statusMutation = useMutation({
+    mutationFn: ({ entry, status }) => api.setEntryStatus(entry.id, status),
+    onSuccess: (_result, { entry, status }) => {
+      setOpenEntry(null);
+      refresh();
+      toast.success(
+        status === 'done' ? `${cardLabel(entry)} marked as done` : `${cardLabel(entry)} reopened`
+      );
     },
     onError: (error) => toast.error(error.message)
   });
@@ -533,6 +557,8 @@ export default function App() {
             setOpenEntry(null);
             setSplitting(entry);
           }}
+          onSetStatus={(entry, status) => statusMutation.mutate({ entry, status })}
+          statusPending={statusMutation.isPending}
         />
 
         <EntryFormDialog

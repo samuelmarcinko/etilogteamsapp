@@ -138,20 +138,13 @@ export function indexCalendarExceptions(exceptions) {
 }
 
 /**
- * Quantity as the card shows it: the clean number, or the original string when
- * the import kept something a number cannot express.
+ * Quantity as the card shows it: a whole number of pieces, or null.
+ *
+ * It used to also carry a breakdown, for the "130+22" cells the Excel sheet
+ * held. Those are gone (migration 029) - two deliveries are two cards.
  */
 export function formatQuantity(entry) {
-  if (entry.planned_quantity == null && !entry.raw_quantity) return null;
-
-  const parts = entry.quantity_breakdown?.parts;
-  if (Array.isArray(parts) && parts.length > 1) {
-    return { main: parts.reduce((a, b) => a + Number(b), 0), breakdown: parts.join(' + ') };
-  }
-
-  if (entry.planned_quantity != null) {
-    return { main: Number(entry.planned_quantity), breakdown: null };
-  }
-
-  return { main: null, breakdown: entry.raw_quantity };
+  if (entry.planned_quantity == null) return null;
+  const quantity = Number(entry.planned_quantity);
+  return Number.isFinite(quantity) ? quantity : null;
 }

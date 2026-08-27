@@ -59,8 +59,6 @@ class ProductionPlan {
               p.description AS product_description,
               e.custom_product_name,
               e.planned_quantity,
-              e.quantity_breakdown,
-              e.raw_quantity,
               e.priority,
               e.color,
               e.status,

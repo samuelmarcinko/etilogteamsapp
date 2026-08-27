@@ -101,6 +101,13 @@ export const api = {
   createProduct: (fgNumber, description) =>
     request('/api/production/products', json({ fgNumber, description })).then((r) => r.data),
 
+  /** Correct an FG's description. It belongs to the FG, not to one card. */
+  updateProduct: (id, description) =>
+    request(`/api/production/products/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ description })
+    }).then((r) => r.data),
+
   // ------------------------------------------------------------------ writes
   createEntry: (payload) => request('/api/production/entries', json(payload)),
 
@@ -108,6 +115,10 @@ export const api = {
     request(`/api/production/entries/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
 
   deleteEntry: (id) => request(`/api/production/entries/${id}`, { method: 'DELETE' }),
+
+  /** Close a card, or reopen it. Not version-checked - see the route. */
+  setEntryStatus: (id, status) =>
+    request(`/api/production/entries/${id}/status`, json({ status })).then((r) => r.data),
 
   /**
    * Move a card. Without `mode`, an occupied target rejects with

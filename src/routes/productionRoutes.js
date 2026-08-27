@@ -33,16 +33,15 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 // planner's choosing instead - see migration 028.
 const PRIORITIES = ['normal', 'urgent'];
 const COLORS = ['sky', 'cyan', 'teal', 'emerald', 'lime', 'amber', 'orange', 'pink', 'violet', 'slate'];
-const STATUSES = ['planned', 'in_progress', 'done', 'cancelled'];
+// Two statuses, for the same reason: a card is still to be made, or it is
+// finished. See migration 029.
+const STATUSES = ['planned', 'done'];
 const DAY_FLAGS = ['free', 'important', 'urgent'];
 
 /**
  * Validate and normalise a card payload.
  *
- * Returns { error } or { value }. Quantity accepts either a plain number or a
- * string like "130+22", which is kept verbatim in raw_quantity while the parts
- * and their total go into the structured columns - the Excel data has both
- * shapes and neither should be lost.
+ * Returns { error } or { value }.
  */
 function parseEntryPayload(body, { requireLocation }) {
   const value = {};
@@ -105,38 +104,27 @@ function parseEntryPayload(body, { requireLocation }) {
   return { value };
 }
 
+/**
+ * Quantity: a whole number of pieces, or nothing at all.
+ *
+ * The Excel sheets used to carry "130+22" - two deliveries typed into one cell
+ * because a cell was all there was. Two deliveries are two cards here, so the
+ * composite forms are gone (migration 029) and anything that is not a count is
+ * rejected rather than stored as text nobody can add up.
+ */
 function parseQuantity(input) {
   if (input == null || input === '') {
-    return { value: { plannedQuantity: null, quantityBreakdown: null, rawQuantity: null } };
+    return { value: { plannedQuantity: null } };
   }
 
-  if (typeof input === 'number') {
-    if (!Number.isFinite(input) || input < 0) return { error: 'quantity must be a positive number' };
-    return { value: { plannedQuantity: input, quantityBreakdown: null, rawQuantity: null } };
+  const raw = typeof input === 'number' ? input : String(input).trim();
+  if (raw === '') return { value: { plannedQuantity: null } };
+
+  const quantity = Number(raw);
+  if (!Number.isInteger(quantity) || quantity < 0) {
+    return { error: 'quantity must be a whole number of pieces' };
   }
-
-  const raw = String(input).trim();
-
-  // "130+22" and friends: keep the original string, store the parts and total.
-  if (/^\d+(\s*\+\s*\d+)+$/.test(raw)) {
-    const parts = raw.split('+').map((p) => Number(p.trim()));
-    return {
-      value: {
-        plannedQuantity: parts.reduce((a, b) => a + b, 0),
-        quantityBreakdown: { parts },
-        rawQuantity: raw
-      }
-    };
-  }
-
-  const single = Number(raw);
-  if (Number.isFinite(single) && single >= 0) {
-    return { value: { plannedQuantity: single, quantityBreakdown: null, rawQuantity: null } };
-  }
-
-  // Anything else is kept verbatim rather than rejected; the sheets contain
-  // values a number cannot express and losing them would be worse.
-  return { value: { plannedQuantity: null, quantityBreakdown: null, rawQuantity: raw } };
+  return { value: { plannedQuantity: quantity } };
 }
 
 /**
@@ -245,6 +233,26 @@ router.post('/products', manageAccess, asyncHandler(async (req, res) => {
   res.status(201).json({ data: product });
 }));
 
+// PATCH /api/production/products/:id  { description }
+//
+// The description belongs to the FG, not to one card, so editing it here shows
+// up on every card carrying that number - which is the point: the master list
+// arrived from Excel with descriptions nobody could correct.
+router.patch('/products/:id', manageAccess, asyncHandler(async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'Bad Request', message: 'id must be an integer' });
+  }
+  if (typeof req.body.description !== 'string' && req.body.description !== null) {
+    return res.status(400).json({ error: 'Bad Request', message: 'description must be text' });
+  }
+
+  const description = typeof req.body.description === 'string' ? req.body.description.trim() : '';
+  const product = await ProductionEntry.setProductDescription(id, description || null);
+  if (!product) return res.status(404).json({ error: 'Product not found' });
+  res.json({ data: product });
+}));
+
 // =========================================================
 // Unscheduled queue
 // =========================================================
@@ -287,6 +295,25 @@ router.patch('/entries/:id', manageAccess, asyncHandler(async (req, res) => {
       data: result.current
     });
   }
+  res.json({ data: result.entry });
+}));
+
+// POST /api/production/entries/:id/status  { status }
+//
+// Closing a card is the commonest write there is, and routing it through the
+// edit dialog made it three clicks and a form nobody wanted to read. No version
+// check here on purpose: "this is finished" does not conflict with someone
+// else's edit to the quantity, and refusing it would only mean a reload and a
+// second click to say the same true thing.
+router.post('/entries/:id/status', manageAccess, asyncHandler(async (req, res) => {
+  const status = req.body.status;
+  if (!STATUSES.includes(status)) {
+    return res.status(400).json({ error: 'Bad Request', message: `status must be one of ${STATUSES.join(', ')}` });
+  }
+
+  const result = await ProductionEntry.setStatus(req.params.id, status, currentUser(req));
+  if (result.notFound) return res.status(404).json({ error: 'Entry not found' });
+  // No undo snapshot: the button that set this also unsets it, one click away.
   res.json({ data: result.entry });
 }));
 
@@ -476,8 +503,8 @@ router.post('/bulk/copy', manageAccess, asyncHandler(async (req, res) => {
 // POST /api/production/entries/:id/split  { keepQuantity, productionDate, shiftId }
 router.post('/entries/:id/split', manageAccess, asyncHandler(async (req, res) => {
   const keepQuantity = Number(req.body.keepQuantity);
-  if (!Number.isFinite(keepQuantity) || keepQuantity <= 0) {
-    return res.status(400).json({ error: 'Bad Request', message: 'keepQuantity must be a positive number' });
+  if (!Number.isInteger(keepQuantity) || keepQuantity <= 0) {
+    return res.status(400).json({ error: 'Bad Request', message: 'keepQuantity must be a whole number of pieces' });
   }
   if (req.body.productionDate && !ISO_DATE.test(req.body.productionDate)) {
     return res.status(400).json({ error: 'Bad Request', message: 'productionDate must be YYYY-MM-DD' });

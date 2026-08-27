@@ -1,27 +1,25 @@
 import * as Dialog from '@radix-ui/react-dialog';
-import { Pencil, Split, X } from 'lucide-react';
+import { Check, Pencil, RotateCcw, Split, X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { formatQuantity } from '../lib/weeks';
 
 /**
- * Card detail (section 4.2): full FG, product name, quantity with its
- * breakdown, shift, notes, priority and who last touched it.
+ * Card detail (section 4.2): full FG, product name, quantity, shift, notes,
+ * priority and who last touched it.
+ *
+ * Closing a card is the commonest thing anyone does here, so it is one button
+ * on this screen rather than a trip through the edit form to change a dropdown
+ * nobody wants to read. It is a toggle: a card closed by mistake reopens from
+ * the same place.
  *
  * Radix handles the focus trap, escape key and ARIA wiring.
  */
 
-const PRIORITY_LABEL = {
-  normal: 'Normal',
-  high: 'High',
-  urgent: 'Urgent',
-  blocked: 'Blocked'
-};
+const PRIORITY_LABEL = { normal: 'Normal', urgent: 'Urgent' };
 
 const PRIORITY_CLASS = {
   normal: 'bg-gray-100 text-gray-700',
-  high: 'bg-orange-100 text-orange-800',
-  urgent: 'bg-etilog text-white',
-  blocked: 'bg-amber-100 text-amber-900'
+  urgent: 'bg-etilog text-white'
 };
 
 function Field({ label, children }) {
@@ -40,13 +38,16 @@ function asDate(value) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-export default function EntryDetailDialog({ entry, open, onOpenChange, canManage, onEdit, onSplit }) {
+export default function EntryDetailDialog({
+  entry, open, onOpenChange, canManage, onEdit, onSplit, onSetStatus, statusPending
+}) {
   if (!entry) return null;
 
   const quantity = formatQuantity(entry);
   const productionDate = asDate(entry.production_date);
   const updatedAt = asDate(entry.updated_at);
   const priority = entry.priority || 'normal';
+  const isDone = entry.status === 'done';
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -88,18 +89,21 @@ export default function EntryDetailDialog({ entry, open, onOpenChange, canManage
             <Field label="Shift">{entry.shift_name}</Field>
 
             <Field label="Quantity">
-              {quantity?.main != null ? (
-                <span className="tabular-nums">
-                  {quantity.main} pcs
-                  {quantity.breakdown && (
-                    <span className="ml-1.5 text-gray-400">({quantity.breakdown})</span>
-                  )}
+              {quantity != null ? <span className="tabular-nums">{quantity} pcs</span> : null}
+            </Field>
+
+            <Field label="Status">
+              {isDone ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 py-0.5 pl-1 pr-2 text-[12px] font-semibold text-emerald-800">
+                  <Check className="h-3 w-3" aria-hidden="true" strokeWidth={3} />
+                  Done
                 </span>
               ) : (
-                quantity?.breakdown
+                <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[12px] font-semibold text-gray-700">
+                  Planned
+                </span>
               )}
             </Field>
-            <Field label="Status">{(entry.status || 'planned').replace(/_/g, ' ')}</Field>
 
             {entry.notes && (
               <div className="col-span-2">
@@ -124,7 +128,31 @@ export default function EntryDetailDialog({ entry, open, onOpenChange, canManage
           </dl>
 
           {canManage && (
-            <div className="flex justify-end gap-2 border-t border-gray-200 px-5 py-3">
+            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 px-5 py-3">
+              {/* Closing the card is the one action worth reaching for without
+                  reading the rest of the row, so it leads and it is green. */}
+              {isDone ? (
+                <button
+                  type="button"
+                  onClick={() => onSetStatus?.(entry, 'planned')}
+                  disabled={statusPending}
+                  className="mr-auto flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[14px] font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-800 disabled:opacity-60"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                  Reopen
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onSetStatus?.(entry, 'done')}
+                  disabled={statusPending}
+                  className="mr-auto flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-[14px] font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60"
+                >
+                  <Check className="h-4 w-4" aria-hidden="true" strokeWidth={3} />
+                  Mark as Done
+                </button>
+              )}
+
               {/* Only a card with a plain number can be split in two. */}
               {entry.planned_quantity != null && Number(entry.planned_quantity) > 1 && (
                 <button

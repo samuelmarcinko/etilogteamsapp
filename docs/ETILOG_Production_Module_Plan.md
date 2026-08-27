@@ -31,7 +31,7 @@ Analýza priamo zo súboru, nie zo screenshotu:
 | **Farba nesie význam.** Žltá `FFFF00` = urgent/špeciál (`TESLA ABD`), zelená `92D050` = `FREI`/voľno. Časť zelených je theme-indexed. | Farba → dátové pole `priority` + `status`, nie CSS. Import mapuje fill color na priority. |
 | **Voľný text je bežný.** `TESLA ABD`, `Daimler B-Säule`, `Blocker Daimler Gefacheumbau`, `C/X118 Dachh. Cover...`. | „Custom / non-SAP" produkt je plnohodnotná cesta od začiatku, nie edge-case. |
 | **FG má dve podoby.** Staré `FG100217`, nové `FG100829_00_GLT_70A541155_Sicherheitsg_VO_EBSS_ESD`. | FG master + autocomplete parsuje FG prefix (`^FG\d+`) z dlhého stringu; zvyšok = description. |
-| **Množstvo má viac formátov.** `30`, string `130+22`, alebo osamotené `37` v poobednom riadku. | `planned_quantity` (numeric) + `quantity_breakdown` (jsonb) + `raw_quantity` (text, pre fidelity importu). |
+| **Množstvo má viac formátov.** `30`, string `130+22`, alebo osamotené `37` v poobednom riadku. | ~~`planned_quantity` + `quantity_breakdown` + `raw_quantity`~~ → **revidované (migrácia 029):** množstvo je jedno celé číslo (`planned_quantity integer`). `130+22` boli dve dodávky vtlačené do jednej bunky, lebo Excel nič iné nemal — tu sú to dve karty (alebo jedna rozdelená cez Split). |
 | **Notizen môžu byť viacriadkové.** Napr. `*USES:\nPolybrush single: 1715 meters`. | `notes` text pole, zachovať newlines. |
 | **Hlavička hárku = kapacitné dáta.** `Produktionsband: Presov`, `58 Leute`, `435 Brutto / 390 Netto Tagesstunden`, `Meisterin`. | Uložiť do Location entity ako metadata (zíde sa pre budúci capacity planning). |
 | **FREI je per-deň, nie per-slot.** Zelený stĺpec = celý deň voľno (víkend, ale nie automaticky — v sobotu môže byť výroba). | Model: default work calendar + exceptions. Žiadne natvrdo „So/Ne = voľno". |
@@ -149,12 +149,11 @@ shift_id               FK          -- flexibilné, NIE natvrdo morning/afternoon
 product_id             FK  nullable -- FG z master tabuľky
 custom_product_name    text nullable -- pre TESLA ABD a spol.
 
-planned_quantity       numeric nullable
-quantity_breakdown     jsonb nullable  -- napr. {"parts":[130,22]}
-raw_quantity           text nullable   -- fidelity importu ("130+22")
+planned_quantity       integer nullable -- celé kusy, nič iné (migrácia 029)
 
-priority               enum(normal, high, urgent, blocked)
-status                 enum(planned, in_progress, done, cancelled)
+priority               enum(normal, urgent)            -- migrácia 028
+color                  enum(10 farieb) nullable        -- migrácia 028, vlastné zoskupenie
+status                 enum(planned, done)             -- migrácia 029
 notes                  text nullable
 
 sort_order             int             -- poradie kariet v jednom slote
@@ -174,7 +173,8 @@ deleted_at             timestamp       -- soft delete
 - **Žiadny UNIQUE constraint na jeden product per slot.** Slot (deň + smena) môže mať viac kariet — reálne dáta to už majú (prototypy ako 3. dvojica). UI defaultne ukáže jednu, ale DB to zvládne bez prerábania o rok.
 - **`version` na optimistic concurrency** — dvaja plánovači si potichu neprepíšu zmeny.
 - **`custom_product_name` vedľa `product_id`** — buď FG z master, alebo voľný text.
-- **`raw_quantity` + `planned_quantity`** — DB má čisté číslo (pre budúci reporting/SAP), ale nič sa nestratí.
+- **Množstvo je jedno celé číslo** — pôvodne to mali byť tri stĺpce (`planned_quantity` + `quantity_breakdown` + `raw_quantity`), aby sa zachovala vernosť importu. V praxi každý breakdown sedel presne na súčet vedľa seba, takže sa nič nestratilo a stĺpce zmizli (029). Kusy sa počítajú, nemerajú: `integer`, nie `numeric(12,2)`.
+- **Dva stavy, dve priority** — štyri stavy boli dedičstvo generického workflow; plán sa číta na jeden pohľad a tretí odtieň „rozrobené" ho len spomaľoval. Zostalo `planned` / `done`. Rovnako priority: jeden alarm (`urgent`) a farba na zoskupenie príbuznej práce (028).
 
 ### 3.2 production_shifts (flexibilné smeny)
 
@@ -231,9 +231,12 @@ Namiesto textu natlačeného do bunky — malá karta:
 FG100865          [URGENT]
 Outside mirror AU310
 30 pcs
+Notizen (ak sú)
 ```
 
-Po kliknutí/hoveri detail: full FG, product name, planned qty (+ breakdown `130 + 22`), shift, location, notes, priority, last modified, modified by, change history. FG číslo dominantné (ľudia pracujú podľa neho).
+Hotová karta ostáva v týždni — týždeň je aj záznam, nielen plán — ale povie to naraz tromi tichými spôsobmi: zelený ✓ badge **DONE**, jemné prečiarknutie FG čísla a menší kontrast. Ktorýkoľvek z nich sám sa cez vytlačený osemtýždňový prehľad stratí.
+
+Po kliknutí detail: full FG, product description, planned qty, shift, location, notes, priority, status, last modified, modified by, change history. FG číslo dominantné (ľudia pracujú podľa neho). V detaile sú aj akcie: zelený **Mark as Done** (resp. **Reopen**), **Split** a **Edit** — zatvorenie karty je najčastejší zápis v celom module a nemá zmysel ho posielať cez editačný formulár. **Product description** sa dá opraviť pri každom FG; patrí k FG master záznamu, takže sa prejaví na všetkých kartách s tým číslom (Excel master prišiel s popismi, ktoré sa nedali opraviť).
 
 ### 4.3 Drag & Drop (jadro appky) — dnd-kit
 
@@ -270,7 +273,7 @@ Keďže sa plán často kompletne prehadzuje, nestačí ťahať kartu po karte:
 
 ### 4.6 Urgent / Priority + urgent dni
 
-Priority `normal/high/urgent/blocked` s farebným akcentom (urgent červený, high oranžový, blocked žltý). Naviac **Mark day as critical** — celý stĺpec dňa dostane jemné urgent zvýraznenie (nahrádza Excel žlté/farebné bunky, ale so sémantikou v dátach).
+Priority `normal` / `urgent` (migrácia 028). Urgent je červený a pevný — ten signál nesmie byť na nikoho vkuse. Všetko ostatné dostane **vlastnú farbu z palety 10 farieb**: rovnaká farba = príbuzná práca, čitateľná naprieč týždňom. Naviac **Mark day as important** — celý stĺpec dňa dostane jemné zvýraznenie (nahrádza Excel žlté/farebné bunky, ale so sémantikou v dátach).
 
 ---
 
@@ -343,7 +346,7 @@ Rob ho — nemá zmysel štartovať s prázdnou DB, keď máte roky histórie.
 3. Zbieraj dvojice `Produkt:` / `Soll Stückzahl:` až po `Notizen:` alebo ďalší week marker. **Počet dvojíc je variabilný** (2 alebo 3) — prvá = Morning, druhá = Afternoon, tretia (`(Prototy.)`) = Prototype/extra karta.
 4. Mapuj fill color → priority/status (žltá → urgent, zelená/FREI → day flag free).
 5. Parsuj FG prefix z dlhých stringov; voľný text → `custom_product_name`.
-6. Množstvo: číslo → `planned_quantity`; `130+22` → `raw_quantity` + `quantity_breakdown`.
+6. Množstvo: číslo → `planned_quantity` (celé kusy). `130+22` v bunke = dve dodávky → **dve karty**, nie jeden reťazec (029).
 7. Uchovaj `source_sheet` / `source_cell` / `source_file`.
 8. Filtruj nevalidné dátumy (1900).
 

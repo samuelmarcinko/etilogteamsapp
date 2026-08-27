@@ -1,4 +1,4 @@
-import { AlertTriangle, CalendarOff } from 'lucide-react';
+import { AlertTriangle, CalendarOff, Check } from 'lucide-react';
 import { shiftAccent } from '../lib/shifts';
 import { CARD_COLORS } from '../lib/colors';
 
@@ -58,6 +58,17 @@ export default function PlanLegend({ shifts, canManage }) {
       </span>
 
       <Divider />
+
+      <span className="flex items-center gap-1">
+        <span
+          aria-hidden="true"
+          className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500 py-px pl-0.5 pr-1.5 text-[10px] font-bold uppercase tracking-wide text-white"
+        >
+          <Check className="h-3 w-3" strokeWidth={3} />
+          Done
+        </span>
+        finished, struck through
+      </span>
 
       <span className="flex items-center gap-1">
         <span className="inline-flex items-center gap-0.5 rounded bg-etilog px-1 py-px text-[10px] font-bold uppercase tracking-wide text-white">
