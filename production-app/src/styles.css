@@ -36,12 +36,12 @@
   /* Grid lines a shade firmer than the default hairline: at 8-week density the
      cells have to read as a table, not as cards floating on white. */
   .week-cell {
-    @apply border-b border-r border-gray-300 bg-white;
+    @apply border-b border-r border-gray-400 bg-white;
   }
 
   .row-label {
-    @apply sticky left-0 z-10 border-b border-r border-gray-200 bg-gray-50
-           px-2 py-2 text-[12px] font-semibold uppercase tracking-wide text-gray-500;
+    @apply sticky left-0 z-10 border-b border-r border-gray-400 bg-gray-50
+           px-2 py-2 text-[12px] font-semibold uppercase tracking-wide text-gray-700;
   }
 
   /* The week scrolls sideways on a narrow screen. On a wide one it must NOT:

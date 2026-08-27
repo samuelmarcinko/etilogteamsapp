@@ -41,7 +41,7 @@ function DayHeader({ day, flag, isFree, exception, compact, canManage, onSetFlag
         <span
           className={clsx(
             'text-[11px] font-semibold uppercase tracking-wider',
-            day.isToday ? 'text-etilog' : 'text-gray-400'
+            day.isToday ? 'text-etilog' : 'text-gray-600'
           )}
         >
           {day.weekday}
@@ -50,7 +50,7 @@ function DayHeader({ day, flag, isFree, exception, compact, canManage, onSetFlag
           className={clsx(
             'font-semibold tabular-nums',
             compact ? 'text-[13px]' : 'text-[14px]',
-            day.isToday ? 'text-etilog' : 'text-gray-800'
+            day.isToday ? 'text-etilog' : 'text-gray-900'
           )}
         >
           {day.dayOfMonth}
@@ -74,7 +74,7 @@ function DayHeader({ day, flag, isFree, exception, compact, canManage, onSetFlag
         </div>
       )}
       {!flag && exception && (
-        <div className="line-clamp-1 text-[10px] text-gray-500" title={exception.note || exception.type}>
+        <div className="line-clamp-1 text-[10px] text-gray-600" title={exception.note || exception.type}>
           {exception.note || exception.type.replace(/_/g, ' ')}
         </div>
       )}
@@ -154,10 +154,6 @@ export default function WeekBlock({
   };
 
   return (
-    // overflow-clip rather than overflow-hidden: hidden makes this a scroll
-    // container, which would capture the sticky day names and pin them inside
-    // the week instead of under the toolbar. clip trims the corners without
-    // becoming one.
     <section
       className={clsx(
         // overflow-clip rather than overflow-hidden: hidden makes this a scroll
@@ -168,8 +164,8 @@ export default function WeekBlock({
         // Eight of these stacked read as one long table unless each is clearly
         // its own object: a firmer edge and a real shadow, not a hairline.
         isCurrentWeek
-          ? 'border-blue-300 border-l-4 border-l-blue-500 shadow-weekCurrent'
-          : 'border-gray-300 shadow-week'
+          ? 'border-blue-400 border-l-4 border-l-blue-500 shadow-weekCurrent'
+          : 'border-gray-400 shadow-week'
       )}
     >
       {/* week header */}
@@ -179,7 +175,7 @@ export default function WeekBlock({
           // The week you are in is the one you look for first. Blue, because
           // red already means urgent and green means free - a third meaning on
           // either would make both weaker.
-          isCurrentWeek ? 'border-blue-200 bg-blue-50' : 'border-gray-300 bg-gray-50'
+          isCurrentWeek ? 'border-blue-300 bg-blue-50' : 'border-gray-400 bg-gray-50'
         )}
       >
         <h2
@@ -190,7 +186,7 @@ export default function WeekBlock({
         >
           CW {week.calendarWeek}
         </h2>
-        <span className={clsx('text-[13px]', isCurrentWeek ? 'text-blue-700' : 'text-gray-500')}>
+        <span className={clsx('text-[13px]', isCurrentWeek ? 'text-blue-700' : 'text-gray-600')}>
           {week.rangeLabel}
         </span>
 
@@ -201,7 +197,7 @@ export default function WeekBlock({
         )}
 
         {weekIsEmpty && (
-          <span className="ml-auto text-[12px] text-gray-400">Nothing planned yet</span>
+          <span className="ml-auto text-[12px] text-gray-500">Nothing planned yet</span>
         )}
 
         {canManage && !weekIsEmpty && (
@@ -209,7 +205,7 @@ export default function WeekBlock({
             type="button"
             onClick={() => onBulk('copyWeek', week.days[0])}
             className="no-print ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-[12px]
-                       font-medium text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                       font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-800"
           >
             <Copy className="h-3 w-3" aria-hidden="true" />
             Copy week
@@ -298,7 +294,7 @@ export default function WeekBlock({
                           {emptyLabel(day, shiftIndex, isFree) && (
                             <span
                               className={clsx(
-                                'select-none text-center leading-tight text-gray-300',
+                                'select-none text-center leading-tight text-gray-400',
                                 'group-hover/add:opacity-0',
                                 compact ? 'text-[10px]' : 'text-[11px]'
                               )}
@@ -319,7 +315,7 @@ export default function WeekBlock({
                         emptyLabel(day, shiftIndex, isFree) && (
                           <span
                             className={clsx(
-                              'select-none self-center pt-1 text-center leading-tight text-gray-300',
+                              'select-none self-center pt-1 text-center leading-tight text-gray-400',
                               compact ? 'text-[10px]' : 'text-[11px]'
                             )}
                           >
@@ -339,7 +335,7 @@ export default function WeekBlock({
                           }
                           aria-label={`Add production to ${day.weekday} ${day.dayOfMonth}, ${shift.name}`}
                           className="no-print mt-auto flex items-center justify-center gap-1 rounded border border-dashed
-                                     border-gray-300 py-0.5 text-[11px] text-gray-400 opacity-0 transition
+                                     border-gray-300 py-0.5 text-[11px] text-gray-500 opacity-0 transition
                                      hover:border-etilog hover:text-etilog focus-visible:opacity-100
                                      group-hover/slot:opacity-100"
                         >
@@ -395,7 +391,7 @@ function Row({ label, children, muted = false, accent = null, divide = false }) 
       <div
         className={clsx(
           'row-label relative flex items-center gap-1.5',
-          muted && 'text-[11px] font-normal normal-case text-gray-400',
+          muted && 'text-[11px] font-normal normal-case text-gray-500',
           divide && 'border-t-2 border-t-gray-300'
         )}
       >

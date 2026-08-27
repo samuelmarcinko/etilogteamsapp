@@ -22,8 +22,8 @@ function Divider() {
 
 export default function PlanLegend({ shifts, canManage }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 px-1 text-[12px] text-gray-500">
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Legend</span>
+    <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 px-1 text-[12px] text-gray-600">
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Legend</span>
 
       {shifts.map((shift, index) => {
         const accent = shiftAccent(index);

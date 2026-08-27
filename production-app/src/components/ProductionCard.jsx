@@ -42,7 +42,7 @@ export default function ProductionCard({ entry, onOpen, compact = false }) {
       onClick={() => onOpen?.(entry)}
       aria-label={`${title}${quantity?.main != null ? `, ${quantity.main} pieces` : ''}`}
       className={clsx(
-        'group relative flex w-full flex-col gap-0.5 overflow-hidden rounded-md border border-gray-200',
+        'group relative flex w-full flex-col gap-0.5 overflow-hidden rounded-md border border-gray-300',
         'bg-white pl-2.5 pr-2 py-1.5 text-left shadow-card',
         'transition duration-150 ease-portal hover:-translate-y-px hover:shadow-cardHover hover:border-gray-300',
         isCancelled && 'opacity-55'
@@ -78,20 +78,20 @@ export default function ProductionCard({ entry, onOpen, compact = false }) {
       </div>
 
       {subtitle && !compact && (
-        <span className="line-clamp-1 text-[12px] leading-tight text-gray-500">{subtitle}</span>
+        <span className="line-clamp-1 text-[12px] leading-tight text-gray-600">{subtitle}</span>
       )}
 
       <div className="flex items-baseline gap-1.5">
         {quantity?.main != null && (
-          <span className="text-[12px] font-medium tabular-nums text-gray-700">
+          <span className="text-[12px] font-semibold tabular-nums text-gray-800">
             {quantity.main} pcs
           </span>
         )}
         {quantity?.breakdown && (
-          <span className="text-[11px] tabular-nums text-gray-400">{quantity.breakdown}</span>
+          <span className="text-[11px] tabular-nums text-gray-500">{quantity.breakdown}</span>
         )}
         {STATUS_LABEL[entry.status] && (
-          <span className="text-[11px] text-gray-400">· {STATUS_LABEL[entry.status]}</span>
+          <span className="text-[11px] text-gray-600">· {STATUS_LABEL[entry.status]}</span>
         )}
       </div>
     </button>
