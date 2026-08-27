@@ -22,7 +22,7 @@ import { cardColor } from '../lib/colors';
  * read at a glance without shouting over the colour that groups the work.
  */
 
-export default function ProductionCard({ entry, onOpen, compact = false }) {
+export default function ProductionCard({ entry, onOpen, onContextMenu, compact = false }) {
   const title = entry.fg_number || entry.custom_product_name || 'Untitled';
   const subtitle = entry.fg_number ? entry.product_description : null;
   const quantity = formatQuantity(entry);
@@ -34,6 +34,12 @@ export default function ProductionCard({ entry, onOpen, compact = false }) {
     <button
       type="button"
       onClick={() => onOpen?.(entry)}
+      // Right-click reaches the quick actions. Without a handler the browser's
+      // own menu is left alone, which is what a read-only viewer should get.
+      onContextMenu={onContextMenu ? (event) => {
+        event.preventDefault();
+        onContextMenu(entry, event.clientX, event.clientY);
+      } : undefined}
       aria-label={`${title}${quantity != null ? `, ${quantity} pieces` : ''}${isDone ? ', done' : ''}`}
       className={clsx(
         'group relative flex w-full flex-col gap-0.5 overflow-hidden rounded-md border',

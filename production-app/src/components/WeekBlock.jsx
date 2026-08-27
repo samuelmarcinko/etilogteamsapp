@@ -23,6 +23,11 @@ const DAY_FLAG_STYLE = {
   urgent: 'bg-etilog-light'
 };
 
+// Copying a whole week is built and working, but nobody has needed it yet and a
+// button in every week header is a button in the way. Parked rather than
+// deleted - flip this back on when the need turns up.
+const SHOW_COPY_WEEK = false;
+
 function DayHeader({ day, flag, isFree, exception, compact, canManage, onSetFlag, onAdd, onBulk }) {
   return (
     <div
@@ -97,6 +102,7 @@ export default function WeekBlock({
   shiftNotes,
   exceptions,
   onOpenEntry,
+  onCardMenu,
   onAddEntry,
   onSetDayFlag,
   onSetShiftNote,
@@ -213,7 +219,7 @@ export default function WeekBlock({
           <span className="ml-auto text-[12px] text-gray-500">Nothing planned yet</span>
         )}
 
-        {canManage && !weekIsEmpty && (
+        {SHOW_COPY_WEEK && canManage && !weekIsEmpty && (
           <button
             type="button"
             onClick={() => onBulk('copyWeek', week.days[0])}
@@ -237,6 +243,7 @@ export default function WeekBlock({
           shiftNotes={shiftNotes}
           exceptions={exceptions}
           onOpenEntry={onOpenEntry}
+          onCardMenu={onCardMenu}
         />
       ) : (
         <div className="print-spread">
@@ -284,7 +291,12 @@ export default function WeekBlock({
                     >
                       {cards.map((entry) => (
                         <DraggableCard key={entry.id} entry={entry} disabled={!canManage}>
-                          <ProductionCard entry={entry} onOpen={onOpenEntry} compact={compact} />
+                          <ProductionCard
+                            entry={entry}
+                            onOpen={onOpenEntry}
+                            onContextMenu={onCardMenu}
+                            compact={compact}
+                          />
                         </DraggableCard>
                       ))}
 

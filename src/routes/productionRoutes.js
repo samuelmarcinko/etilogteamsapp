@@ -298,22 +298,45 @@ router.patch('/entries/:id', manageAccess, asyncHandler(async (req, res) => {
   res.json({ data: result.entry });
 }));
 
-// POST /api/production/entries/:id/status  { status }
+// POST /api/production/entries/:id/marks  { status?, priority?, color? }
 //
-// Closing a card is the commonest write there is, and routing it through the
-// edit dialog made it three clicks and a form nobody wanted to read. No version
-// check here on purpose: "this is finished" does not conflict with someone
-// else's edit to the quantity, and refusing it would only mean a reload and a
-// second click to say the same true thing.
-router.post('/entries/:id/status', manageAccess, asyncHandler(async (req, res) => {
-  const status = req.body.status;
-  if (!STATUSES.includes(status)) {
-    return res.status(400).json({ error: 'Bad Request', message: `status must be one of ${STATUSES.join(', ')}` });
+// The three one-click marks on a card: closing a finished job, flagging one
+// urgent, colouring a family of related work. Each used to mean opening the edit
+// dialog and reading a form nobody wanted to read. Only the keys present are
+// changed. No version check here on purpose: "this is finished" does not
+// conflict with someone else's edit to the quantity, and refusing it would only
+// mean a reload and a second click to say the same true thing.
+router.post('/entries/:id/marks', manageAccess, asyncHandler(async (req, res) => {
+  const marks = {};
+
+  if (req.body.status !== undefined) {
+    if (!STATUSES.includes(req.body.status)) {
+      return res.status(400).json({ error: 'Bad Request', message: `status must be one of ${STATUSES.join(', ')}` });
+    }
+    marks.status = req.body.status;
   }
 
-  const result = await ProductionEntry.setStatus(req.params.id, status, currentUser(req));
+  if (req.body.priority !== undefined) {
+    if (!PRIORITIES.includes(req.body.priority)) {
+      return res.status(400).json({ error: 'Bad Request', message: `priority must be one of ${PRIORITIES.join(', ')}` });
+    }
+    marks.priority = req.body.priority;
+  }
+
+  if (req.body.color !== undefined) {
+    if (req.body.color !== null && !COLORS.includes(req.body.color)) {
+      return res.status(400).json({ error: 'Bad Request', message: `color must be null or one of ${COLORS.join(', ')}` });
+    }
+    marks.color = req.body.color;
+  }
+
+  if (!Object.keys(marks).length) {
+    return res.status(400).json({ error: 'Bad Request', message: 'Provide at least one of status, priority, color' });
+  }
+
+  const result = await ProductionEntry.setMarks(req.params.id, marks, currentUser(req));
   if (result.notFound) return res.status(404).json({ error: 'Entry not found' });
-  // No undo snapshot: the button that set this also unsets it, one click away.
+  // No undo snapshot: the control that set this also unsets it, one click away.
   res.json({ data: result.entry });
 }));
 

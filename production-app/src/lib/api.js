@@ -116,9 +116,12 @@ export const api = {
 
   deleteEntry: (id) => request(`/api/production/entries/${id}`, { method: 'DELETE' }),
 
-  /** Close a card, or reopen it. Not version-checked - see the route. */
-  setEntryStatus: (id, status) =>
-    request(`/api/production/entries/${id}/status`, json({ status })).then((r) => r.data),
+  /**
+   * The one-click marks on a card: `{ status?, priority?, color? }`. Only the
+   * keys given are changed. Not version-checked - see the route.
+   */
+  setEntryMarks: (id, marks) =>
+    request(`/api/production/entries/${id}/marks`, json(marks)).then((r) => r.data),
 
   /**
    * Move a card. Without `mode`, an occupied target rejects with

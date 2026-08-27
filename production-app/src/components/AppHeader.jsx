@@ -191,22 +191,24 @@ export default function AppHeader({
             </button>
           </div>
 
-          <p className="order-last w-full text-[13px] text-gray-500 sm:order-none sm:w-auto">
-            {spanWeeks === 1 ? (
-              <>
-                <span className="font-semibold text-gray-700">CW {first.calendarWeek}</span>
-                {' · '}
-                {first.rangeLabel}
-              </>
-            ) : (
-              <>
-                <span className="font-semibold text-gray-700">
-                  CW {first.calendarWeek}–{last.calendarWeek}
-                </span>
-                {' · '}
-                {format(first.start, 'd MMM')} – {format(last.end, 'd MMM yyyy')}
-              </>
-            )}
+          {/* What you are looking at, and the thing the arrows either side of it
+              change - so it carries the same blue as the CW blocks and the THIS
+              WEEK badge in the grid rather than sitting in the toolbar as grey
+              text you have to hunt for. */}
+          <p
+            className="order-last flex w-full items-baseline justify-center gap-2 rounded-full border
+                       border-blue-200 bg-blue-50 px-4 py-1.5 sm:order-none sm:w-auto"
+          >
+            <span className="text-[14px] font-bold tracking-wide text-blue-900">
+              {spanWeeks === 1
+                ? `CW ${first.calendarWeek}`
+                : `CW ${first.calendarWeek}–${last.calendarWeek}`}
+            </span>
+            <span className="text-[13px] text-blue-700">
+              {spanWeeks === 1
+                ? first.rangeLabel
+                : `${format(first.start, 'd MMM')} – ${format(last.end, 'd MMM yyyy')}`}
+            </span>
           </p>
 
           <div className="no-print flex items-center gap-0.5 rounded-md border border-gray-300 bg-white p-0.5">

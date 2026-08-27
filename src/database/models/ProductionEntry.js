@@ -236,16 +236,23 @@ class ProductionEntry {
     }
   }
 
-  // ------------------------------------------------------------------ status
+  // ------------------------------------------------------------------- marks
   /**
-   * Close a card, or reopen it.
+   * The one-click marks on a card: status, priority and colour.
+   *
+   * These three are what someone changes without wanting to open a form -
+   * closing a finished job, flagging one urgent, colouring a family of related
+   * work. `marks` carries only the keys being changed; the rest are left alone.
    *
    * Deliberately not version-checked. Everything else on a card is an opinion
    * two planners can hold differently at once; "this was made" is not, and a
-   * 409 here would only send a supervisor back to reload and click again.
-   * Setting the status it already has is a no-op rather than a fresh log line.
+   * 409 here would only send a supervisor back to reload and click again. The
+   * same holds for the other two: they are single fields, and the last person
+   * to press the button meant it.
+   *
+   * Setting what is already there is a no-op rather than a fresh log line.
    */
-  static async setStatus(id, status, user) {
+  static async setMarks(id, marks, user) {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -260,24 +267,54 @@ class ProductionEntry {
       }
 
       const before = current[0];
-      if (before.status === status) {
+      const next = {};
+      const summary = [];
+
+      if (marks.status !== undefined && marks.status !== before.status) {
+        next.status = marks.status;
+        summary.push(marks.status === 'done' ? 'Marked as done' : 'Reopened');
+      }
+
+      if (marks.priority !== undefined && marks.priority !== before.priority) {
+        next.priority = marks.priority;
+        summary.push(marks.priority === 'urgent' ? 'Marked urgent' : 'Urgent cleared');
+      }
+
+      // Urgent owns the card's colour, so it clears any the planner had picked -
+      // the same rule the edit form follows.
+      if ((next.priority || before.priority) === 'urgent') {
+        if (before.color !== null) {
+          next.color = null;
+          if (!summary.length) summary.push('Colour cleared');
+        }
+      } else if (marks.color !== undefined && marks.color !== before.color) {
+        next.color = marks.color;
+        summary.push(marks.color ? 'Colour changed' : 'Colour cleared');
+      }
+
+      const columns = Object.keys(next);
+      if (!columns.length) {
         await client.query('ROLLBACK');
         return { entry: before };
       }
 
+      const assignments = columns.map((column, i) => `${column} = $${i + 2}`);
       const { rows } = await client.query(
         `UPDATE production_plan_entries
-            SET status = $2, version = version + 1, updated_by = $3, updated_by_name = $4
+            SET ${assignments.join(', ')},
+                version = version + 1,
+                updated_by = $${columns.length + 2},
+                updated_by_name = $${columns.length + 3}
           WHERE id = $1
           RETURNING *`,
-        [id, status, user?.id || null, user?.name || null]
+        [id, ...columns.map((column) => next[column]), user?.id || null, user?.name || null]
       );
 
       await logChange(client, {
         locationId: before.location_id,
         entryId: id,
         action: 'updated',
-        summary: status === 'done' ? 'Marked as done' : 'Reopened',
+        summary: summary.join(' · '),
         before,
         after: rows[0],
         user

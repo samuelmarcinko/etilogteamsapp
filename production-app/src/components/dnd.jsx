@@ -64,8 +64,12 @@ export function DraggableCard({ entry, disabled, children }) {
   return (
     <div
       ref={setNodeRef}
-      {...listeners}
-      {...attributes}
+      // Only wear the drag affordances when dragging is actually on. The
+      // attributes carry role="button" and aria-disabled, which around a card
+      // that is still a perfectly clickable button would announce a nested
+      // button that is disabled - and it is neither.
+      {...(disabled ? {} : listeners)}
+      {...(disabled ? {} : attributes)}
       className={clsx(
         'touch-none',
         !disabled && 'cursor-grab active:cursor-grabbing',

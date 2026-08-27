@@ -27,6 +27,7 @@ import AppHeader from './components/AppHeader';
 import PlanLegend from './components/PlanLegend';
 import WeekBlock from './components/WeekBlock';
 import ProductionCard from './components/ProductionCard';
+import CardContextMenu from './components/CardContextMenu';
 import EntryDetailDialog from './components/EntryDetailDialog';
 import EntryFormDialog from './components/EntryFormDialog';
 import OccupiedSlotDialog from './components/OccupiedSlotDialog';
@@ -73,6 +74,13 @@ const BULK_PAST_TENSE = {
 const cardLabel = (entry) =>
   entry?.fg_number || entry?.custom_product_name || `#${entry?.id}`;
 
+/** What a one-click mark did, for the toast that confirms it. */
+function markLabel(marks) {
+  if (marks.status) return marks.status === 'done' ? 'marked as done' : 'reopened';
+  if (marks.priority) return marks.priority === 'urgent' ? 'marked urgent' : 'no longer urgent';
+  return marks.color ? 'recoloured' : 'colour cleared';
+}
+
 function slotLabel(target, shifts) {
   if (!target?.productionDate) return 'Unscheduled';
   const shift = shifts.find((s) => s.id === target.shiftId);
@@ -98,6 +106,7 @@ export default function App() {
   const [restoringId, setRestoringId] = useState(null);
   const [bulk, setBulk] = useState(null);          // { kind, sourceDate }
   const [splitting, setSplitting] = useState(null); // card being split
+  const [cardMenu, setCardMenu] = useState(null);   // { entry, x, y } - right-click
 
   const profile = useQuery({ queryKey: ['me'], queryFn: api.me, staleTime: 5 * 60 * 1000 });
   const canView = profile.data?.permissions?.includes('production.view');
@@ -228,15 +237,16 @@ export default function App() {
     onError: (error) => toast.error(error.message)
   });
 
-  // Closing a card from its detail popup, and reopening one closed by mistake.
-  const statusMutation = useMutation({
-    mutationFn: ({ entry, status }) => api.setEntryStatus(entry.id, status),
-    onSuccess: (_result, { entry, status }) => {
+  // The one-click marks: done / reopened, urgent, colour. From the detail popup
+  // and from the right-click menu, which is why the toast has to say which one
+  // happened rather than assuming.
+  const markMutation = useMutation({
+    mutationFn: ({ entry, marks }) => api.setEntryMarks(entry.id, marks),
+    onSuccess: (_result, { entry, marks }) => {
       setOpenEntry(null);
+      setCardMenu(null);
       refresh();
-      toast.success(
-        status === 'done' ? `${cardLabel(entry)} marked as done` : `${cardLabel(entry)} reopened`
-      );
+      toast.success(`${cardLabel(entry)} ${markLabel(marks)}`);
     },
     onError: (error) => toast.error(error.message)
   });
@@ -472,6 +482,9 @@ export default function App() {
                   shiftNotes={shiftNotes}
                   exceptions={exceptions}
                   onOpenEntry={setOpenEntry}
+                  onCardMenu={canManage
+                    ? (entry, x, y) => setCardMenu({ entry, x, y })
+                    : undefined}
                   onAddEntry={(slot) => setFormState({ slot })}
                   onSetDayFlag={(day, flag) => dayFlagMutation.mutate({ date: day.iso, flag })}
                   onSetShiftNote={(date, shiftId, note) =>
@@ -557,8 +570,36 @@ export default function App() {
             setOpenEntry(null);
             setSplitting(entry);
           }}
-          onSetStatus={(entry, status) => statusMutation.mutate({ entry, status })}
-          statusPending={statusMutation.isPending}
+          onSetStatus={(entry, status) => markMutation.mutate({ entry, marks: { status } })}
+          statusPending={markMutation.isPending}
+        />
+
+        {/* Right-click on a card. The same actions the dialogs offer, without
+            having to open one. */}
+        <CardContextMenu
+          target={cardMenu}
+          onClose={() => setCardMenu(null)}
+          onMark={(entry, marks) => markMutation.mutate({ entry, marks })}
+          onEdit={(entry) => {
+            setCardMenu(null);
+            setFormState({ entry });
+          }}
+          onSplit={(entry) => {
+            setCardMenu(null);
+            setSplitting(entry);
+          }}
+          onUnschedule={(entry) => {
+            setCardMenu(null);
+            moveMutation.mutate({
+              id: entry.id,
+              entry,
+              target: { productionDate: null, shiftId: null }
+            });
+          }}
+          onDelete={(entry) => {
+            setCardMenu(null);
+            deleteMutation.mutate(entry);
+          }}
         />
 
         <EntryFormDialog

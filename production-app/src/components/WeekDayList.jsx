@@ -20,7 +20,7 @@ const DAY_FLAG_BADGE = {
 const DAY_FLAG_LABEL = { free: 'Free', important: 'Important !', urgent: 'Important !' };
 
 export default function WeekDayList({
-  week, shifts, entriesByDay, dayFlags, shiftNotes, exceptions, onOpenEntry
+  week, shifts, entriesByDay, dayFlags, shiftNotes, exceptions, onOpenEntry, onCardMenu
 }) {
   return (
     <div className="divide-y divide-gray-200">
@@ -82,7 +82,12 @@ export default function WeekDayList({
                         {shift.name}
                       </span>
                       {cards.map((entry) => (
-                        <ProductionCard key={entry.id} entry={entry} onOpen={onOpenEntry} />
+                        <ProductionCard
+                          key={entry.id}
+                          entry={entry}
+                          onOpen={onOpenEntry}
+                          onContextMenu={onCardMenu}
+                        />
                       ))}
                       {note && (
                         <p className="rounded border border-dashed border-gray-300 bg-gray-50 px-2 py-1.5 text-[12px] leading-snug text-gray-700">
