@@ -89,6 +89,15 @@
     z-index: 20;
   }
 
+  /* The Unscheduled queue starts below the toolbar rather than at the top of
+     the window. Full height, it covered its own toggle button - so the only way
+     to put it away was the X inside it - and took the location tabs and week
+     navigation with it. */
+  .queue-panel {
+    top: var(--plan-header-h, 0px);
+    height: calc(100vh - var(--plan-header-h, 0px));
+  }
+
   /* The corner cell is stuck in both directions at once. */
   .corner-sticky {
     position: sticky;

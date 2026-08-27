@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import clsx from 'clsx';
 import { format } from 'date-fns';
 import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Pencil, RefreshCw } from 'lucide-react';
+import { WEEK_SPANS } from '../lib/weeks';
 
 /**
  * The viewer's toolbar: where you are, which week, and how fresh it is.
@@ -14,9 +15,11 @@ import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Pencil, RefreshCw }
 
 export default function ViewerHeader({
   locations, activeCode, onSelectLocation,
-  week, onPrev, onNext, onToday,
+  weeks, spanWeeks, onSpanChange, onPrev, onNext, onToday,
   updatedAt, isFetching, onRefresh, canManage
 }) {
+  const first = weeks[0];
+  const last = weeks[weeks.length - 1];
   const ref = useRef(null);
 
   // The week grid parks its day names under this header, so it has to know how
@@ -118,7 +121,7 @@ export default function ViewerHeader({
             <button
               type="button"
               onClick={onPrev}
-              aria-label="Previous week"
+              aria-label="Previous weeks"
               className="rounded-md border border-gray-300 bg-white p-2 text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
             >
               <ChevronLeft className="h-5 w-5" />
@@ -134,7 +137,7 @@ export default function ViewerHeader({
             <button
               type="button"
               onClick={onNext}
-              aria-label="Next week"
+              aria-label="Next weeks"
               className="rounded-md border border-gray-300 bg-white p-2 text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
             >
               <ChevronRight className="h-5 w-5" />
@@ -144,14 +147,38 @@ export default function ViewerHeader({
           <p className="order-last flex w-full items-baseline justify-center gap-2 rounded-full border
                         border-blue-200 bg-blue-50 px-4 py-1.5 sm:order-none sm:w-auto">
             <span className="text-[16px] font-bold tracking-wide text-blue-900">
-              CW {week.calendarWeek}
+              {spanWeeks === 1
+                ? `CW ${first.calendarWeek}`
+                : `CW ${first.calendarWeek}–${last.calendarWeek}`}
             </span>
-            <span className="text-[14px] text-blue-700">{week.rangeLabel}</span>
+            <span className="text-[14px] text-blue-700">
+              {spanWeeks === 1
+                ? first.rangeLabel
+                : `${format(first.start, 'd MMM')} – ${format(last.end, 'd MMM yyyy')}`}
+            </span>
           </p>
 
-          <span className="hidden text-[14px] font-medium text-gray-500 sm:block">
-            {locations.find((location) => location.code === activeCode)?.name || activeCode}
-          </span>
+          {/* One week to work a shift by, four or eight to see what is coming.
+              The location already names itself in the selected tab above, so
+              this corner is better spent on the one control the viewer has. */}
+          <div className="flex items-center gap-0.5 rounded-md border border-gray-300 bg-white p-0.5">
+            {WEEK_SPANS.map((span) => (
+              <button
+                key={span}
+                type="button"
+                aria-pressed={span === spanWeeks}
+                onClick={() => onSpanChange(span)}
+                className={clsx(
+                  'rounded px-2.5 py-1 text-[14px] font-medium transition',
+                  span === spanWeeks
+                    ? 'bg-gray-900 text-white'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                )}
+              >
+                {span}w
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </header>

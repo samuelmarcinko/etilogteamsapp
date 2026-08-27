@@ -485,7 +485,7 @@ export default function App() {
                 <EmptyRangeNote locationName={activeLocation?.name || 'this location'} />
               )}
 
-              {shifts.length > 0 && <PlanLegend shifts={shifts} canManage={canManage} />}
+              {shifts.length > 0 && <PlanLegend shifts={shifts} />}
 
               {weeks.map((week) => (
                 <WeekBlock

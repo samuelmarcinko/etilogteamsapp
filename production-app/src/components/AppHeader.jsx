@@ -138,6 +138,9 @@ export default function AppHeader({
             <button
               type="button"
               onClick={onToggleUnscheduled}
+              // The queue closes on a click anywhere outside it; this button is
+              // not outside it, or opening the queue would close it again.
+              data-unscheduled-toggle=""
               className="no-print flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-[13px] font-medium text-gray-700 transition hover:bg-gray-50"
             >
               <Inbox className="h-3.5 w-3.5" aria-hidden="true" />

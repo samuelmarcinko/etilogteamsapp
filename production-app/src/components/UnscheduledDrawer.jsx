@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import clsx from 'clsx';
 import { useDroppable } from '@dnd-kit/core';
 import { format, isBefore, parseISO, startOfDay } from 'date-fns';
@@ -47,6 +48,41 @@ export default function UnscheduledDrawer({ open, onClose, entries, canManage, o
   // A card is in flight and this panel can take it.
   const armed = Boolean(active) && canManage && open;
 
+  /**
+   * Clicking back into the plan puts the queue away.
+   *
+   * On `click` rather than `pointerdown` on purpose: a drag out of the grid and
+   * into this panel begins with a pointerdown outside it, and closing on that
+   * would shut the panel under the card being dragged towards it. dnd-kit
+   * swallows the click that would otherwise follow a drag, so by the time a
+   * click is heard, it is a real one.
+   *
+   * A dialog or menu on top of the plan is not "outside": those are portalled to
+   * the body, and dismissing the queue underneath while someone works in one
+   * would be a surprise rather than a shortcut.
+   */
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const dismiss = (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest('[aria-label="Unscheduled production"]')) return;
+      if (target.closest('[data-unscheduled-toggle]')) return;   // it toggles itself
+      if (target.closest('[role="dialog"], [role="menu"], [role="alertdialog"], [data-sonner-toast]')) return;
+      onClose();
+    };
+
+    const escape = (event) => { if (event.key === 'Escape') onClose(); };
+
+    document.addEventListener('click', dismiss);
+    document.addEventListener('keydown', escape);
+    return () => {
+      document.removeEventListener('click', dismiss);
+      document.removeEventListener('keydown', escape);
+    };
+  }, [open, onClose]);
+
   return (
     <>
       {/* Dimming only on small screens, where the panel covers the grid. */}
@@ -64,7 +100,7 @@ export default function UnscheduledDrawer({ open, onClose, entries, canManage, o
         aria-label="Unscheduled production"
         aria-hidden={!open}
         className={clsx(
-          'no-print fixed right-0 top-0 z-40 flex h-full w-[min(20rem,100vw)] flex-col',
+          'queue-panel no-print fixed right-0 z-40 flex w-[min(20rem,100vw)] flex-col',
           'bg-white shadow-lg transition-all duration-200 ease-portal',
           open ? 'translate-x-0' : 'translate-x-full',
           // Armed: a dashed red edge says "this will take the card".

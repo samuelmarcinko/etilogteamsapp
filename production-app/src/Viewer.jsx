@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import clsx from 'clsx';
 import { useQuery } from '@tanstack/react-query';
 import { addWeeks } from 'date-fns';
 
@@ -22,14 +23,21 @@ import { ErrorState, NoAccess, WeekSkeleton } from './components/states';
  * The production view: this week's plan, read-only.
  *
  * A different job from the planner and so a different screen, rather than the
- * planner with its buttons disabled. One week at a time, because a shift works
- * to one week; larger type, because it is read standing up; and it refreshes
- * itself, because a plan on a bench tablet that quietly went stale is worse
- * than no plan at all.
+ * planner with its buttons disabled. One week by default, because a shift works
+ * to one week, at a size that reads standing up - but four and eight are there
+ * too, because "what is coming" is a question the floor asks as well. It
+ * refreshes itself, because a plan on a bench tablet that quietly went stale is
+ * worse than no plan at all.
  *
  * The location is in the path (/production/view/PO1) rather than a hash, so a
- * tablet can be pinned to one line and a bookmark survives.
+ * tablet can be pinned to one line and a bookmark survives; the span sits in
+ * the hash beside it, so a chosen layout survives a reload too.
  */
+
+function readSpan() {
+  const span = Number(new URLSearchParams(window.location.hash.replace(/^#/, '')).get('span'));
+  return [1, 4, 8].includes(span) ? span : 1;
+}
 
 // A card touched within a shift's memory is one the shift needs to look at
 // twice. A day is the honest window: anything longer and every card is
@@ -43,6 +51,7 @@ const REFRESH_MS = 60 * 1000;
 
 export default function Viewer({ initialLocation }) {
   const [locationCode, setLocationCode] = useState(initialLocation);
+  const [spanWeeks, setSpanWeeks] = useState(readSpan);
   const [anchor, setAnchor] = useState(() => weekStart(new Date()));
   const [openEntry, setOpenEntry] = useState(null);
 
@@ -58,15 +67,17 @@ export default function Viewer({ initialLocation }) {
     if (!locationCode && locations.data?.length) setLocationCode(locations.data[0].code);
   }, [locationCode, locations.data]);
 
-  // Keep the path honest when someone switches line, so the tab can be
+  // Keep the URL honest when someone switches line or layout, so the tab can be
   // bookmarked or handed to the next shift as it stands.
   useEffect(() => {
     if (!locationCode) return;
-    const path = `/production/view/${locationCode}`;
-    if (window.location.pathname !== path) window.history.replaceState(null, '', path);
-  }, [locationCode]);
+    const url = `/production/view/${locationCode}` + (spanWeeks === 1 ? '' : `#span=${spanWeeks}`);
+    if (window.location.pathname + window.location.hash !== url) {
+      window.history.replaceState(null, '', url);
+    }
+  }, [locationCode, spanWeeks]);
 
-  const weeks = useMemo(() => buildWeeks(anchor, 1), [anchor]);
+  const weeks = useMemo(() => buildWeeks(anchor, spanWeeks), [anchor, spanWeeks]);
   const range = useMemo(() => rangeForWeeks(weeks), [weeks]);
 
   const plan = useQuery({
@@ -93,6 +104,11 @@ export default function Viewer({ initialLocation }) {
 
   const updatedCount = (plan.data?.entries || []).filter(isUpdated).length;
 
+  // One week is read from a bench; eight is scanned for what is coming. The
+  // card has to shrink for the second, or seven columns of it eight times over
+  // is not something anyone can take in either.
+  const density = spanWeeks === 1 ? 'roomy' : spanWeeks === 8 ? 'compact' : 'normal';
+
   if (profile.isPending) {
     return <div className="p-5"><WeekSkeleton weeks={1} /></div>;
   }
@@ -108,9 +124,11 @@ export default function Viewer({ initialLocation }) {
         locations={locations.data || []}
         activeCode={locationCode}
         onSelectLocation={setLocationCode}
-        week={weeks[0]}
-        onPrev={() => setAnchor((a) => addWeeks(a, -1))}
-        onNext={() => setAnchor((a) => addWeeks(a, 1))}
+        weeks={weeks}
+        spanWeeks={spanWeeks}
+        onSpanChange={setSpanWeeks}
+        onPrev={() => setAnchor((a) => addWeeks(a, -spanWeeks))}
+        onNext={() => setAnchor((a) => addWeeks(a, spanWeeks))}
         onToday={() => setAnchor(weekStart(new Date()))}
         updatedAt={plan.dataUpdatedAt ? new Date(plan.dataUpdatedAt) : null}
         isFetching={plan.isFetching}
@@ -122,7 +140,7 @@ export default function Viewer({ initialLocation }) {
         {plan.isError ? (
           <ErrorState error={plan.error} onRetry={() => plan.refetch()} />
         ) : plan.isPending ? (
-          <WeekSkeleton weeks={1} />
+          <WeekSkeleton weeks={spanWeeks} />
         ) : (
           <div className="flex flex-col gap-3">
             {/* Said once at the top, so nobody has to scan seven columns to
@@ -136,18 +154,54 @@ export default function Viewer({ initialLocation }) {
               </p>
             )}
 
-            <div className="overflow-clip rounded-lg border border-gray-200 bg-white shadow-sm">
-              <ViewerWeek
-                week={weeks[0]}
-                shifts={shifts}
-                entriesByDay={entriesByDay}
-                dayFlags={dayFlags}
-                shiftNotes={shiftNotes}
-                exceptions={exceptions}
-                isUpdated={isUpdated}
-                onOpenEntry={setOpenEntry}
-              />
-            </div>
+            {weeks.map((week) => {
+              const isCurrentWeek = week.days.some((day) => day.isToday);
+              return (
+              <section
+                key={week.key}
+                className={clsx(
+                  'overflow-clip rounded-lg border bg-white shadow-sm',
+                  isCurrentWeek ? 'border-blue-300' : 'border-gray-200'
+                )}
+              >
+                {/* One week needs no heading - the toolbar above already names
+                    it. Several do, or the blocks run together. */}
+                {spanWeeks > 1 && (
+                  <header className={clsx(
+                    'flex items-baseline gap-2.5 border-b px-4 py-2',
+                    isCurrentWeek ? 'border-blue-200 bg-blue-50' : 'border-gray-200 bg-gray-50'
+                  )}>
+                    <h2 className={clsx(
+                      'text-[15px] font-extrabold uppercase tracking-wider',
+                      isCurrentWeek ? 'text-blue-900' : 'text-gray-900'
+                    )}>
+                      CW {week.calendarWeek}
+                    </h2>
+                    <span className={clsx('text-[13px]', isCurrentWeek ? 'text-blue-700' : 'text-gray-600')}>
+                      {week.rangeLabel}
+                    </span>
+                    {isCurrentWeek && (
+                      <span className="rounded bg-blue-600 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-white">
+                        This week
+                      </span>
+                    )}
+                  </header>
+                )}
+
+                <ViewerWeek
+                  week={week}
+                  shifts={shifts}
+                  entriesByDay={entriesByDay}
+                  dayFlags={dayFlags}
+                  shiftNotes={shiftNotes}
+                  exceptions={exceptions}
+                  isUpdated={isUpdated}
+                  onOpenEntry={setOpenEntry}
+                  density={density}
+                />
+              </section>
+              );
+            })}
           </div>
         )}
       </main>

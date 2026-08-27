@@ -364,9 +364,11 @@ Zjednodušené UI: žiadne edit/drag/settings, žiaden Unscheduled/History/Print
 
 Väčšie písmo než v plánovači — číta sa postojačky pri stole, nie posediačky. Farebná reč je zámerne identická s plánovačom (rovnaký pruh, tint, červená pre urgent, prečiarknutá zelená pre done): kto používa oba, nemá si čo prekladať.
 
+**1 / 4 / 8 týždňov** vpravo hore — jeden týždeň sa číta postojačky pri linke, štyri a osem odpovedajú na otázku „čo prichádza". Karta sa pri hustejších layoutoch dvakrát zmenší (najprv zmizne popis, potom poznámky, badge sa scvrknú na ikonu), inak sedem stĺpcov osemkrát pod sebou nikto neprečíta. Zvolený layout drží v hashi (`#span=4`), takže prežije reload.
+
 **Sama sa obnovuje** každú minútu a v hlavičke hovorí, kedy naposledy počula server. Plán na tablete pri linke, ktorý potichu zostarol, je horší než žiadny plán.
 
-**Changes since your last visit** — karta zmenená za posledných 24 h nesie modrý badge `UPDATED`, hore je počet („1 card changed"), a po kliknutí panel **What changed**: `PRODUCT FG100735 → FG100865`, `QUANTITY 120 pcs → 150 pcs`. Vypíšu sa len polia, ktoré sa naozaj líšia. Dáta idú z `production_change_log`; `findActivity` dorozlišuje FG čísla z oboch snapshotov, lebo „produkt 41 sa zmenil na produkt 58" čitateľovi nepovie nič.
+**Changes since your last visit** — karta zmenená za posledných 24 h nesie modrý badge `RECENTLY UPDATED` na vlastnom riadku pod FG číslom (je to najdlhší popis na karte a horný riadok patrí FG), hore je počet („1 card changed"), a po kliknutí panel **What changed**: `PRODUCT FG100735 → FG100865`, `QUANTITY 120 pcs → 150 pcs`. Vypíšu sa len polia, ktoré sa naozaj líšia. Dáta idú z `production_change_log`; `findActivity` dorozlišuje FG čísla z oboch snapshotov, lebo „produkt 41 sa zmenil na produkt 58" čitateľovi nepovie nič.
 
 **Responsive od začiatku** — pod `md` sa sedem stĺpcov zmení na sedem sekcií pod sebou. Skrolovať do strany, aby človek porovnal utorok so štvrtkom, nie je čítanie.
 
