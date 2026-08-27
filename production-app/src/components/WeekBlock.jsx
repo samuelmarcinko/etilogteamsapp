@@ -128,6 +128,10 @@ export default function WeekBlock({
   // by contrast with the days around it, and there is no contrast here.
   const weekIsEmpty = emptyDays.size === week.days.length;
 
+  // Today's week gets its own treatment: at eight weeks on screen, finding
+  // "which of these is now" was a matter of reading dates.
+  const isCurrentWeek = week.days.some((day) => day.isToday);
+
   // A day counts as free only while nothing is planned on it. Saturdays are
   // worked sometimes, and a green column labelled FREE over a card someone has
   // to build is worse than no marking at all - so the moment production lands
@@ -154,13 +158,48 @@ export default function WeekBlock({
     // container, which would capture the sticky day names and pin them inside
     // the week instead of under the toolbar. clip trims the corners without
     // becoming one.
-    <section className="print-block overflow-clip rounded-lg border border-gray-200 bg-white shadow-sm">
+    <section
+      className={clsx(
+        // overflow-clip rather than overflow-hidden: hidden makes this a scroll
+        // container, which would capture the sticky day names and pin them
+        // inside the week instead of under the toolbar. clip trims the corners
+        // without becoming one.
+        'print-block overflow-clip rounded-lg border bg-white',
+        // Eight of these stacked read as one long table unless each is clearly
+        // its own object: a firmer edge and a real shadow, not a hairline.
+        isCurrentWeek
+          ? 'border-blue-300 border-l-4 border-l-blue-500 shadow-weekCurrent'
+          : 'border-gray-300 shadow-week'
+      )}
+    >
       {/* week header */}
-      <header className="flex items-baseline gap-2 border-b border-gray-200 bg-gray-25 px-4 py-2">
-        <h2 className="text-[14px] font-bold uppercase tracking-wider text-gray-900">
+      <header
+        className={clsx(
+          'flex items-baseline gap-2.5 border-b px-4 py-2.5',
+          // The week you are in is the one you look for first. Blue, because
+          // red already means urgent and green means free - a third meaning on
+          // either would make both weaker.
+          isCurrentWeek ? 'border-blue-200 bg-blue-50' : 'border-gray-300 bg-gray-50'
+        )}
+      >
+        <h2
+          className={clsx(
+            'text-[15px] font-extrabold uppercase tracking-wider',
+            isCurrentWeek ? 'text-blue-900' : 'text-gray-900'
+          )}
+        >
           CW {week.calendarWeek}
         </h2>
-        <span className="text-[13px] text-gray-500">{week.rangeLabel}</span>
+        <span className={clsx('text-[13px]', isCurrentWeek ? 'text-blue-700' : 'text-gray-500')}>
+          {week.rangeLabel}
+        </span>
+
+        {isCurrentWeek && (
+          <span className="week-now rounded bg-blue-600 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-white">
+            This week
+          </span>
+        )}
+
         {weekIsEmpty && (
           <span className="ml-auto text-[12px] text-gray-400">Nothing planned yet</span>
         )}

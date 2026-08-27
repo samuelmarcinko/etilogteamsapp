@@ -59,7 +59,12 @@ export default {
         md: '0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04)',
         lg: '0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.03)',
         card: '0 1px 2px rgba(16, 24, 40, 0.05)',
-        cardHover: '0 6px 16px -4px rgba(16, 24, 40, 0.18)'
+        cardHover: '0 6px 16px -4px rgba(16, 24, 40, 0.18)',
+        // A week block has to read as one object among several stacked down the
+        // page, so it sits slightly off the background rather than being drawn
+        // on it with a hairline.
+        week: '0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 10px -4px rgba(16, 24, 40, 0.10)',
+        weekCurrent: '0 1px 2px rgba(29, 78, 216, 0.10), 0 6px 16px -6px rgba(29, 78, 216, 0.30)'
       },
       transitionTimingFunction: {
         portal: 'cubic-bezier(0.4, 0, 0.2, 1)'

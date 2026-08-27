@@ -33,8 +33,10 @@
     min-width: 1178px;
   }
 
+  /* Grid lines a shade firmer than the default hairline: at 8-week density the
+     cells have to read as a table, not as cards floating on white. */
   .week-cell {
-    @apply border-b border-r border-gray-200 bg-white;
+    @apply border-b border-r border-gray-300 bg-white;
   }
 
   .row-label {
@@ -157,6 +159,14 @@
 
   .print-only {
     display: block !important;
+  }
+
+  /* Printers drop background colours, which would leave white text on white
+     paper. Outlined instead, so the current week is still marked. */
+  .week-now {
+    background: transparent !important;
+    color: #1d4ed8 !important;
+    border: 1px solid #1d4ed8;
   }
 
   .print-block {

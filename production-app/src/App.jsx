@@ -428,7 +428,7 @@ export default function App() {
           ) : plan.isPending || locations.isPending ? (
             <WeekSkeleton weeks={Math.min(spanWeeks, 4)} />
           ) : (
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-6">
               {/* The calendar always renders, however far ahead you look - an
                   unplanned week is exactly what you need to see in order to plan
                   it. A note sits above the grid rather than replacing it. */}
