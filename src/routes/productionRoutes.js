@@ -28,7 +28,11 @@ const currentUser = (req) => ({ id: req.user.id, name: req.user.name || req.user
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-const PRIORITIES = ['normal', 'high', 'urgent', 'blocked'];
+// Two priorities only: "this one is urgent" is the single thing a colour must
+// never be free to say. Everything else is grouped with a colour of the
+// planner's choosing instead - see migration 028.
+const PRIORITIES = ['normal', 'urgent'];
+const COLORS = ['sky', 'cyan', 'teal', 'emerald', 'lime', 'amber', 'orange', 'pink', 'violet', 'slate'];
 const STATUSES = ['planned', 'in_progress', 'done', 'cancelled'];
 const DAY_FLAGS = ['free', 'important', 'urgent'];
 
@@ -86,6 +90,10 @@ function parseEntryPayload(body, { requireLocation }) {
   if (!PRIORITIES.includes(value.priority)) {
     return { error: `priority must be one of ${PRIORITIES.join(', ')}` };
   }
+
+  // A colour belongs to ordinary work; urgent has its own and would drown it.
+  value.color = COLORS.includes(body.color) ? body.color : null;
+  if (value.priority === 'urgent') value.color = null;
 
   value.status = body.status || 'planned';
   if (!STATUSES.includes(value.status)) {

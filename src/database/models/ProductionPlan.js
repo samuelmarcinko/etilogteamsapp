@@ -62,6 +62,7 @@ class ProductionPlan {
               e.quantity_breakdown,
               e.raw_quantity,
               e.priority,
+              e.color,
               e.status,
               e.notes,
               e.sort_order,

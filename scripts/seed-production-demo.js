@@ -174,7 +174,11 @@ async function seedLocation(client, location, productIds, index) {
         const fg = pick(PRODUCTS)[0];
 
         const roll = random();
-        const priority = roll < 0.06 ? 'urgent' : roll < 0.16 ? 'high' : roll < 0.2 ? 'blocked' : 'normal';
+        // Two priorities since migration 028; the rest of the variety comes
+        // from the colours a planner would put on related work.
+        const priority = roll < 0.06 ? 'urgent' : 'normal';
+        const color = priority === 'urgent' ? null
+          : roll < 0.16 ? 'orange' : roll < 0.24 ? 'teal' : roll < 0.3 ? 'violet' : null;
 
         // Past days are mostly finished; today and ahead are planned.
         const status = day < -1 ? 'done' : day < 0 ? 'in_progress' : 'planned';
@@ -186,9 +190,9 @@ async function seedLocation(client, location, productIds, index) {
         await client.query(
           `INSERT INTO production_plan_entries
              (location_id, production_date, shift_id, product_id, custom_product_name,
-              planned_quantity, quantity_breakdown, raw_quantity, priority, status, notes,
+              planned_quantity, quantity_breakdown, raw_quantity, priority, color, status, notes,
               sort_order, source_file, created_by, created_by_name, updated_by, updated_by_name)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'demo-seed','Demo seed','demo-seed','Demo seed')`,
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'demo-seed','Demo seed','demo-seed','Demo seed')`,
           [
             location.id,
             date,
@@ -199,6 +203,7 @@ async function seedLocation(client, location, productIds, index) {
             split ? JSON.stringify({ parts: [a, b] }) : null,
             split ? `${a}+${b}` : null,
             priority,
+            color,
             status,
             random() < 0.1 ? pick(NOTES) : null,
             c,
@@ -212,19 +217,19 @@ async function seedLocation(client, location, productIds, index) {
 
   // A queue with something already overdue, so the badge has a reason to show.
   const queue = [
-    { fg: 'FG100735', qty: 250, due: isoOffset(monday, 5), priority: 'high' },
-    { fg: 'FG100829', qty: 80, due: isoOffset(monday, 12), priority: 'normal' },
-    { custom: 'TESLA ABD', qty: 40, due: isoOffset(monday, -3), priority: 'urgent' },
-    { fg: 'FG101580', qty: 120, due: null, priority: 'normal' }
+    { fg: 'FG100735', qty: 250, due: isoOffset(monday, 5), priority: 'normal', color: 'orange' },
+    { fg: 'FG100829', qty: 80, due: isoOffset(monday, 12), priority: 'normal', color: 'teal' },
+    { custom: 'TESLA ABD', qty: 40, due: isoOffset(monday, -3), priority: 'urgent', color: null },
+    { fg: 'FG101580', qty: 120, due: null, priority: 'normal', color: null }
   ];
 
   for (const [i, item] of queue.entries()) {
     await client.query(
       `INSERT INTO production_plan_entries
          (location_id, production_date, shift_id, product_id, custom_product_name,
-          planned_quantity, priority, status, due_date, sort_order, source_file,
+          planned_quantity, priority, color, status, due_date, sort_order, source_file,
           created_by, created_by_name, updated_by, updated_by_name)
-       VALUES ($1, NULL, NULL, $2, $3, $4, $5, 'planned', $6, $7, $8,
+       VALUES ($1, NULL, NULL, $2, $3, $4, $5, $6, 'planned', $7, $8, $9,
                'demo-seed','Demo seed','demo-seed','Demo seed')`,
       [
         location.id,
@@ -232,6 +237,7 @@ async function seedLocation(client, location, productIds, index) {
         item.custom || null,
         item.qty,
         item.priority,
+        item.color,
         item.due,
         i,
         SOURCE_TAG

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { Trash2, X } from 'lucide-react';
+import { Check, Trash2, X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import clsx from 'clsx';
 
 import FgCombobox from './FgCombobox';
+import { CARD_COLORS, DEFAULT_COLOR } from '../lib/colors';
 
 /**
  * Add or edit a card.
@@ -14,11 +15,12 @@ import FgCombobox from './FgCombobox';
  * shapes rather than forcing one.
  */
 
+// Two, and no more. A planner marking everything "high" tells nobody anything;
+// what they actually need is one alarm and a way to group related work, which
+// is what the colour below is for.
 const PRIORITIES = [
   ['normal', 'Normal'],
-  ['high', 'High'],
-  ['urgent', 'Urgent'],
-  ['blocked', 'Blocked']
+  ['urgent', 'Urgent']
 ];
 
 const STATUSES = [
@@ -42,6 +44,29 @@ function Field({ label, children, className, as: Element = 'label' }) {
       <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{label}</span>
       {children}
     </Element>
+  );
+}
+
+/** One colour in the palette. Big enough to hit on a tablet. */
+function ColourSwatch({ colour, selected, onSelect }) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      title={colour.label}
+      aria-label={colour.label}
+      aria-pressed={selected}
+      className={clsx(
+        'flex h-7 w-7 items-center justify-center rounded-md border transition',
+        colour.bg,
+        selected ? 'border-gray-900 ring-1 ring-gray-900' : 'border-gray-300 hover:border-gray-500'
+      )}
+    >
+      {/* the bar is the colour as it appears on the card, so the swatch shows
+          both halves of what is being chosen */}
+      <span aria-hidden="true" className={clsx('h-4 w-1.5 rounded-sm', colour.bar)} />
+      {selected && <Check className="ml-0.5 h-3 w-3 text-gray-900" aria-hidden="true" />}
+    </button>
   );
 }
 
@@ -72,6 +97,7 @@ export default function EntryFormDialog({
   const [product, setProduct] = useState(null);
   const [quantity, setQuantity] = useState('');
   const [priority, setPriority] = useState('normal');
+  const [color, setColor] = useState(null);
   const [status, setStatus] = useState('planned');
   const [notes, setNotes] = useState('');
   const [dueDate, setDueDate] = useState('');
@@ -93,6 +119,7 @@ export default function EntryFormDialog({
     );
     setQuantity(initialQuantity(entry));
     setPriority(entry?.priority || 'normal');
+    setColor(entry?.color || null);
     setStatus(entry?.status || 'planned');
     setNotes(entry?.notes || '');
     setDueDate(entry?.due_date ? String(entry.due_date).slice(0, 10) : '');
@@ -112,6 +139,7 @@ export default function EntryFormDialog({
       customProductName: product.customProductName,
       quantity,
       priority,
+      color: priority === 'urgent' ? null : color,
       status,
       notes,
       dueDate: dueDate || null,
@@ -191,6 +219,31 @@ export default function EntryFormDialog({
                   </select>
                 </Field>
               </div>
+
+              {/* Urgent owns the card's colour, so the palette steps aside for
+                  it rather than offering a choice that would not be honoured. */}
+              {priority !== 'urgent' && (
+                <Field label="Colour" as="div">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <ColourSwatch
+                      colour={DEFAULT_COLOR}
+                      selected={!color}
+                      onSelect={() => setColor(null)}
+                    />
+                    {CARD_COLORS.map((option) => (
+                      <ColourSwatch
+                        key={option.key}
+                        colour={option}
+                        selected={color === option.key}
+                        onSelect={() => setColor(option.key)}
+                      />
+                    ))}
+                  </div>
+                  <p className="mt-1 text-[12px] text-gray-500">
+                    Give related work the same colour and it reads as one group across the week.
+                  </p>
+                </Field>
+              )}
 
               {/* Only meaningful for queued work, which is judged by when it is due */}
               {(!slot?.date && !entry?.production_date) && (

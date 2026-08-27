@@ -120,9 +120,9 @@ class ProductionEntry {
       const { rows } = await client.query(
         `INSERT INTO production_plan_entries
            (location_id, production_date, shift_id, product_id, custom_product_name,
-            planned_quantity, quantity_breakdown, raw_quantity, priority, status, notes,
+            planned_quantity, quantity_breakdown, raw_quantity, priority, color, status, notes,
             due_date, sort_order, created_by, created_by_name, updated_by, updated_by_name)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$14,$15)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$15,$16)
          RETURNING *`,
         [
           data.locationId,
@@ -134,6 +134,7 @@ class ProductionEntry {
           data.quantityBreakdown ? JSON.stringify(data.quantityBreakdown) : null,
           data.rawQuantity || null,
           data.priority || 'normal',
+          data.color || null,
           data.status || 'planned',
           data.notes || null,
           data.dueDate || null,
@@ -197,12 +198,13 @@ class ProductionEntry {
             quantity_breakdown  = $5,
             raw_quantity        = $6,
             priority            = $7,
-            status              = $8,
-            notes               = $9,
-            due_date            = $10,
+            color               = $8,
+            status              = $9,
+            notes               = $10,
+            due_date            = $11,
             version             = version + 1,
-            updated_by          = $11,
-            updated_by_name     = $12
+            updated_by          = $12,
+            updated_by_name     = $13
           WHERE id = $1
           RETURNING *`,
         [
@@ -213,6 +215,7 @@ class ProductionEntry {
           data.quantityBreakdown ? JSON.stringify(data.quantityBreakdown) : null,
           data.rawQuantity ?? null,
           data.priority || 'normal',
+          data.color ?? null,
           data.status || 'planned',
           data.notes ?? null,
           data.dueDate ?? null,
@@ -507,7 +510,7 @@ class ProductionEntry {
     const { rows } = await pool.query(
       `SELECT e.id, e.location_id, e.product_id, p.fg_number, p.description AS product_description,
               e.custom_product_name, e.planned_quantity, e.quantity_breakdown, e.raw_quantity,
-              e.priority, e.status, e.notes, e.due_date, e.version, e.updated_at, e.updated_by_name
+              e.priority, e.color, e.status, e.notes, e.due_date, e.version, e.updated_at, e.updated_by_name
          FROM production_plan_entries e
          LEFT JOIN products p ON p.id = e.product_id
         WHERE e.location_id = $1
@@ -891,10 +894,10 @@ class ProductionEntry {
         const { rows } = await client.query(
           `INSERT INTO production_plan_entries
              (location_id, production_date, shift_id, product_id, custom_product_name,
-              planned_quantity, quantity_breakdown, raw_quantity, priority, status, notes,
+              planned_quantity, quantity_breakdown, raw_quantity, priority, color, status, notes,
               sort_order, created_by, created_by_name, updated_by, updated_by_name)
            SELECT location_id, $3::date, shift_id, product_id, custom_product_name,
-                  planned_quantity, quantity_breakdown, raw_quantity, priority, 'planned', notes,
+                  planned_quantity, quantity_breakdown, raw_quantity, priority, color, 'planned', notes,
                   sort_order + ${ARRIVAL_OFFSET}, $4, $5, $4, $5
              FROM production_plan_entries
             WHERE location_id = $1 AND production_date = $2 AND deleted_at IS NULL
@@ -990,9 +993,9 @@ class ProductionEntry {
       const { rows: created } = await client.query(
         `INSERT INTO production_plan_entries
            (location_id, production_date, shift_id, product_id, custom_product_name,
-            planned_quantity, priority, status, notes, sort_order,
+            planned_quantity, priority, color, status, notes, sort_order,
             created_by, created_by_name, updated_by, updated_by_name)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,'planned',$8,$9,$10,$11,$10,$11)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'planned',$9,$10,$11,$12,$11,$12)
          RETURNING *`,
         [
           entry.location_id,
@@ -1002,6 +1005,7 @@ class ProductionEntry {
           entry.custom_product_name,
           remainder,
           entry.priority,
+          entry.color,
           entry.notes,
           sortOrder,
           user?.id || null,

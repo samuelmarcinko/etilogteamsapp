@@ -1,43 +1,19 @@
 import clsx from 'clsx';
 import { formatQuantity } from '../lib/weeks';
+import { cardColor } from '../lib/colors';
 
 /**
  * One production card (section 4.2).
  *
  * The FG number dominates because that is what people work from; the product
- * name is secondary and the quantity sits underneath. Priority reads as a
- * colour stripe rather than a filled background, so a wall of urgent cards at
- * 8-week density stays legible.
- */
-
-/**
- * The stripe down the left of a card.
+ * name is secondary and the quantity sits underneath.
  *
- * Every card carries one, ordinary work included - a card with no stripe read
- * as an unfinished version of a card with one. Priority claims the stripe when
- * it is set; otherwise finished work is green and everything else is the
- * neutral blue.
+ * The card's colour carries two different things. Urgent is fixed and red -
+ * that signal cannot be up to anyone. Everything else takes the colour the
+ * planner picked, so a family of related work reads as a group across the
+ * week. The colour paints the stripe and tints the card; the tint is what makes
+ * the group visible from a distance, where a 4px stripe is not.
  */
-const STRIPE = {
-  urgent: 'bg-priority-urgent',
-  high: 'bg-priority-high',
-  blocked: 'bg-priority-blocked',
-  done: 'bg-emerald-500',
-  normal: 'bg-blue-400'
-};
-
-function stripeFor(entry) {
-  const priority = entry.priority || 'normal';
-  if (STRIPE[priority] && priority !== 'normal') return STRIPE[priority];
-  if (entry.status === 'done') return STRIPE.done;
-  return STRIPE.normal;
-}
-
-const PRIORITY_BADGE = {
-  urgent: 'bg-etilog text-white',
-  high: 'bg-orange-100 text-orange-800',
-  blocked: 'bg-amber-100 text-amber-900'
-};
 
 const STATUS_LABEL = {
   in_progress: 'In progress',
@@ -51,6 +27,7 @@ export default function ProductionCard({ entry, onOpen, compact = false }) {
   const quantity = formatQuantity(entry);
   const priority = entry.priority || 'normal';
   const isCancelled = entry.status === 'cancelled';
+  const colour = cardColor(entry);
 
   return (
     <button
@@ -61,16 +38,13 @@ export default function ProductionCard({ entry, onOpen, compact = false }) {
         'group relative flex w-full flex-col gap-0.5 overflow-hidden rounded-md border',
         'pl-2.5 pr-2 py-1.5 text-left shadow-card',
         'transition duration-150 ease-portal hover:-translate-y-px hover:shadow-cardHover',
-        // Urgent tints the card itself as well. One stripe among twenty is easy
-        // to miss on a wall; a tinted card is not.
-        priority === 'urgent'
-          ? 'border-red-200 bg-red-50 hover:border-red-300'
-          : 'border-gray-200 bg-white hover:border-gray-300',
+        colour.border,
+        colour.bg,
         isCancelled && 'opacity-55'
       )}
     >
-      {/* priority accent */}
-      <span aria-hidden="true" className={clsx('absolute inset-y-0 left-0 w-1', stripeFor(entry))} />
+      {/* the colour: a stripe down the edge, over a tint of the same hue */}
+      <span aria-hidden="true" className={clsx('absolute inset-y-0 left-0 w-1', colour.bar)} />
 
       <div className="flex items-start justify-between gap-1.5">
         <span
@@ -83,14 +57,9 @@ export default function ProductionCard({ entry, onOpen, compact = false }) {
           {title}
         </span>
 
-        {PRIORITY_BADGE[priority] && (
-          <span
-            className={clsx(
-              'shrink-0 rounded px-1 py-px text-[10px] font-bold uppercase tracking-wide',
-              PRIORITY_BADGE[priority]
-            )}
-          >
-            {priority}
+        {priority === 'urgent' && (
+          <span className="shrink-0 rounded bg-etilog px-1 py-px text-[10px] font-bold uppercase tracking-wide text-white">
+            Urgent
           </span>
         )}
       </div>

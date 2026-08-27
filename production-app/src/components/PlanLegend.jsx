@@ -1,5 +1,6 @@
 import { AlertTriangle, CalendarOff } from 'lucide-react';
 import { shiftAccent } from '../lib/shifts';
+import { CARD_COLORS } from '../lib/colors';
 
 /**
  * What the marks in the grid mean.
@@ -10,13 +11,10 @@ import { shiftAccent } from '../lib/shifts';
  * plan, spares them from having to ask.
  */
 
-// The stripe down the left of every card, in the order someone meets them.
-const PRIORITIES = [
+// The card's colour means one of two things, and the legend says which.
+const MARKS = [
   { key: 'normal', label: 'Normal', bar: 'bg-blue-400' },
-  { key: 'urgent', label: 'Urgent', bar: 'bg-priority-urgent' },
-  { key: 'high', label: 'High', bar: 'bg-priority-high' },
-  { key: 'blocked', label: 'Blocked', bar: 'bg-priority-blocked' },
-  { key: 'done', label: 'Done', bar: 'bg-emerald-500' }
+  { key: 'urgent', label: 'Urgent', bar: 'bg-priority-urgent' }
 ];
 
 function Divider() {
@@ -41,12 +39,23 @@ export default function PlanLegend({ shifts, canManage }) {
 
       <Divider />
 
-      {PRIORITIES.map((priority) => (
-        <span key={priority.key} className="flex items-center gap-1">
-          <span aria-hidden="true" className={`h-3 w-1 rounded-sm ${priority.bar}`} />
-          {priority.label}
+      {MARKS.map((mark) => (
+        <span key={mark.key} className="flex items-center gap-1">
+          <span aria-hidden="true" className={`h-3 w-1 rounded-sm ${mark.bar}`} />
+          {mark.label}
         </span>
       ))}
+
+      {/* The palette itself, so the colours on the cards are not a private
+          code: same colour, related work. */}
+      <span className="flex items-center gap-1">
+        <span className="flex items-center gap-0.5" aria-hidden="true">
+          {CARD_COLORS.map((colour) => (
+            <span key={colour.key} className={`h-3 w-1 rounded-sm ${colour.bar}`} />
+          ))}
+        </span>
+        own colours group related work
+      </span>
 
       <Divider />
 
