@@ -1,6 +1,6 @@
 import { Fragment } from 'react';
 import clsx from 'clsx';
-import { AlertTriangle, Copy, Plus } from 'lucide-react';
+import { AlertTriangle, Copy, Leaf, Plus } from 'lucide-react';
 
 import ProductionCard from './ProductionCard';
 import WeekDayList from './WeekDayList';
@@ -29,10 +29,18 @@ function DayHeader({ day, flag, isFree, exception, compact, canManage, onSetFlag
     <div
       className={clsx(
         'week-cell day-sticky group/day px-2 py-1.5 text-center',
-        day.isWeekend && !isFree && 'bg-gray-50',
-        isFree && 'bg-emerald-100/70',
-        flag && DAY_FLAG_STYLE[flag.flag],
-        day.isToday && 'shadow-[inset_0_-2px_0_0_#D9000C]'
+        // Exactly one background wins, chosen here rather than by layering
+        // classes: two bg-* utilities on one element are decided by their order
+        // in the compiled stylesheet, not by the order they are written in.
+        day.isToday
+          // Today is a red column head with a rule along the top, so the eye
+          // lands on it before it starts reading dates.
+          ? 'bg-red-50 shadow-[inset_0_2px_0_0_#D9000C]'
+          : isFree
+            ? 'bg-emerald-50'
+            : flag && DAY_FLAG_STYLE[flag.flag]
+              ? DAY_FLAG_STYLE[flag.flag]
+              : 'bg-gray-50'
       )}
     >
       {canManage && <DayMenu day={day} flag={flag} onSetFlag={onSetFlag} onAdd={onAdd} onBulk={onBulk} />}
@@ -149,7 +157,20 @@ export default function WeekBlock({
    * that blank is itself the information.
    */
   const emptyLabel = (day, shiftIndex, isFree) => {
-    if (!emptyDays.has(day.iso) || weekIsEmpty || shiftIndex !== 0 || isFree) return null;
+    if (shiftIndex !== 0) return null;
+
+    // A free day says so in the cell as well as in the column head: the green
+    // tint alone is a colour someone has to be told the meaning of.
+    if (isFree) {
+      return (
+        <span className="flex items-center gap-1 font-medium text-emerald-700">
+          <Leaf className="h-3.5 w-3.5" aria-hidden="true" />
+          {compact ? '' : 'Free day'}
+        </span>
+      );
+    }
+
+    if (!emptyDays.has(day.iso) || weekIsEmpty) return null;
     return compact ? '—' : 'Nothing planned yet';
   };
 
@@ -165,7 +186,7 @@ export default function WeekBlock({
         // its own object: a firmer edge and a real shadow, not a hairline.
         isCurrentWeek
           ? 'border-blue-400 border-l-4 border-l-blue-500 shadow-weekCurrent'
-          : 'border-gray-400 shadow-week'
+          : 'border-gray-300 shadow-week'
       )}
     >
       {/* week header */}
@@ -175,7 +196,7 @@ export default function WeekBlock({
           // The week you are in is the one you look for first. Blue, because
           // red already means urgent and green means free - a third meaning on
           // either would make both weaker.
-          isCurrentWeek ? 'border-blue-300 bg-blue-50' : 'border-gray-400 bg-gray-50'
+          isCurrentWeek ? 'border-blue-200 bg-blue-50' : 'border-gray-200 bg-gray-50'
         )}
       >
         <h2
@@ -204,8 +225,9 @@ export default function WeekBlock({
           <button
             type="button"
             onClick={() => onBulk('copyWeek', week.days[0])}
-            className="no-print ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-[12px]
-                       font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-800"
+            className="no-print ml-auto flex items-center gap-1.5 rounded-md border border-gray-300
+                       bg-white px-2 py-1 text-[12px] font-medium text-gray-600 shadow-xs transition
+                       hover:border-gray-400 hover:bg-gray-50 hover:text-gray-900"
           >
             <Copy className="h-3 w-3" aria-hidden="true" />
             Copy week
@@ -228,7 +250,9 @@ export default function WeekBlock({
         <div className="print-spread">
           <div className="week-grid">
             {/* corner + day headers */}
-            <div className="row-label corner-sticky" />
+            <div className="row-label corner-sticky bg-gray-50 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+              Day / Shift
+            </div>
             {week.days.map((day) => (
               <DayHeader
                 key={day.iso}

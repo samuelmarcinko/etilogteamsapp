@@ -10,10 +10,13 @@ import { shiftAccent } from '../lib/shifts';
  * plan, spares them from having to ask.
  */
 
+// The stripe down the left of every card, in the order someone meets them.
 const PRIORITIES = [
+  { key: 'normal', label: 'Normal', bar: 'bg-blue-400' },
   { key: 'urgent', label: 'Urgent', bar: 'bg-priority-urgent' },
   { key: 'high', label: 'High', bar: 'bg-priority-high' },
-  { key: 'blocked', label: 'Blocked', bar: 'bg-priority-blocked' }
+  { key: 'blocked', label: 'Blocked', bar: 'bg-priority-blocked' },
+  { key: 'done', label: 'Done', bar: 'bg-emerald-500' }
 ];
 
 function Divider() {

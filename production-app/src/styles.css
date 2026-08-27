@@ -33,14 +33,15 @@
     min-width: 1178px;
   }
 
-  /* Grid lines a shade firmer than the default hairline: at 8-week density the
-     cells have to read as a table, not as cards floating on white. */
+  /* Light rules. The structure is carried by the tinted bands - the header
+     row, the free-day columns, today - rather than by heavy lines; drawn dark
+     enough to read as a table, the lines fought those bands instead. */
   .week-cell {
-    @apply border-b border-r border-gray-400 bg-white;
+    @apply border-b border-r border-gray-200 bg-white;
   }
 
   .row-label {
-    @apply sticky left-0 z-10 border-b border-r border-gray-400 bg-gray-50
+    @apply sticky left-0 z-10 border-b border-r border-gray-200 bg-white
            px-2 py-2 text-[12px] font-semibold uppercase tracking-wide text-gray-700;
   }
 

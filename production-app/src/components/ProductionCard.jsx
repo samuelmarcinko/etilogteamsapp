@@ -10,12 +10,28 @@ import { formatQuantity } from '../lib/weeks';
  * 8-week density stays legible.
  */
 
-const PRIORITY_STRIPE = {
+/**
+ * The stripe down the left of a card.
+ *
+ * Every card carries one, ordinary work included - a card with no stripe read
+ * as an unfinished version of a card with one. Priority claims the stripe when
+ * it is set; otherwise finished work is green and everything else is the
+ * neutral blue.
+ */
+const STRIPE = {
   urgent: 'bg-priority-urgent',
   high: 'bg-priority-high',
   blocked: 'bg-priority-blocked',
-  normal: 'bg-transparent'
+  done: 'bg-emerald-500',
+  normal: 'bg-blue-400'
 };
+
+function stripeFor(entry) {
+  const priority = entry.priority || 'normal';
+  if (STRIPE[priority] && priority !== 'normal') return STRIPE[priority];
+  if (entry.status === 'done') return STRIPE.done;
+  return STRIPE.normal;
+}
 
 const PRIORITY_BADGE = {
   urgent: 'bg-etilog text-white',
@@ -42,17 +58,19 @@ export default function ProductionCard({ entry, onOpen, compact = false }) {
       onClick={() => onOpen?.(entry)}
       aria-label={`${title}${quantity?.main != null ? `, ${quantity.main} pieces` : ''}`}
       className={clsx(
-        'group relative flex w-full flex-col gap-0.5 overflow-hidden rounded-md border border-gray-300',
-        'bg-white pl-2.5 pr-2 py-1.5 text-left shadow-card',
-        'transition duration-150 ease-portal hover:-translate-y-px hover:shadow-cardHover hover:border-gray-300',
+        'group relative flex w-full flex-col gap-0.5 overflow-hidden rounded-md border',
+        'pl-2.5 pr-2 py-1.5 text-left shadow-card',
+        'transition duration-150 ease-portal hover:-translate-y-px hover:shadow-cardHover',
+        // Urgent tints the card itself as well. One stripe among twenty is easy
+        // to miss on a wall; a tinted card is not.
+        priority === 'urgent'
+          ? 'border-red-200 bg-red-50 hover:border-red-300'
+          : 'border-gray-200 bg-white hover:border-gray-300',
         isCancelled && 'opacity-55'
       )}
     >
       {/* priority accent */}
-      <span
-        aria-hidden="true"
-        className={clsx('absolute inset-y-0 left-0 w-1', PRIORITY_STRIPE[priority] || PRIORITY_STRIPE.normal)}
-      />
+      <span aria-hidden="true" className={clsx('absolute inset-y-0 left-0 w-1', stripeFor(entry))} />
 
       <div className="flex items-start justify-between gap-1.5">
         <span

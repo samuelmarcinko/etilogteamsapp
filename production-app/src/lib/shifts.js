@@ -1,4 +1,4 @@
-import { Moon, Sunrise, Sunset } from 'lucide-react';
+import { Moon, Sun, Sunset } from 'lucide-react';
 
 /**
  * How each shift is marked in the grid.
@@ -12,9 +12,9 @@ import { Moon, Sunrise, Sunset } from 'lucide-react';
  * database and a location may call them something else.
  */
 const ACCENTS = [
-  { icon: Sunrise, bar: 'bg-amber-400', text: 'text-amber-500' },
-  { icon: Sunset, bar: 'bg-indigo-400', text: 'text-indigo-500' },
-  { icon: Moon, bar: 'bg-slate-400', text: 'text-slate-500' }
+  { icon: Sun, bar: 'bg-amber-400', text: 'text-amber-500' },
+  { icon: Moon, bar: 'bg-indigo-400', text: 'text-indigo-500' },
+  { icon: Sunset, bar: 'bg-slate-400', text: 'text-slate-500' }
 ];
 
 export function shiftAccent(index) {
