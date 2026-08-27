@@ -25,12 +25,12 @@
      while the days scroll sideways on a tablet or phone. */
   .week-grid {
     display: grid;
-    /* Natural width is 116 + 7x132 = 1040px. Above that the day columns share
+    /* Natural width is 128 + 7x150 = 1178px. Above that the day columns share
        the space evenly; below it the wrapper scrolls sideways and the sticky
        label column keeps the shift names in view. The label column fits
        "AFTERNOON" alongside its icon - it was truncating at 104px. */
-    grid-template-columns: 116px repeat(7, minmax(132px, 1fr));
-    min-width: 1040px;
+    grid-template-columns: 128px repeat(7, minmax(150px, 1fr));
+    min-width: 1178px;
   }
 
   .week-cell {
@@ -39,7 +39,7 @@
 
   .row-label {
     @apply sticky left-0 z-10 border-b border-r border-gray-200 bg-gray-50
-           px-2 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500;
+           px-2 py-2 text-[12px] font-semibold uppercase tracking-wide text-gray-500;
   }
 
   /* The week scrolls sideways on a narrow screen. On a wide one it must NOT:
@@ -52,7 +52,9 @@
     overflow-x: auto;
   }
 
-  @media (min-width: 1180px) {
+  /* 1178px of grid plus the page's own padding: below this the week genuinely
+     needs its own scrollbar, above it there is nothing to scroll. */
+  @media (min-width: 1240px) {
     .print-spread {
       overflow: visible;
     }
@@ -72,7 +74,12 @@
     position: sticky;
     left: 0;
     top: var(--plan-header-h, 0px);
-    z-index: 30;
+    /* Above the day names and the shift labels it meets at the corner, but
+       below the toolbar (z-30). A sticky cell is clamped to its own week, so
+       as that week scrolls out the cell travels up through the toolbar's
+       band - at an equal z-index it came later in the document and won, and
+       drew a white square over the location tabs. */
+    z-index: 25;
   }
 
   /* Shown only on paper - a printout has no toolbar to say what it is. */
@@ -119,7 +126,7 @@
 
   .week-grid {
     /* No sideways scrolling on paper: the columns share the page width. */
-    grid-template-columns: 116px repeat(7, 1fr);
+    grid-template-columns: 128px repeat(7, 1fr);
     min-width: 0;
   }
 

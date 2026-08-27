@@ -39,14 +39,14 @@ const STATUSES = [
 function Field({ label, children, className, as: Element = 'label' }) {
   return (
     <Element className={clsx('flex flex-col gap-1', className)}>
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{label}</span>
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{label}</span>
       {children}
     </Element>
   );
 }
 
 const inputClass =
-  'rounded-md border border-gray-300 px-2.5 py-1.5 text-[13px] outline-none transition ' +
+  'rounded-md border border-gray-300 px-2.5 py-1.5 text-[14px] outline-none transition ' +
   'focus:border-etilog focus:ring-1 focus:ring-etilog';
 
 /** The card's stored quantity, as the input should show it. */
@@ -133,9 +133,9 @@ export default function EntryFormDialog({
           <form onSubmit={submit}>
             <div className="flex items-start justify-between gap-3 border-b border-gray-200 px-5 py-3.5">
               <div>
-                <Dialog.Title className="text-[15px] font-bold text-gray-900">{heading}</Dialog.Title>
+                <Dialog.Title className="text-[16px] font-bold text-gray-900">{heading}</Dialog.Title>
                 {slot?.shiftName && (
-                  <Dialog.Description className="mt-0.5 text-[12px] text-gray-500">
+                  <Dialog.Description className="mt-0.5 text-[13px] text-gray-500">
                     {slot.shiftName} shift
                   </Dialog.Description>
                 )}
@@ -215,7 +215,7 @@ export default function EntryFormDialog({
               </Field>
 
               {error && (
-                <p role="alert" className="text-[12px] font-medium text-etilog">{error}</p>
+                <p role="alert" className="text-[13px] font-medium text-etilog">{error}</p>
               )}
             </div>
 
@@ -224,7 +224,7 @@ export default function EntryFormDialog({
                 <button
                   type="button"
                   onClick={() => onDelete(entry)}
-                  className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[13px] font-medium text-gray-500 transition hover:bg-red-50 hover:text-etilog"
+                  className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[14px] font-medium text-gray-500 transition hover:bg-red-50 hover:text-etilog"
                 >
                   <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                   Delete
@@ -234,14 +234,14 @@ export default function EntryFormDialog({
               <div className="flex gap-2">
                 <Dialog.Close
                   type="button"
-                  className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-[13px] font-medium text-gray-700 transition hover:bg-gray-50"
+                  className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-[14px] font-medium text-gray-700 transition hover:bg-gray-50"
                 >
                   Cancel
                 </Dialog.Close>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="rounded-md bg-etilog px-3 py-1.5 text-[13px] font-medium text-white transition hover:bg-etilog-hover disabled:opacity-60"
+                  className="rounded-md bg-etilog px-3 py-1.5 text-[14px] font-medium text-white transition hover:bg-etilog-hover disabled:opacity-60"
                 >
                   {saving ? 'Saving…' : isEdit ? 'Save' : 'Add'}
                 </button>

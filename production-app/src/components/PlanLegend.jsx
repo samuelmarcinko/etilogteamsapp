@@ -22,8 +22,8 @@ function Divider() {
 
 export default function PlanLegend({ shifts, canManage }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 px-1 text-[11px] text-gray-500">
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Legend</span>
+    <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 px-1 text-[12px] text-gray-500">
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Legend</span>
 
       {shifts.map((shift, index) => {
         const accent = shiftAccent(index);
@@ -48,7 +48,7 @@ export default function PlanLegend({ shifts, canManage }) {
       <Divider />
 
       <span className="flex items-center gap-1">
-        <span className="inline-flex items-center gap-0.5 rounded bg-etilog px-1 py-px text-[9px] font-bold uppercase tracking-wide text-white">
+        <span className="inline-flex items-center gap-0.5 rounded bg-etilog px-1 py-px text-[10px] font-bold uppercase tracking-wide text-white">
           <AlertTriangle className="h-2.5 w-2.5" aria-hidden="true" />
           Important !
         </span>

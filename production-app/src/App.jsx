@@ -357,7 +357,7 @@ export default function App() {
 
   if (profile.isLoading) {
     return (
-      <div className="mx-auto max-w-[1600px] px-4 py-6">
+      <div className="px-5 py-6">
         <WeekSkeleton weeks={2} />
       </div>
     );
@@ -422,7 +422,7 @@ export default function App() {
           />
         )}
 
-        <main className="mx-auto max-w-[1600px] px-4 py-4">
+        <main className="px-5 py-4">
           {plan.isError ? (
             <ErrorState error={plan.error} onRetry={() => plan.refetch()} />
           ) : plan.isPending || locations.isPending ? (
@@ -504,7 +504,7 @@ export default function App() {
             className="pointer-events-none fixed inset-y-24 right-0 z-30 flex w-14 items-center justify-center
                        rounded-l-lg border border-r-0 border-dashed border-gray-300 bg-white/85 backdrop-blur-[2px]"
           >
-            <span className="rotate-90 whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+            <span className="rotate-90 whitespace-nowrap text-[11px] font-semibold uppercase tracking-wider text-gray-400">
               Unscheduled
             </span>
           </div>

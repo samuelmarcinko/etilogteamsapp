@@ -54,13 +54,13 @@ export const BULK_KINDS = {
 };
 
 const inputClass =
-  'rounded-md border border-gray-300 px-2.5 py-1.5 text-[13px] outline-none transition ' +
+  'rounded-md border border-gray-300 px-2.5 py-1.5 text-[14px] outline-none transition ' +
   'focus:border-etilog focus:ring-1 focus:ring-etilog';
 
 function Field({ label, children }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{label}</span>
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{label}</span>
       {children}
     </label>
   );
@@ -121,7 +121,7 @@ export default function BulkDialog({ open, onOpenChange, kind, sourceDate, onSub
             <div className="flex items-start justify-between gap-3 border-b border-gray-200 px-5 py-3.5">
               <div className="flex items-center gap-2">
                 <Icon className="h-4 w-4 text-etilog" aria-hidden="true" />
-                <Dialog.Title className="text-[15px] font-bold text-gray-900">{spec.title}</Dialog.Title>
+                <Dialog.Title className="text-[16px] font-bold text-gray-900">{spec.title}</Dialog.Title>
               </div>
               <Dialog.Close
                 type="button"
@@ -158,7 +158,7 @@ export default function BulkDialog({ open, onOpenChange, kind, sourceDate, onSub
                           type="button"
                           onClick={() => setDays(n)}
                           className={clsx(
-                            'rounded-md border px-2.5 py-1.5 text-[12px] font-medium transition',
+                            'rounded-md border px-2.5 py-1.5 text-[13px] font-medium transition',
                             Number(days) === n
                               ? 'border-etilog bg-etilog text-white'
                               : 'border-gray-300 text-gray-700 hover:bg-gray-50'
@@ -203,7 +203,7 @@ export default function BulkDialog({ open, onOpenChange, kind, sourceDate, onSub
                 </Field>
               )}
 
-              <p className="rounded-md bg-gray-50 px-3 py-2.5 text-[12px] leading-relaxed text-gray-600">
+              <p className="rounded-md bg-gray-50 px-3 py-2.5 text-[13px] leading-relaxed text-gray-600">
                 {summary()}
               </p>
             </div>
@@ -211,14 +211,14 @@ export default function BulkDialog({ open, onOpenChange, kind, sourceDate, onSub
             <div className="flex justify-end gap-2 border-t border-gray-200 px-5 py-3">
               <Dialog.Close
                 type="button"
-                className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-[13px] font-medium text-gray-700 transition hover:bg-gray-50"
+                className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-[14px] font-medium text-gray-700 transition hover:bg-gray-50"
               >
                 Cancel
               </Dialog.Close>
               <button
                 type="submit"
                 disabled={busy}
-                className="rounded-md bg-etilog px-3 py-1.5 text-[13px] font-medium text-white transition hover:bg-etilog-hover disabled:opacity-60"
+                className="rounded-md bg-etilog px-3 py-1.5 text-[14px] font-medium text-white transition hover:bg-etilog-hover disabled:opacity-60"
               >
                 {busy ? 'Working…' : spec.verb}
               </button>

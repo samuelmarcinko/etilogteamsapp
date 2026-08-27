@@ -13,13 +13,13 @@ import clsx from 'clsx';
  */
 
 const inputClass =
-  'rounded-md border border-gray-300 px-2.5 py-1.5 text-[13px] outline-none transition ' +
+  'rounded-md border border-gray-300 px-2.5 py-1.5 text-[14px] outline-none transition ' +
   'focus:border-etilog focus:ring-1 focus:ring-etilog';
 
 function Field({ label, children }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{label}</span>
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{label}</span>
       {children}
     </label>
   );
@@ -64,8 +64,8 @@ export default function SplitDialog({ open, onOpenChange, entry, shifts, onSubmi
               <div className="flex items-center gap-2">
                 <Split className="h-4 w-4 text-etilog" aria-hidden="true" />
                 <div>
-                  <Dialog.Title className="text-[15px] font-bold text-gray-900">Split production</Dialog.Title>
-                  <Dialog.Description className="text-[12px] text-gray-500">
+                  <Dialog.Title className="text-[16px] font-bold text-gray-900">Split production</Dialog.Title>
+                  <Dialog.Description className="text-[13px] text-gray-500">
                     {label} · {total} pcs
                   </Dialog.Description>
                 </div>
@@ -113,7 +113,7 @@ export default function SplitDialog({ open, onOpenChange, entry, shifts, onSubmi
 
               <div
                 className={clsx(
-                  'rounded-md px-3 py-2.5 text-[13px]',
+                  'rounded-md px-3 py-2.5 text-[14px]',
                   valid ? 'bg-gray-50 text-gray-700' : 'bg-red-50 text-etilog'
                 )}
               >
@@ -132,14 +132,14 @@ export default function SplitDialog({ open, onOpenChange, entry, shifts, onSubmi
             <div className="flex justify-end gap-2 border-t border-gray-200 px-5 py-3">
               <Dialog.Close
                 type="button"
-                className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-[13px] font-medium text-gray-700 transition hover:bg-gray-50"
+                className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-[14px] font-medium text-gray-700 transition hover:bg-gray-50"
               >
                 Cancel
               </Dialog.Close>
               <button
                 type="submit"
                 disabled={!valid || busy}
-                className="rounded-md bg-etilog px-3 py-1.5 text-[13px] font-medium text-white transition hover:bg-etilog-hover disabled:opacity-60"
+                className="rounded-md bg-etilog px-3 py-1.5 text-[14px] font-medium text-white transition hover:bg-etilog-hover disabled:opacity-60"
               >
                 {busy ? 'Splitting…' : 'Split'}
               </button>

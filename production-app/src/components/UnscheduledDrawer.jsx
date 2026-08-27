@@ -29,7 +29,7 @@ function DueBadge({ dueDate }) {
   return (
     <span
       className={clsx(
-        'shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold',
+        'shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold',
         overdue ? 'bg-etilog text-white' : 'bg-gray-100 text-gray-600'
       )}
     >
@@ -92,7 +92,7 @@ export default function UnscheduledDrawer({ open, onClose, entries, canManage, o
             />
             <h2
               className={clsx(
-                'text-[13px] font-bold uppercase tracking-wide transition-colors',
+                'text-[14px] font-bold uppercase tracking-wide transition-colors',
                 isOver ? 'text-etilog' : 'text-gray-900'
               )}
             >
@@ -100,7 +100,7 @@ export default function UnscheduledDrawer({ open, onClose, entries, canManage, o
             </h2>
             <span
               className={clsx(
-                'rounded px-1.5 py-0.5 text-[11px] font-semibold tabular-nums transition-colors',
+                'rounded px-1.5 py-0.5 text-[12px] font-semibold tabular-nums transition-colors',
                 isOver ? 'bg-etilog text-white' : 'bg-gray-100 text-gray-600'
               )}
             >
@@ -121,7 +121,7 @@ export default function UnscheduledDrawer({ open, onClose, entries, canManage, o
         {armed && (
           <div
             className={clsx(
-              'relative z-20 flex items-center justify-center gap-1.5 border-b px-4 py-2 text-[12px] font-semibold transition-colors',
+              'relative z-20 flex items-center justify-center gap-1.5 border-b px-4 py-2 text-[13px] font-semibold transition-colors',
               isOver
                 ? 'border-etilog bg-etilog text-white'
                 : 'border-dashed border-etilog/40 bg-etilog-light text-etilog'
@@ -134,7 +134,7 @@ export default function UnscheduledDrawer({ open, onClose, entries, canManage, o
 
         <div className="relative z-20 flex-1 overflow-y-auto p-3">
           {entries.length === 0 ? (
-            <p className="px-1 py-6 text-center text-[12px] leading-relaxed text-gray-400">
+            <p className="px-1 py-6 text-center text-[13px] leading-relaxed text-gray-400">
               Nothing waiting.
               <br />
               Drag a card here to take it off the plan without losing it.
@@ -162,7 +162,7 @@ export default function UnscheduledDrawer({ open, onClose, entries, canManage, o
             <button
               type="button"
               onClick={onAdd}
-              className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-gray-300 py-2 text-[13px] font-medium text-gray-600 transition hover:border-etilog hover:text-etilog"
+              className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-gray-300 py-2 text-[14px] font-medium text-gray-600 transition hover:border-etilog hover:text-etilog"
             >
               <Plus className="h-3.5 w-3.5" aria-hidden="true" />
               Add to queue

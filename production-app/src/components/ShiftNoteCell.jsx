@@ -74,7 +74,7 @@ export default function ShiftNoteCell({
           }}
           placeholder="Note for this shift…"
           className="h-full w-full resize-none rounded border border-etilog bg-white px-1.5 py-1
-                     text-[10px] leading-snug text-gray-700 outline-none ring-1 ring-etilog/20"
+                     text-[11px] leading-snug text-gray-700 outline-none ring-1 ring-etilog/20"
         />
       </div>
     );
@@ -103,19 +103,19 @@ export default function ShiftNoteCell({
       }}
     >
       {text && (
-        <p className="whitespace-pre-line text-[10px] font-medium leading-snug text-gray-700">
+        <p className="whitespace-pre-line text-[11px] font-medium leading-snug text-gray-700">
           {text}
         </p>
       )}
 
       {cardNotes.map((entryNote, i) => (
-        <p key={i} className="whitespace-pre-line text-[10px] leading-snug text-gray-400">
+        <p key={i} className="whitespace-pre-line text-[11px] leading-snug text-gray-400">
           {entryNote}
         </p>
       ))}
 
       {canManage && empty && (
-        <span className="no-print flex items-center gap-1 text-[10px] text-gray-300 opacity-0
+        <span className="no-print flex items-center gap-1 text-[11px] text-gray-300 opacity-0
                          transition group-hover/note:opacity-100">
           <Pencil className="h-2.5 w-2.5" aria-hidden="true" />
           Note

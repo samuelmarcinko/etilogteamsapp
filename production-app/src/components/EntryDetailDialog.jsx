@@ -28,8 +28,8 @@ function Field({ label, children }) {
   if (children == null || children === '') return null;
   return (
     <div className="flex flex-col gap-0.5">
-      <dt className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{label}</dt>
-      <dd className="text-[13px] text-gray-800">{children}</dd>
+      <dt className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{label}</dt>
+      <dd className="text-[14px] text-gray-800">{children}</dd>
     </div>
   );
 }
@@ -58,17 +58,17 @@ export default function EntryDetailDialog({ entry, open, onOpenChange, canManage
         >
           <div className="flex items-start justify-between gap-3 border-b border-gray-200 px-5 py-3.5">
             <div className="min-w-0">
-              <Dialog.Title className="truncate text-[15px] font-bold text-gray-900">
+              <Dialog.Title className="truncate text-[16px] font-bold text-gray-900">
                 {entry.fg_number || entry.custom_product_name}
               </Dialog.Title>
-              <Dialog.Description className="mt-0.5 line-clamp-2 text-[12px] text-gray-500">
+              <Dialog.Description className="mt-0.5 line-clamp-2 text-[13px] text-gray-500">
                 {entry.product_description || (entry.fg_number ? 'No description' : 'Custom production')}
               </Dialog.Description>
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
               <span
-                className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${PRIORITY_CLASS[priority]}`}
+                className={`rounded px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${PRIORITY_CLASS[priority]}`}
               >
                 {PRIORITY_LABEL[priority]}
               </span>
@@ -130,7 +130,7 @@ export default function EntryDetailDialog({ entry, open, onOpenChange, canManage
                 <button
                   type="button"
                   onClick={() => onSplit(entry)}
-                  className="flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-[13px] font-medium text-gray-700 transition hover:bg-gray-50"
+                  className="flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-[14px] font-medium text-gray-700 transition hover:bg-gray-50"
                 >
                   <Split className="h-3.5 w-3.5" aria-hidden="true" />
                   Split
@@ -139,7 +139,7 @@ export default function EntryDetailDialog({ entry, open, onOpenChange, canManage
               <button
                 type="button"
                 onClick={() => onEdit(entry)}
-                className="flex items-center gap-1.5 rounded-md bg-etilog px-3 py-1.5 text-[13px] font-medium text-white transition hover:bg-etilog-hover"
+                className="flex items-center gap-1.5 rounded-md bg-etilog px-3 py-1.5 text-[14px] font-medium text-white transition hover:bg-etilog-hover"
               >
                 <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                 Edit

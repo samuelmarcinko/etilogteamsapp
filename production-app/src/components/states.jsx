@@ -67,8 +67,8 @@ function Panel({ icon: Icon, tone = 'neutral', title, children, action }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-gray-300 bg-white px-6 py-14 text-center">
       <Icon className={`h-8 w-8 ${tones[tone]}`} strokeWidth={1.5} aria-hidden="true" />
-      <h2 className="text-[15px] font-semibold text-gray-900">{title}</h2>
-      <div className="max-w-md text-[13px] leading-relaxed text-gray-500">{children}</div>
+      <h2 className="text-[16px] font-semibold text-gray-900">{title}</h2>
+      <div className="max-w-md text-[14px] leading-relaxed text-gray-500">{children}</div>
       {action}
     </div>
   );
@@ -85,7 +85,7 @@ export function EmptyRangeNote({ locationName }) {
   return (
     <div className="flex items-start gap-2.5 rounded-lg border border-gray-200 bg-white px-4 py-3">
       <CalendarRange className="mt-px h-4 w-4 shrink-0 text-gray-400" strokeWidth={1.5} aria-hidden="true" />
-      <p className="text-[13px] leading-relaxed text-gray-500">
+      <p className="text-[14px] leading-relaxed text-gray-500">
         <span className="font-medium text-gray-700">Nothing planned yet</span> for {locationName} in
         these weeks. The calendar below is ready to plan into.
       </p>
@@ -104,7 +104,7 @@ export function ErrorState({ error, onRetry }) {
           <button
             type="button"
             onClick={onRetry}
-            className="inline-flex items-center gap-1.5 rounded-md bg-etilog px-3 py-1.5 text-[13px] font-medium text-white transition hover:bg-etilog-hover"
+            className="inline-flex items-center gap-1.5 rounded-md bg-etilog px-3 py-1.5 text-[14px] font-medium text-white transition hover:bg-etilog-hover"
           >
             <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
             Try again
@@ -125,7 +125,7 @@ export function NoAccess() {
       <div className="mt-4">
         <a
           href="/portal/"
-          className="inline-flex rounded-md border border-gray-300 bg-white px-3 py-1.5 text-[13px] font-medium text-gray-700 transition hover:bg-gray-50"
+          className="inline-flex rounded-md border border-gray-300 bg-white px-3 py-1.5 text-[14px] font-medium text-gray-700 transition hover:bg-gray-50"
         >
           Back to portal
         </a>

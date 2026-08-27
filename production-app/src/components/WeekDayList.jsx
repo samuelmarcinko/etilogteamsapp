@@ -38,7 +38,7 @@ export default function WeekDayList({
             <header className="mb-2 flex items-center gap-2">
               <h3
                 className={clsx(
-                  'text-[13px] font-bold uppercase tracking-wide',
+                  'text-[14px] font-bold uppercase tracking-wide',
                   day.isToday ? 'text-etilog' : 'text-gray-900'
                 )}
               >
@@ -48,7 +48,7 @@ export default function WeekDayList({
               {showFlag && (
                 <span
                   className={clsx(
-                    'rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide',
+                    'rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide',
                     DAY_FLAG_BADGE[flag.flag]
                   )}
                 >
@@ -56,14 +56,14 @@ export default function WeekDayList({
                 </span>
               )}
               {!showFlag && exception && (
-                <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-gray-600">
+                <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-600">
                   {exception.note || exception.type.replace(/_/g, ' ')}
                 </span>
               )}
             </header>
 
             {total === 0 && !hasNote ? (
-              <p className="text-[12px] text-gray-300">Nothing planned yet</p>
+              <p className="text-[13px] text-gray-300">Nothing planned yet</p>
             ) : (
               <div className="flex flex-col gap-2">
                 {shifts.map((shift, shiftIndex) => {
@@ -77,7 +77,7 @@ export default function WeekDayList({
 
                   return (
                     <div key={shift.id} className="flex flex-col gap-1">
-                      <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                      <span className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
                         <ShiftIcon className={clsx('h-3 w-3', accent.text)} aria-hidden="true" />
                         {shift.name}
                       </span>
@@ -85,7 +85,7 @@ export default function WeekDayList({
                         <ProductionCard key={entry.id} entry={entry} onOpen={onOpenEntry} />
                       ))}
                       {note && (
-                        <p className="rounded border border-gray-200 bg-gray-25 px-2 py-1.5 text-[11px] leading-snug text-gray-600">
+                        <p className="rounded border border-gray-200 bg-gray-25 px-2 py-1.5 text-[12px] leading-snug text-gray-600">
                           {note.note}
                         </p>
                       )}

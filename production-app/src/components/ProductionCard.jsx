@@ -58,7 +58,7 @@ export default function ProductionCard({ entry, onOpen, compact = false }) {
         <span
           className={clsx(
             'font-semibold leading-tight text-gray-900',
-            compact ? 'text-[12px]' : 'text-[13px]',
+            compact ? 'text-[13px]' : 'text-[14px]',
             isCancelled && 'line-through'
           )}
         >
@@ -68,7 +68,7 @@ export default function ProductionCard({ entry, onOpen, compact = false }) {
         {PRIORITY_BADGE[priority] && (
           <span
             className={clsx(
-              'shrink-0 rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide',
+              'shrink-0 rounded px-1 py-px text-[10px] font-bold uppercase tracking-wide',
               PRIORITY_BADGE[priority]
             )}
           >
@@ -78,20 +78,20 @@ export default function ProductionCard({ entry, onOpen, compact = false }) {
       </div>
 
       {subtitle && !compact && (
-        <span className="line-clamp-1 text-[11px] leading-tight text-gray-500">{subtitle}</span>
+        <span className="line-clamp-1 text-[12px] leading-tight text-gray-500">{subtitle}</span>
       )}
 
       <div className="flex items-baseline gap-1.5">
         {quantity?.main != null && (
-          <span className="text-[11px] font-medium tabular-nums text-gray-700">
+          <span className="text-[12px] font-medium tabular-nums text-gray-700">
             {quantity.main} pcs
           </span>
         )}
         {quantity?.breakdown && (
-          <span className="text-[10px] tabular-nums text-gray-400">{quantity.breakdown}</span>
+          <span className="text-[11px] tabular-nums text-gray-400">{quantity.breakdown}</span>
         )}
         {STATUS_LABEL[entry.status] && (
-          <span className="text-[10px] text-gray-400">· {STATUS_LABEL[entry.status]}</span>
+          <span className="text-[11px] text-gray-400">· {STATUS_LABEL[entry.status]}</span>
         )}
       </div>
     </button>

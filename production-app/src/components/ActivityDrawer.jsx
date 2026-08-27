@@ -80,7 +80,7 @@ export default function ActivityDrawer({
         <header className="flex items-center justify-between gap-2 border-b border-gray-200 px-4 py-3">
           <div className="flex items-center gap-2">
             <History className="h-4 w-4 text-gray-400" aria-hidden="true" />
-            <h2 className="text-[13px] font-bold uppercase tracking-wide text-gray-900">History</h2>
+            <h2 className="text-[14px] font-bold uppercase tracking-wide text-gray-900">History</h2>
           </div>
           <button
             type="button"
@@ -93,7 +93,7 @@ export default function ActivityDrawer({
         </header>
 
         {canManage && restoreWindowDays > 0 && (
-          <p className="border-b border-gray-200 bg-gray-25 px-4 py-2 text-[11px] leading-snug text-gray-500">
+          <p className="border-b border-gray-200 bg-gray-25 px-4 py-2 text-[12px] leading-snug text-gray-500">
             Changes can be restored for {restoreWindowDays} days. Older entries stay in the
             record but can no longer be put back.
           </p>
@@ -107,7 +107,7 @@ export default function ActivityDrawer({
               ))}
             </div>
           ) : !activity?.length ? (
-            <p className="px-4 py-8 text-center text-[12px] leading-relaxed text-gray-400">
+            <p className="px-4 py-8 text-center text-[13px] leading-relaxed text-gray-400">
               Nothing has changed here yet.
             </p>
           ) : (
@@ -129,30 +129,30 @@ export default function ActivityDrawer({
                     <div className="flex items-center gap-2">
                       <span
                         className={clsx(
-                          'rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide',
+                          'rounded px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide',
                           ACTION_STYLE[item.action] || 'bg-gray-100 text-gray-700'
                         )}
                       >
                         {item.action.replace(/_/g, ' ')}
                       </span>
                       {item.entry_label && (
-                        <span className="truncate text-[13px] font-semibold text-gray-900">
+                        <span className="truncate text-[14px] font-semibold text-gray-900">
                           {item.entry_label}
                         </span>
                       )}
                       {item.entry_deleted && item.action !== 'deleted' && (
-                        <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-etilog">
+                        <span className="shrink-0 text-[11px] font-medium uppercase tracking-wide text-etilog">
                           deleted
                         </span>
                       )}
                     </div>
 
                     {item.summary && (
-                      <p className="text-[12px] leading-snug text-gray-600">{item.summary}</p>
+                      <p className="text-[13px] leading-snug text-gray-600">{item.summary}</p>
                     )}
 
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] text-gray-400" title={time?.exact}>
+                      <span className="text-[12px] text-gray-400" title={time?.exact}>
                         {time?.relative}
                         {item.changed_by_name ? ` · ${item.changed_by_name}` : ''}
                       </span>
@@ -163,7 +163,7 @@ export default function ActivityDrawer({
                           onClick={() => onRestore(item)}
                           disabled={restoringId === item.id}
                           className="flex shrink-0 items-center gap-1 rounded border border-gray-300 px-1.5 py-0.5
-                                     text-[11px] font-medium text-gray-600 transition
+                                     text-[12px] font-medium text-gray-600 transition
                                      hover:border-etilog hover:text-etilog disabled:opacity-50"
                         >
                           <RotateCcw className="h-3 w-3" aria-hidden="true" />
@@ -172,11 +172,11 @@ export default function ActivityDrawer({
                       )}
 
                       {isGone && (
-                        <span className="shrink-0 text-[11px] text-gray-300">permanently removed</span>
+                        <span className="shrink-0 text-[12px] text-gray-300">permanently removed</span>
                       )}
 
                       {expired && !isGone && (
-                        <span className="shrink-0 text-[11px] text-gray-300">beyond restore window</span>
+                        <span className="shrink-0 text-[12px] text-gray-300">beyond restore window</span>
                       )}
                     </div>
                   </li>
@@ -191,7 +191,7 @@ export default function ActivityDrawer({
                 type="button"
                 onClick={onLoadMore}
                 disabled={isLoadingMore}
-                className="w-full rounded-md border border-gray-300 py-2 text-[12px] font-medium text-gray-600 transition hover:bg-gray-50 disabled:opacity-60"
+                className="w-full rounded-md border border-gray-300 py-2 text-[13px] font-medium text-gray-600 transition hover:bg-gray-50 disabled:opacity-60"
               >
                 {isLoadingMore ? 'Loading…' : 'Load older changes'}
               </button>

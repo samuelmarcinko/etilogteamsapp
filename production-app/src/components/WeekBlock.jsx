@@ -40,7 +40,7 @@ function DayHeader({ day, flag, isFree, exception, compact, canManage, onSetFlag
       <div className="flex items-baseline justify-center gap-1">
         <span
           className={clsx(
-            'text-[10px] font-semibold uppercase tracking-wider',
+            'text-[11px] font-semibold uppercase tracking-wider',
             day.isToday ? 'text-etilog' : 'text-gray-400'
           )}
         >
@@ -49,7 +49,7 @@ function DayHeader({ day, flag, isFree, exception, compact, canManage, onSetFlag
         <span
           className={clsx(
             'font-semibold tabular-nums',
-            compact ? 'text-[12px]' : 'text-[13px]',
+            compact ? 'text-[13px]' : 'text-[14px]',
             day.isToday ? 'text-etilog' : 'text-gray-800'
           )}
         >
@@ -61,20 +61,20 @@ function DayHeader({ day, flag, isFree, exception, compact, canManage, onSetFlag
           reads as an ordinary day until the work is moved off it again, rather
           than claiming "FREE" over the top of a card someone has to build. */}
       {isFree && (
-        <div className="text-[9px] font-bold uppercase tracking-wide text-emerald-700">Free</div>
+        <div className="text-[10px] font-bold uppercase tracking-wide text-emerald-700">Free</div>
       )}
       {/* A flagged day has to survive being scanned at 8-week density from
           across a room, so it gets a filled badge rather than small red text. */}
       {flag && DAY_FLAG_STYLE[flag.flag] && (
         <div className="mt-0.5 flex items-center justify-center">
-          <span className="inline-flex items-center gap-0.5 rounded bg-etilog px-1 py-px text-[9px] font-bold uppercase tracking-wide text-white">
+          <span className="inline-flex items-center gap-0.5 rounded bg-etilog px-1 py-px text-[10px] font-bold uppercase tracking-wide text-white">
             <AlertTriangle className="h-2.5 w-2.5" aria-hidden="true" />
             Important !
           </span>
         </div>
       )}
       {!flag && exception && (
-        <div className="line-clamp-1 text-[9px] text-gray-500" title={exception.note || exception.type}>
+        <div className="line-clamp-1 text-[10px] text-gray-500" title={exception.note || exception.type}>
           {exception.note || exception.type.replace(/_/g, ' ')}
         </div>
       )}
@@ -157,19 +157,19 @@ export default function WeekBlock({
     <section className="print-block overflow-clip rounded-lg border border-gray-200 bg-white shadow-sm">
       {/* week header */}
       <header className="flex items-baseline gap-2 border-b border-gray-200 bg-gray-25 px-4 py-2">
-        <h2 className="text-[13px] font-bold uppercase tracking-wider text-gray-900">
+        <h2 className="text-[14px] font-bold uppercase tracking-wider text-gray-900">
           CW {week.calendarWeek}
         </h2>
-        <span className="text-[12px] text-gray-500">{week.rangeLabel}</span>
+        <span className="text-[13px] text-gray-500">{week.rangeLabel}</span>
         {weekIsEmpty && (
-          <span className="ml-auto text-[11px] text-gray-400">Nothing planned yet</span>
+          <span className="ml-auto text-[12px] text-gray-400">Nothing planned yet</span>
         )}
 
         {canManage && !weekIsEmpty && (
           <button
             type="button"
             onClick={() => onBulk('copyWeek', week.days[0])}
-            className="no-print ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px]
+            className="no-print ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-[12px]
                        font-medium text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
           >
             <Copy className="h-3 w-3" aria-hidden="true" />
@@ -261,14 +261,14 @@ export default function WeekBlock({
                               className={clsx(
                                 'select-none text-center leading-tight text-gray-300',
                                 'group-hover/add:opacity-0',
-                                compact ? 'text-[9px]' : 'text-[10px]'
+                                compact ? 'text-[10px]' : 'text-[11px]'
                               )}
                             >
                               {emptyLabel(day, shiftIndex, isFree)}
                             </span>
                           )}
                           <span
-                            className="no-print absolute flex items-center gap-1 text-[10px] font-medium
+                            className="no-print absolute flex items-center gap-1 text-[11px] font-medium
                                        text-gray-500 opacity-0 transition group-hover/add:opacity-100
                                        group-focus-visible/add:opacity-100"
                           >
@@ -281,7 +281,7 @@ export default function WeekBlock({
                           <span
                             className={clsx(
                               'select-none self-center pt-1 text-center leading-tight text-gray-300',
-                              compact ? 'text-[9px]' : 'text-[10px]'
+                              compact ? 'text-[10px]' : 'text-[11px]'
                             )}
                           >
                             {emptyLabel(day, shiftIndex, isFree)}
@@ -300,7 +300,7 @@ export default function WeekBlock({
                           }
                           aria-label={`Add production to ${day.weekday} ${day.dayOfMonth}, ${shift.name}`}
                           className="no-print mt-auto flex items-center justify-center gap-1 rounded border border-dashed
-                                     border-gray-300 py-0.5 text-[10px] text-gray-400 opacity-0 transition
+                                     border-gray-300 py-0.5 text-[11px] text-gray-400 opacity-0 transition
                                      hover:border-etilog hover:text-etilog focus-visible:opacity-100
                                      group-hover/slot:opacity-100"
                         >
@@ -356,7 +356,7 @@ function Row({ label, children, muted = false, accent = null, divide = false }) 
       <div
         className={clsx(
           'row-label relative flex items-center gap-1.5',
-          muted && 'text-[10px] font-normal normal-case text-gray-400',
+          muted && 'text-[11px] font-normal normal-case text-gray-400',
           divide && 'border-t-2 border-t-gray-300'
         )}
       >

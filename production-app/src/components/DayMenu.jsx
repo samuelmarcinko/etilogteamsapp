@@ -40,7 +40,7 @@ export default function DayMenu({ day, flag, onSetFlag, onAdd, onBulk }) {
         >
           <DropdownMenu.Item
             onSelect={() => onAdd(day)}
-            className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[13px] text-gray-700 outline-none data-[highlighted]:bg-gray-100"
+            className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[14px] text-gray-700 outline-none data-[highlighted]:bg-gray-100"
           >
             <Plus className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
             Add production
@@ -58,7 +58,7 @@ export default function DayMenu({ day, flag, onSetFlag, onAdd, onBulk }) {
             <DropdownMenu.Item
               key={kind}
               onSelect={() => onBulk(kind, day)}
-              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[13px] text-gray-700 outline-none data-[highlighted]:bg-gray-100"
+              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[14px] text-gray-700 outline-none data-[highlighted]:bg-gray-100"
             >
               <Icon className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
               {label}
@@ -74,7 +74,7 @@ export default function DayMenu({ day, flag, onSetFlag, onAdd, onBulk }) {
               <DropdownMenu.Item
                 key={option.value}
                 onSelect={() => onSetFlag(day, active ? null : option.value)}
-                className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[13px] text-gray-700 outline-none data-[highlighted]:bg-gray-100"
+                className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[14px] text-gray-700 outline-none data-[highlighted]:bg-gray-100"
               >
                 <Icon
                   className={clsx('h-3.5 w-3.5', active ? 'text-etilog' : 'text-gray-400')}
