@@ -227,6 +227,21 @@ export default function App() {
     },
     onSuccess: (result, variables) => {
       setFormState(null);
+
+      // Which slot a card sits in belongs to move(), not to the field update -
+      // that is where sort order within the slot, an already-occupied target
+      // and the undo snapshot are handled. So a shift changed in the form is
+      // finished here, down the same path drag and drop uses, rather than being
+      // quietly dropped by an UPDATE that never touches shift_id.
+      if (variables.shiftTarget) {
+        moveMutation.mutate({
+          id: variables.entry.id,
+          entry: variables.entry,
+          target: variables.shiftTarget
+        });
+        return;   // the move refreshes and reports, with undo
+      }
+
       refresh();
       if (variables.entry) {
         toast.success('Card saved');
@@ -610,18 +625,24 @@ export default function App() {
           shifts={shifts}
           saving={saveMutation.isPending}
           onDelete={(entry) => deleteMutation.mutate(entry)}
-          onSubmit={(payload) =>
+          onSubmit={(payload) => {
+            const entry = formState?.entry || null;
+            const productionDate = entry
+              ? String(entry.production_date || '').slice(0, 10) || null
+              : formState?.slot?.date || null;
+
+            // A scheduled card whose shift changed has to be moved as well as
+            // saved; the fields and the slot are two different writes.
+            const shiftId = payload.shiftId || null;
+            const movedShift =
+              entry && productionDate && shiftId !== (entry.shift_id || null);
+
             saveMutation.mutate({
-              entry: formState?.entry || null,
-              payload: {
-                ...payload,
-                locationId,
-                productionDate: formState?.entry
-                  ? String(formState.entry.production_date || '').slice(0, 10) || null
-                  : formState?.slot?.date || null
-              }
-            })
-          }
+              entry,
+              shiftTarget: movedShift ? { productionDate, shiftId } : null,
+              payload: { ...payload, locationId, productionDate }
+            });
+          }}
         />
 
         <BulkDialog

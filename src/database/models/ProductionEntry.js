@@ -166,6 +166,12 @@ class ProductionEntry {
    * Field update with optimistic concurrency: `expectedVersion` must match, so
    * two planners editing the same card cannot silently overwrite each other.
    * Returns null when the version has moved on.
+   *
+   * Fields only. Which day and shift a card sits in is move()'s business - that
+   * is where sort order within the slot, an already-occupied target and the
+   * undo snapshot live - so `productionDate` and `shiftId` are not read here
+   * even when the caller sends them. A caller changing the slot has to move the
+   * card too.
    */
   static async update(id, data, expectedVersion, user) {
     const client = await pool.connect();
