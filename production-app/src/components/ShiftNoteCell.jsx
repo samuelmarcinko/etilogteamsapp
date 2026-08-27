@@ -18,6 +18,8 @@ export default function ShiftNoteCell({
   cardNotes = [],
   canManage,
   weekend,
+  free = false,
+  minHeight = 'min-h-[26px]',
   onSave,
   label
 }) {
@@ -51,7 +53,7 @@ export default function ShiftNoteCell({
 
   if (editing) {
     return (
-      <div className={clsx('week-cell p-0.5', weekend ? 'bg-gray-50' : 'bg-gray-25')}>
+      <div className={clsx('week-cell p-0.5', minHeight, free ? 'bg-emerald-50' : weekend ? 'bg-gray-50' : 'bg-gray-25')}>
         <textarea
           ref={textareaRef}
           value={draft}
@@ -83,8 +85,9 @@ export default function ShiftNoteCell({
   return (
     <div
       className={clsx(
-        'week-cell group/note relative min-h-[26px] px-1.5 py-1',
-        weekend ? 'bg-gray-50' : 'bg-gray-25',
+        'week-cell group/note relative px-1.5 py-1',
+        minHeight,
+        free ? 'bg-emerald-50' : weekend ? 'bg-gray-50' : 'bg-gray-25',
         canManage && 'cursor-text transition hover:bg-white'
       )}
       onClick={start}

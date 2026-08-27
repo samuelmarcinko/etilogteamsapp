@@ -30,6 +30,8 @@ export default function WeekDayList({
         const exception = exceptions[day.iso];
         const total = Object.values(perShift).flat().length;
         const hasNote = shifts.some((shift) => shiftNotes[shiftNoteKey(day.iso, shift.id)]);
+        // Marked free but carrying production is not free - same rule as the grid.
+        const showFlag = flag && !(flag.flag === 'free' && total > 0);
 
         return (
           <section key={day.iso} className={clsx('px-3 py-2.5', day.isToday && 'bg-etilog-light')}>
@@ -43,7 +45,7 @@ export default function WeekDayList({
                 {day.weekday} {day.dayOfMonth}
               </h3>
 
-              {flag && (
+              {showFlag && (
                 <span
                   className={clsx(
                     'rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide',
@@ -53,7 +55,7 @@ export default function WeekDayList({
                   {DAY_FLAG_LABEL[flag.flag] || flag.flag}
                 </span>
               )}
-              {!flag && exception && (
+              {!showFlag && exception && (
                 <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-gray-600">
                   {exception.note || exception.type.replace(/_/g, ' ')}
                 </span>

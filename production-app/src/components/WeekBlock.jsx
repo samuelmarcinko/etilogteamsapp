@@ -20,17 +20,17 @@ import { DraggableCard, DroppableSlot, slotId } from './dnd';
  */
 
 const DAY_FLAG_STYLE = {
-  free: 'bg-emerald-50',
   important: 'bg-etilog-light',
   urgent: 'bg-etilog-light'
 };
 
-function DayHeader({ day, flag, exception, compact, canManage, onSetFlag, onAdd, onBulk }) {
+function DayHeader({ day, flag, isFree, exception, compact, canManage, onSetFlag, onAdd, onBulk }) {
   return (
     <div
       className={clsx(
-        'week-cell group/day sticky top-0 z-20 px-2 py-1.5 text-center',
-        day.isWeekend && 'bg-gray-50',
+        'week-cell day-sticky group/day px-2 py-1.5 text-center',
+        day.isWeekend && !isFree && 'bg-gray-50',
+        isFree && 'bg-emerald-100/70',
         flag && DAY_FLAG_STYLE[flag.flag],
         day.isToday && 'shadow-[inset_0_-2px_0_0_#D9000C]'
       )}
@@ -57,12 +57,15 @@ function DayHeader({ day, flag, exception, compact, canManage, onSetFlag, onAdd,
         </span>
       </div>
 
-      {flag?.flag === 'free' && (
+      {/* A day marked free but carrying production is not free any more. It
+          reads as an ordinary day until the work is moved off it again, rather
+          than claiming "FREE" over the top of a card someone has to build. */}
+      {isFree && (
         <div className="text-[9px] font-bold uppercase tracking-wide text-emerald-700">Free</div>
       )}
       {/* A flagged day has to survive being scanned at 8-week density from
           across a room, so it gets a filled badge rather than small red text. */}
-      {flag && flag.flag !== 'free' && (
+      {flag && DAY_FLAG_STYLE[flag.flag] && (
         <div className="mt-0.5 flex items-center justify-center">
           <span className="inline-flex items-center gap-0.5 rounded bg-etilog px-1 py-px text-[9px] font-bold uppercase tracking-wide text-white">
             <AlertTriangle className="h-2.5 w-2.5" aria-hidden="true" />
@@ -92,9 +95,20 @@ export default function WeekBlock({
   onSetShiftNote,
   onBulk,
   canManage,
-  compact
+  density = 'normal'
 }) {
   const isWide = useMediaQuery('(min-width: 768px)');
+  const compact = density === 'compact';
+
+  // One week on screen has room to breathe, and cells that hold three cards
+  // without growing are easier to plan into than cells that resize under the
+  // pointer. Eight weeks has to earn every pixel instead.
+  const slotMinHeight = {
+    roomy: 'min-h-[132px]',
+    normal: 'min-h-[56px]',
+    compact: 'min-h-[42px]'
+  }[density];
+  const noteMinHeight = density === 'roomy' ? 'min-h-[40px]' : 'min-h-[26px]';
 
   /** Notes written on the cards in one slot - shown under the shift note. */
   const cardNotesFor = (iso, shiftId) =>
@@ -114,6 +128,17 @@ export default function WeekBlock({
   // by contrast with the days around it, and there is no contrast here.
   const weekIsEmpty = emptyDays.size === week.days.length;
 
+  // A day counts as free only while nothing is planned on it. Saturdays are
+  // worked sometimes, and a green column labelled FREE over a card someone has
+  // to build is worse than no marking at all - so the moment production lands
+  // there the day looks like any other, and looks free again once it is moved
+  // off. The flag itself is left alone.
+  const freeDays = new Set(
+    week.days
+      .filter((day) => dayFlags[day.iso]?.flag === 'free' && emptyDays.has(day.iso))
+      .map((day) => day.iso)
+  );
+
   /**
    * What an empty slot says, if anything. Marked once per day, on the first
    * shift row: an empty shift on an otherwise busy day is left blank, because
@@ -125,7 +150,11 @@ export default function WeekBlock({
   };
 
   return (
-    <section className="print-block overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+    // overflow-clip rather than overflow-hidden: hidden makes this a scroll
+    // container, which would capture the sticky day names and pin them inside
+    // the week instead of under the toolbar. clip trims the corners without
+    // becoming one.
+    <section className="print-block overflow-clip rounded-lg border border-gray-200 bg-white shadow-sm">
       {/* week header */}
       <header className="flex items-baseline gap-2 border-b border-gray-200 bg-gray-25 px-4 py-2">
         <h2 className="text-[13px] font-bold uppercase tracking-wider text-gray-900">
@@ -161,15 +190,16 @@ export default function WeekBlock({
           onOpenEntry={onOpenEntry}
         />
       ) : (
-        <div className="overflow-x-auto">
+        <div className="print-spread">
           <div className="week-grid">
             {/* corner + day headers */}
-            <div className="row-label sticky top-0 z-30" />
+            <div className="row-label corner-sticky" />
             {week.days.map((day) => (
               <DayHeader
                 key={day.iso}
                 day={day}
                 flag={dayFlags[day.iso]}
+                isFree={freeDays.has(day.iso)}
                 exception={exceptions[day.iso]}
                 compact={compact}
                 canManage={canManage}
@@ -185,8 +215,7 @@ export default function WeekBlock({
               <Row label={shift.name} accent={shiftAccent(shiftIndex)} divide={shiftIndex > 0}>
                 {week.days.map((day) => {
                   const cards = entriesByDay[day.iso]?.[shift.id] || [];
-                  const flag = dayFlags[day.iso];
-                  const isFree = flag?.flag === 'free';
+                  const isFree = freeDays.has(day.iso);
 
                   return (
                     <DroppableSlot
@@ -196,11 +225,11 @@ export default function WeekBlock({
                       hasCards={cards.length > 0}
                       className={clsx(
                         'week-cell group/slot relative flex flex-col gap-1 p-1',
-                        compact ? 'min-h-[42px]' : 'min-h-[56px]',
+                        slotMinHeight,
                         // The rule that separates one shift block from the next.
                         shiftIndex > 0 && 'border-t-2 border-t-gray-300',
-                        day.isWeekend && !cards.length && 'bg-gray-50/60',
-                        isFree && 'bg-emerald-50/50'
+                        day.isWeekend && !cards.length && !isFree && 'bg-gray-50/60',
+                        isFree && 'bg-emerald-50'
                       )}
                     >
                       {cards.map((entry) => (
@@ -295,6 +324,8 @@ export default function WeekBlock({
                     cardNotes={cardNotesFor(day.iso, shift.id)}
                     canManage={canManage}
                     weekend={day.isWeekend}
+                    free={freeDays.has(day.iso)}
+                    minHeight={noteMinHeight}
                     label={`${shift.name}, ${day.weekday} ${day.dayOfMonth}`}
                     onSave={(text) => onSetShiftNote(day.iso, shift.id, text)}
                   />

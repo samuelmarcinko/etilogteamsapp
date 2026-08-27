@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import clsx from 'clsx';
 import { format } from 'date-fns';
 import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Eye, History, Inbox, Printer } from 'lucide-react';
@@ -60,23 +61,62 @@ export default function AppHeader({
 }) {
   const first = weeks[0];
   const last = weeks[weeks.length - 1];
+  const ref = useRef(null);
+
+  // The week grid parks its day names directly under this header, so it has to
+  // know how tall the header actually is - which changes when the location tabs
+  // wrap or the window narrows.
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+
+    const publish = () =>
+      document.documentElement.style.setProperty('--plan-header-h', `${node.offsetHeight}px`);
+
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/95 backdrop-blur">
+    // Opaque, not translucent: the grid scrolls underneath it, and 5% of a
+    // production card bleeding through the toolbar reads as a rendering fault.
+    <header ref={ref} className="sticky top-0 z-30 border-b border-gray-200 bg-white shadow-xs">
       <div className="mx-auto flex max-w-[1600px] flex-col gap-2.5 px-4 py-3">
         {/* title row */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <a
               href="/portal/"
-              className="no-print flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+              className="no-print group flex shrink-0 items-center gap-1.5 rounded-md border border-gray-300 bg-white
+                         px-2.5 py-1.5 text-[12px] font-medium text-gray-700 shadow-xs transition
+                         hover:border-etilog hover:bg-etilog-light hover:text-etilog"
             >
-              <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+              <ArrowLeft
+                className="h-3.5 w-3.5 transition-transform duration-150 ease-portal group-hover:-translate-x-0.5"
+                aria-hidden="true"
+              />
               <span className="hidden sm:inline">Portal</span>
             </a>
+
+            <img
+              src="/assets/images/logo.png"
+              alt="ETILOG"
+              className="h-6 w-auto shrink-0 sm:h-7"
+            />
+
+            <span aria-hidden="true" className="hidden h-6 w-px shrink-0 bg-gray-200 sm:block" />
+
             <h1 className="truncate text-[15px] font-bold uppercase tracking-wide text-gray-900">
               Production Plan
             </h1>
+
+            {/* Paper has no location tabs, so the printout has to name its own
+                location - otherwise two sheets on a wall are indistinguishable. */}
+            <span className="print-only text-[13px] font-semibold text-gray-700">
+              {locations.find((location) => location.code === activeCode)?.name || activeCode}
+            </span>
             {readOnly && (
               <span className="no-print inline-flex shrink-0 items-center gap-1 rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
                 <Eye className="h-3 w-3" aria-hidden="true" />

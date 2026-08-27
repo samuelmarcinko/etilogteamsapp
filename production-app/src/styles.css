@@ -41,6 +41,44 @@
     @apply sticky left-0 z-10 border-b border-r border-gray-200 bg-gray-50
            px-2 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500;
   }
+
+  /* The week scrolls sideways on a narrow screen. On a wide one it must NOT:
+     an element with overflow-x: auto is a scroll container in both axes, and a
+     sticky row inside it sticks to that container rather than to the window -
+     so the day names would be pinned inside the grid instead of under the
+     toolbar. Above the grid's natural width there is nothing to scroll
+     sideways anyway, so the wrapper gets out of the way. */
+  .print-spread {
+    overflow-x: auto;
+  }
+
+  @media (min-width: 1180px) {
+    .print-spread {
+      overflow: visible;
+    }
+  }
+
+  /* The day names stop below the toolbar rather than sliding under it and being
+     cut in half. AppHeader measures itself into --plan-header-h, so this keeps
+     working when the location tabs wrap onto a second line. */
+  .day-sticky {
+    position: sticky;
+    top: var(--plan-header-h, 0px);
+    z-index: 20;
+  }
+
+  /* The corner cell is stuck in both directions at once. */
+  .corner-sticky {
+    position: sticky;
+    left: 0;
+    top: var(--plan-header-h, 0px);
+    z-index: 30;
+  }
+
+  /* Shown only on paper - a printout has no toolbar to say what it is. */
+  .print-only {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -54,6 +92,14 @@
 
 /* Print: the plan for this week, replacing the printed Excel sheet. */
 @media print {
+  /* Landscape, because the sheet is seven days wide. On portrait A4 the week
+     either spills onto a second page or shrinks past reading distance, and
+     this is pinned up on a shop floor. */
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+
   .no-print {
     display: none !important;
   }
@@ -62,11 +108,57 @@
     background: #fff;
   }
 
+  /* Panels are fixed-position overlays; on paper they print on top of the plan
+     or push it sideways. Nothing that floats over the grid belongs on a
+     printout. */
+  aside,
+  [role='dialog'],
+  [data-sonner-toaster] {
+    display: none !important;
+  }
+
   .week-grid {
-    grid-template-columns: 100px repeat(7, 1fr);
+    /* No sideways scrolling on paper: the columns share the page width. */
+    grid-template-columns: 116px repeat(7, 1fr);
+    min-width: 0;
+  }
+
+  .week-grid .week-cell,
+  .week-grid .row-label {
+    /* Printers drop background colours by default; the borders have to carry
+       the grid on their own, so they are drawn a little harder. */
+    border-color: #9ca3af;
+  }
+
+  /* relative, not static: these hold absolutely positioned children (the shift
+     colour bar), and static would let them escape to the page box and draw a
+     stripe down the margin. */
+  .day-sticky,
+  .corner-sticky,
+  .row-label {
+    position: relative;
+    /* the sticky offsets have to go with it, or relative positioning shifts
+       these boxes down the page by the height of a toolbar nobody printed */
+    top: auto;
+    left: auto;
+  }
+
+  /* The sideways-scrolling wrapper must not clip on paper. */
+  .print-spread {
+    overflow: visible !important;
+  }
+
+  .print-only {
+    display: block !important;
   }
 
   .print-block {
     break-inside: avoid;
+    box-shadow: none;
+  }
+
+  /* One week per page keeps a printed 4-week plan readable. */
+  .print-block + .print-block {
+    break-before: page;
   }
 }

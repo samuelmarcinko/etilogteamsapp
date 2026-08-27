@@ -454,7 +454,7 @@ export default function App() {
                     shiftNoteMutation.mutate({ date, shiftId, note })}
                   onBulk={(kind, day) => setBulk({ kind, sourceDate: day.iso })}
                   canManage={canManage}
-                  compact={spanWeeks === 8}
+                  density={spanWeeks === 1 ? 'roomy' : spanWeeks === 8 ? 'compact' : 'normal'}
                 />
               ))}
             </div>
