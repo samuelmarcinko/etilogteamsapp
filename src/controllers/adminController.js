@@ -2,6 +2,7 @@ const pool = require('../database/config');
 const User = require('../database/models/User');
 const Quota = require('../database/models/Quota');
 const Ticket = require('../database/models/Ticket');
+const Role = require('../database/models/Role');
 const GraphService = require('../services/graphService');
 const { getUserPermissions, getAccessControlMode } = require('../middleware/portalAuth');
 
@@ -126,10 +127,15 @@ class AdminController {
       const { userId } = req.params;
       const { role } = req.body;
 
-      if (!['admin', 'spravca', 'user', 'sklad', 'sklad_read'].includes(role)) {
+      // Validated against the roles table rather than a list in this file, so a
+      // role an admin creates on the roles screen can actually be assigned. The
+      // five built-in names are rows in that table, so nothing that worked
+      // before stops working.
+      const known = await Role.listNames();
+      if (!known.includes(role)) {
         return res.status(400).json({
           error: 'Bad Request',
-          message: 'Role must be "admin", "spravca", "user", "sklad" or "sklad_read"'
+          message: `Role must be one of: ${known.join(', ')}`
         });
       }
 

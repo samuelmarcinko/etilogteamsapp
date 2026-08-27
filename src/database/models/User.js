@@ -71,6 +71,20 @@ class User {
   }
 
   /**
+   * How many users hold each role, as { roleName: count }.
+   *
+   * The roles screen shows this next to every role: it is the difference
+   * between "this checkbox affects nobody" and "this checkbox affects the
+   * whole warehouse", and it is what makes a deletion refusable.
+   */
+  static async countByRole() {
+    const { rows } = await pool.query(
+      'SELECT role, COUNT(*)::int AS count FROM users GROUP BY role'
+    );
+    return Object.fromEntries(rows.map((row) => [row.role, row.count]));
+  }
+
+  /**
    * Toggle user hidden flag
    */
   static async toggleHidden(userId) {

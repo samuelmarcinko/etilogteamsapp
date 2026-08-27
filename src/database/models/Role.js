@@ -129,6 +129,102 @@ class Role {
     const { rows } = await pool.query('SELECT name FROM roles ORDER BY name');
     return rows.map((r) => r.name);
   }
+
+  /** How many users currently hold a role. Guards deletion. */
+  static async countUsers(name) {
+    const { rows } = await pool.query('SELECT COUNT(*)::int AS n FROM users WHERE role = $1', [name]);
+    return rows[0].n;
+  }
+
+  // ------------------------------------------------------------------ writes
+  /**
+   * Replace a role's permissions with exactly `keys`.
+   *
+   * Delete-then-insert inside one transaction rather than diffing: the set is
+   * seven rows, and a diff is more code to get subtly wrong than it saves.
+   *
+   * admin is refused. It holds every permission unconditionally in
+   * getPermissionsForRole, so a row here would be decoration - and if it were
+   * ever honoured, an admin could switch off their own access to the screen
+   * that grants it back.
+   */
+  static async setPermissions(name, keys) {
+    if (name === 'admin') return { refused: 'admin' };
+
+    const unknown = keys.filter((key) => !PERMISSION_KEYS.includes(key));
+    if (unknown.length) return { unknownKeys: unknown };
+
+    const role = await Role.findByName(name);
+    if (!role) return { notFound: true };
+
+    // hr.access is forced on by the resolver anyway; storing it keeps the row
+    // set and the effective answer in agreement, so the admin screen and the
+    // database say the same thing.
+    const granted = [...new Set([...keys, ...ALWAYS_GRANTED])];
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM role_permissions WHERE role_id = $1', [role.id]);
+      if (granted.length) {
+        await client.query(
+          `INSERT INTO role_permissions (role_id, permission_key)
+           SELECT $1, UNNEST($2::varchar[])`,
+          [role.id, granted]
+        );
+      }
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    Role.invalidateCache();
+    logger.info('Role permissions updated', { role: name, permissions: granted });
+    return { role: name, permissions: granted };
+  }
+
+  /**
+   * Create a custom role. The name is what lands in users.role, so it is
+   * restricted to the shape those values already have and can never be changed
+   * afterwards - renaming would orphan every user holding it.
+   */
+  static async create({ name, label, permissions = [] }) {
+    const clean = String(name || '').trim().toLowerCase();
+    if (!/^[a-z][a-z0-9_]{1,49}$/.test(clean)) return { badName: true };
+    if (await Role.findByName(clean)) return { exists: true };
+
+    const { rows } = await pool.query(
+      'INSERT INTO roles (name, label, is_system) VALUES ($1, $2, FALSE) RETURNING *',
+      [clean, String(label || clean).trim().slice(0, 100)]
+    );
+
+    Role.invalidateCache();
+    const withPermissions = await Role.setPermissions(clean, permissions);
+    logger.info('Role created', { role: clean });
+    return { role: rows[0], permissions: withPermissions.permissions || [...ALWAYS_GRANTED] };
+  }
+
+  /**
+   * Delete a custom role. System roles stay, and a role somebody still holds
+   * stays too - deleting it would leave those users with a role that grants
+   * nothing but HR, silently.
+   */
+  static async remove(name) {
+    const role = await Role.findByName(name);
+    if (!role) return { notFound: true };
+    if (role.is_system) return { refused: 'system' };
+
+    const holders = await Role.countUsers(name);
+    if (holders > 0) return { inUse: holders };
+
+    await pool.query('DELETE FROM roles WHERE id = $1', [role.id]);
+    Role.invalidateCache();
+    logger.info('Role deleted', { role: name });
+    return { deleted: name };
+  }
 }
 
 module.exports = Role;
