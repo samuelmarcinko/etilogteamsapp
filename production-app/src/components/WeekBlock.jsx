@@ -179,44 +179,56 @@ export default function WeekBlock({
         // container, which would capture the sticky day names and pin them
         // inside the week instead of under the toolbar. clip trims the corners
         // without becoming one.
-        'print-block overflow-clip rounded-lg border bg-white',
+        'print-block overflow-clip rounded-lg border border-gray-300 bg-white',
         // Eight of these stacked read as one long table unless each is clearly
-        // its own object: a firmer edge and a real shadow, not a hairline.
-        isCurrentWeek
-          ? 'border-blue-400 border-l-4 border-l-blue-500 shadow-weekCurrent'
-          : 'border-gray-300 shadow-week'
+        // its own object: a firmer edge and a real shadow, not a hairline. The
+        // current week takes no colour on its perimeter - it used to carry a
+        // blue rule down its left edge, running right alongside the amber and
+        // indigo bars that name the shifts, so three coloured lines met in the
+        // same eight pixels and none of them read. It is marked by its header
+        // instead, which is a band of its own that touches nothing.
+        isCurrentWeek ? 'shadow-weekCurrent' : 'shadow-week'
       )}
     >
       {/* week header */}
       <header
         className={clsx(
           'flex items-baseline gap-2.5 border-b px-4 py-2.5',
-          // The week you are in is the one you look for first. Blue, because
-          // red already means urgent and green means free - a third meaning on
-          // either would make both weaker.
-          isCurrentWeek ? 'border-blue-200 bg-blue-50' : 'border-gray-200 bg-gray-50'
+          // The week you are in is the one you look for first, so its header is
+          // filled rather than tinted: scrolling eight weeks, one solid band is
+          // found without reading a single date. Blue, because red already means
+          // urgent and green means free - a third meaning on either would make
+          // both weaker.
+          isCurrentWeek
+            ? 'week-head-now border-blue-700 bg-blue-600'
+            : 'border-gray-200 bg-gray-50'
         )}
       >
         <h2
           className={clsx(
             'text-[15px] font-extrabold uppercase tracking-wider',
-            isCurrentWeek ? 'text-blue-900' : 'text-gray-900'
+            isCurrentWeek ? 'text-white' : 'text-gray-900'
           )}
         >
           CW {week.calendarWeek}
         </h2>
-        <span className={clsx('text-[13px]', isCurrentWeek ? 'text-blue-700' : 'text-gray-600')}>
+        <span className={clsx('text-[13px]', isCurrentWeek ? 'text-blue-100' : 'text-gray-600')}>
           {week.rangeLabel}
         </span>
 
         {isCurrentWeek && (
-          <span className="week-now rounded bg-blue-600 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-white">
+          <span className="week-now rounded bg-white px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-blue-700">
             This week
           </span>
         )}
 
         {weekIsEmpty && (
-          <span className="ml-auto text-[12px] text-gray-500">Nothing planned yet</span>
+          <span className={clsx(
+            'ml-auto text-[12px]',
+            isCurrentWeek ? 'text-blue-100' : 'text-gray-500'
+          )}>
+            Nothing planned yet
+          </span>
         )}
 
         {SHOW_COPY_WEEK && canManage && !weekIsEmpty && (
@@ -269,7 +281,13 @@ export default function WeekBlock({
 
             {/* one row per shift */}
             {shifts.map((shift, shiftIndex) => (
-              <Row key={shift.id} label={shift.name} accent={shiftAccent(shiftIndex)} divide={shiftIndex > 0}>
+              <Row
+                key={shift.id}
+                label={shift.name}
+                accent={shiftAccent(shiftIndex)}
+                divide={shiftIndex > 0}
+                compact={compact}
+              >
                 {week.days.map((day) => {
                   const cards = entriesByDay[day.iso]?.[shift.id] || [];
                   const isFree = freeDays.has(day.iso);
@@ -283,8 +301,6 @@ export default function WeekBlock({
                       className={clsx(
                         'week-cell group/slot relative flex flex-col gap-1 p-1',
                         slotMinHeight,
-                        // The rule that separates one shift block from the next.
-                        shiftIndex > 0 && 'border-t-2 border-t-gray-300',
                         day.isWeekend && !cards.length && !isFree && 'bg-gray-50/60',
                         isFree && 'bg-emerald-50'
                       )}
@@ -402,16 +418,20 @@ export default function WeekBlock({
  * into one undifferentiated block otherwise, and at 8-week density it stops
  * being obvious which row is the morning.
  */
-function Row({ label, children, muted = false, accent = null, divide = false }) {
+function Row({ label, children, muted = false, accent = null, divide = false, compact = false }) {
   const Icon = accent?.icon;
 
   return (
     <>
+      {/* A gutter across the whole grid rather than a heavier rule on each
+          cell: whitespace separates the two shifts into two objects, where one
+          more line in a grid made of lines separated nothing. */}
+      {divide && <div aria-hidden="true" className={clsx('week-gutter', compact && 'week-gutter-sm')} />}
+
       <div
         className={clsx(
           'row-label relative flex items-center gap-1.5',
-          muted && 'text-[11px] font-normal normal-case text-gray-500',
-          divide && 'border-t-2 border-t-gray-300'
+          muted && 'text-[11px] font-normal normal-case text-gray-500'
         )}
       >
         {accent && (

@@ -160,8 +160,9 @@ export default function Viewer({ initialLocation }) {
               <section
                 key={week.key}
                 className={clsx(
-                  'overflow-clip rounded-lg border bg-white shadow-sm',
-                  isCurrentWeek ? 'border-blue-300' : 'border-gray-200'
+                  'overflow-clip rounded-lg border border-gray-200 bg-white',
+                  // Marked by its header, not its perimeter - see WeekBlock.
+                  isCurrentWeek ? 'shadow-weekCurrent' : 'shadow-sm'
                 )}
               >
                 {/* One week needs no heading - the toolbar above already names
@@ -169,19 +170,21 @@ export default function Viewer({ initialLocation }) {
                 {spanWeeks > 1 && (
                   <header className={clsx(
                     'flex items-baseline gap-2.5 border-b px-4 py-2',
-                    isCurrentWeek ? 'border-blue-200 bg-blue-50' : 'border-gray-200 bg-gray-50'
+                    isCurrentWeek
+                      ? 'week-head-now border-blue-700 bg-blue-600'
+                      : 'border-gray-200 bg-gray-50'
                   )}>
                     <h2 className={clsx(
                       'text-[15px] font-extrabold uppercase tracking-wider',
-                      isCurrentWeek ? 'text-blue-900' : 'text-gray-900'
+                      isCurrentWeek ? 'text-white' : 'text-gray-900'
                     )}>
                       CW {week.calendarWeek}
                     </h2>
-                    <span className={clsx('text-[13px]', isCurrentWeek ? 'text-blue-700' : 'text-gray-600')}>
+                    <span className={clsx('text-[13px]', isCurrentWeek ? 'text-blue-100' : 'text-gray-600')}>
                       {week.rangeLabel}
                     </span>
                     {isCurrentWeek && (
-                      <span className="rounded bg-blue-600 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-white">
+                      <span className="rounded bg-white px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-blue-700">
                         This week
                       </span>
                     )}

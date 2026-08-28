@@ -89,6 +89,27 @@
     z-index: 20;
   }
 
+  /* The gap between one shift and the next.
+
+     It used to be a heavier rule, which is only more ink in a grid already made
+     of lines - at a glance the two shift bands still read as one block of rows.
+     A gutter separates them the way whitespace separates paragraphs: the two
+     shifts become two objects, and the hairlines top and bottom keep the table
+     reading as a table. It spans every column, so it does not break under the
+     sticky label on a sideways scroll. */
+  .week-gutter {
+    grid-column: 1 / -1;
+    height: 14px;
+    /* A groove rather than a band: the fill alone against white cells was too
+       close to nothing, and the two edges are what make it read as a deliberate
+       break instead of an empty row. */
+    @apply border-y border-gray-300 bg-gray-100;
+  }
+
+  .week-gutter-sm {
+    height: 8px;
+  }
+
   /* The Unscheduled queue starts below the toolbar rather than at the top of
      the window. Full height, it covered its own toggle button - so the only way
      to put it away was the X inside it - and took the location tabs and week
@@ -194,6 +215,19 @@
     background: transparent !important;
     color: #1d4ed8 !important;
     border: 1px solid #1d4ed8;
+  }
+
+  /* Same problem, one level up: on screen the current week's header is a solid
+     blue band with white text on it, which on paper is white on white. The band
+     becomes a rule under blue text instead. */
+  .week-head-now,
+  .week-head-now * {
+    background: transparent !important;
+    color: #1d4ed8 !important;
+  }
+
+  .week-head-now {
+    border-bottom: 2px solid #1d4ed8 !important;
   }
 
   .print-block {

@@ -210,10 +210,16 @@ export default function ViewerWeek({
 
           return (
             <div key={shift.id} className="contents">
+              {/* A gutter across the whole grid rather than a heavier rule on
+                  each cell - see WeekBlock. */}
+              {index > 0 && (
+                <div aria-hidden="true"
+                     className={clsx('week-gutter', density === 'compact' && 'week-gutter-sm')} />
+              )}
+
               <div className={clsx(
                 'row-label flex items-center gap-2',
-                size.label,
-                index > 0 && 'border-t-2 border-t-gray-300'
+                size.label
               )}>
                 <span aria-hidden="true" className={clsx('h-7 w-1 rounded-sm', accent.bar)} />
                 <Icon className={clsx('h-4 w-4', accent.text)} aria-hidden="true" />
@@ -231,7 +237,6 @@ export default function ViewerWeek({
                     className={clsx(
                       'week-cell flex flex-col',
                       size.cell,
-                      index > 0 && 'border-t-2 border-t-gray-300',
                       isFree && 'bg-emerald-50/60',
                       day.isToday && 'bg-red-50/40'
                     )}
