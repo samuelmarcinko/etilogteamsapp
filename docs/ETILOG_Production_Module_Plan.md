@@ -281,6 +281,20 @@ Priority `normal` / `urgent` (migrácia 028). Urgent je červený a pevný — t
 
 Jedna z najdôležitejších vecí projektu — inak notifikácie každý ignoruje.
 
+**Fáza 1 hotová (migrácia 030).** Viewer túto potrebu vytvoril: odkedy sa sám obnovuje každú minútu, dielňa vidí každý medzikrok plánovača a nerozozná rozhodnutie od rozmýšľania nahlas.
+
+Riešenie zámerne **nemá draft stav na kartách**. Plánovač pracuje na živých riadkoch presne ako doteraz; revízia je *kópia* týždňa odložená vedľa, v novej tabuľke `production_plan_revisions` (lokalita, týždeň, číslo revízie, JSONB snapshot, kto a kedy). Žiaden existujúci dotaz sa nemusel zmeniť a niet druhého stavu, ktorý by sa mohol rozísť.
+
+„Nepublikované zmeny" preto nie je príznak, ktorý treba udržiavať — je to rozdiel medzi týždňom teraz a týždňom pri poslednom publikovaní, počítaný na požiadanie. Ráta sa tak, ako by to rátal človek: pribudnutá karta, zmiznutá karta, karta, ktorá nie je čo bola, plus denné príznaky a poznámky smien. Presunutá karta je **jedna** zmena, nie odobratie plus pridanie. Dotknúť sa karty a vrátiť ju späť nie je zmena vôbec.
+
+Snapshot je **denormalizovaný**: FG čísla, popisy a názvy smien tak, ako zneli v momente publikovania. Revízia je to, čo dielňa dostala, nie odkaz na to, čo master dáta hovoria dnes.
+
+Týždeň bez revízie viewer nevykreslí ako prázdny, ale povie **„Not published yet"** — fallback na živé riadky by dielňu vrátil k pozeraniu sa plánovačovi cez rameno, čo je práve to, čo revízie riešia. Migrácia preto vytvorí Revision 1 pre každý týždeň, ktorý už nejaké karty má; robí sa to v migrácii a nie skriptom, lebo na skript sa dá zabudnúť.
+
+**Retencia** ide rovnakým vzorom ako change log (snapshot 90 dní, hlavička 3 roky, oboje cez env) s jednou tvrdou výnimkou: **najnovšia revízia každého týždňa sa nemaže nikdy** — to nie je história, to je to, čo viewer vykresľuje.
+
+Zostáva: **fáza 2** compare `Rev 5 vs Rev 6` + restore, **fáza 3** notifikácie (§6).
+
 - Planner pracuje v **DRAFT**, zmeny sa autosave-ujú. Výroba stále vidí **poslednú publikovanú verziu**.
 - Po dokončení: **Publish changes** → vznikne revízia `PO1 · CW34 · Revision 6`, zobrazí sa výrobe a odošle **jedna sumárna notifikácia**:
   ```

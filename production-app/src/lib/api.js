@@ -85,10 +85,26 @@ export const api = {
 
   locations: () => request('/api/production/locations').then((r) => r.data),
 
-  /** Everything the grid needs for one location over one date range. */
-  plan: ({ location, from, to }) =>
-    request(`/api/production/plan?location=${encodeURIComponent(location)}&from=${from}&to=${to}`)
+  /**
+   * Everything the grid needs for one location over one date range.
+   *
+   * `published` asks for the last published revision of each week instead of
+   * the live rows - what the shop floor reads. Same shape either way.
+   */
+  plan: ({ location, from, to, published = false }) =>
+    request(
+      `/api/production/plan?location=${encodeURIComponent(location)}&from=${from}&to=${to}` +
+      (published ? '&published=1' : '')
+    ).then((r) => r.data),
+
+  /** Which weeks differ from what the floor was last told, and by how much. */
+  pending: ({ location, from, to }) =>
+    request(`/api/production/pending?location=${encodeURIComponent(location)}&from=${from}&to=${to}`)
       .then((r) => r.data),
+
+  /** Publish the named weeks. One event, one transaction. */
+  publish: ({ location, weeks }) =>
+    request('/api/production/publish', json({ location, weeks })).then((r) => r.data),
 
   entry: (id) => request(`/api/production/entries/${id}`).then((r) => r.data),
 
@@ -156,11 +172,17 @@ export const api = {
   copyDays: (payload) => request('/api/production/bulk/copy', json(payload)),
   splitEntry: (id, payload) => request(`/api/production/entries/${id}/split`, json(payload)),
 
-  /** One page of the log. `before` is the smallest id already seen. */
-  activity: ({ location, limit = 50, before = null }) =>
+  /**
+   * One page of the log. `before` is the smallest id already seen; `entryId`
+   * narrows it to one card, which is what the viewer's "what changed" panel
+   * asks for - without it, that panel was answering with the newest change
+   * anywhere in the location.
+   */
+  activity: ({ location, limit = 50, before = null, entryId = null }) =>
     request(
       `/api/production/activity?location=${encodeURIComponent(location)}&limit=${limit}` +
-      (before ? `&before=${before}` : '')
+      (before ? `&before=${before}` : '') +
+      (entryId ? `&entryId=${entryId}` : '')
     ),
 
   restoreFromHistory: (logId) =>

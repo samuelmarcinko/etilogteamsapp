@@ -5,6 +5,7 @@ const ProductionEntry = require('../database/models/ProductionEntry');
 const { verifyToken } = require('../middleware/auth');
 const { attachDbRole, requirePermission } = require('../middleware/portalAuth');
 const { asyncHandler } = require('../middleware/errorHandler');
+const ProductionRevision = require('../database/models/ProductionRevision');
 const ProductionRetentionService = require('../services/productionRetentionService');
 
 /**
@@ -185,11 +186,62 @@ router.get('/plan', viewAccess, asyncHandler(async (req, res) => {
   const location = await ProductionPlan.findLocationByCode(code);
   if (!location) return res.status(404).json({ error: 'Location not found' });
 
-  const [shifts, entries, dayFlags, exceptions, shiftNotes] = await Promise.all([
+  const [shifts, exceptions] = await Promise.all([
     ProductionPlan.findShifts(location.id),
+    ProductionPlan.findCalendarExceptions(location.id, from, to)
+  ]);
+
+  // ?published=1 is what the shop floor asks for: the last published revision
+  // of each week rather than the live rows a planner is still moving around.
+  // Same response shape either way, so the viewer renders one thing.
+  //
+  // A week with no revision comes back empty and is listed in `revisions` as
+  // unpublished, rather than quietly falling back to the live rows - a fallback
+  // would put the floor back to watching the planner think, which is the whole
+  // reason revisions exist.
+  if (req.query.published === '1') {
+    const weeks = ProductionRevision.weeksBetween(from, to);
+    const current = await ProductionRevision.findCurrent(location.id, weeks);
+
+    const entries = [];
+    const dayFlags = [];
+    const shiftNotes = [];
+    const revisions = [];
+
+    for (const weekStart of weeks) {
+      const published = current[weekStart];
+      revisions.push({
+        weekStart,
+        revision: published?.revision || null,
+        publishedAt: published?.published_at || null,
+        publishedByName: published?.published_by_name || null
+      });
+
+      const snapshot = published?.snapshot;
+      if (!snapshot) continue;
+      entries.push(...(snapshot.entries || []));
+      dayFlags.push(...(snapshot.dayFlags || []));
+      shiftNotes.push(...(snapshot.shiftNotes || []));
+    }
+
+    return res.json({
+      data: {
+        location,
+        range: { from, to },
+        published: true,
+        shifts,
+        entries,
+        dayFlags,
+        shiftNotes,
+        calendarExceptions: exceptions,
+        revisions
+      }
+    });
+  }
+
+  const [entries, dayFlags, shiftNotes] = await Promise.all([
     ProductionPlan.findEntries(location.id, from, to),
     ProductionPlan.findDayFlags(location.id, from, to),
-    ProductionPlan.findCalendarExceptions(location.id, from, to),
     ProductionPlan.findShiftNotes(location.id, from, to)
   ]);
 
@@ -197,6 +249,7 @@ router.get('/plan', viewAccess, asyncHandler(async (req, res) => {
     data: {
       location,
       range: { from, to },
+      published: false,
       shifts,
       entries,
       dayFlags,
@@ -204,6 +257,76 @@ router.get('/plan', viewAccess, asyncHandler(async (req, res) => {
       calendarExceptions: exceptions
     }
   });
+}));
+
+// =========================================================
+// Publishing (section 5)
+// =========================================================
+// GET /api/production/pending?location=PO1&from=&to=
+//
+// Which weeks differ from what the floor was last told, and by how much. Read
+// access on purpose: knowing the plan has unpublished work in it is part of
+// reading the plan.
+router.get('/pending', viewAccess, asyncHandler(async (req, res) => {
+  const { location: code, from, to } = req.query;
+  if (!code) return res.status(400).json({ error: 'Bad Request', message: 'location is required' });
+
+  const rangeError = validateRange(from, to);
+  if (rangeError) return res.status(400).json({ error: 'Bad Request', message: rangeError });
+
+  const location = await ProductionPlan.findLocationByCode(code);
+  if (!location) return res.status(404).json({ error: 'Location not found' });
+
+  const pending = await ProductionRevision.findPending(location.id, from, to);
+  res.json({
+    data: {
+      weeks: pending,
+      changes: pending.reduce((total, week) => total + week.changes, 0)
+    }
+  });
+}));
+
+// POST /api/production/publish  { location, weeks: ['2026-08-24', ...] }
+//
+// One transaction for the whole set: a publish is one event, so the floor gets
+// all of it or none of it. Weeks that have not changed are skipped rather than
+// given a revision identical to the one before it.
+router.post('/publish', manageAccess, asyncHandler(async (req, res) => {
+  const location = await ProductionPlan.findLocationByCode(req.body.location);
+  if (!location) return res.status(404).json({ error: 'Location not found' });
+
+  const weeks = Array.isArray(req.body.weeks) ? req.body.weeks : [];
+  if (!weeks.length) {
+    return res.status(400).json({ error: 'Bad Request', message: 'weeks is required' });
+  }
+  if (weeks.length > 60) {
+    return res.status(400).json({ error: 'Bad Request', message: 'too many weeks in one publish' });
+  }
+  for (const week of weeks) {
+    if (!ISO_DATE.test(week) || ProductionRevision.weekStartOf(week) !== week) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: `weeks must be Mondays formatted YYYY-MM-DD (got ${week})`
+      });
+    }
+  }
+
+  const published = await ProductionRevision.publish(location.id, weeks, currentUser(req));
+  res.json({
+    data: {
+      published,
+      changes: published.reduce((total, week) => total + week.change_count, 0)
+    }
+  });
+}));
+
+// GET /api/production/revisions?location=PO1 - what was published, and when
+router.get('/revisions', viewAccess, asyncHandler(async (req, res) => {
+  const location = await ProductionPlan.findLocationByCode(req.query.location);
+  if (!location) return res.status(404).json({ error: 'Location not found' });
+
+  const revisions = await ProductionRevision.findHistory(location.id, req.query.limit);
+  res.json({ data: revisions });
 }));
 
 // GET /api/production/entries/:id - card detail

@@ -25,6 +25,7 @@ import {
 
 import AppHeader from './components/AppHeader';
 import PlanLegend from './components/PlanLegend';
+import PublishBar from './components/PublishBar';
 import WeekBlock from './components/WeekBlock';
 import ProductionCard from './components/ProductionCard';
 import CardContextMenu from './components/CardContextMenu';
@@ -161,6 +162,9 @@ export default function App() {
     queryClient.invalidateQueries({ queryKey: ['production', 'plan'] });
     queryClient.invalidateQueries({ queryKey: ['production', 'unscheduled'] });
     queryClient.invalidateQueries({ queryKey: ['production', 'activity'] });
+    // Any write may have widened the gap between this plan and the published
+    // one, so the count above the grid is re-asked with everything else.
+    queryClient.invalidateQueries({ queryKey: ['production', 'pending'] });
   }, [queryClient]);
 
   // ------------------------------------------------------------------ undo
@@ -402,6 +406,34 @@ export default function App() {
     () => indexCalendarExceptions(plan.data?.calendarExceptions || []),
     [plan.data]
   );
+  /**
+   * What the shop floor has not been told yet.
+   *
+   * Computed by the server from the difference between the plan now and the
+   * plan as last published, so there is no draft state here to keep in sync -
+   * it is simply re-asked whenever the plan changes.
+   */
+  const pending = useQuery({
+    queryKey: ['production', 'pending', locationCode, range.from, range.to],
+    queryFn: () => api.pending({ location: locationCode, from: range.from, to: range.to }),
+    enabled: Boolean(locationCode) && canManage,
+    staleTime: 5 * 1000
+  });
+
+  const publishMutation = useMutation({
+    mutationFn: (weeks) => api.publish({ location: locationCode, weeks }),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['production', 'pending'] });
+      const weeks = result.published.length;
+      toast.success(
+        weeks
+          ? `Published ${result.changes} ${result.changes === 1 ? 'change' : 'changes'} across ${weeks} ${weeks === 1 ? 'week' : 'weeks'}`
+          : 'Nothing had changed'
+      );
+    },
+    onError: (error) => toast.error(error.message)
+  });
+
   const shifts = plan.data?.shifts || [];
 
   if (profile.isLoading) {
@@ -483,6 +515,18 @@ export default function App() {
                   it. A note sits above the grid rather than replacing it. */}
               {!hasEntries && (
                 <EmptyRangeNote locationName={activeLocation?.name || 'this location'} />
+              )}
+
+              {/* The gap between this plan and the one the floor is reading,
+                  above the grid rather than in the toolbar: it is about the
+                  weeks below it, and it has to be impossible to miss. */}
+              {canManage && (
+                <PublishBar
+                  pending={pending.data}
+                  publishing={publishMutation.isPending}
+                  onPublish={(weeks) => publishMutation.mutate(weeks)}
+                  lastPublishedAt={plan.data?.revisions?.[0]?.publishedAt || pending.isFetched}
+                />
               )}
 
               {shifts.length > 0 && <PlanLegend shifts={shifts} />}

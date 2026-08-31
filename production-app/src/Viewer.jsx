@@ -81,8 +81,10 @@ export default function Viewer({ initialLocation }) {
   const range = useMemo(() => rangeForWeeks(weeks), [weeks]);
 
   const plan = useQuery({
-    queryKey: ['production', 'plan', locationCode, range.from, range.to],
-    queryFn: () => api.plan({ location: locationCode, from: range.from, to: range.to }),
+    queryKey: ['production', 'plan', 'published', locationCode, range.from, range.to],
+    // published: the last revision of each week, not the live rows a planner
+    // may still be moving around. That is the whole point of the viewer.
+    queryFn: () => api.plan({ location: locationCode, from: range.from, to: range.to, published: true }),
     enabled: Boolean(locationCode),
     refetchInterval: REFRESH_MS,
     refetchIntervalInBackground: false
@@ -103,6 +105,14 @@ export default function Viewer({ initialLocation }) {
   };
 
   const updatedCount = (plan.data?.entries || []).filter(isUpdated).length;
+
+  // A week with no revision has never been published. Rendering it as an empty
+  // week would be a lie - there may be a full week of work sitting in the
+  // planner - so it says so instead.
+  const revisionByWeek = {};
+  for (const revision of plan.data?.revisions || []) {
+    revisionByWeek[revision.weekStart] = revision;
+  }
 
   // One week is read from a bench; eight is scanned for what is coming. The
   // card has to shrink for the second, or seven columns of it eight times over
@@ -191,6 +201,12 @@ export default function Viewer({ initialLocation }) {
                   </header>
                 )}
 
+                {plan.data?.published && !revisionByWeek[week.key]?.revision ? (
+                  <p className="px-4 py-6 text-center text-[14px] text-gray-500">
+                    <span className="font-semibold text-gray-700">Not published yet.</span>{' '}
+                    This week is still being planned.
+                  </p>
+                ) : (
                 <ViewerWeek
                   week={week}
                   shifts={shifts}
@@ -202,6 +218,7 @@ export default function Viewer({ initialLocation }) {
                   onOpenEntry={setOpenEntry}
                   density={density}
                 />
+                )}
               </section>
               );
             })}
