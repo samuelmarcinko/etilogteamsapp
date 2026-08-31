@@ -89,6 +89,19 @@
     z-index: 20;
   }
 
+  /* The day-actions button appears on hover, which is the right amount of
+     chrome for a grid of 56 day headers - but a tablet on the shop floor has
+     no pointer to hover with, and an affordance that only exists on hover does
+     not exist there at all. So where hover is not available it simply stays. */
+  @media (hover: none) {
+    /* Two classes on purpose: Tailwind emits its utilities after this layer, so
+       a single-class rule here loses to the `opacity-0` on the button itself.
+       Specificity is the fix, rather than !important. */
+    .week-cell .day-menu-trigger {
+      opacity: 1;
+    }
+  }
+
   /* The gap between one shift and the next.
 
      It used to be a heavier rule, which is only more ink in a grid already made

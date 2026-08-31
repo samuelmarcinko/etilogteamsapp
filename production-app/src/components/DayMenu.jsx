@@ -21,14 +21,26 @@ export default function DayMenu({ day, flag, onSetFlag, onAdd, onBulk }) {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
+        {/* A grey glyph fading in over a grey header was hard to find even
+            once it was there. It arrives as an actual button instead - a white
+            chip with a real edge - and turns ETILOG red under the pointer, the
+            same as every other action in the portal. `day-menu-trigger` keeps
+            it visible where there is no pointer to hover with; see styles.css. */}
         <button
           type="button"
           aria-label={`Actions for ${day.weekday} ${day.dayOfMonth}`}
-          className="absolute right-0.5 top-0.5 rounded p-0.5 text-gray-300 opacity-0 transition
-                     hover:bg-gray-100 hover:text-gray-600 focus-visible:opacity-100
-                     group-hover/day:opacity-100 data-[state=open]:opacity-100"
+          title="Day actions"
+          className="day-menu-trigger absolute right-1 top-1 flex h-6 w-6 items-center justify-center
+                     rounded-full border border-gray-300 bg-white text-gray-600 opacity-0 shadow-xs
+                     transition duration-150 ease-portal
+                     hover:border-etilog hover:bg-etilog hover:text-white
+                     focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2
+                     focus-visible:ring-etilog/40
+                     group-hover/day:opacity-100
+                     data-[state=open]:border-etilog data-[state=open]:bg-etilog
+                     data-[state=open]:text-white data-[state=open]:opacity-100"
         >
-          <MoreHorizontal className="h-3.5 w-3.5" />
+          <MoreHorizontal className="h-4 w-4" />
         </button>
       </DropdownMenu.Trigger>
 
