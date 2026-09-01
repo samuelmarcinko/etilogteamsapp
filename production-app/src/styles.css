@@ -1,0 +1,255 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900;
+    margin: 0;
+    line-height: 1.6;
+  }
+
+  /* Keyboard focus stays visible everywhere; drag & drop will lean on it. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-etilog ring-offset-2 ring-offset-white;
+  }
+}
+
+@layer components {
+  /* One week block. The label column is sticky so the shift names stay put
+     while the days scroll sideways on a tablet or phone. */
+  .week-grid {
+    display: grid;
+    /* Natural width is 128 + 7x150 = 1178px. Above that the day columns share
+       the space evenly; below it the wrapper scrolls sideways and the sticky
+       label column keeps the shift names in view. The label column fits
+       "AFTERNOON" alongside its icon - it was truncating at 104px. */
+    grid-template-columns: 128px repeat(7, minmax(150px, 1fr));
+    min-width: 1178px;
+  }
+
+  /* The viewer's week. Same shape as the planner's - a supervisor reads both
+     and should not have to re-learn the layout - but wider, because everything
+     inside it is set larger for a screen someone is standing in front of
+     rather than sitting at. 168 + 7x196 = 1540px; below that it scrolls
+     sideways exactly as the planner does. */
+  .viewer-grid {
+    display: grid;
+    grid-template-columns: 168px repeat(7, minmax(196px, 1fr));
+    min-width: 1540px;
+  }
+
+  @media (min-width: 1600px) {
+    .viewer-spread {
+      overflow: visible;
+    }
+  }
+
+  /* Light rules. The structure is carried by the tinted bands - the header
+     row, the free-day columns, today - rather than by heavy lines; drawn dark
+     enough to read as a table, the lines fought those bands instead. */
+  .week-cell {
+    @apply border-b border-r border-gray-200 bg-white;
+  }
+
+  .row-label {
+    @apply sticky left-0 z-10 border-b border-r border-gray-200 bg-white
+           px-2 py-2 text-[12px] font-semibold uppercase tracking-wide text-gray-700;
+  }
+
+  /* The week scrolls sideways on a narrow screen. On a wide one it must NOT:
+     an element with overflow-x: auto is a scroll container in both axes, and a
+     sticky row inside it sticks to that container rather than to the window -
+     so the day names would be pinned inside the grid instead of under the
+     toolbar. Above the grid's natural width there is nothing to scroll
+     sideways anyway, so the wrapper gets out of the way. */
+  .print-spread {
+    overflow-x: auto;
+  }
+
+  /* 1178px of grid plus the page's own padding: below this the week genuinely
+     needs its own scrollbar, above it there is nothing to scroll. */
+  @media (min-width: 1240px) {
+    .print-spread {
+      overflow: visible;
+    }
+  }
+
+  /* The day names stop below the toolbar rather than sliding under it and being
+     cut in half. AppHeader measures itself into --plan-header-h, so this keeps
+     working when the location tabs wrap onto a second line. */
+  .day-sticky {
+    position: sticky;
+    top: var(--plan-header-h, 0px);
+    z-index: 20;
+  }
+
+  /* The day-actions button appears on hover, which is the right amount of
+     chrome for a grid of 56 day headers - but a tablet on the shop floor has
+     no pointer to hover with, and an affordance that only exists on hover does
+     not exist there at all. So where hover is not available it simply stays. */
+  @media (hover: none) {
+    /* Two classes on purpose: Tailwind emits its utilities after this layer, so
+       a single-class rule here loses to the `opacity-0` on the button itself.
+       Specificity is the fix, rather than !important. */
+    .week-cell .day-menu-trigger {
+      opacity: 1;
+    }
+  }
+
+  /* The gap between one shift and the next.
+
+     It used to be a heavier rule, which is only more ink in a grid already made
+     of lines - at a glance the two shift bands still read as one block of rows.
+     A gutter separates them the way whitespace separates paragraphs: the two
+     shifts become two objects, and the hairlines top and bottom keep the table
+     reading as a table. It spans every column, so it does not break under the
+     sticky label on a sideways scroll. */
+  .week-gutter {
+    grid-column: 1 / -1;
+    height: 14px;
+    /* A groove rather than a band: the fill alone against white cells was too
+       close to nothing, and the two edges are what make it read as a deliberate
+       break instead of an empty row. */
+    @apply border-y border-gray-300 bg-gray-100;
+  }
+
+  .week-gutter-sm {
+    height: 8px;
+  }
+
+  /* The Unscheduled queue starts below the toolbar rather than at the top of
+     the window. Full height, it covered its own toggle button - so the only way
+     to put it away was the X inside it - and took the location tabs and week
+     navigation with it. */
+  .queue-panel {
+    top: var(--plan-header-h, 0px);
+    height: calc(100vh - var(--plan-header-h, 0px));
+  }
+
+  /* The corner cell is stuck in both directions at once. */
+  .corner-sticky {
+    position: sticky;
+    left: 0;
+    top: var(--plan-header-h, 0px);
+    /* Above the day names and the shift labels it meets at the corner, but
+       below the toolbar (z-30). A sticky cell is clamped to its own week, so
+       as that week scrolls out the cell travels up through the toolbar's
+       band - at an equal z-index it came later in the document and won, and
+       drew a white square over the location tabs. */
+    z-index: 25;
+  }
+
+  /* Shown only on paper - a printout has no toolbar to say what it is. */
+  .print-only {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Print: the plan for this week, replacing the printed Excel sheet. */
+@media print {
+  /* Landscape, because the sheet is seven days wide. On portrait A4 the week
+     either spills onto a second page or shrinks past reading distance, and
+     this is pinned up on a shop floor. */
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  /* Panels are fixed-position overlays; on paper they print on top of the plan
+     or push it sideways. Nothing that floats over the grid belongs on a
+     printout. */
+  aside,
+  [role='dialog'],
+  [data-sonner-toaster] {
+    display: none !important;
+  }
+
+  .week-grid {
+    /* No sideways scrolling on paper: the columns share the page width. */
+    grid-template-columns: 128px repeat(7, 1fr);
+    min-width: 0;
+  }
+
+  .week-grid .week-cell,
+  .week-grid .row-label {
+    /* Printers drop background colours by default; the borders have to carry
+       the grid on their own, so they are drawn a little harder. */
+    border-color: #9ca3af;
+  }
+
+  /* relative, not static: these hold absolutely positioned children (the shift
+     colour bar), and static would let them escape to the page box and draw a
+     stripe down the margin. */
+  .day-sticky,
+  .corner-sticky,
+  .row-label {
+    position: relative;
+    /* the sticky offsets have to go with it, or relative positioning shifts
+       these boxes down the page by the height of a toolbar nobody printed */
+    top: auto;
+    left: auto;
+  }
+
+  /* The sideways-scrolling wrapper must not clip on paper. */
+  .print-spread {
+    overflow: visible !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  /* Printers drop background colours, which would leave white text on white
+     paper. Outlined instead, so the current week is still marked. */
+  .week-now {
+    background: transparent !important;
+    color: #1d4ed8 !important;
+    border: 1px solid #1d4ed8;
+  }
+
+  /* Same problem, one level up: on screen the current week's header is a solid
+     blue band with white text on it, which on paper is white on white. The band
+     becomes a rule under blue text instead. */
+  .week-head-now,
+  .week-head-now * {
+    background: transparent !important;
+    color: #1d4ed8 !important;
+  }
+
+  .week-head-now {
+    border-bottom: 2px solid #1d4ed8 !important;
+  }
+
+  .print-block {
+    break-inside: avoid;
+    box-shadow: none;
+  }
+
+  /* One week per page keeps a printed 4-week plan readable. */
+  .print-block + .print-block {
+    break-before: page;
+  }
+}

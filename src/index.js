@@ -10,6 +10,7 @@ const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const ReminderService = require('./services/reminderService');
 const FleetNotificationService = require('./services/fleetNotificationService');
 const WarehouseBackupService = require('./services/warehouseBackupService');
+const ProductionRetentionService = require('./services/productionRetentionService');
 const logger = require('./utils/logger');
 
 // Initialize Express app
@@ -81,6 +82,10 @@ fleetNotificationService.start();
 const warehouseBackupService = new WarehouseBackupService();
 warehouseBackupService.start();
 
+// Keeps the production change log bounded - see the service for the sizing.
+const productionRetentionService = new ProductionRetentionService();
+productionRetentionService.start();
+
 // Idempotent schema top-up for material soft-delete (migration 023).
 // Numbered migrations are applied manually; these IF NOT EXISTS statements
 // make the soft-delete columns available even if the SQL wasn't run yet.
@@ -95,6 +100,23 @@ warehouseBackupService.start();
     logger.warn('Soft-delete schema ensure skipped', { error: e.message });
   }
 })();
+
+// Apply pending numbered migrations (024 and above). Migrations 001-023 were
+// applied by hand and are recorded as a baseline on first run, never executed.
+// A failure is logged rather than thrown, so a bad migration cannot stop the
+// portal from booting - see src/database/runMigrations.js.
+(async () => {
+  const { runMigrations } = require('./database/runMigrations');
+  const result = await runMigrations();
+  if (result.failed) {
+    logger.error('Pending migration did not apply - schema may be out of date', result.failed);
+  }
+})().catch((error) => {
+  // runMigrations resolves rather than throws, but an unhandled rejection here
+  // would terminate the process and take the whole portal offline. Never let
+  // schema work do that.
+  logger.error('Migration runner crashed', { error: error.message });
+});
 
 // Bot Framework endpoint
 app.post('/api/messages', async (req, res) => {
@@ -159,6 +181,14 @@ app.get('/portal/*', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/portal/index.html'));
 });
 
+// Production Plan SPA - a separate React bundle under the same origin as
+// /portal/, so it reuses the Azure AD token already in localStorage. Its built
+// assets sit in public/production/ and are served by the static middleware
+// above; this only needs to hand back index.html for client-side routes.
+app.get('/production/*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/production/index.html'));
+});
+
 // Error handlers (must be last)
 app.use(notFoundHandler);
 app.use(errorHandler);
@@ -178,6 +208,7 @@ process.on('SIGINT', () => {
   logger.info('Shutting down gracefully (SIGINT)');
   reminderService.stop();
   fleetNotificationService.stop();
+  productionRetentionService.stop();
   process.exit(0);
 });
 
@@ -185,6 +216,7 @@ process.on('SIGTERM', () => {
   logger.info('Shutting down gracefully (SIGTERM)');
   reminderService.stop();
   fleetNotificationService.stop();
+  productionRetentionService.stop();
   process.exit(0);
 });
 

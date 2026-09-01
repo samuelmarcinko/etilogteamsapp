@@ -2,8 +2,10 @@ const express = require('express');
 const router = express.Router();
 const AdminController = require('../controllers/adminController');
 const { verifyToken } = require('../middleware/auth');
-const { requireDbRole } = require('../middleware/portalAuth');
+const { requireDbRole, requirePermission, getAccessControlMode } = require('../middleware/portalAuth');
 const { asyncHandler } = require('../middleware/errorHandler');
+const Role = require('../database/models/Role');
+const User = require('../database/models/User');
 const SystemSettings = require('../database/models/SystemSettings');
 const { sendEmail, getSmtpConfig } = require('../services/emailService');
 
@@ -18,9 +20,9 @@ router.get('/stats', requireDbRole('admin'), asyncHandler(AdminController.getSta
 router.get('/diagnose-user', requireDbRole('admin'), asyncHandler(AdminController.diagnoseUser));
 
 // Routes accessible by admin and spravca (read-only for spravca)
-router.get('/employees', requireDbRole('admin', 'spravca'), asyncHandler(AdminController.getEmployees));
-router.get('/tickets', requireDbRole('admin', 'spravca'), asyncHandler(AdminController.getAllTickets));
-router.get('/all-azure-users', requireDbRole('admin', 'spravca'), asyncHandler(AdminController.getAllAzureUsers));
+router.get('/employees', requirePermission('hr.manage', { legacyRoles: ['admin', 'spravca'] }), asyncHandler(AdminController.getEmployees));
+router.get('/tickets', requirePermission('hr.manage', { legacyRoles: ['admin', 'spravca'] }), asyncHandler(AdminController.getAllTickets));
+router.get('/all-azure-users', requirePermission('hr.manage', { legacyRoles: ['admin', 'spravca'] }), asyncHandler(AdminController.getAllAzureUsers));
 
 // Admin-only ticket edit
 router.put('/tickets/:ticketId', requireDbRole('admin'), asyncHandler(AdminController.updateTicket));
@@ -28,6 +30,91 @@ router.put('/tickets/:ticketId', requireDbRole('admin'), asyncHandler(AdminContr
 // Admin-only employee management
 router.put('/employees/:userId/role', requireDbRole('admin'), asyncHandler(AdminController.updateEmployeeRole));
 router.put('/employees/:userId/visibility', requireDbRole('admin'), asyncHandler(AdminController.toggleEmployeeVisibility));
+
+// =========================================================
+// Roles and permissions (admin only)
+// =========================================================
+// Deliberately requireDbRole('admin') rather than a permission key: this is the
+// screen that edits the permission matrix, so gating it on the matrix would let
+// one bad save lock everybody out of the tool that undoes it. The real admin
+// role always reaches it, whatever the checkboxes say.
+router.get('/roles', requireDbRole('admin'), asyncHandler(async (req, res) => {
+  const [roles, userCounts] = await Promise.all([
+    Role.findAllWithPermissions(),
+    User.countByRole()
+  ]);
+
+  res.json({
+    success: true,
+    data: {
+      roles: roles.map((role) => ({ ...role, userCount: userCounts[role.name] || 0 })),
+      permissionKeys: Role.PERMISSION_KEYS,
+      alwaysGranted: Role.ALWAYS_GRANTED,
+      // The screen says which mode is live, because in legacy and shadow these
+      // checkboxes are recorded but not obeyed - and an admin who does not know
+      // that would think the save had failed.
+      accessControlMode: getAccessControlMode()
+    }
+  });
+}));
+
+router.put('/roles/:name/permissions', requireDbRole('admin'), asyncHandler(async (req, res) => {
+  const permissions = Array.isArray(req.body.permissions) ? req.body.permissions : null;
+  if (!permissions) {
+    return res.status(400).json({ error: 'Bad Request', message: 'permissions must be an array' });
+  }
+
+  const result = await Role.setPermissions(req.params.name, permissions);
+  if (result.notFound) return res.status(404).json({ error: 'Role not found' });
+  if (result.refused === 'admin') {
+    return res.status(409).json({
+      error: 'Conflict',
+      message: 'The admin role always holds every permission and cannot be edited'
+    });
+  }
+  if (result.unknownKeys) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: `Unknown permission(s): ${result.unknownKeys.join(', ')}`
+    });
+  }
+
+  res.json({ success: true, data: result });
+}));
+
+router.post('/roles', requireDbRole('admin'), asyncHandler(async (req, res) => {
+  const result = await Role.create({
+    name: req.body.name,
+    label: req.body.label,
+    permissions: Array.isArray(req.body.permissions) ? req.body.permissions : []
+  });
+
+  if (result.badName) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: 'Name must start with a letter and contain only lowercase letters, digits and _'
+    });
+  }
+  if (result.exists) return res.status(409).json({ error: 'Conflict', message: 'That role already exists' });
+
+  res.status(201).json({ success: true, data: result });
+}));
+
+router.delete('/roles/:name', requireDbRole('admin'), asyncHandler(async (req, res) => {
+  const result = await Role.remove(req.params.name);
+  if (result.notFound) return res.status(404).json({ error: 'Role not found' });
+  if (result.refused === 'system') {
+    return res.status(409).json({ error: 'Conflict', message: 'Built-in roles cannot be deleted' });
+  }
+  if (result.inUse) {
+    return res.status(409).json({
+      error: 'Conflict',
+      message: `${result.inUse} user(s) still hold this role - move them to another role first`
+    });
+  }
+
+  res.json({ success: true, data: result });
+}));
 
 // Data management routes (admin only)
 router.get('/data/stats', requireDbRole('admin'), asyncHandler(AdminController.getDataStats));
@@ -45,7 +132,7 @@ router.post('/backup', requireDbRole('admin'), asyncHandler(AdminController.trig
 router.get('/backups', requireDbRole('admin'), asyncHandler(AdminController.listBackups));
 
 // Export routes (admin and spravca)
-router.get('/export/tickets', requireDbRole('admin', 'spravca'), asyncHandler(AdminController.exportTickets));
+router.get('/export/tickets', requirePermission('hr.manage', { legacyRoles: ['admin', 'spravca'] }), asyncHandler(AdminController.exportTickets));
 
 // SMTP Settings (admin only)
 router.get('/settings/smtp', requireDbRole('admin'), asyncHandler(async (req, res) => {

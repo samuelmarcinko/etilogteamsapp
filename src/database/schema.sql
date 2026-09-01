@@ -74,8 +74,13 @@ END;
 $$ language 'plpgsql';
 
 -- Trigger to auto-update updated_at
+-- PostgreSQL has no CREATE TRIGGER IF NOT EXISTS, so drop first. Without this
+-- the whole file fails on any database that already has the schema, which took
+-- `npm run migrate` down before it reached the numbered migrations.
+DROP TRIGGER IF EXISTS update_tickets_updated_at ON tickets;
 CREATE TRIGGER update_tickets_updated_at BEFORE UPDATE ON tickets
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

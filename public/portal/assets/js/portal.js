@@ -102,7 +102,7 @@ const PAGE_MODULE = {
     'my-requests': 'hr', 'my-approvals': 'hr',
     'admin-employees': 'hr', 'admin-quotas': 'hr', 'admin-sick-notes': 'hr',
     'admin-tickets': 'hr', 'admin-dashboard': 'hr', 'admin-ticket-types': 'hr',
-    'admin-system': 'hr',
+    'admin-system': 'hr', 'admin-roles': 'hr',
     'admin-fleet': 'fleet',
     'warehouse-dashboard': 'warehouse', 'warehouse-materials': 'warehouse',
     'warehouse-movements': 'warehouse'
@@ -240,6 +240,7 @@ async function renderPage(page) {
             case 'admin-tickets': await renderAdminTickets(content); break;
             case 'admin-ticket-types': await renderAdminTicketTypes(content); break;
             case 'admin-system': await renderAdminSystem(content); break;
+            case 'admin-roles': await renderAdminRoles(content); break;
             case 'admin-fleet': await renderAdminFleet(content); break;
             case 'warehouse-dashboard': await renderWarehouseDashboard(content); break;
             case 'warehouse-materials': await renderWarehouseMaterials(content); break;
@@ -259,14 +260,15 @@ async function renderPage(page) {
 // ============================================
 
 /**
- * Check if user has access to a module.
+ * The original role rules, kept as the reference the permission matrix is
+ * checked against. Do not change these - they are correct when they match what
+ * the portal did before the matrix existed.
  * - admin: all modules
  * - spravca: HR only
  * - user: HR only
  * - sklad / sklad_read: warehouse
  */
-function hasModuleAccess(module) {
-    const role = portalUser?.role;
+function legacyModuleAccess(module, role) {
     if (role === 'admin') return true;
     if (module === 'hr') return true; // All roles have HR access
     if (module === 'fleet') return role === 'admin';
@@ -274,17 +276,86 @@ function hasModuleAccess(module) {
     return false;
 }
 
+function legacyCanEditWarehouse(role) {
+    return role === 'admin' || role === 'sklad';
+}
+
+// Permission key backing each module tile.
+const MODULE_PERMISSION = {
+    hr: 'hr.access',
+    fleet: 'fleet.access',
+    warehouse: 'warehouse.read',
+    production: 'production.view'
+};
+
+function hasPermission(key) {
+    return Array.isArray(portalUser?.permissions) && portalUser.permissions.includes(key);
+}
+
+/**
+ * Decide an access question under the current access-control mode, which the
+ * server reports in the profile response.
+ *
+ *   legacy   role rules decide
+ *   shadow   role rules decide, but a disagreement is logged to the console
+ *   enforce  the permission matrix decides
+ *
+ * Same three modes as the server, driven by the same ACCESS_CONTROL_MODE
+ * variable, so the two sides can never end up on different rules.
+ */
+function resolveAccess(label, permissionKey, legacyAllowed) {
+    const mode = portalUser?.accessControlMode || 'shadow';
+    if (mode === 'legacy') return legacyAllowed;
+
+    const matrixAllowed = hasPermission(permissionKey);
+
+    if (mode === 'shadow') {
+        if (matrixAllowed !== legacyAllowed) {
+            console.warn(
+                `[access shadow] ${label}: role rules say ${legacyAllowed}, ` +
+                `matrix says ${matrixAllowed} (role=${portalUser?.role}, key=${permissionKey})`
+            );
+        }
+        return legacyAllowed;
+    }
+
+    return matrixAllowed;
+}
+
+/**
+ * Check if user has access to a module.
+ */
+function hasModuleAccess(module) {
+    const role = portalUser?.role;
+    const key = MODULE_PERMISSION[module];
+    if (!key) return false;
+    return resolveAccess(`module:${module}`, key, legacyModuleAccess(module, role));
+}
+
 /**
  * Check if user can edit warehouse (not read-only)
  */
 function canEditWarehouse() {
     const role = portalUser?.role;
-    return role === 'admin' || role === 'sklad';
+    return resolveAccess('warehouse:edit', 'warehouse.write', legacyCanEditWarehouse(role));
 }
 
 function enterModule(module) {
     if (!hasModuleAccess(module)) {
         showAccessDeniedModal();
+        return;
+    }
+
+    // Production Plan is a separate SPA served at /production/, not a hash
+    // route inside this one, so it needs a real navigation.
+    //
+    // Someone who can only read the plan is sent to the view rather than to the
+    // planner with everything disabled: it is the same week, laid out to be read
+    // from a bench rather than arranged from a desk.
+    if (module === 'production') {
+        const canPlan = resolveAccess('module:production:manage', 'production.manage',
+            ['admin'].includes(portalUser?.role));
+        window.location.href = canPlan ? '/production/' : '/production/view/';
         return;
     }
 
@@ -342,9 +413,11 @@ async function renderHub(container) {
 
     // Determine badge for each module
     const warehouseAccess = hasModuleAccess('warehouse');
+    const productionAccess = hasModuleAccess('production');
     const hrBadge = hrAccess ? 'available' : 'locked';
     const fleetBadge = fleetAccess ? 'available' : 'locked';
     const warehouseBadge = warehouseAccess ? 'available' : 'locked';
+    const productionBadge = productionAccess ? 'available' : 'locked';
 
     container.innerHTML = `
         <div class="hub-layout">
@@ -400,6 +473,21 @@ async function renderHub(container) {
                     <h3 class="hub-card-title">${pt('hubModuleWarehouse')}</h3>
                     <p class="hub-card-desc">${pt('hubModuleWarehouseDesc')}</p>
                     <span class="hub-card-badge ${warehouseBadge}">${pt('hubBadge' + warehouseBadge.charAt(0).toUpperCase() + warehouseBadge.slice(1))}</span>
+                </div>
+
+                <!-- Production Plan Module -->
+                <div class="hub-card production" onclick="enterModule('production')">
+                    <div class="hub-card-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#D9000C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 21h18"/>
+                            <path d="M4 21V9l6 4V9l6 4V6l4-3v18"/>
+                            <path d="M7 21v-3"/>
+                            <path d="M13 21v-3"/>
+                        </svg>
+                    </div>
+                    <h3 class="hub-card-title">${pt('hubModuleProduction')}</h3>
+                    <p class="hub-card-desc">${pt('hubModuleProductionDesc')}</p>
+                    <span class="hub-card-badge ${productionBadge}">${pt('hubBadge' + productionBadge.charAt(0).toUpperCase() + productionBadge.slice(1))}</span>
                 </div>
             </div>
 
@@ -1492,18 +1580,39 @@ async function toggleEmployeeVisibility(userId, isHidden) {
     }
 }
 
-function openChangeRoleModal(userId, currentRole, userName) {
+// The five built-in roles keep their translated names; a role an admin creates
+// has only the label they typed.
+const SYSTEM_ROLE_LABEL_KEYS = {
+    user: 'roleUser', spravca: 'roleSpravca', sklad: 'roleSklad',
+    sklad_read: 'roleSkladRead', admin: 'roleAdmin'
+};
+
+/** Roles that can be assigned, from the database - falls back to the built-in five. */
+async function loadAssignableRoles() {
+    try {
+        const res = await apiCall('/api/admin/roles');
+        if (!res.ok) throw new Error('not available');
+        return (await res.json()).data.roles.map((role) => ({
+            name: role.name,
+            label: SYSTEM_ROLE_LABEL_KEYS[role.name] ? pt(SYSTEM_ROLE_LABEL_KEYS[role.name]) : role.label
+        }));
+    } catch (error) {
+        return Object.entries(SYSTEM_ROLE_LABEL_KEYS).map(([name, key]) => ({ name, label: pt(key) }));
+    }
+}
+
+async function openChangeRoleModal(userId, currentRole, userName) {
+    const roles = await loadAssignableRoles();
     document.getElementById('modalTitle').textContent = pt('changeRoleModalTitle');
     document.getElementById('modalBody').innerHTML = `
         <div class="form-group">
             <label style="font-weight: 500; margin-bottom: 0.5rem; display: block;">${escapeHtml(userName)}</label>
             <label for="roleSelect">${pt('selectRole')}:</label>
             <select id="roleSelect" class="form-control" style="margin-top: 0.5rem;">
-                <option value="user" ${currentRole === 'user' ? 'selected' : ''}>${pt('roleUser')}</option>
-                <option value="spravca" ${currentRole === 'spravca' ? 'selected' : ''}>${pt('roleSpravca')}</option>
-                <option value="sklad" ${currentRole === 'sklad' ? 'selected' : ''}>${pt('roleSklad')}</option>
-                <option value="sklad_read" ${currentRole === 'sklad_read' ? 'selected' : ''}>${pt('roleSkladRead')}</option>
-                <option value="admin" ${currentRole === 'admin' ? 'selected' : ''}>${pt('roleAdmin')}</option>
+                ${roles.map((role) => `
+                    <option value="${role.name}" ${currentRole === role.name ? 'selected' : ''}>
+                        ${escapeHtml(role.label)}
+                    </option>`).join('')}
             </select>
         </div>
     `;
@@ -2706,6 +2815,231 @@ async function deleteTicketType(id) {
         navigateToPage('admin-ticket-types');
     } catch (error) {
         showToast(pt('ticketTypesCannotDelete') + ': ' + error.message, 'error');
+    }
+}
+
+// ============================================
+// ROLES AND PERMISSIONS
+// ============================================
+//
+// The matrix that decides who sees which module. Until now those rules lived in
+// two places in code - hasModuleAccess() here and requireDbRole(...) on every
+// route - and adding a person to the warehouse meant a deployment.
+//
+// The admin role is deliberately not editable: it holds every permission
+// unconditionally, so a mis-click on this screen can never lock an
+// administrator out of the screen that would undo it.
+
+const PERMISSION_LABELS = {
+    'hr.access':        { title: 'HR',                 note: 'dovolenky, PN, moje žiadosti' },
+    'hr.manage':        { title: 'HR – správa',        note: 'zamestnanci, kvóty, prehľad tiketov' },
+    'fleet.access':     { title: 'Vozový park',        note: 'evidencia vozidiel' },
+    'warehouse.read':   { title: 'Sklad – čítanie',    note: 'materiál a pohyby' },
+    'warehouse.write':  { title: 'Sklad – úpravy',     note: 'príjem, výdaj, presuny' },
+    'production.view':  { title: 'Výrobný plán',       note: 'čítanie plánu' },
+    'production.manage':{ title: 'Výrobný plán – úpravy', note: 'plánovanie, presuny, poznámky' }
+};
+
+// Roles whose checkboxes changed since the page was rendered.
+let rolesDirty = {};
+
+async function renderAdminRoles(container) {
+    const res = await apiCall('/api/admin/roles');
+    if (!res.ok) {
+        container.innerHTML = `<div class="page-body"><div class="empty-state">
+            <div class="empty-icon">&#128273;</div>
+            <div class="empty-text">Túto stránku vidí len administrátor.</div>
+        </div></div>`;
+        return;
+    }
+
+    const { roles, permissionKeys, alwaysGranted, accessControlMode } = (await res.json()).data;
+    rolesDirty = {};
+
+    const modeNote = accessControlMode === 'enforce'
+        ? `<div class="portal-card" style="border-left:4px solid #16a34a;">
+             <div class="card-body" style="color:var(--gray-600);">
+               <strong>Práva sú aktívne.</strong> Zmena tu platí okamžite pre všetkých
+               používateľov s danou rolou (do minúty na všetkých inštanciách).
+             </div>
+           </div>`
+        : `<div class="portal-card" style="border-left:4px solid #d97706;">
+             <div class="card-body" style="color:var(--gray-600);">
+               <strong>Režim „${accessControlMode}“ – zmeny sa zatiaľ neuplatňujú.</strong>
+               Matica sa ukladá a porovnáva so starými pravidlami, ale rozhodujú stále ony.
+               Prepnutím na <code>enforce</code> začne platiť táto tabuľka.
+             </div>
+           </div>`;
+
+    const header = permissionKeys.map((key) => {
+        const label = PERMISSION_LABELS[key] || { title: key, note: '' };
+        return `<th style="text-align:center;min-width:110px;">
+                  <div>${label.title}</div>
+                  <div style="font-weight:400;font-size:.7rem;color:var(--gray-500);">${label.note}</div>
+                </th>`;
+    }).join('');
+
+    const rows = roles.map((role) => {
+        const isAdmin = role.name === 'admin';
+        const cells = permissionKeys.map((key) => {
+            const locked = isAdmin || alwaysGranted.includes(key);
+            const checked = isAdmin || role.permissions.includes(key) || alwaysGranted.includes(key);
+            return `<td style="text-align:center;">
+                      <input type="checkbox" data-role="${role.name}" data-key="${key}"
+                             ${checked ? 'checked' : ''} ${locked ? 'disabled' : ''}
+                             ${locked ? 'title="Toto právo je vždy udelené"' : ''}
+                             onchange="markRoleDirty('${role.name}')"
+                             style="width:1.05rem;height:1.05rem;cursor:${locked ? 'not-allowed' : 'pointer'};">
+                    </td>`;
+        }).join('');
+
+        return `<tr>
+            <td>
+              <div style="font-weight:600;">${role.label}</div>
+              <div style="font-size:.72rem;color:var(--gray-500);font-family:monospace;">${role.name}</div>
+            </td>
+            <td style="text-align:center;color:var(--gray-600);">${role.userCount}</td>
+            ${cells}
+            <td style="text-align:right;">
+              ${role.is_system
+                ? '<span style="font-size:.72rem;color:var(--gray-400);">vstavaná</span>'
+                : `<button class="btn btn-sm btn-danger" onclick="deleteRole('${role.name}', ${role.userCount})">Zmazať</button>`}
+            </td>
+        </tr>`;
+    }).join('');
+
+    container.innerHTML = `
+        <div class="page-header">
+            <div><h1>Role a práva</h1><p>Kto vidí ktorý modul. Zmena platí pre všetkých s danou rolou.</p></div>
+        </div>
+        <div class="page-body">
+            ${modeNote}
+
+            <div class="portal-card" style="margin-top:1.5rem;">
+                <div class="card-header"><h3>Matica práv</h3></div>
+                <div class="card-body" style="overflow-x:auto;">
+                    <table class="data-table">
+                        <thead><tr>
+                            <th>Rola</th>
+                            <th style="text-align:center;">Používateľov</th>
+                            ${header}
+                            <th></th>
+                        </tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                    <p style="margin-top:.75rem;font-size:.78rem;color:var(--gray-500);">
+                        Administrátor má vždy všetky práva a nedá sa upraviť – inak by sa dalo
+                        odobrať právo na túto obrazovku a už by ho nemal kto vrátiť.
+                        HR prístup má každý.
+                    </p>
+                    <div style="margin-top:1rem;display:flex;gap:.75rem;align-items:center;">
+                        <button class="btn btn-primary" id="saveRolesBtn" onclick="saveRolePermissions()" disabled>
+                            Uložiť zmeny
+                        </button>
+                        <span id="rolesDirtyNote" style="font-size:.8rem;color:var(--gray-500);"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="portal-card" style="margin-top:1.5rem;">
+                <div class="card-header"><h3>Nová rola</h3></div>
+                <div class="card-body">
+                    <p style="color:var(--gray-600);margin-bottom:1rem;">
+                        Napríklad <code>planovac</code> pre výrobného plánovača. Názov sa ukladá
+                        k používateľom a už sa nedá zmeniť; popis áno.
+                    </p>
+                    <div style="display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-end;">
+                        <label style="display:flex;flex-direction:column;gap:.25rem;">
+                            <span style="font-size:.75rem;color:var(--gray-500);">Názov (bez medzier)</span>
+                            <input type="text" id="newRoleName" class="form-input" placeholder="planovac">
+                        </label>
+                        <label style="display:flex;flex-direction:column;gap:.25rem;">
+                            <span style="font-size:.75rem;color:var(--gray-500);">Popis</span>
+                            <input type="text" id="newRoleLabel" class="form-input" placeholder="Výrobný plánovač">
+                        </label>
+                        <button class="btn btn-primary" onclick="createRole()">Vytvoriť</button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+}
+
+function markRoleDirty(roleName) {
+    rolesDirty[roleName] = true;
+    const button = document.getElementById('saveRolesBtn');
+    const note = document.getElementById('rolesDirtyNote');
+    if (button) button.disabled = false;
+    if (note) {
+        const count = Object.keys(rolesDirty).length;
+        note.textContent = `Neuložené zmeny: ${count} ${count === 1 ? 'rola' : 'role'}`;
+    }
+}
+
+async function saveRolePermissions() {
+    const names = Object.keys(rolesDirty);
+    if (!names.length) return;
+
+    const button = document.getElementById('saveRolesBtn');
+    if (button) { button.disabled = true; button.textContent = 'Ukladám…'; }
+
+    try {
+        for (const name of names) {
+            const checked = [...document.querySelectorAll(`input[data-role="${name}"]:checked`)]
+                .map((input) => input.dataset.key);
+            const res = await apiCall(`/api/admin/roles/${encodeURIComponent(name)}/permissions`, {
+                method: 'PUT',
+                body: JSON.stringify({ permissions: checked })
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(`${name}: ${err.message || err.error}`);
+            }
+        }
+        showToast('Práva uložené', 'success');
+        navigateToPage('admin-roles');
+    } catch (error) {
+        showToast(error.message, 'error');
+        if (button) { button.disabled = false; button.textContent = 'Uložiť zmeny'; }
+    }
+}
+
+async function createRole() {
+    const name = (document.getElementById('newRoleName').value || '').trim();
+    const label = (document.getElementById('newRoleLabel').value || '').trim();
+    if (!name) return showToast('Zadaj názov roly', 'error');
+
+    try {
+        const res = await apiCall('/api/admin/roles', {
+            method: 'POST',
+            body: JSON.stringify({ name, label: label || name })
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.message || err.error);
+        }
+        showToast(`Rola „${name}“ vytvorená`, 'success');
+        navigateToPage('admin-roles');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function deleteRole(name, userCount) {
+    if (userCount > 0) {
+        return showToast(`Rolu má priradenú ${userCount} používateľov – najprv ich prepni inam`, 'error');
+    }
+    if (!confirm(`Zmazať rolu „${name}“?`)) return;
+
+    try {
+        const res = await apiCall(`/api/admin/roles/${encodeURIComponent(name)}`, { method: 'DELETE' });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.message || err.error);
+        }
+        showToast('Rola zmazaná', 'success');
+        navigateToPage('admin-roles');
+    } catch (error) {
+        showToast(error.message, 'error');
     }
 }
 

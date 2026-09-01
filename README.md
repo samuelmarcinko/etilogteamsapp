@@ -87,9 +87,23 @@ Edit `.env` with your settings (see Configuration section below).
 # Create PostgreSQL database
 createdb teams_approval
 
-# Run migrations
+# Create the base schema and apply pending numbered migrations
 npm run migrate
 ```
+
+> **Numbered migrations.** `src/database/migrations/NNN_*.sql` are tracked in a
+> `schema_migrations` table and applied in order — by `npm run migrate` and again
+> on every app start, so a deploy never needs a manual `psql` step.
+>
+> Migrations **001–023 predate this runner** and were applied by hand. They are
+> recorded as an already-applied baseline and are never executed. On a brand-new
+> database they still have to be applied manually after `npm run migrate`:
+>
+> ```bash
+> for f in src/database/migrations/0{0,1,2}*.sql; do psql -d teams_approval -f "$f"; done
+> ```
+>
+> From `024_` onwards nothing manual is needed. See `src/database/runMigrations.js`.
 
 ### 4. Register Bot in Azure
 

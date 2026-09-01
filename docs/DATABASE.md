@@ -522,19 +522,31 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO readonly_user;
 
 ## Migration Strategy
 
+Migrations live in `src/database/migrations/` as `NNN_name.sql`, are applied in
+numeric order and are tracked in `schema_migrations` so each runs exactly once.
+`src/database/runMigrations.js` executes them on every app start and from
+`npm run migrate` — deploying a migration means deploying the file.
+
+Migrations **001–023 predate the runner** and were applied by hand. They are
+recorded as an already-applied baseline and are never executed.
+
 When schema changes are needed:
 
-1. Create migration script in `src/database/migrations/`
-2. Test on development database
-3. Backup production database
-4. Run migration on production
-5. Verify data integrity
+1. Add `NNN_description.sql` in `src/database/migrations/`, numbered above the highest existing file
+2. Add a matching `NNN_description_down.sql` with the rollback (kept for reference; the runner ignores `*_down.sql`)
+3. Test against a development database
+4. Back up production
+5. Deploy — the migration applies on start; verify data integrity
 
-Example migration script structure:
+**Do not write `BEGIN;` / `COMMIT;` in a migration.** The runner wraps each file
+in its own transaction, so a failure rolls the whole file back and the migration
+stays unrecorded. A file that manages its own transaction is rejected with an
+error rather than applied.
+
+Example migration:
 
 ```sql
--- Migration: 001_add_ticket_category.sql
-BEGIN;
+-- Migration: 024_add_ticket_category.sql
 
 -- Add new column
 ALTER TABLE tickets ADD COLUMN category VARCHAR(50);
@@ -544,8 +556,6 @@ UPDATE tickets SET category = 'General' WHERE category IS NULL;
 
 -- Make column NOT NULL
 ALTER TABLE tickets ALTER COLUMN category SET NOT NULL;
-
-COMMIT;
 ```
 
 ---

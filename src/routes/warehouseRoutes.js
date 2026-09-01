@@ -7,12 +7,14 @@ const WarehouseAudit = require('../database/models/WarehouseAudit');
 const WarehouseBackupService = require('../services/warehouseBackupService');
 const warehouseBackup = new WarehouseBackupService();
 const { verifyToken } = require('../middleware/auth');
-const { attachDbRole, requireDbRole } = require('../middleware/portalAuth');
+const { attachDbRole, requirePermission } = require('../middleware/portalAuth');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 // Middleware chains: read (GET) vs write (POST/PUT/PATCH/DELETE)
-const readAccess = [verifyToken, attachDbRole, requireDbRole('admin', 'sklad', 'sklad_read')];
-const writeAccess = [verifyToken, attachDbRole, requireDbRole('admin', 'sklad')];
+const readAccess = [verifyToken, attachDbRole,
+  requirePermission('warehouse.read', { legacyRoles: ['admin', 'sklad', 'sklad_read'] })];
+const writeAccess = [verifyToken, attachDbRole,
+  requirePermission('warehouse.write', { legacyRoles: ['admin', 'sklad'] })];
 
 // Admin-only gate (for audit log)
 function requireAdmin(req, res, next) {

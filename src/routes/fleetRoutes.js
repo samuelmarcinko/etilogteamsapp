@@ -2,11 +2,12 @@ const express = require('express');
 const router = express.Router();
 const FleetVehicle = require('../database/models/FleetVehicle');
 const { verifyToken } = require('../middleware/auth');
-const { attachDbRole, requireDbRole } = require('../middleware/portalAuth');
+const { attachDbRole, requirePermission } = require('../middleware/portalAuth');
 const { asyncHandler } = require('../middleware/errorHandler');
 
-// All fleet routes require admin role
-router.use(verifyToken, attachDbRole, requireDbRole('admin'));
+// All fleet routes require fleet access (admin only, today)
+router.use(verifyToken, attachDbRole,
+  requirePermission('fleet.access', { legacyRoles: ['admin'] }));
 
 // GET /api/fleet - Get all vehicles
 router.get('/', asyncHandler(async (req, res) => {

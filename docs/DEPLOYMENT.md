@@ -411,7 +411,13 @@ git pull origin main
 # Install dependencies
 npm install --production
 
-# Run migrations if needed
+# Verify the app still boots and its routes answer BEFORE restarting.
+# A route file that references a middleware it did not import kills the
+# process at startup, and Traefik then answers every request with 404.
+npm run smoke
+
+# Apply pending numbered migrations (024+). Optional - the app also runs
+# them on start, so a plain restart is enough.
 npm run migrate
 
 # Restart application
