@@ -7,6 +7,7 @@ const {
   createRejectedCard,
   createNotificationCard
 } = require('../cards/approvalCard');
+const logger = require('../utils/logger');
 
 class TeamsBot extends TeamsActivityHandler {
   constructor() {
@@ -53,7 +54,8 @@ class TeamsBot extends TeamsActivityHandler {
       const membersAdded = context.activity.membersAdded;
       for (let member of membersAdded) {
         if (member.id !== context.activity.recipient.id) {
-          await context.sendActivity(this.getWelcomeMessage());
+          const welcomeCard = this.getWelcomeCard();
+          await context.sendActivity({ attachments: [CardFactory.adaptiveCard(welcomeCard)] });
         }
       }
       await next();
@@ -104,7 +106,7 @@ class TeamsBot extends TeamsActivityHandler {
 
       return this.createInvokeResponse(400, 'Unknown action');
     } catch (error) {
-      console.error('Error handling adaptive card action:', error);
+      logger.error('Error handling adaptive card action', { error: error.message });
       return this.createInvokeResponse(500, 'Internal server error');
     }
   }
@@ -129,7 +131,7 @@ class TeamsBot extends TeamsActivityHandler {
 
       return this.createInvokeResponse(200, 'Ticket approved successfully');
     } catch (error) {
-      console.error('Error approving ticket:', error);
+      logger.error('Error approving ticket from bot', { error: error.message });
       return this.createInvokeResponse(500, 'Failed to approve ticket');
     }
   }
@@ -154,7 +156,7 @@ class TeamsBot extends TeamsActivityHandler {
 
       return this.createInvokeResponse(200, 'Ticket rejected successfully');
     } catch (error) {
-      console.error('Error rejecting ticket:', error);
+      logger.error('Error rejecting ticket from bot', { error: error.message });
       return this.createInvokeResponse(500, 'Failed to reject ticket');
     }
   }
@@ -187,7 +189,7 @@ class TeamsBot extends TeamsActivityHandler {
         }
       );
     } catch (error) {
-      console.error('Error sending notification to creator:', error);
+      logger.error('Error sending notification to creator', { error: error.message });
     }
   }
 
@@ -206,7 +208,94 @@ class TeamsBot extends TeamsActivityHandler {
   }
 
   /**
-   * Get welcome message
+   * Get welcome card with Dashboard button
+   */
+  getWelcomeCard() {
+    const appId = process.env.TEAMS_APP_ID || '39cb02be-f50d-4e06-afda-ec0ce359e2a8';
+    const dashboardDeepLink = `https://teams.microsoft.com/l/entity/${appId}/dashboard`;
+
+    return {
+      type: 'AdaptiveCard',
+      $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
+      version: '1.4',
+      body: [
+        {
+          type: 'TextBlock',
+          text: '🎉 Hello! I\'m the ETILOG Approval Bot! 🎫',
+          weight: 'Bolder',
+          size: 'Large',
+          wrap: true
+        },
+        {
+          type: 'TextBlock',
+          text: 'I\'m here to help you manage approval requests and speed up the approval process for all ETILOG employees.',
+          wrap: true,
+          spacing: 'Medium'
+        },
+        {
+          type: 'TextBlock',
+          text: '**My main purpose:**',
+          weight: 'Bolder',
+          wrap: true,
+          spacing: 'Medium'
+        },
+        {
+          type: 'TextBlock',
+          text: '✅ Accelerate the approval workflow\n✅ Log all requests with complete history tracking\n✅ Send real-time notifications about request status\n📊 Handle time-off, purchases, expenses, and HR requests',
+          wrap: true,
+          spacing: 'Small'
+        },
+        {
+          type: 'TextBlock',
+          text: '**Quick note:** 📦',
+          weight: 'Bolder',
+          wrap: true,
+          spacing: 'Medium'
+        },
+        {
+          type: 'TextBlock',
+          text: 'As a bot working for ETILOG - the European technology leader for professional packaging solutions and container systems - I\'m quite busy helping with our innovative packaging needs! That\'s why I can only offer basic command-based assistance (no chatting, sorry! 😅). But don\'t worry, I\'m very efficient at what I do best: managing your approval requests!',
+          wrap: true,
+          spacing: 'Small'
+        },
+        {
+          type: 'TextBlock',
+          text: '**Get started:**',
+          weight: 'Bolder',
+          wrap: true,
+          spacing: 'Medium'
+        },
+        {
+          type: 'TextBlock',
+          text: '• Type **"help"** for a list of available commands\n• Click the button below to open the Dashboard',
+          wrap: true,
+          spacing: 'Small'
+        },
+        {
+          type: 'TextBlock',
+          text: 'Have a productive day! 💼',
+          wrap: true,
+          spacing: 'Medium'
+        }
+      ],
+      actions: [
+        {
+          type: 'Action.OpenUrl',
+          title: '📊 Open Dashboard',
+          url: dashboardDeepLink,
+          style: 'positive'
+        },
+        {
+          type: 'Action.OpenUrl',
+          title: '➕ Create Request',
+          url: `https://teams.microsoft.com/l/entity/${appId}/createRequest`
+        }
+      ]
+    };
+  }
+
+  /**
+   * Get welcome message (text fallback)
    */
   getWelcomeMessage() {
     return `🎉 Hello! I'm the **ETILOG Approval Bot**! 🎫

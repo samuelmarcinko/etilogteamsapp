@@ -1,7 +1,7 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
   "manifestVersion": "1.16",
-  "version": "1.0.6",
+  "version": "1.1.0",
   "id": "39cb02be-f50d-4e06-afda-ec0ce359e2a8",
   "packageName": "com.etilog.approval",
   "developer": {
@@ -39,7 +39,7 @@
     {
       "entityId": "dashboard",
       "name": "Dashboard",
-      "contentUrl": "https://teams.etilog.com/pages/dashboard.html",
+      "contentUrl": "https://portal.etilog.com/pages/dashboard.html",
       "scopes": [
         "personal"
       ]
@@ -47,7 +47,7 @@
     {
       "entityId": "createRequest",
       "name": "Create Request",
-      "contentUrl": "https://teams.etilog.com/pages/create.html",
+      "contentUrl": "https://portal.etilog.com/pages/create.html",
       "scopes": [
         "personal"
       ]
@@ -55,7 +55,7 @@
     {
       "entityId": "myRequests",
       "name": "My Requests",
-      "contentUrl": "https://teams.etilog.com/pages/my-requests.html",
+      "contentUrl": "https://portal.etilog.com/pages/my-requests.html",
       "scopes": [
         "personal"
       ]
@@ -63,7 +63,7 @@
     {
       "entityId": "teamCalendar",
       "name": "Team Calendar",
-      "contentUrl": "https://teams.etilog.com/pages/upcoming-time-off.html",
+      "contentUrl": "https://portal.etilog.com/pages/upcoming-time-off.html",
       "scopes": [
         "personal"
       ]
@@ -71,7 +71,7 @@
     {
       "entityId": "approvals",
       "name": "Approvals",
-      "contentUrl": "https://teams.etilog.com/pages/approvals.html",
+      "contentUrl": "https://portal.etilog.com/pages/approvals.html",
       "scopes": [
         "personal"
       ]
@@ -79,7 +79,7 @@
   ],
   "configurableTabs": [
     {
-      "configurationUrl": "https://teams.etilog.com/",
+      "configurationUrl": "https://portal.etilog.com/",
       "canUpdateConfiguration": true,
       "scopes": [
         "team",
@@ -92,7 +92,7 @@
     "messageTeamMembers"
   ],
   "validDomains": [
-    "teams.etilog.com"
+    "portal.etilog.com"
   ],
   "activities": {
     "activityTypes": [
@@ -105,6 +105,6 @@
   },
   "webApplicationInfo": {
     "id": "39cb02be-f50d-4e06-afda-ec0ce359e2a8",
-    "resource": "api://teams.etilog.com/39cb02be-f50d-4e06-afda-ec0ce359e2a8"
+    "resource": "api://portal.etilog.com/39cb02be-f50d-4e06-afda-ec0ce359e2a8"
   }
 }

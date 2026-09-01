@@ -3,6 +3,7 @@ const {
   ConfigurationServiceClientCredentialFactory,
   ConfigurationBotFrameworkAuthentication
 } = require('botbuilder');
+const logger = require('../utils/logger');
 require('dotenv').config();
 
 // Create adapter
@@ -22,8 +23,7 @@ const adapter = new CloudAdapter(botFrameworkAuthentication);
 
 // Error handler
 adapter.onTurnError = async (context, error) => {
-  console.error(`\n [onTurnError] unhandled error: ${error}`);
-  console.error(error);
+  logger.error('Bot turn error', { error: error.message, stack: error.stack });
 
   // Send a message to the user
   await context.sendActivity('The bot encountered an error or bug.');

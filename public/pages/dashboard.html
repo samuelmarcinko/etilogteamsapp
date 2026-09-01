@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - ETILOG Approval System</title>
-    <link rel="stylesheet" href="/assets/css/style.css">
+    <link rel="stylesheet" href="/assets/css/style.css?v=20260413a">
     <script src="https://res.cdn.office.net/teams-js/2.19.0/js/MicrosoftTeams.min.js"></script>
-    <script src="/assets/js/i18n.js"></script>
-    <script src="/assets/js/navigation.js"></script>
+    <script src="/assets/js/i18n.js?v=20260206a"></script>
+    <script src="/assets/js/navigation.js?v=20260206a"></script>
     <style>
         /* Quota & Holiday Overview Cards */
         .overview-grid {
@@ -261,6 +261,155 @@
         .holiday-past {
             opacity: 0.4;
         }
+
+        /* Out of Office Widget */
+        .out-of-office-widget {
+            background: var(--white, #fff);
+            border-radius: 16px;
+            border: 1px solid var(--gray-200, #e5e7eb);
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+
+        /* Skeleton loaders for OOO widget */
+        .ooo-skeleton-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .ooo-skeleton-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem;
+        }
+        .ooo-skeleton-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--gray-100, #f3f4f6);
+            animation: softPulse 1.8s ease-in-out infinite;
+        }
+        .ooo-skeleton-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+        .ooo-skeleton-name {
+            height: 14px;
+            width: 60%;
+            border-radius: 4px;
+            background: var(--gray-100, #f3f4f6);
+            animation: softPulse 1.8s ease-in-out infinite;
+        }
+        .ooo-skeleton-type {
+            height: 10px;
+            width: 40%;
+            border-radius: 4px;
+            background: var(--gray-100, #f3f4f6);
+            animation: softPulse 1.8s ease-in-out infinite;
+            animation-delay: 0.2s;
+        }
+
+        /* OOO content */
+        .ooo-empty {
+            text-align: center;
+            padding: 1.5rem 1rem;
+            color: var(--gray-500, #6b7280);
+        }
+        .ooo-empty-icon {
+            font-size: 2rem;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        .ooo-empty p {
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .ooo-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .ooo-person {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.6rem 0.75rem;
+            border-radius: 10px;
+            background: var(--gray-50, #f8fafc);
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .ooo-person:hover {
+            transform: translateX(4px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .ooo-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: #fff;
+            flex-shrink: 0;
+        }
+        .ooo-avatar.vacation { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+        .ooo-avatar.sick-leave { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .ooo-avatar.paragraph { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+        .ooo-avatar.ocr { background: linear-gradient(135deg, #ec4899, #db2777); }
+
+        .ooo-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .ooo-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--gray-800, #1f2937);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .ooo-details {
+            font-size: 0.75rem;
+            color: var(--gray-500, #6b7280);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .ooo-type-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.15rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .ooo-type-badge.vacation { background: #dbeafe; color: #2563eb; }
+        .ooo-type-badge.sick-leave { background: #fef3c7; color: #d97706; }
+        .ooo-type-badge.paragraph { background: #ede9fe; color: #7c3aed; }
+        .ooo-type-badge.ocr { background: #fce7f3; color: #db2777; }
+
+        .ooo-date-range {
+            font-size: 0.75rem;
+            color: var(--gray-500, #6b7280);
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .ooo-date-range::before {
+            content: '•';
+            color: var(--gray-300, #d1d5db);
+        }
     </style>
 </head>
 <body data-page="dashboard">
@@ -284,8 +433,6 @@
                 <div class="overview-info">
                     <div class="overview-label" data-i18n="dashVacationRemaining">Vacation remaining</div>
                     <div class="overview-value" id="vacationRemaining">-</div>
-                    <div class="overview-detail" id="vacationDetail">&nbsp;</div>
-                    <div class="overview-bar"><div class="overview-bar-fill bar-green" id="vacationBar" style="width:0%"></div></div>
                 </div>
             </div>
 
@@ -317,6 +464,38 @@
                     <div class="overview-detail" id="nextHolidayDate">&nbsp;</div>
                 </div>
                 <button class="holiday-more-btn" onclick="openHolidaysModal()" data-i18n="dashAllHolidays">All holidays</button>
+            </div>
+        </div>
+
+        <!-- Out of Office Today Widget -->
+        <div class="section-divider">
+            <h2 data-i18n="dashOutOfOfficeTitle">Out of Office Today</h2>
+        </div>
+        <div class="out-of-office-widget" id="outOfOfficeWidget">
+            <div class="ooo-loading" id="oooLoading">
+                <div class="ooo-skeleton-list">
+                    <div class="ooo-skeleton-item">
+                        <div class="ooo-skeleton-avatar"></div>
+                        <div class="ooo-skeleton-content">
+                            <div class="ooo-skeleton-name"></div>
+                            <div class="ooo-skeleton-type"></div>
+                        </div>
+                    </div>
+                    <div class="ooo-skeleton-item">
+                        <div class="ooo-skeleton-avatar"></div>
+                        <div class="ooo-skeleton-content">
+                            <div class="ooo-skeleton-name"></div>
+                            <div class="ooo-skeleton-type"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="ooo-content" id="oooContent" style="display:none;">
+                <div class="ooo-empty" id="oooEmpty" style="display:none;">
+                    <span class="ooo-empty-icon">&#127793;</span>
+                    <p data-i18n="dashOooNobody">Everyone is in the office today!</p>
+                </div>
+                <div class="ooo-list" id="oooList"></div>
             </div>
         </div>
 
@@ -381,6 +560,6 @@
         </div>
     </div>
 
-    <script src="/assets/js/dashboard.js"></script>
+    <script src="/assets/js/dashboard.js?v=20260206a"></script>
 </body>
 </html>

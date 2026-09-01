@@ -69,6 +69,30 @@ class User {
     const result = await pool.query(query, [role, userId]);
     return result.rows[0];
   }
+
+  /**
+   * Toggle user hidden flag
+   */
+  static async toggleHidden(userId) {
+    const query = `
+      UPDATE users
+      SET hidden = NOT COALESCE(hidden, false), updated_at = CURRENT_TIMESTAMP
+      WHERE user_id = $1
+      RETURNING *
+    `;
+
+    const result = await pool.query(query, [userId]);
+    return result.rows[0];
+  }
+
+  /**
+   * Get all hidden user IDs
+   */
+  static async getHiddenUserIds() {
+    const query = 'SELECT user_id FROM users WHERE hidden = true';
+    const result = await pool.query(query);
+    return result.rows.map(r => r.user_id);
+  }
 }
 
 module.exports = User;

@@ -5,7 +5,7 @@ const NAV_ITEMS = {
     { id: 'create', icon: '➕', label: 'Create Request', url: '/pages/create.html' },
     { id: 'my-requests', icon: '📋', label: 'My Requests', url: '/pages/my-requests.html' },
     { id: 'upcoming-time-off', icon: '📅', label: 'Team Calendar', url: '/pages/upcoming-time-off.html' },
-    { id: 'approvals', icon: '✅', label: 'Approvals', url: '/pages/approvals.html' },
+    { id: 'approvals', icon: '✅', label: 'Approve Requests', url: '/pages/approvals.html' },
     { id: 'sick-notes', icon: '🏥', label: 'Paragraphs & FMC', url: '/pages/sick-notes.html' }
   ],
   sk: [
@@ -13,7 +13,7 @@ const NAV_ITEMS = {
     { id: 'create', icon: '➕', label: 'Vytvoriť žiadosť', url: '/pages/create.html' },
     { id: 'my-requests', icon: '📋', label: 'Moje žiadosti', url: '/pages/my-requests.html' },
     { id: 'upcoming-time-off', icon: '📅', label: 'Teamový kalendár', url: '/pages/upcoming-time-off.html' },
-    { id: 'approvals', icon: '✅', label: 'Schvaľovanie', url: '/pages/approvals.html' },
+    { id: 'approvals', icon: '✅', label: 'Schvaľovanie žiadostí', url: '/pages/approvals.html' },
     { id: 'sick-notes', icon: '🏥', label: 'Paragrafy & OČR', url: '/pages/sick-notes.html' }
   ]
 };
@@ -81,7 +81,7 @@ function renderNavigation(currentPage) {
   const utilityBar = document.createElement('div');
   utilityBar.className = 'nav-utility-bar';
   utilityBar.innerHTML = `
-    <a href="https://teams.etilog.com/login" target="_blank" class="nav-portal-link">
+    <a href="https://portal.etilog.com/login" target="_blank" class="nav-portal-link">
       <span class="nav-portal-icon">&#127760;</span>${portalLabel}
     </a>
     <div class="nav-lang-switcher">

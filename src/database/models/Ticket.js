@@ -13,8 +13,8 @@ class Ticket {
         ticket_id, title, description, ticket_type, priority,
         created_by_id, created_by_name, created_by_email,
         assigned_approver_id, assigned_approver_name, assigned_approver_email,
-        conversation_id, activity_id, start_date, end_date
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        conversation_id, activity_id, start_date, end_date, is_half_day
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       RETURNING *
     `;
 
@@ -33,7 +33,8 @@ class Ticket {
       ticketData.conversationId,
       ticketData.activityId,
       ticketData.startDate || null,
-      ticketData.endDate || null
+      ticketData.endDate || null,
+      ticketData.isHalfDay || false
     ];
 
     const result = await pool.query(query, values);
@@ -87,6 +88,47 @@ class Ticket {
 
     const result = await pool.query(query, values);
     return result.rows;
+  }
+
+  /**
+   * Admin edit: update arbitrary ticket fields (admin-only)
+   * Returns updated ticket row.
+   */
+  static async adminUpdate(ticketId, fields, performedBy) {
+    const allowed = [
+      'title', 'description', 'ticket_type', 'priority', 'status',
+      'start_date', 'end_date', 'is_half_day',
+      'rejection_reason', 'cancellation_reason',
+      'assigned_approver_id', 'assigned_approver_name', 'assigned_approver_email'
+    ];
+
+    const sets = [];
+    const values = [];
+    let i = 1;
+
+    for (const key of allowed) {
+      if (Object.prototype.hasOwnProperty.call(fields, key)) {
+        sets.push(`${key} = $${i}`);
+        values.push(fields[key]);
+        i++;
+      }
+    }
+
+    if (sets.length === 0) {
+      return await this.findById(ticketId);
+    }
+
+    sets.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(ticketId);
+
+    const query = `UPDATE tickets SET ${sets.join(', ')} WHERE ticket_id = $${i} RETURNING *`;
+    const result = await pool.query(query, values);
+
+    if (result.rows[0] && performedBy) {
+      await this.logAction(ticketId, 'Updated', performedBy, JSON.stringify(Object.keys(fields)));
+    }
+
+    return result.rows[0];
   }
 
   /**

@@ -18,8 +18,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     if (!isLoggedIn()) {
-        window.location.href = '/login';
-        return;
+        // May be returning from a Microsoft sign-in redirect that hasn't been
+        // processed yet — let MSAL finish (handleRedirectPromise) then re-check.
+        try { await initializeMsal(); } catch (e) { /* ignore, handled below */ }
+        if (!isLoggedIn()) {
+            window.location.href = '/login';
+            return;
+        }
     }
 
     const profileLoaded = await loadUserProfile();
@@ -37,8 +42,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     updateSidebarLanguage();
+    initSidebarCollapse();
     setupNavigation();
-    navigateToPage(window.location.hash.slice(1) || 'dashboard');
+    navigateToPage(window.location.hash.slice(1) || 'hub');
 });
 
 async function loadUserProfile() {
@@ -58,9 +64,7 @@ async function loadUserProfile() {
         document.getElementById('userRoleBadge').textContent = portalUser.role;
         document.getElementById('userAvatar').textContent = getInitials(portalUser.name || portalUser.email);
 
-        if (portalUser.role === 'admin') {
-            document.getElementById('adminNav').style.display = 'block';
-        }
+        // Note: module/role-based sidebar visibility handled by applyModulePreset()
         return true;
     } catch (error) {
         console.error('Failed to load profile:', error);
@@ -88,20 +92,86 @@ function setupNavigation() {
     });
 
     window.addEventListener('hashchange', () => {
-        navigateToPage(window.location.hash.slice(1) || 'dashboard');
+        navigateToPage(window.location.hash.slice(1) || 'hub');
     });
 }
 
-function navigateToPage(page) {
-    if (!page) page = 'dashboard';
+// Map each page to its parent module
+const PAGE_MODULE = {
+    'dashboard': 'hr', 'my-quotas': 'hr', 'my-sick-notes': 'hr',
+    'my-requests': 'hr', 'my-approvals': 'hr',
+    'admin-employees': 'hr', 'admin-quotas': 'hr', 'admin-sick-notes': 'hr',
+    'admin-tickets': 'hr', 'admin-dashboard': 'hr', 'admin-ticket-types': 'hr',
+    'admin-system': 'hr',
+    'admin-fleet': 'fleet',
+    'warehouse-dashboard': 'warehouse', 'warehouse-materials': 'warehouse',
+    'warehouse-movements': 'warehouse'
+};
 
-    if (page.startsWith('admin-') && portalUser?.role !== 'admin') {
+/**
+ * Show only the sidebar block for the given module, role-gated.
+ */
+function applyModulePreset(module) {
+    // Hide all module nav blocks
+    ['hrNav', 'fleetNav', 'warehouseNav'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+
+    if (module === 'hr') {
+        document.getElementById('hrNav').style.display = 'block';
+        // Role-gate HR admin sub-sections
+        const role = portalUser?.role;
+        document.getElementById('managerNav').style.display =
+            (role === 'spravca' || role === 'admin') ? 'block' : 'none';
+        document.getElementById('adminNav').style.display =
+            (role === 'admin') ? 'block' : 'none';
+    } else if (module === 'fleet') {
+        document.getElementById('fleetNav').style.display = 'block';
+    } else if (module === 'warehouse') {
+        document.getElementById('warehouseNav').style.display = 'block';
+    }
+}
+
+function navigateToPage(page) {
+    if (!page) page = 'hub';
+
+    // Pages accessible to spravca role
+    const spravcaPages = ['admin-employees', 'admin-quotas', 'admin-sick-notes', 'admin-tickets'];
+
+    // Warehouse pages require warehouse module access (admin or sklad)
+    if (page.startsWith('warehouse-') && !hasModuleAccess('warehouse')) {
         showToast(pt('accessDenied'), 'error');
         return;
+    }
+    if (page.startsWith('admin-')) {
+        const userRole = portalUser?.role;
+        // Fleet is its own module - admin only
+        if (page === 'admin-fleet') {
+            if (userRole !== 'admin') {
+                showToast(pt('accessDenied'), 'error');
+                return;
+            }
+        } else if (userRole === 'admin') {
+            // Admin has full access
+        } else if (userRole === 'spravca' && spravcaPages.includes(page)) {
+            // Spravca has limited access
+        } else {
+            showToast(pt('accessDenied'), 'error');
+            return;
+        }
     }
 
     currentPage = page;
     window.location.hash = page;
+
+    // Toggle hub layout (hide sidebar on hub page)
+    document.body.classList.toggle('hub-active', page === 'hub');
+
+    // Apply the sidebar preset for this page's module
+    if (page !== 'hub') {
+        applyModulePreset(PAGE_MODULE[page] || 'hr');
+    }
 
     document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
     const activeLink = document.querySelector(`[data-page="${page}"]`);
@@ -114,6 +184,30 @@ function navigateToPage(page) {
 
 function toggleSidebar() {
     document.getElementById('sidebar').classList.toggle('open');
+}
+
+// Collapse/expand sidebar on desktop & tablet (persisted)
+function toggleSidebarCollapse() {
+    const collapsed = document.body.classList.toggle('sidebar-collapsed');
+    try { localStorage.setItem('portalSidebarCollapsed', collapsed ? '1' : '0'); } catch (e) {}
+    updateSidebarToggleLabel(collapsed);
+}
+
+function updateSidebarToggleLabel(collapsed) {
+    const btn = document.getElementById('sidebarToggle');
+    if (!btn) return;
+    const label = collapsed
+        ? (typeof pt === 'function' ? pt('sidebarShow') : 'Zobraziť menu')
+        : (typeof pt === 'function' ? pt('sidebarHide') : 'Skryť menu');
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+}
+
+function initSidebarCollapse() {
+    let collapsed = false;
+    try { collapsed = localStorage.getItem('portalSidebarCollapsed') === '1'; } catch (e) {}
+    if (collapsed) document.body.classList.add('sidebar-collapsed');
+    updateSidebarToggleLabel(collapsed);
 }
 
 async function handleLogout() {
@@ -133,6 +227,7 @@ async function renderPage(page) {
 
     try {
         switch (page) {
+            case 'hub': await renderHub(content); break;
             case 'dashboard': await renderDashboard(content); break;
             case 'my-quotas': await renderMyQuotas(content); break;
             case 'my-sick-notes': await renderMySickNotes(content); break;
@@ -144,6 +239,11 @@ async function renderPage(page) {
             case 'admin-sick-notes': await renderAdminSickNotes(content); break;
             case 'admin-tickets': await renderAdminTickets(content); break;
             case 'admin-ticket-types': await renderAdminTicketTypes(content); break;
+            case 'admin-system': await renderAdminSystem(content); break;
+            case 'admin-fleet': await renderAdminFleet(content); break;
+            case 'warehouse-dashboard': await renderWarehouseDashboard(content); break;
+            case 'warehouse-materials': await renderWarehouseMaterials(content); break;
+            case 'warehouse-movements': await renderWarehouseMovements(content); break;
             default: content.innerHTML = `<div class="page-body"><div class="empty-state"><div class="empty-icon">&#128533;</div><div class="empty-text">${pt('pageNotFound')}</div></div></div>`;
         }
     } catch (error) {
@@ -152,6 +252,167 @@ async function renderPage(page) {
     }
 
     loading.style.display = 'none';
+}
+
+// ============================================
+// MODULE HUB
+// ============================================
+
+/**
+ * Check if user has access to a module.
+ * - admin: all modules
+ * - spravca: HR only
+ * - user: HR only
+ * - sklad / sklad_read: warehouse
+ */
+function hasModuleAccess(module) {
+    const role = portalUser?.role;
+    if (role === 'admin') return true;
+    if (module === 'hr') return true; // All roles have HR access
+    if (module === 'fleet') return role === 'admin';
+    if (module === 'warehouse') return role === 'sklad' || role === 'sklad_read';
+    return false;
+}
+
+/**
+ * Check if user can edit warehouse (not read-only)
+ */
+function canEditWarehouse() {
+    const role = portalUser?.role;
+    return role === 'admin' || role === 'sklad';
+}
+
+function enterModule(module) {
+    if (!hasModuleAccess(module)) {
+        showAccessDeniedModal();
+        return;
+    }
+
+    // Navigate to module's default page
+    if (module === 'hr') navigateToPage('dashboard');
+    if (module === 'fleet') navigateToPage('admin-fleet');
+    if (module === 'warehouse') navigateToPage('warehouse-dashboard');
+}
+
+// Modern "access denied" modal with an animated cross icon
+function showAccessDeniedModal() {
+    const existing = document.getElementById('accessDeniedOverlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'access-denied-overlay';
+    overlay.id = 'accessDeniedOverlay';
+    overlay.innerHTML = `
+        <div class="access-denied-card">
+            <div class="access-denied-icon">
+                <svg viewBox="0 0 80 80">
+                    <circle class="ad-circle" cx="40" cy="40" r="36"/>
+                    <line class="ad-x1" x1="28" y1="28" x2="52" y2="52"/>
+                    <line class="ad-x2" x1="52" y1="28" x2="28" y2="52"/>
+                </svg>
+            </div>
+            <h3 class="access-denied-title">${pt('hubAccessDenied')}</h3>
+            <p class="access-denied-msg">${pt('hubAccessDeniedMsg')}</p>
+            <button class="btn btn-secondary" id="adCloseBtn">${pt('close')}</button>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const close = () => {
+        overlay.classList.add('closing');
+        setTimeout(() => overlay.remove(), 200);
+    };
+    overlay.querySelector('#adCloseBtn').addEventListener('click', close);
+    // Drag-safe backdrop close
+    let downSelf = false;
+    overlay.addEventListener('mousedown', (e) => { downSelf = (e.target === overlay); });
+    overlay.addEventListener('click', (e) => { if (e.target === overlay && downSelf) close(); downSelf = false; });
+    document.addEventListener('keydown', function esc(e) {
+        if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); }
+    });
+
+    // Trigger entrance animation
+    requestAnimationFrame(() => overlay.classList.add('active'));
+}
+
+async function renderHub(container) {
+    const role = portalUser?.role || 'user';
+    const hrAccess = hasModuleAccess('hr');
+    const fleetAccess = hasModuleAccess('fleet');
+
+    // Determine badge for each module
+    const warehouseAccess = hasModuleAccess('warehouse');
+    const hrBadge = hrAccess ? 'available' : 'locked';
+    const fleetBadge = fleetAccess ? 'available' : 'locked';
+    const warehouseBadge = warehouseAccess ? 'available' : 'locked';
+
+    container.innerHTML = `
+        <div class="hub-layout">
+            <div class="hub-header">
+                <img src="/assets/images/logo.png" alt="ETILOG" class="hub-logo">
+                <h1 class="hub-title">${pt('hubTitle')}</h1>
+                <p class="hub-subtitle">${pt('hubSubtitle')}</p>
+            </div>
+
+            <div class="hub-grid">
+                <!-- HR Module -->
+                <div class="hub-card hr" onclick="enterModule('hr')">
+                    <div class="hub-card-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                        </svg>
+                    </div>
+                    <h3 class="hub-card-title">${pt('hubModuleHR')}</h3>
+                    <p class="hub-card-desc">${pt('hubModuleHRDesc')}</p>
+                    <span class="hub-card-badge ${hrBadge}">${pt('hubBadge' + hrBadge.charAt(0).toUpperCase() + hrBadge.slice(1).replace('-s', 'S'))}</span>
+                </div>
+
+                <!-- Fleet Module -->
+                <div class="hub-card fleet" onclick="enterModule('fleet')">
+                    <div class="hub-card-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M5 17h14M5 17a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 1.5L19 10h-3v4h3l1 3a1 1 0 0 1-1 1h-1"/>
+                            <circle cx="7.5" cy="17" r="2"/>
+                            <circle cx="16.5" cy="17" r="2"/>
+                        </svg>
+                    </div>
+                    <h3 class="hub-card-title">${pt('hubModuleFleet')}</h3>
+                    <p class="hub-card-desc">${pt('hubModuleFleetDesc')}</p>
+                    <span class="hub-card-badge ${fleetBadge}">${pt('hubBadge' + fleetBadge.charAt(0).toUpperCase() + fleetBadge.slice(1).replace('-s', 'S'))}</span>
+                </div>
+
+                <!-- Warehouse Module -->
+                <div class="hub-card warehouse" onclick="enterModule('warehouse')">
+                    <div class="hub-card-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 21h18"/>
+                            <path d="M3 7v14"/>
+                            <path d="M21 7v14"/>
+                            <path d="M3 7l9-4 9 4"/>
+                            <path d="M8 14h8"/>
+                            <path d="M8 10h8"/>
+                            <path d="M8 18h8"/>
+                        </svg>
+                    </div>
+                    <h3 class="hub-card-title">${pt('hubModuleWarehouse')}</h3>
+                    <p class="hub-card-desc">${pt('hubModuleWarehouseDesc')}</p>
+                    <span class="hub-card-badge ${warehouseBadge}">${pt('hubBadge' + warehouseBadge.charAt(0).toUpperCase() + warehouseBadge.slice(1))}</span>
+                </div>
+            </div>
+
+            <div class="hub-user-footer">
+                <div class="hub-user-avatar">${getInitials(portalUser.name || portalUser.email)}</div>
+                <div class="hub-user-info">
+                    <div class="hub-user-name">${escapeHtml(portalUser.name || portalUser.email)}</div>
+                    <div class="hub-user-role">${portalUser.role}</div>
+                </div>
+                <button class="hub-logout-btn" onclick="handleLogout()">${pt('btnLogout')}</button>
+            </div>
+        </div>
+    `;
 }
 
 // ============================================
@@ -188,11 +449,11 @@ async function renderDashboard(container) {
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon" style="background:#dbeafe;color:#2563eb;">&#167;</div>
-                    <div><div class="stat-value">${quota ? quota.paragraph_days_remaining : '-'}</div><div class="stat-label">${pt('paragraphRemaining')}</div></div>
+                    <div><div class="stat-value">${quota ? Number(quota.paragraph_days_remaining).toFixed(2) : '-'}</div><div class="stat-label">${pt('paragraphRemaining')}</div></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon" style="background:#fef3c7;color:#d97706;">&#128106;</div>
-                    <div><div class="stat-value">${quota ? quota.ocr_days_remaining : '-'}</div><div class="stat-label">${pt('ocrRemaining')}</div></div>
+                    <div><div class="stat-value">${quota ? Number(quota.ocr_days_remaining).toFixed(2) : '-'}</div><div class="stat-label">${pt('ocrRemaining')}</div></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon green">&#9989;</div>
@@ -212,16 +473,13 @@ async function renderDashboard(container) {
                     <div class="quota-bar-container">
                         <div class="quota-bar-label">
                             <span>${pt('vacation')}</span>
-                            <span>${quota ? parseFloat(quota.vacation_days_used) : 0} / ${quota ? quota.vacation_days_total : 20} ${pt('days')}</span>
-                        </div>
-                        <div class="quota-bar">
-                            <div class="quota-bar-fill ${vacUsedPct > 90 ? 'red' : vacUsedPct > 70 ? 'amber' : 'green'}" style="width: ${Math.min(vacUsedPct, 100)}%"></div>
+                            <span><strong>${quota ? quota.vacation_days_remaining : '-'} ${pt('days')}</strong> ${pt('quotaRemaining')}</span>
                         </div>
                     </div>
                     <div class="quota-bar-container">
                         <div class="quota-bar-label">
                             <span>${pt('sickNoteDocTypeParagraph') || 'Paragraf'}</span>
-                            <span>${quota ? parseFloat(quota.paragraph_days_used || 0) : 0} / ${quota ? (quota.paragraph_days_total || 7) : 7} ${pt('days')}</span>
+                            <span>${quota ? parseFloat(quota.paragraph_days_used || 0).toFixed(2) : '0.00'} / ${quota ? (quota.paragraph_days_total || 7) : 7} ${pt('hours')}</span>
                         </div>
                         <div class="quota-bar">
                             <div class="quota-bar-fill ${parUsedPct > 90 ? 'red' : parUsedPct > 70 ? 'amber' : 'green'}" style="width: ${Math.min(parUsedPct, 100)}%"></div>
@@ -230,7 +488,7 @@ async function renderDashboard(container) {
                     <div class="quota-bar-container">
                         <div class="quota-bar-label">
                             <span>${pt('sickNoteDocTypeOcr') || 'OČR'}</span>
-                            <span>${quota ? parseFloat(quota.ocr_days_used || 0) : 0} / ${quota ? (quota.ocr_days_total || 7) : 7} ${pt('days')}</span>
+                            <span>${quota ? parseFloat(quota.ocr_days_used || 0).toFixed(2) : '0.00'} / ${quota ? (quota.ocr_days_total || 7) : 7} ${pt('hours')}</span>
                         </div>
                         <div class="quota-bar">
                             <div class="quota-bar-fill ${ocrUsedPct > 90 ? 'red' : ocrUsedPct > 70 ? 'amber' : 'green'}" style="width: ${Math.min(ocrUsedPct, 100)}%"></div>
@@ -295,12 +553,7 @@ async function renderMyQuotas(container) {
                 <div class="quota-details">
                     <div class="quota-type">${pt('vacation')}</div>
                     <div class="quota-numbers">
-                        <span>${pt('quotaTotal')}: <strong>${quota ? quota.vacation_days_total : '-'} ${pt('days')}</strong></span>
-                        <span>${pt('quotaUsed')}: <strong>${quota ? parseFloat(quota.vacation_days_used) : 0} ${pt('days')}</strong></span>
                         <span>${pt('quotaRemaining')}: <strong>${quota ? quota.vacation_days_remaining : '-'} ${pt('days')}</strong></span>
-                    </div>
-                    <div class="quota-bar" style="margin-top: 0.75rem;">
-                        <div class="quota-bar-fill ${vacUsedPct > 90 ? 'red' : vacUsedPct > 70 ? 'amber' : 'green'}" style="width: ${Math.min(vacUsedPct, 100)}%"></div>
                     </div>
                 </div>
             </div>
@@ -310,9 +563,9 @@ async function renderMyQuotas(container) {
                 <div class="quota-details">
                     <div class="quota-type">${pt('sickNoteDocTypeParagraph') || 'Paragraf'}</div>
                     <div class="quota-numbers">
-                        <span>${pt('quotaTotal')}: <strong>${quota ? (quota.paragraph_days_total || 7) : '-'} ${pt('days')}</strong></span>
-                        <span>${pt('quotaUsed')}: <strong>${quota ? parseFloat(quota.paragraph_days_used || 0) : 0} ${pt('days')}</strong></span>
-                        <span>${pt('quotaRemaining')}: <strong>${quota ? quota.paragraph_days_remaining : '-'} ${pt('days')}</strong></span>
+                        <span>${pt('quotaTotal')}: <strong>${quota ? (quota.paragraph_days_total || 7) : '-'} ${pt('hours')}</strong></span>
+                        <span>${pt('quotaUsed')}: <strong>${quota ? parseFloat(quota.paragraph_days_used || 0).toFixed(2) : '0.00'} ${pt('hours')}</strong></span>
+                        <span>${pt('quotaRemaining')}: <strong>${quota ? Number(quota.paragraph_days_remaining).toFixed(2) : '-'} ${pt('hours')}</strong></span>
                     </div>
                     <div class="quota-bar" style="margin-top: 0.75rem;">
                         <div class="quota-bar-fill ${parUsedPct > 90 ? 'red' : parUsedPct > 70 ? 'amber' : 'green'}" style="width: ${Math.min(parUsedPct, 100)}%"></div>
@@ -325,9 +578,9 @@ async function renderMyQuotas(container) {
                 <div class="quota-details">
                     <div class="quota-type">${pt('sickNoteDocTypeOcr') || 'OČR'}</div>
                     <div class="quota-numbers">
-                        <span>${pt('quotaTotal')}: <strong>${quota ? (quota.ocr_days_total || 7) : '-'} ${pt('days')}</strong></span>
-                        <span>${pt('quotaUsed')}: <strong>${quota ? parseFloat(quota.ocr_days_used || 0) : 0} ${pt('days')}</strong></span>
-                        <span>${pt('quotaRemaining')}: <strong>${quota ? quota.ocr_days_remaining : '-'} ${pt('days')}</strong></span>
+                        <span>${pt('quotaTotal')}: <strong>${quota ? (quota.ocr_days_total || 7) : '-'} ${pt('hours')}</strong></span>
+                        <span>${pt('quotaUsed')}: <strong>${quota ? parseFloat(quota.ocr_days_used || 0).toFixed(2) : '0.00'} ${pt('hours')}</strong></span>
+                        <span>${pt('quotaRemaining')}: <strong>${quota ? Number(quota.ocr_days_remaining).toFixed(2) : '-'} ${pt('hours')}</strong></span>
                     </div>
                     <div class="quota-bar" style="margin-top: 0.75rem;">
                         <div class="quota-bar-fill ${ocrUsedPct > 90 ? 'red' : ocrUsedPct > 70 ? 'amber' : 'green'}" style="width: ${Math.min(ocrUsedPct, 100)}%"></div>
@@ -666,20 +919,24 @@ function applyMyRequestsFilter() {
 
 // Open new request modal
 async function openNewRequestModal() {
-    // Load ticket types and users for approver dropdown
+    // Load ticket types, users, and quota for the form
     let users = [];
+    let quota = null;
     window._loadedTicketTypes = [];
     try {
-        const [typesRes, usersRes] = await Promise.all([
+        const [typesRes, usersRes, quotaRes] = await Promise.all([
             apiCall('/api/ticket-types/active'),
-            apiCall('/api/admin/employees')
+            apiCall('/api/admin/employees'),
+            apiCall('/api/quotas/me')
         ]);
         window._loadedTicketTypes = (await typesRes.json()).data || [];
         users = (await usersRes.json()).data || [];
+        quota = (await quotaRes.json()).data;
     } catch (e) {
         console.error('Error loading form data:', e);
     }
 
+    window._currentQuota = quota;
     const ticketTypes = window._loadedTicketTypes;
     const lang = localStorage.getItem('etilog_portal_lang') || 'sk';
     const typeOptions = ticketTypes.map(t => {
@@ -725,11 +982,25 @@ async function openNewRequestModal() {
             <div class="form-row" id="requestDatesRow" style="display:none;">
                 <div class="form-group">
                     <label class="form-label">${pt('reqFieldStartDate')}</label>
-                    <input type="date" class="form-input" name="start_date">
+                    <input type="date" class="form-input" name="start_date" onchange="updateWorkingDaysInfo()">
                 </div>
                 <div class="form-group">
                     <label class="form-label">${pt('reqFieldEndDate')}</label>
-                    <input type="date" class="form-input" name="end_date">
+                    <input type="date" class="form-input" name="end_date" onchange="updateWorkingDaysInfo()">
+                </div>
+            </div>
+            <div id="vacationQuotaInfoBox" class="quota-info-box" style="display:none; background: #d1fae5; border: 1px solid #10b981; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                    <div>
+                        <span style="font-weight: 600; color: #065f46;">${pt('vacationRemaining')}:</span>
+                        <span id="quotaRemainingValue" style="font-weight: 700; color: #065f46;">${quota ? quota.vacation_days_remaining : '-'} ${pt('days')}</span>
+                    </div>
+                    <div id="selectedDaysInfo" style="display: none;">
+                        <span style="font-weight: 600; color: #065f46;">${pt('selectedDays')}:</span>
+                        <span id="selectedDaysValue" style="font-weight: 700; color: #065f46;">0 ${pt('days')}</span>
+                    </div>
+                </div>
+                <div id="quotaWarning" style="display: none; margin-top: 8px; padding: 8px; background: #fef3c7; border-radius: 4px; color: #92400e; font-size: 13px;">
                 </div>
             </div>
             <div class="form-group">
@@ -756,11 +1027,78 @@ async function openNewRequestModal() {
 // Toggle date fields based on ticket type
 function toggleRequestDates(type) {
     const row = document.getElementById('requestDatesRow');
+    const quotaBox = document.getElementById('vacationQuotaInfoBox');
     if (row) {
         const types = window._loadedTicketTypes || [];
         const matched = types.find(t => t.key === type);
         const showDates = matched ? matched.requires_dates : false;
         row.style.display = showDates ? 'grid' : 'none';
+
+        // Show quota info box only for vacation type
+        if (quotaBox) {
+            const isVacation = type === 'vacation';
+            quotaBox.style.display = (showDates && isVacation) ? 'block' : 'none';
+            // Reset selected days info when type changes
+            const selectedDaysInfo = document.getElementById('selectedDaysInfo');
+            if (selectedDaysInfo) selectedDaysInfo.style.display = 'none';
+        }
+    }
+}
+
+// Update working days info when dates change
+async function updateWorkingDaysInfo() {
+    const form = document.getElementById('newRequestForm');
+    if (!form) return;
+
+    const startDate = form.start_date?.value;
+    const endDate = form.end_date?.value;
+    const ticketType = form.ticket_type?.value;
+
+    const selectedDaysInfo = document.getElementById('selectedDaysInfo');
+    const selectedDaysValue = document.getElementById('selectedDaysValue');
+    const quotaWarning = document.getElementById('quotaWarning');
+
+    // Only show for vacation type with both dates
+    if (ticketType !== 'vacation' || !startDate || !endDate) {
+        if (selectedDaysInfo) selectedDaysInfo.style.display = 'none';
+        if (quotaWarning) quotaWarning.style.display = 'none';
+        return;
+    }
+
+    // Validate date range
+    if (new Date(startDate) > new Date(endDate)) {
+        if (selectedDaysInfo) selectedDaysInfo.style.display = 'none';
+        if (quotaWarning) {
+            quotaWarning.style.display = 'block';
+            quotaWarning.textContent = pt('dateRangeError');
+        }
+        return;
+    }
+
+    try {
+        const response = await apiCall(`/api/quotas/working-days?start_date=${startDate}&end_date=${endDate}`);
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            const workingDays = result.data.working_days;
+            const quota = window._currentQuota;
+            const remaining = quota ? quota.vacation_days_remaining : 0;
+
+            if (selectedDaysInfo) selectedDaysInfo.style.display = 'block';
+            if (selectedDaysValue) selectedDaysValue.textContent = `${workingDays} ${pt('days')}`;
+
+            // Show warning if not enough days
+            if (quotaWarning) {
+                if (workingDays > remaining) {
+                    quotaWarning.style.display = 'block';
+                    quotaWarning.innerHTML = `<strong>&#9888;</strong> ${pt('notEnoughDaysWarning').replace('{selected}', workingDays).replace('{remaining}', remaining)}`;
+                } else {
+                    quotaWarning.style.display = 'none';
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Error fetching working days:', e);
     }
 }
 
@@ -852,7 +1190,7 @@ async function renderMyApprovals(container) {
         </div>
 
         <!-- Reject Modal -->
-        <div class="reject-modal-overlay" id="portalRejectOverlay" onclick="if(event.target===this)closePortalRejectModal()">
+        <div class="reject-modal-overlay" id="portalRejectOverlay" onmousedown="overlayMouseDown(event)" onclick="overlayClickClose(event, closePortalRejectModal)">
             <div class="reject-modal">
                 <h3>${pt('rejectModalTitle')}</h3>
                 <textarea id="portalRejectReason" placeholder="${pt('rejectModalPlaceholder')}"></textarea>
@@ -1069,49 +1407,115 @@ async function renderAdminDashboard(container) {
 
 async function renderAdminEmployees(container) {
     const year = new Date().getFullYear();
-    const response = await apiCall(`/api/admin/employees?year=${year}`);
-    const employees = (await response.json()).data || [];
+    const [employeesRes, allUsersRes] = await Promise.all([
+        apiCall(`/api/admin/employees?year=${year}`),
+        apiCall('/api/admin/all-azure-users')
+    ]);
+    const employees = (await employeesRes.json()).data || [];
+    const allUsersData = await allUsersRes.json();
+    const unlicensedUsers = allUsersData.unlicensedUsers || [];
 
     container.innerHTML = `
         <div class="page-header">
             <div><h1>${pt('employeesTitle')}</h1><p>${pt('employeesDesc')}</p></div>
-            <button class="btn btn-primary" onclick="initializeAllQuotas()">${pt('initQuotas')} ${year}</button>
         </div>
         <div class="page-body">
             <div class="portal-card">
                 <div class="card-body" style="overflow-x:auto;">
                     <table class="data-table">
                         <thead>
-                            <tr><th>${pt('colName')}</th><th>${pt('colEmail')}</th><th>${pt('colRole')}</th><th>${pt('colVacation')}</th><th>${pt('colParagraph')}</th><th>${pt('colOcr')}</th><th>${pt('colActions')}</th></tr>
+                            <tr><th>${pt('colName')}</th><th>${pt('colEmail')}</th><th>${pt('colRole')}</th><th>${pt('colVisibility')}</th><th>${pt('colVacation')}</th><th>${pt('colParagraph')}</th><th>${pt('colOcr')}</th>${portalUser?.role === 'admin' ? `<th>${pt('colActions')}</th>` : ''}</tr>
                         </thead>
                         <tbody>
                             ${employees.map(e => `
-                                <tr>
+                                <tr${e.hidden ? ' style="opacity: 0.5;"' : ''}>
                                     <td><strong>${escapeHtml(e.name)}</strong></td>
                                     <td>${escapeHtml(e.email)}</td>
                                     <td><span class="badge badge-${e.role}">${e.role}</span></td>
+                                    <td><span class="badge badge-${e.hidden ? 'hidden' : 'visible'}">${e.hidden ? pt('hiddenLabel') : pt('visibleLabel')}</span></td>
                                     <td>${e.vacation_days_total !== null ? `${e.vacation_days_used}/${e.vacation_days_total}` : '<span style="color:var(--gray-400)">-</span>'}</td>
                                     <td>${e.paragraph_days_total !== null && e.paragraph_days_total !== undefined ? `${e.paragraph_days_used || 0}/${e.paragraph_days_total}` : '<span style="color:var(--gray-400)">-</span>'}</td>
                                     <td>${e.ocr_days_total !== null && e.ocr_days_total !== undefined ? `${e.ocr_days_used || 0}/${e.ocr_days_total}` : '<span style="color:var(--gray-400)">-</span>'}</td>
-                                    <td>
+                                    ${portalUser?.role === 'admin' ? `<td>
                                         <div class="table-actions">
-                                            <button class="btn-icon" onclick="toggleEmployeeRole('${e.id}', '${e.role}')" title="${pt('changeRoleTitle')}">${e.role === 'admin' ? '&#128100;' : '&#128081;'}</button>
-                                            <button class="btn-icon primary" onclick="editEmployeeQuota('${e.id}', '${escapeHtml(e.name)}', ${e.vacation_days_total || 20}, ${e.sick_days_total || 5}, ${e.paragraph_days_total || 7}, ${e.ocr_days_total || 7})" title="${pt('editQuotaTitle')}">&#9999;</button>
+                                            <button class="btn-icon" onclick="toggleEmployeeVisibility('${e.id}', ${e.hidden})" title="${e.hidden ? pt('showUserTitle') : pt('hideUserTitle')}">${e.hidden ? '&#128065;' : '&#128683;'}</button>
+                                            <button class="btn-icon" onclick="openChangeRoleModal('${e.id}', '${e.role}', '${e.name.replace(/'/g, "\\'")}')" title="${pt('changeRoleTitle')}">${e.role === 'admin' ? '&#128081;' : e.role === 'spravca' ? '&#128188;' : e.role === 'sklad' ? '&#128230;' : e.role === 'sklad_read' ? '&#128270;' : '&#128100;'}</button>
                                         </div>
-                                    </td>
+                                    </td>` : ''}
                                 </tr>
                             `).join('')}
                         </tbody>
                     </table>
                 </div>
             </div>
+            ${unlicensedUsers.length > 0 ? `
+            <div class="portal-card" style="margin-top: 1.5rem; border-left: 4px solid var(--warning);">
+                <div class="card-header">
+                    <h2 style="color: var(--warning);">${pt('unlicensedUsersTitle') || 'Bez licencie'} (${unlicensedUsers.length})</h2>
+                </div>
+                <div class="card-body">
+                    <p style="color: var(--gray-500); margin-bottom: 1rem;">${pt('unlicensedUsersDesc') || 'Nasledujuci pouzivatelia nemaju pridelenu Microsoft licenciu a preto sa nezobrazuju v zozname zamestnancov. Pre ich zahrnutie im musite pridelit licenciu v Azure AD.'}</p>
+                    <table class="data-table">
+                        <thead>
+                            <tr><th>${pt('colName')}</th><th>${pt('colEmail')}</th></tr>
+                        </thead>
+                        <tbody>
+                            ${unlicensedUsers.map(u => `
+                                <tr>
+                                    <td><strong>${escapeHtml(u.name)}</strong></td>
+                                    <td>${escapeHtml(u.email)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            ` : ''}
         </div>
     `;
 }
 
-async function toggleEmployeeRole(userId, currentRole) {
-    const newRole = currentRole === 'admin' ? 'user' : 'admin';
-    if (!confirm(`${pt('changeRoleConfirm')} "${newRole}"?`)) return;
+async function toggleEmployeeVisibility(userId, isHidden) {
+    const action = isHidden ? pt('showUserConfirm') : pt('hideUserConfirm');
+    if (!confirm(action)) return;
+
+    try {
+        const response = await apiCall(`/api/admin/employees/${userId}/visibility`, {
+            method: 'PUT'
+        });
+        if (!response.ok) throw new Error(pt('changeFailed'));
+        const result = await response.json();
+        showToast(result.data.hidden ? pt('userHidden') : pt('userVisible'), 'success');
+        navigateToPage('admin-employees');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+function openChangeRoleModal(userId, currentRole, userName) {
+    document.getElementById('modalTitle').textContent = pt('changeRoleModalTitle');
+    document.getElementById('modalBody').innerHTML = `
+        <div class="form-group">
+            <label style="font-weight: 500; margin-bottom: 0.5rem; display: block;">${escapeHtml(userName)}</label>
+            <label for="roleSelect">${pt('selectRole')}:</label>
+            <select id="roleSelect" class="form-control" style="margin-top: 0.5rem;">
+                <option value="user" ${currentRole === 'user' ? 'selected' : ''}>${pt('roleUser')}</option>
+                <option value="spravca" ${currentRole === 'spravca' ? 'selected' : ''}>${pt('roleSpravca')}</option>
+                <option value="sklad" ${currentRole === 'sklad' ? 'selected' : ''}>${pt('roleSklad')}</option>
+                <option value="sklad_read" ${currentRole === 'sklad_read' ? 'selected' : ''}>${pt('roleSkladRead')}</option>
+                <option value="admin" ${currentRole === 'admin' ? 'selected' : ''}>${pt('roleAdmin')}</option>
+            </select>
+        </div>
+    `;
+    document.getElementById('modalFooter').innerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
+        <button class="btn btn-primary" onclick="submitRoleChange('${userId}')">${pt('saveRole')}</button>
+    `;
+    openModal();
+}
+
+async function submitRoleChange(userId) {
+    const newRole = document.getElementById('roleSelect').value;
 
     try {
         const response = await apiCall(`/api/admin/employees/${userId}/role`, {
@@ -1120,81 +1524,7 @@ async function toggleEmployeeRole(userId, currentRole) {
         });
         if (!response.ok) throw new Error(pt('changeFailed'));
         showToast(`${pt('roleChanged')} ${newRole}`, 'success');
-        navigateToPage('admin-employees');
-    } catch (error) {
-        showToast(error.message, 'error');
-    }
-}
-
-async function editEmployeeQuota(userId, name, vacTotal, sickTotal, paragraphTotal, ocrTotal) {
-    const year = new Date().getFullYear();
-    document.getElementById('modalTitle').textContent = `${pt('quotaModalTitle')} - ${name}`;
-    document.getElementById('modalBody').innerHTML = `
-        <form id="quotaForm" data-sick-total="${sickTotal}">
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">${pt('quotaFieldVacation')}</label>
-                    <input type="number" class="form-input" name="vacation_days_total" value="${vacTotal}" min="0" max="50">
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">${pt('quotaFieldParagraph')}</label>
-                    <input type="number" class="form-input" name="paragraph_days_total" value="${paragraphTotal || 7}" min="0" max="30">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">${pt('quotaFieldOcr')}</label>
-                    <input type="number" class="form-input" name="ocr_days_total" value="${ocrTotal || 7}" min="0" max="30">
-                </div>
-            </div>
-        </form>
-    `;
-    document.getElementById('modalFooter').innerHTML = `
-        <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
-        <button class="btn btn-primary" onclick="saveEmployeeQuota('${userId}', ${year})">${pt('save')}</button>
-    `;
-    openModal();
-}
-
-async function saveEmployeeQuota(userId, year) {
-    const form = document.getElementById('quotaForm');
-    const data = {
-        year,
-        vacation_days_total: parseInt(form.vacation_days_total.value),
-        sick_days_total: parseInt(form.dataset.sickTotal),
-        paragraph_days_total: parseInt(form.paragraph_days_total.value),
-        ocr_days_total: parseInt(form.ocr_days_total.value)
-    };
-
-    try {
-        const response = await apiCall(`/api/quotas/user/${userId}`, {
-            method: 'PUT',
-            body: JSON.stringify(data)
-        });
-        if (!response.ok) throw new Error(pt('saveFailed'));
-        showToast(pt('quotaSaved'), 'success');
         closeModal();
-        navigateToPage('admin-employees');
-    } catch (error) {
-        showToast(error.message, 'error');
-    }
-}
-
-async function initializeAllQuotas() {
-    const year = new Date().getFullYear();
-    if (!confirm(`${pt('quotasInitConfirm')} ${year}?`)) return;
-
-    try {
-        const response = await apiCall('/api/quotas/initialize', {
-            method: 'POST',
-            body: JSON.stringify({ year })
-        });
-        const result = await response.json();
-        if (result.count > 0) {
-            showToast(`${pt('quotasInitialized')} ${result.count} ${pt('employees')}`, 'success');
-        } else {
-            showToast(pt('quotasAllAlreadyInit') || `${pt('quotasInitialized')} 0 - ${pt('quotasAllExist')}`, 'success');
-        }
         navigateToPage('admin-employees');
     } catch (error) {
         showToast(error.message, 'error');
@@ -1207,13 +1537,19 @@ async function initializeAllQuotas() {
 
 async function renderAdminQuotas(container) {
     const year = new Date().getFullYear();
-    const [quotasRes, settingsRes] = await Promise.all([
-        apiCall(`/api/quotas/all?year=${year}`),
-        apiCall('/api/quotas/settings')
-    ]);
 
+    // Auto-sync: synchronize employees and create quotas for new users (does NOT modify existing quotas)
+    try {
+        await apiCall('/api/quotas/initialize', {
+            method: 'POST',
+            body: JSON.stringify({ year })
+        });
+    } catch (e) {
+        console.warn('Auto-sync failed:', e);
+    }
+
+    const quotasRes = await apiCall(`/api/quotas/all?year=${year}`);
     const quotas = (await quotasRes.json()).data || [];
-    const settings = (await settingsRes.json()).data || [];
 
     container.innerHTML = `
         <div class="page-header">
@@ -1222,35 +1558,12 @@ async function renderAdminQuotas(container) {
         <div class="page-body">
             <div class="portal-card">
                 <div class="card-header">
-                    <h2>${pt('quotaSettings')}</h2>
-                    <button class="btn btn-sm btn-secondary" onclick="openQuotaSettingsModal()">${pt('edit')}</button>
-                </div>
-                <div class="card-body">
-                    <table class="data-table">
-                        <thead><tr><th>${pt('quotaSettingsYear')}</th><th>${pt('quotaSettingsDefaultVacation')}</th><th>${pt('quotaSettingsDefaultParagraph')}</th><th>${pt('quotaSettingsDefaultOcr')}</th><th>${pt('quotaSettingsCarryOver')}</th></tr></thead>
-                        <tbody>
-                            ${settings.map(s => `
-                                <tr>
-                                    <td><strong>${s.year}</strong></td>
-                                    <td>${s.default_vacation_days} ${pt('days')}</td>
-                                    <td>${s.default_paragraph_days || 7} ${pt('days')}</td>
-                                    <td>${s.default_ocr_days || 7} ${pt('days')}</td>
-                                    <td>${s.carry_over_enabled ? `${pt('yes')} (${pt('quotaSettingsCarryOverMax')} ${s.max_carry_over_days} ${pt('days')})` : pt('no')}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div class="portal-card">
-                <div class="card-header">
                     <h2>${pt('employeeQuotasYear')} ${year}</h2>
                 </div>
-                <div class="card-body" style="overflow-x:auto;">
-                    <table class="data-table">
+                <div class="card-body scrollable-table-container">
+                    <table class="data-table sticky-header">
                         <thead>
-                            <tr><th>${pt('colEmployee')}</th><th>${pt('colVacTotal')}</th><th>${pt('colVacUsed')}</th><th>${pt('colBalance')}</th><th>${pt('colParagraphTotal')}</th><th>${pt('colParagraphUsed')}</th><th>${pt('colBalance')}</th><th>${pt('colOcrTotal')}</th><th>${pt('colOcrUsed')}</th><th>${pt('colBalance')}</th></tr>
+                            <tr><th>${pt('colEmployee')}</th><th>${pt('colVacTotal')}</th><th>${pt('colVacUsed')}</th><th>${pt('colBalance')}</th><th>${pt('colParagraphTotal')}</th><th>${pt('colParagraphUsed')}</th><th>${pt('colBalance')}</th><th>${pt('colOcrTotal')}</th><th>${pt('colOcrUsed')}</th><th>${pt('colBalance')}</th><th>${pt('colActions')}</th></tr>
                         </thead>
                         <tbody>
                             ${quotas.map(q => `
@@ -1260,11 +1573,12 @@ async function renderAdminQuotas(container) {
                                     <td>${q.vacation_days_used}</td>
                                     <td><strong style="color:${q.vacation_days_remaining <= 2 ? 'var(--red-500)' : 'var(--green-600)'}">${q.vacation_days_remaining}</strong></td>
                                     <td>${q.paragraph_days_total || 7}</td>
-                                    <td>${q.paragraph_days_used || 0}</td>
-                                    <td><strong style="color:${q.paragraph_days_remaining <= 1 ? 'var(--red-500)' : 'var(--green-600)'}">${q.paragraph_days_remaining}</strong></td>
+                                    <td>${Number(q.paragraph_days_used || 0).toFixed(2)}</td>
+                                    <td><strong style="color:${q.paragraph_days_remaining <= 1 ? 'var(--red-500)' : 'var(--green-600)'}">${Number(q.paragraph_days_remaining).toFixed(2)}</strong></td>
                                     <td>${q.ocr_days_total || 7}</td>
-                                    <td>${q.ocr_days_used || 0}</td>
-                                    <td><strong style="color:${q.ocr_days_remaining <= 1 ? 'var(--red-500)' : 'var(--green-600)'}">${q.ocr_days_remaining}</strong></td>
+                                    <td>${Number(q.ocr_days_used || 0).toFixed(2)}</td>
+                                    <td><strong style="color:${q.ocr_days_remaining <= 1 ? 'var(--red-500)' : 'var(--green-600)'}">${Number(q.ocr_days_remaining).toFixed(2)}</strong></td>
+                                    <td><button class="btn-icon primary" onclick="editUserQuotas('${q.user_id}', '${escapeHtml(q.display_name || '')}', ${q.vacation_days_total}, ${q.vacation_days_remaining}, ${q.paragraph_days_total || 7}, ${q.paragraph_days_remaining}, ${q.ocr_days_total || 7}, ${q.ocr_days_remaining})" title="${pt('editQuota')}">&#9999;</button></td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -1275,75 +1589,81 @@ async function renderAdminQuotas(container) {
     `;
 }
 
-async function openQuotaSettingsModal() {
+// Edit individual user quotas
+async function editUserQuotas(userId, userName, vacTotal, vacRemaining, paragraphTotal, paragraphRemaining, ocrTotal, ocrRemaining) {
     const year = new Date().getFullYear();
-
-    // Load existing settings to pre-fill
-    let existingVacation = 20;
-    let existingSick = 5;
-    let existingParagraph = 7;
-    let existingOcr = 7;
-    try {
-        const res = await apiCall('/api/quotas/settings');
-        const allSettings = (await res.json()).data || [];
-        const current = allSettings.find(s => s.year === year);
-        if (current) {
-            existingVacation = current.default_vacation_days;
-            existingSick = current.default_sick_days;
-            existingParagraph = current.default_paragraph_days || 7;
-            existingOcr = current.default_ocr_days || 7;
-        }
-    } catch (e) { /* use defaults */ }
-
-    document.getElementById('modalTitle').textContent = pt('quotaSettings');
+    document.getElementById('modalTitle').textContent = `${pt('editQuota')} - ${userName}`;
     document.getElementById('modalBody').innerHTML = `
-        <form id="quotaSettingsForm" data-default-sick="${existingSick}">
+        <form id="userQuotaForm">
             <div class="form-group">
-                <label class="form-label">${pt('quotaSettingsYear')}</label>
-                <input type="number" class="form-input" name="year" value="${year}" min="2024" max="2030">
-            </div>
-            <div class="form-row">
+                <label class="form-label" style="font-weight:600;margin-bottom:8px;">${pt('quotaFieldVacation')}</label>
                 <div class="form-group">
-                    <label class="form-label">${pt('quotaSettingsDefaultVacation')}</label>
-                    <input type="number" class="form-input" name="default_vacation_days" value="${existingVacation}" min="0" max="50">
+                    <label class="form-label">${pt('quotaZostatok')}</label>
+                    <input type="number" class="form-input" name="vacation_days_remaining" value="${vacRemaining}" min="0" max="100" step="0.5">
                 </div>
             </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">${pt('quotaSettingsDefaultParagraph')}</label>
-                    <input type="number" class="form-input" name="default_paragraph_days" value="${existingParagraph}" min="0" max="30">
+            <div class="form-group">
+                <label class="form-label" style="font-weight:600;margin-bottom:8px;">${pt('quotaFieldParagraph')}</label>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">${pt('quotaNarok')}</label>
+                        <input type="number" class="form-input" name="paragraph_days_total" value="${paragraphTotal}" min="0" max="30" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">${pt('quotaZostatok')}</label>
+                        <input type="number" class="form-input" name="paragraph_days_remaining" value="${paragraphRemaining}" min="0" max="30" step="0.01">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">${pt('quotaSettingsDefaultOcr')}</label>
-                    <input type="number" class="form-input" name="default_ocr_days" value="${existingOcr}" min="0" max="30">
+            </div>
+            <div class="form-group">
+                <label class="form-label" style="font-weight:600;margin-bottom:8px;">${pt('quotaFieldOcr')}</label>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">${pt('quotaNarok')}</label>
+                        <input type="number" class="form-input" name="ocr_days_total" value="${ocrTotal}" min="0" max="30" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">${pt('quotaZostatok')}</label>
+                        <input type="number" class="form-input" name="ocr_days_remaining" value="${ocrRemaining}" min="0" max="30" step="0.01">
+                    </div>
                 </div>
             </div>
         </form>
     `;
     document.getElementById('modalFooter').innerHTML = `
         <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
-        <button class="btn btn-primary" onclick="saveQuotaSettings()">${pt('save')}</button>
+        <button class="btn btn-primary" onclick="saveUserQuotas('${userId}', ${year})">${pt('save')}</button>
     `;
     openModal();
 }
 
-async function saveQuotaSettings() {
-    const form = document.getElementById('quotaSettingsForm');
+async function saveUserQuotas(userId, year) {
+    const form = document.getElementById('userQuotaForm');
+
+    const vacRemaining = parseFloat(form.vacation_days_remaining.value);
+    const paragraphTotal = parseFloat(form.paragraph_days_total.value);
+    const paragraphRemaining = parseFloat(form.paragraph_days_remaining.value);
+    const ocrTotal = parseFloat(form.ocr_days_total.value);
+    const ocrRemaining = parseFloat(form.ocr_days_remaining.value);
+
+    // Vacation: only remaining is stored (no total/used)
+    // Paragraph & OCR: calculate used from total - remaining
     const data = {
-        year: parseInt(form.year.value),
-        default_vacation_days: parseInt(form.default_vacation_days.value),
-        default_sick_days: parseInt(form.dataset.defaultSick),
-        default_paragraph_days: parseInt(form.default_paragraph_days.value),
-        default_ocr_days: parseInt(form.default_ocr_days.value)
+        year,
+        vacation_days_remaining: vacRemaining,
+        paragraph_days_total: paragraphTotal,
+        paragraph_days_used: paragraphTotal - paragraphRemaining,
+        ocr_days_total: ocrTotal,
+        ocr_days_used: ocrTotal - ocrRemaining
     };
 
     try {
-        const response = await apiCall('/api/quotas/settings', {
+        const response = await apiCall(`/api/quotas/user/${userId}`, {
             method: 'PUT',
             body: JSON.stringify(data)
         });
         if (!response.ok) throw new Error(pt('saveFailed'));
-        showToast(pt('quotaSettingsSaved'), 'success');
+        showToast(pt('quotaSaved'), 'success');
         closeModal();
         navigateToPage('admin-quotas');
     } catch (error) {
@@ -1357,59 +1677,164 @@ async function saveQuotaSettings() {
 
 async function renderAdminSickNotes(container) {
     const year = new Date().getFullYear();
-    const response = await apiCall(`/api/sick-notes/all?year=${year}`);
-    const notes = (await response.json()).data || [];
+    const notesRes = await apiCall(`/api/sick-notes/all?year=${year}`);
+    const notes = (await notesRes.json()).data || [];
 
     container.innerHTML = `
         <div class="page-header">
             <div><h1>${pt('allSickNotesTitle')}</h1><p>${pt('allSickNotesDesc')}</p></div>
         </div>
         <div class="page-body">
-            <div class="portal-card">
+            ${portalUser?.role === 'admin' ? `<div class="filters-bar" style="margin-bottom: 15px;">
+                <button class="btn btn-danger" id="bulkDeleteSickNotesBtn" style="display:none;" onclick="bulkDeleteSickNotes()">
+                    <span style="margin-right:5px;">&#128465;</span> ${pt('bulkDelete')} (<span id="selectedSickNotesCount">0</span>)
+                </button>
+            </div>` : ''}
+            <div id="adminSickNotesList" class="portal-card">
+                <div class="card-header">
+                    <h3>${pt('documentsSection')}</h3>
+                </div>
                 <div class="card-body" style="overflow-x:auto;">
-                    ${notes.length > 0 ? `
-                        <table class="data-table">
-                            <thead>
-                                <tr><th>${pt('colEmployeeName')}</th><th>${pt('colDocType')}</th><th>${pt('colName')}</th><th>${pt('colDate')}</th><th>${pt('sickNoteColDoctor')}</th><th>${pt('colDocument')}</th></tr>
-                            </thead>
-                            <tbody>
-                                ${notes.map(n => {
-                                    const docLabel = n.document_type === 'ocr' ? (pt('sickNoteDocTypeOcr') || 'OČR') : (pt('sickNoteDocTypeParagraph') || 'Paragraf');
-                                    const docBadge = n.document_type === 'ocr' ? 'badge-sick' : 'badge-paragraph';
-                                    return `
-                                    <tr>
-                                        <td><strong>${escapeHtml(n.user_name)}</strong><br><small style="color:var(--gray-500)">${escapeHtml(n.user_email)}</small></td>
-                                        <td><span class="badge ${docBadge}">${docLabel}</span></td>
-                                        <td><strong>${escapeHtml(n.title)}</strong>${n.diagnosis ? `<br><small style="color:var(--gray-500)">${escapeHtml(n.diagnosis)}</small>` : ''}</td>
-                                        <td>${formatDate(n.start_date)}${n.end_date && n.end_date !== n.start_date ? ` - ${formatDate(n.end_date)}` : ''}</td>
-                                        <td>${n.doctor_name ? escapeHtml(n.doctor_name) : '<span style="color:var(--gray-300)">—</span>'}</td>
-                                        <td>${n.file_name ? `<button class="btn-file-link" onclick="return previewSickNoteFile(event, ${n.id}, '${escapeHtml(n.file_name)}')">&#128065; ${escapeHtml(n.file_name)}</button>` : '<span style="color:var(--gray-300)">—</span>'}</td>
-                                    </tr>`;
-                                }).join('')}
-                            </tbody>
-                        </table>
-                    ` : `<div class="empty-state"><div class="empty-icon">&#128203;</div><div class="empty-text">${pt('noSickNotes')}</div></div>`}
+                    ${renderAdminSickNotesTable(notes)}
                 </div>
             </div>
         </div>
     `;
+
+    window._adminSickNotes = notes;
 }
+
+function renderAdminSickNotesTable(notes) {
+    if (!notes.length) return `<div class="empty-state"><div class="empty-icon">&#128203;</div><div class="empty-text">${pt('noSickNotes')}</div></div>`;
+    const isAdmin = portalUser?.role === 'admin';
+    return `
+        <table class="data-table">
+            <thead>
+                <tr>
+                    ${isAdmin ? `<th style="width:40px;"><input type="checkbox" id="selectAllSickNotes" onchange="toggleAllSickNotes(this)"></th>` : ''}
+                    <th>${pt('colEmployeeName')}</th><th>${pt('colDocType')}</th><th>${pt('colName')}</th><th>${pt('colDate')}</th><th>${pt('sickNoteColDoctor')}</th><th>${pt('colDocument')}</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${notes.map(n => {
+                    const docLabel = n.document_type === 'ocr' ? (pt('sickNoteDocTypeOcr') || 'OČR') : (pt('sickNoteDocTypeParagraph') || 'Paragraf');
+                    const docBadge = n.document_type === 'ocr' ? 'badge-sick' : 'badge-paragraph';
+                    return `
+                    <tr>
+                        ${isAdmin ? `<td><input type="checkbox" class="sick-note-checkbox" value="${n.id}" onchange="updateBulkDeleteSickNotesBtn()"></td>` : ''}
+                        <td><strong>${escapeHtml(n.user_name)}</strong><br><small style="color:var(--gray-500)">${escapeHtml(n.user_email)}</small></td>
+                        <td><span class="badge ${docBadge}">${docLabel}</span></td>
+                        <td><strong>${escapeHtml(n.title)}</strong>${n.diagnosis ? `<br><small style="color:var(--gray-500)">${escapeHtml(n.diagnosis)}</small>` : ''}</td>
+                        <td>${formatDate(n.start_date)}${n.end_date && n.end_date !== n.start_date ? ` - ${formatDate(n.end_date)}` : ''}</td>
+                        <td>${n.doctor_name ? escapeHtml(n.doctor_name) : '<span style="color:var(--gray-300)">—</span>'}</td>
+                        <td>${n.file_name ? `<button class="btn-file-link" onclick="return previewSickNoteFile(event, ${n.id}, '${escapeHtml(n.file_name)}')">&#128065; ${escapeHtml(n.file_name)}</button>` : '<span style="color:var(--gray-300)">—</span>'}</td>
+                    </tr>`;
+                }).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+function toggleAllSickNotes(checkbox) {
+    const checkboxes = document.querySelectorAll('.sick-note-checkbox');
+    checkboxes.forEach(cb => cb.checked = checkbox.checked);
+    updateBulkDeleteSickNotesBtn();
+}
+
+function updateBulkDeleteSickNotesBtn() {
+    const checked = document.querySelectorAll('.sick-note-checkbox:checked');
+    const btn = document.getElementById('bulkDeleteSickNotesBtn');
+    const count = document.getElementById('selectedSickNotesCount');
+    if (checked.length > 0) {
+        btn.style.display = 'inline-flex';
+        count.textContent = checked.length;
+    } else {
+        btn.style.display = 'none';
+    }
+    // Update select all checkbox state
+    const allCheckboxes = document.querySelectorAll('.sick-note-checkbox');
+    const selectAll = document.getElementById('selectAllSickNotes');
+    if (selectAll) {
+        selectAll.checked = allCheckboxes.length > 0 && checked.length === allCheckboxes.length;
+        selectAll.indeterminate = checked.length > 0 && checked.length < allCheckboxes.length;
+    }
+}
+
+async function bulkDeleteSickNotes() {
+    const checked = document.querySelectorAll('.sick-note-checkbox:checked');
+    const sickNoteIds = Array.from(checked).map(cb => parseInt(cb.value));
+
+    if (sickNoteIds.length === 0) return;
+
+    if (!confirm(pt('confirmBulkDeleteSickNotes').replace('{count}', sickNoteIds.length))) return;
+
+    try {
+        const response = await apiCall('/api/admin/data/sick-notes/bulk-delete', {
+            method: 'POST',
+            body: JSON.stringify({ sickNoteIds })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            showToast(pt('bulkDeleteSickNotesSuccess').replace('{count}', data.count), 'success');
+            // Reload the page to show fresh data
+            await refreshAdminSickNotes();
+        } else {
+            showToast(data.message || pt('bulkDeleteSickNotesError'), 'error');
+        }
+    } catch (error) {
+        console.error('Bulk delete sick notes error:', error);
+        showToast(pt('bulkDeleteSickNotesError'), 'error');
+    }
+}
+
+async function refreshAdminSickNotes() {
+    const year = new Date().getFullYear();
+    const notesRes = await apiCall(`/api/sick-notes/all?year=${year}`);
+    const notes = (await notesRes.json()).data || [];
+    window._adminSickNotes = notes;
+    const cardBody = document.querySelector('#adminSickNotesList .card-body');
+    if (cardBody) {
+        cardBody.innerHTML = renderAdminSickNotesTable(notes);
+    }
+    updateBulkDeleteSickNotesBtn();
+}
+
 
 // ============================================
 // ADMIN ALL TICKETS
 // ============================================
 
 async function renderAdminTickets(container) {
-    const year = new Date().getFullYear();
-    const response = await apiCall(`/api/admin/tickets?year=${year}`);
-    const tickets = (await response.json()).data || [];
+    const currentYear = new Date().getFullYear();
+    const years = [currentYear, currentYear - 1, currentYear - 2];
+
+    // Load tickets and employees in parallel
+    const [ticketsResponse, employeesResponse] = await Promise.all([
+        apiCall(`/api/admin/tickets?year=${currentYear}`),
+        apiCall('/api/admin/employees')
+    ]);
+    const tickets = (await ticketsResponse.json()).data || [];
+    const employees = (await employeesResponse.json()).data || [];
 
     container.innerHTML = `
         <div class="page-header">
-            <div><h1>${pt('allTicketsTitle')}</h1><p>${pt('allTicketsDesc')} (${year})</p></div>
+            <div><h1>${pt('allTicketsTitle')}</h1><p>${pt('allTicketsDesc')}</p></div>
+            <div class="page-header-actions">
+                <button class="btn btn-primary" onclick="openExportModal()">
+                    <span style="margin-right:5px;">&#128190;</span> ${pt('exportBtn')}
+                </button>
+            </div>
         </div>
         <div class="page-body">
-            <div class="filters-bar">
+            <div class="filters-bar" style="flex-wrap: wrap;">
+                <select class="form-select" id="adminTicketYear" onchange="loadAdminTicketsByYear()">
+                    ${years.map(y => `<option value="${y}">${y}</option>`).join('')}
+                </select>
+                <select class="form-select" id="adminTicketEmployee" onchange="filterAdminTickets()">
+                    <option value="">${pt('filterAllEmployees')}</option>
+                    ${employees.map(e => `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('')}
+                </select>
                 <select class="form-select" id="adminTicketStatus" onchange="filterAdminTickets()">
                     <option value="">${pt('filterAllStatuses')}</option>
                     <option value="Pending">${pt('filterPending')}</option>
@@ -1419,13 +1844,30 @@ async function renderAdminTickets(container) {
                 <select class="form-select" id="adminTicketType" onchange="filterAdminTickets()">
                     <option value="">${pt('filterAllTypes')}</option>
                     <option value="vacation">${pt('filterVacation')}</option>
-                    <option value="sick-leave">${pt('filterSickLeave')}</option>
-                    <option value="purchase">${pt('filterPurchase')}</option>
+${portalUser?.role === 'admin' ? `                    <option value="sick-leave">${pt('filterSickLeave')}</option>` : ''}
+                    <option value="paragraph">${pt('filterParagraph')}</option>
+                    <option value="ocr">${pt('filterOcr')}</option>
+${portalUser?.role === 'admin' ? `                    <option value="purchase">${pt('filterPurchase')}</option>
                     <option value="expense">${pt('filterExpense')}</option>
                     <option value="hr">${pt('filterHr')}</option>
-                    <option value="other">${pt('filterOther')}</option>
+                    <option value="other">${pt('filterOther')}</option>` : ''}
                 </select>
+                <div class="filter-date-group">
+                    <label>${pt('filterDateFrom')}:</label>
+                    <input type="date" class="form-input" id="adminTicketDateFrom" onchange="filterAdminTickets()">
+                </div>
+                <div class="filter-date-group">
+                    <label>${pt('filterDateTo')}:</label>
+                    <input type="date" class="form-input" id="adminTicketDateTo" onchange="filterAdminTickets()">
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="clearAdminTicketFilters()" title="${pt('clearFilters')}">
+                    <span>&#10006;</span> ${pt('clearFilters')}
+                </button>
+${portalUser?.role === 'admin' ? `<button class="btn btn-danger" id="bulkDeleteBtn" style="display:none;" onclick="bulkDeleteTickets()">
+                    <span style="margin-right:5px;">&#128465;</span> ${pt('bulkDelete')} (<span id="selectedCount">0</span>)
+                </button>` : ''}
             </div>
+            <div class="filter-summary" id="filterSummary" style="display:none;"></div>
             <div id="adminTicketsList" class="portal-card">
                 <div class="card-body" style="overflow-x:auto;">
                     ${renderAdminTicketsTable(tickets)}
@@ -1435,27 +1877,104 @@ async function renderAdminTickets(container) {
     `;
 
     window._adminTickets = tickets;
+    window._adminEmployees = employees;
+
+    // For spravca role, filter and re-render with only allowed ticket types
+    if (portalUser?.role === 'spravca') {
+        filterAdminTickets();
+    }
+}
+
+async function loadAdminTicketsByYear() {
+    const year = document.getElementById('adminTicketYear').value;
+    const response = await apiCall(`/api/admin/tickets?year=${year}`);
+    const tickets = (await response.json()).data || [];
+    window._adminTickets = tickets;
+    filterAdminTickets();
+}
+
+function clearAdminTicketFilters() {
+    document.getElementById('adminTicketEmployee').value = '';
+    document.getElementById('adminTicketStatus').value = '';
+    document.getElementById('adminTicketType').value = '';
+    document.getElementById('adminTicketDateFrom').value = '';
+    document.getElementById('adminTicketDateTo').value = '';
+    filterAdminTickets();
 }
 
 function filterAdminTickets() {
-    const status = document.getElementById('adminTicketStatus').value;
-    const type = document.getElementById('adminTicketType').value;
+    const employee = document.getElementById('adminTicketEmployee')?.value || '';
+    const status = document.getElementById('adminTicketStatus')?.value || '';
+    const type = document.getElementById('adminTicketType')?.value || '';
+    const dateFrom = document.getElementById('adminTicketDateFrom')?.value || '';
+    const dateTo = document.getElementById('adminTicketDateTo')?.value || '';
+
     let filtered = window._adminTickets || [];
-    if (status) filtered = filtered.filter(t => t.status === status);
-    if (type) filtered = filtered.filter(t => t.ticket_type === type);
+
+    // For spravca role, only show vacation, ocr, paragraph tickets
+    if (portalUser?.role === 'spravca') {
+        const allowedTypes = ['vacation', 'ocr', 'paragraph'];
+        filtered = filtered.filter(t => allowedTypes.includes(t.ticket_type));
+    }
+
+    if (employee) {
+        filtered = filtered.filter(t => t.created_by_id === employee);
+    }
+    if (status) {
+        filtered = filtered.filter(t => t.status === status);
+    }
+    if (type) {
+        filtered = filtered.filter(t => t.ticket_type === type);
+    }
+    if (dateFrom) {
+        const fromDate = new Date(dateFrom);
+        filtered = filtered.filter(t => {
+            const ticketDate = t.start_date ? new Date(t.start_date) : new Date(t.created_at);
+            return ticketDate >= fromDate;
+        });
+    }
+    if (dateTo) {
+        const toDate = new Date(dateTo);
+        toDate.setHours(23, 59, 59, 999);
+        filtered = filtered.filter(t => {
+            const ticketDate = t.end_date ? new Date(t.end_date) : new Date(t.created_at);
+            return ticketDate <= toDate;
+        });
+    }
+
+    // Update filter summary
+    updateFilterSummary(filtered.length, (window._adminTickets || []).length, { employee, status, type, dateFrom, dateTo });
+
     document.querySelector('#adminTicketsList .card-body').innerHTML = renderAdminTicketsTable(filtered);
+}
+
+function updateFilterSummary(filteredCount, totalCount, filters) {
+    const summaryEl = document.getElementById('filterSummary');
+    const hasFilters = filters.employee || filters.status || filters.type || filters.dateFrom || filters.dateTo;
+
+    if (hasFilters && summaryEl) {
+        summaryEl.style.display = 'block';
+        summaryEl.innerHTML = `<span class="filter-info">${pt('filterResults')}: <strong>${filteredCount}</strong> ${pt('of')} ${totalCount} ${pt('tickets')}</span>`;
+    } else if (summaryEl) {
+        summaryEl.style.display = 'none';
+    }
 }
 
 function renderAdminTicketsTable(tickets) {
     if (!tickets.length) return `<div class="empty-state"><div class="empty-icon">&#128196;</div><div class="empty-text">${pt('noTickets')}</div></div>`;
+    const isAdmin = portalUser?.role === 'admin';
     return `
         <table class="data-table">
             <thead>
-                <tr><th>${pt('colTicketId')}</th><th>${pt('colName')}</th><th>${pt('colType')}</th><th>${pt('colCreatedBy')}</th><th>${pt('colApprover')}</th><th>${pt('colStatus')}</th><th>${pt('colDate')}</th></tr>
+                <tr>
+                    ${isAdmin ? `<th style="width:40px;"><input type="checkbox" id="selectAllTickets" onchange="toggleAllTickets(this)"></th>` : ''}
+                    <th>${pt('colTicketId')}</th><th>${pt('colName')}</th><th>${pt('colType')}</th><th>${pt('colCreatedBy')}</th><th>${pt('colApprover')}</th><th>${pt('colStatus')}</th><th>${pt('colDate')}</th><th style="width:60px;">${pt('colActions')}</th>
+                </tr>
             </thead>
             <tbody>
                 ${tickets.map(t => `
                     <tr>
+                        ${isAdmin ? `<td><input type="checkbox" class="ticket-checkbox" value="${t.ticket_id}" onchange="updateBulkDeleteBtn()"></td>` : ''}
                         <td><code>${t.ticket_id}</code></td>
                         <td>${escapeHtml(t.title)}</td>
                         <td><span class="badge badge-${{'vacation':'vacation','sick-leave':'sick','paragraph':'paragraph','ocr':'ocr'}[t.ticket_type] || 'user'}">${translateType(t.ticket_type)}</span></td>
@@ -1463,11 +1982,519 @@ function renderAdminTicketsTable(tickets) {
                         <td>${t.assigned_approver_name ? escapeHtml(t.assigned_approver_name) : '-'}</td>
                         <td><span class="badge badge-${t.status.toLowerCase()}">${translateStatus(t.status)}</span></td>
                         <td>${formatDate(t.created_at)}${t.start_date ? `<br><small>${formatDate(t.start_date)} - ${formatDate(t.end_date)}</small>` : ''}</td>
+                        <td style="white-space:nowrap;">
+                            <button class="btn btn-sm btn-secondary" onclick="openTicketDetailModal('${t.ticket_id}')" title="${pt('ticketDetailTitle')}">&#128065;</button>
+                            ${isAdmin ? `<button class="btn btn-sm btn-primary" onclick="openEditTicketModal('${t.ticket_id}')" title="${pt('editTicketTitle') || 'Upraviť tiket'}" style="margin-left:4px;">&#9999;</button>` : ''}
+                        </td>
                     </tr>
                 `).join('')}
             </tbody>
         </table>
     `;
+}
+
+function toggleAllTickets(checkbox) {
+    const checkboxes = document.querySelectorAll('.ticket-checkbox');
+    checkboxes.forEach(cb => cb.checked = checkbox.checked);
+    updateBulkDeleteBtn();
+}
+
+function updateBulkDeleteBtn() {
+    const checked = document.querySelectorAll('.ticket-checkbox:checked');
+    const btn = document.getElementById('bulkDeleteBtn');
+    const count = document.getElementById('selectedCount');
+    if (checked.length > 0) {
+        btn.style.display = 'inline-flex';
+        count.textContent = checked.length;
+    } else {
+        btn.style.display = 'none';
+    }
+    // Update select all checkbox state
+    const allCheckboxes = document.querySelectorAll('.ticket-checkbox');
+    const selectAll = document.getElementById('selectAllTickets');
+    if (selectAll) {
+        selectAll.checked = allCheckboxes.length > 0 && checked.length === allCheckboxes.length;
+        selectAll.indeterminate = checked.length > 0 && checked.length < allCheckboxes.length;
+    }
+}
+
+async function bulkDeleteTickets() {
+    const checked = document.querySelectorAll('.ticket-checkbox:checked');
+    const ticketIds = Array.from(checked).map(cb => cb.value);
+
+    if (ticketIds.length === 0) return;
+
+    if (!confirm(pt('confirmBulkDelete').replace('{count}', ticketIds.length))) return;
+
+    try {
+        const response = await apiCall('/api/admin/data/tickets/bulk-delete', {
+            method: 'POST',
+            body: JSON.stringify({ ticketIds })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            showToast(pt('bulkDeleteSuccess').replace('{count}', data.count), 'success');
+            // Reload the page to show fresh data
+            await refreshAdminTickets();
+        } else {
+            showToast(data.message || pt('bulkDeleteError'), 'error');
+        }
+    } catch (error) {
+        console.error('Bulk delete error:', error);
+        showToast(pt('bulkDeleteError'), 'error');
+    }
+}
+
+async function refreshAdminTickets() {
+    const year = document.getElementById('adminTicketYear')?.value || new Date().getFullYear();
+    const response = await apiCall(`/api/admin/tickets?year=${year}`);
+    const tickets = (await response.json()).data || [];
+    window._adminTickets = tickets;
+    filterAdminTickets();
+    updateBulkDeleteBtn();
+}
+
+// ============================================
+// EXPORT FUNCTIONALITY
+// ============================================
+
+function openExportModal() {
+    const currentYear = new Date().getFullYear();
+    const employees = window._adminEmployees || [];
+    const today = new Date().toISOString().split('T')[0];
+    const yearStart = `${currentYear}-01-01`;
+
+    const modalHtml = `
+        <div class="modal-backdrop" onmousedown="overlayMouseDown(event)" onclick="overlayClickClose(event, () => closeModal(event.currentTarget))">
+            <div class="modal modal-lg" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <h2><span style="margin-right:8px;">&#128190;</span>${pt('exportTitle')}</h2>
+                    <button class="modal-close" onclick="closeModal(this.closest('.modal-backdrop'))">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p class="export-desc">${pt('exportDesc')}</p>
+                    <form id="exportForm" onsubmit="handleExport(event)">
+                        <div class="form-grid-2">
+                            <div class="form-group">
+                                <label class="form-label">${pt('exportTicketType')} *</label>
+                                <select class="form-select" id="exportType" required>
+                                    <option value="vacation">${pt('filterVacation')}</option>
+                                    <option value="sick-leave">${pt('filterSickLeave')}</option>
+                                    <option value="paragraph">${pt('filterParagraph')}</option>
+                                    <option value="ocr">${pt('filterOcr')}</option>
+                                    <option value="">${pt('filterAllTypes')}</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">${pt('exportEmployee')}</label>
+                                <select class="form-select" id="exportEmployee">
+                                    <option value="">${pt('filterAllEmployees')}</option>
+                                    ${employees.map(e => `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">${pt('exportDateFrom')} *</label>
+                                <input type="date" class="form-input" id="exportDateFrom" value="${yearStart}" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">${pt('exportDateTo')} *</label>
+                                <input type="date" class="form-input" id="exportDateTo" value="${today}" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">${pt('exportStatus')}</label>
+                            <div class="checkbox-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="exportApproved" checked>
+                                    <span class="badge badge-approved">${pt('filterApproved')}</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="exportPending">
+                                    <span class="badge badge-pending">${pt('filterPending')}</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="exportRejected">
+                                    <span class="badge badge-rejected">${pt('filterRejected')}</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">${pt('exportFormat')} *</label>
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="exportFormat" value="xlsx" checked>
+                                    <span>Excel (XLSX)</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="exportFormat" value="pdf">
+                                    <span>PDF</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" onclick="closeModal(this.closest('.modal-backdrop'))">${pt('cancel')}</button>
+                            <button type="submit" class="btn btn-primary" id="exportSubmitBtn">
+                                <span style="margin-right:5px;">&#128190;</span> ${pt('exportGenerate')}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+async function handleExport(event) {
+    event.preventDefault();
+
+    const type = document.getElementById('exportType').value;
+    const employee = document.getElementById('exportEmployee').value;
+    const dateFrom = document.getElementById('exportDateFrom').value;
+    const dateTo = document.getElementById('exportDateTo').value;
+    const format = document.querySelector('input[name="exportFormat"]:checked').value;
+
+    // Get selected statuses
+    const statuses = [];
+    if (document.getElementById('exportApproved').checked) statuses.push('Approved');
+    if (document.getElementById('exportPending').checked) statuses.push('Pending');
+    if (document.getElementById('exportRejected').checked) statuses.push('Rejected');
+
+    if (statuses.length === 0) {
+        showToast(pt('exportStatusRequired'), 'error');
+        return;
+    }
+
+    if (new Date(dateFrom) > new Date(dateTo)) {
+        showToast(pt('dateRangeError'), 'error');
+        return;
+    }
+
+    const submitBtn = document.getElementById('exportSubmitBtn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = `<span class="spinner-sm"></span> ${pt('exportGenerating')}`;
+
+    try {
+        const params = new URLSearchParams({
+            type,
+            employee,
+            dateFrom,
+            dateTo,
+            statuses: statuses.join(','),
+            format,
+            lang: portalLang
+        });
+
+        const response = await apiCall(`/api/admin/export/tickets?${params}`);
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Export failed');
+        }
+
+        // Get filename from Content-Disposition header
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = `export_${type || 'tickets'}_${dateFrom}_${dateTo}.${format}`;
+        if (contentDisposition) {
+            const match = contentDisposition.match(/filename="?([^"]+)"?/);
+            if (match) filename = match[1];
+        }
+
+        // Download the file
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+
+        showToast(pt('exportSuccess'), 'success');
+        closeModal(document.querySelector('.modal-backdrop'));
+    } catch (error) {
+        console.error('Export error:', error);
+        showToast(error.message || pt('exportError'), 'error');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = `<span style="margin-right:5px;">&#128190;</span> ${pt('exportGenerate')}`;
+    }
+}
+
+// ============================================
+// ADMIN TICKET DETAIL MODAL
+// ============================================
+
+function openTicketDetailModal(ticketId) {
+    const ticket = (window._adminTickets || []).find(t => String(t.ticket_id) === String(ticketId));
+    if (!ticket) {
+        showToast('Ticket not found', 'error');
+        return;
+    }
+
+    const typeBadge = {'vacation':'vacation','sick-leave':'sick','paragraph':'paragraph','ocr':'ocr'}[ticket.ticket_type] || 'user';
+
+    const modalHtml = `
+        <div class="modal-backdrop" onmousedown="overlayMouseDown(event)" onclick="overlayClickClose(event, () => closeModal(event.currentTarget))">
+            <div class="modal" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <h2>${pt('ticketDetailTitle')}: ${escapeHtml(ticket.ticket_id)}</h2>
+                    <button class="modal-close" onclick="closeModal(this.closest('.modal-backdrop'))">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="detail-grid">
+                        <div class="detail-row">
+                            <label>${pt('colName')}:</label>
+                            <span><strong>${escapeHtml(ticket.title)}</strong></span>
+                        </div>
+                        <div class="detail-row">
+                            <label>${pt('colType')}:</label>
+                            <span><span class="badge badge-${typeBadge}">${translateType(ticket.ticket_type)}</span></span>
+                        </div>
+                        <div class="detail-row">
+                            <label>${pt('colStatus')}:</label>
+                            <span><span class="badge badge-${ticket.status.toLowerCase()}">${translateStatus(ticket.status)}</span></span>
+                        </div>
+                        <div class="detail-row">
+                            <label>${pt('ticketDetailPriority')}:</label>
+                            <span>${escapeHtml(ticket.priority || '-')}</span>
+                        </div>
+                        <div class="detail-row">
+                            <label>${pt('colCreatedBy')}:</label>
+                            <span><strong>${escapeHtml(ticket.created_by_name)}</strong><br><small style="color:var(--gray-500)">${escapeHtml(ticket.created_by_email)}</small></span>
+                        </div>
+                        <div class="detail-row">
+                            <label>${pt('colApprover')}:</label>
+                            <span>${ticket.assigned_approver_name ? `<strong>${escapeHtml(ticket.assigned_approver_name)}</strong><br><small style="color:var(--gray-500)">${escapeHtml(ticket.assigned_approver_email || '')}</small>` : '-'}</span>
+                        </div>
+                        ${ticket.start_date ? `
+                        <div class="detail-row">
+                            <label>${pt('colDates')}:</label>
+                            <span>${formatDate(ticket.start_date)}${ticket.end_date ? ` - ${formatDate(ticket.end_date)}` : ''}</span>
+                        </div>
+                        ` : ''}
+                        ${ticket.is_half_day ? `
+                        <div class="detail-row">
+                            <label>${pt('ticketDetailHalfDay')}:</label>
+                            <span><span style="color:var(--green-600)">&#10003;</span> ${pt('yes')}</span>
+                        </div>
+                        ` : ''}
+                        <div class="detail-row" style="grid-column: 1/-1;">
+                            <label>${pt('ticketDetailDescription')}:</label>
+                            <div style="padding:10px; background:var(--gray-50); border-radius:6px; margin-top:5px; white-space:pre-wrap;">${escapeHtml(ticket.description || '-')}</div>
+                        </div>
+                        <div class="detail-row">
+                            <label>${pt('ticketDetailCreatedAt')}:</label>
+                            <span>${formatDateTime(ticket.created_at)}</span>
+                        </div>
+                        <div class="detail-row">
+                            <label>${pt('ticketDetailUpdatedAt')}:</label>
+                            <span>${formatDateTime(ticket.updated_at)}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal(this.closest('.modal-backdrop'))">${pt('close')}</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+// ============================================
+// ADMIN EDIT TICKET
+// ============================================
+
+async function openEditTicketModal(ticketId) {
+    const ticket = (window._adminTickets || []).find(t => String(t.ticket_id) === String(ticketId));
+    if (!ticket) {
+        showToast('Ticket not found', 'error');
+        return;
+    }
+
+    // Load active ticket types from API
+    let types = [];
+    try {
+        const r = await apiCall('/api/ticket-types');
+        types = ((await r.json()).data || []).filter(t => t.is_active);
+    } catch (e) {
+        types = [];
+    }
+
+    const fmtDate = (d) => d ? new Date(d).toISOString().split('T')[0] : '';
+
+    const statusOptions = ['Pending', 'Approved', 'Rejected', 'Cancelled'];
+    const priorityOptions = ['Low', 'Medium', 'High', 'Urgent'];
+
+    const modalHtml = `
+        <div class="modal-backdrop" onmousedown="overlayMouseDown(event)" onclick="overlayClickClose(event, () => closeModal(event.currentTarget))">
+            <div class="modal modal-lg" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <h2>&#9999; ${pt('editTicketTitle') || 'Upraviť tiket'}: ${escapeHtml(ticket.ticket_id)}</h2>
+                    <button class="modal-close" onclick="closeModal(this.closest('.modal-backdrop'))">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="editTicketForm" onsubmit="submitEditTicket(event, '${ticket.ticket_id}')">
+                        <div class="form-group">
+                            <label class="form-label">${pt('colName')} *</label>
+                            <input type="text" class="form-input" name="title" value="${escapeHtml(ticket.title || '')}" required>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">${pt('colType')} *</label>
+                                <select class="form-select" name="ticket_type" id="editTicketType" onchange="toggleEditDateFields()" required>
+                                    ${types.length === 0 ? `
+                                        <option value="vacation" ${ticket.ticket_type === 'vacation' ? 'selected' : ''}>Dovolenka</option>
+                                        <option value="paragraph" ${ticket.ticket_type === 'paragraph' ? 'selected' : ''}>Paragraf</option>
+                                        <option value="ocr" ${ticket.ticket_type === 'ocr' ? 'selected' : ''}>OČR</option>
+                                        <option value="other" ${ticket.ticket_type === 'other' ? 'selected' : ''}>Iné</option>
+                                    ` : types.map(t => `
+                                        <option value="${escapeHtml(t.key)}" data-requires-dates="${t.requires_dates ? '1' : '0'}" ${ticket.ticket_type === t.key ? 'selected' : ''}>${escapeHtml(portalLang === 'sk' ? t.label_sk : t.label_en)}</option>
+                                    `).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">${pt('colStatus')} *</label>
+                                <select class="form-select" name="status" id="editTicketStatus" onchange="toggleEditReasonFields()" required>
+                                    ${statusOptions.map(s => `<option value="${s}" ${ticket.status === s ? 'selected' : ''}>${translateStatus(s)}</option>`).join('')}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row" id="editTicketDateRow">
+                            <div class="form-group">
+                                <label class="form-label">${pt('ticketDetailStartDate') || pt('colStart') || 'Od'}</label>
+                                <input type="date" class="form-input" name="start_date" value="${fmtDate(ticket.start_date)}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">${pt('ticketDetailEndDate') || pt('colEnd') || 'Do'}</label>
+                                <input type="date" class="form-input" name="end_date" value="${fmtDate(ticket.end_date)}">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">${pt('ticketDetailPriority')}</label>
+                                <select class="form-select" name="priority">
+                                    ${priorityOptions.map(p => `<option value="${p}" ${(ticket.priority || 'Medium') === p ? 'selected' : ''}>${p}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group" style="display:flex;align-items:flex-end;">
+                                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                                    <input type="checkbox" name="is_half_day" ${ticket.is_half_day ? 'checked' : ''}>
+                                    <span>${pt('ticketDetailHalfDay') || 'Polovica dňa'}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">${pt('ticketDetailDescription')}</label>
+                            <textarea class="form-input" name="description" rows="4">${escapeHtml(ticket.description || '')}</textarea>
+                        </div>
+
+                        <div class="form-group" id="editRejectionReasonGroup" style="display:${ticket.status === 'Rejected' ? 'block' : 'none'};">
+                            <label class="form-label">${pt('reason') || 'Dôvod zamietnutia'}</label>
+                            <textarea class="form-input" name="rejection_reason" rows="2">${escapeHtml(ticket.rejection_reason || '')}</textarea>
+                        </div>
+
+                        <div class="form-group" id="editCancellationReasonGroup" style="display:${ticket.status === 'Cancelled' ? 'block' : 'none'};">
+                            <label class="form-label">${pt('cancelReason') || 'Dôvod zrušenia'}</label>
+                            <textarea class="form-input" name="cancellation_reason" rows="2">${escapeHtml(ticket.cancellation_reason || '')}</textarea>
+                        </div>
+
+                        <div style="background:var(--amber-50, #fffbeb);border-left:3px solid var(--amber-500, #f59e0b);padding:10px;border-radius:6px;margin-top:1rem;font-size:0.85rem;color:var(--gray-700);">
+                            &#9888; ${pt('editTicketWarning') || 'Pozor: zmena typu tiketu neovplyvní stiahnuté kvóty automaticky. Kvótu musíte upraviť ručne.'}
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal(this.closest('.modal-backdrop'))">${pt('cancel')}</button>
+                    <button type="submit" form="editTicketForm" class="btn btn-primary">${pt('save')}</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    toggleEditDateFields();
+}
+
+function toggleEditDateFields() {
+    const select = document.getElementById('editTicketType');
+    if (!select) return;
+    const opt = select.options[select.selectedIndex];
+    const requiresDates = opt?.dataset?.requiresDates;
+    const dateRow = document.getElementById('editTicketDateRow');
+    if (!dateRow) return;
+    // If we don't know (no metadata), keep visible for flexibility
+    if (requiresDates === '0') {
+        dateRow.style.opacity = '0.6';
+    } else {
+        dateRow.style.opacity = '1';
+    }
+}
+
+function toggleEditReasonFields() {
+    const status = document.getElementById('editTicketStatus')?.value;
+    const rej = document.getElementById('editRejectionReasonGroup');
+    const can = document.getElementById('editCancellationReasonGroup');
+    if (rej) rej.style.display = status === 'Rejected' ? 'block' : 'none';
+    if (can) can.style.display = status === 'Cancelled' ? 'block' : 'none';
+}
+
+async function submitEditTicket(event, ticketId) {
+    event.preventDefault();
+    const form = document.getElementById('editTicketForm');
+    const fd = new FormData(form);
+
+    const payload = {
+        title: fd.get('title')?.trim(),
+        description: fd.get('description')?.trim() || '',
+        ticket_type: fd.get('ticket_type'),
+        status: fd.get('status'),
+        priority: fd.get('priority'),
+        start_date: fd.get('start_date') || null,
+        end_date: fd.get('end_date') || null,
+        is_half_day: fd.get('is_half_day') === 'on',
+        rejection_reason: fd.get('rejection_reason') || null,
+        cancellation_reason: fd.get('cancellation_reason') || null
+    };
+
+    try {
+        const response = await apiCall(`/api/admin/tickets/${ticketId}`, {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || pt('saveFailed') || 'Save failed');
+        }
+        showToast(pt('ticketUpdated') || 'Tiket bol upravený', 'success');
+        // Close modal
+        const modal = form.closest('.modal-backdrop');
+        if (modal) modal.remove();
+        // Refresh table
+        await refreshAdminTickets();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+function formatDateTime(dateStr) {
+    if (!dateStr) return '-';
+    const d = new Date(dateStr);
+    return d.toLocaleString(portalLang === 'sk' ? 'sk-SK' : 'en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
 }
 
 // ============================================
@@ -1683,6 +2710,408 @@ async function deleteTicketType(id) {
 }
 
 // ============================================
+// ADMIN SYSTEM MANAGEMENT
+// ============================================
+
+async function renderAdminSystem(container) {
+    // Load data stats
+    const statsRes = await apiCall('/api/admin/data/stats');
+    const stats = (await statsRes.json()).data || {};
+
+    // Load backups list
+    const backupsRes = await apiCall('/api/admin/backups');
+    const backups = (await backupsRes.json()).data || [];
+
+    // Load warehouse backups list
+    let whBackups = [];
+    try {
+        const whRes = await apiCall('/api/warehouse/backups');
+        if (whRes.ok) whBackups = (await whRes.json()).data || [];
+    } catch (e) { /* warehouse module may be unavailable */ }
+
+    // Load SMTP config
+    const smtpRes = await apiCall('/api/admin/settings/smtp');
+    const smtp = smtpRes.ok ? ((await smtpRes.json()).data || {}) : {};
+
+    container.innerHTML = `
+        <div class="page-header">
+            <div><h1>${pt('adminSystemTitle')}</h1><p>${pt('adminSystemDesc')}</p></div>
+        </div>
+        <div class="page-body">
+            <!-- Data Statistics -->
+            <div class="portal-card">
+                <div class="card-header">
+                    <h3>${pt('dataStatistics')}</h3>
+                </div>
+                <div class="card-body">
+                    <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background:#e0f2fe;color:#0284c7;">&#127915;</div>
+                            <div><div class="stat-value">${stats.tickets || 0}</div><div class="stat-label">${pt('tickets')}</div></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background:#dcfce7;color:#16a34a;">&#128203;</div>
+                            <div><div class="stat-value">${stats.sickNotes || 0}</div><div class="stat-label">${pt('sickNotes')}</div></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background:#fef3c7;color:#d97706;">&#128202;</div>
+                            <div><div class="stat-value">${stats.quotas || 0}</div><div class="stat-label">${pt('quotas')}</div></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background:#f3e8ff;color:#9333ea;">&#128101;</div>
+                            <div><div class="stat-value">${stats.users || 0}</div><div class="stat-label">${pt('users')}</div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Management -->
+            <div class="portal-card" style="margin-top: 1.5rem;">
+                <div class="card-header">
+                    <h3>${pt('dataManagement')}</h3>
+                </div>
+                <div class="card-body">
+                    <p style="color: var(--gray-600); margin-bottom: 1rem;">${pt('dataManagementWarning')}</p>
+                    <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+                        <button class="btn btn-danger" onclick="confirmDeleteAllTickets()">
+                            ${pt('deleteAllTickets')}
+                        </button>
+                        <button class="btn btn-danger" onclick="confirmDeleteAllSickNotes()">
+                            ${pt('deleteAllSickNotes')}
+                        </button>
+                        <button class="btn btn-danger" onclick="confirmDeleteAllQuotas()">
+                            ${pt('deleteAllQuotas')}
+                        </button>
+                        <button class="btn btn-warning" onclick="confirmResetQuotasUsed()">
+                            ${pt('resetQuotasUsed')}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Database Backup -->
+            <div class="portal-card" style="margin-top: 1.5rem;">
+                <div class="card-header">
+                    <h3>${pt('databaseBackup')}</h3>
+                    <button class="btn btn-primary" onclick="triggerBackup()" id="backupBtn">
+                        ${pt('createBackup')}
+                    </button>
+                </div>
+                <div class="card-body">
+                    <p style="color: var(--gray-600); margin-bottom: 1rem;">${pt('backupInfo')}</p>
+
+                    ${backups.length > 0 ? `
+                        <h4 style="margin-top: 1.5rem; margin-bottom: 0.75rem;">${pt('existingBackups')}</h4>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>${pt('colName')}</th>
+                                    <th>${pt('colSize')}</th>
+                                    <th>${pt('colDate')}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${backups.slice(0, 10).map(b => `
+                                    <tr>
+                                        <td><code>${escapeHtml(b.name)}</code></td>
+                                        <td>${b.sizeFormatted}</td>
+                                        <td>${formatDateTime(b.created)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                        ${backups.length > 10 ? `<p style="color: var(--gray-500); margin-top: 0.5rem;">${pt('andMore').replace('{count}', backups.length - 10)}</p>` : ''}
+                    ` : `
+                        <div class="empty-state" style="padding: 2rem;">
+                            <div class="empty-icon">&#128190;</div>
+                            <div class="empty-text">${pt('noBackups')}</div>
+                        </div>
+                    `}
+                </div>
+            </div>
+
+            <!-- Warehouse Backups -->
+            <div class="portal-card" style="margin-top: 1.5rem;">
+                <div class="card-header">
+                    <h3>&#128230; ${pt('whBackupTitle')}</h3>
+                    <button class="btn btn-primary" onclick="triggerWarehouseBackup()" id="whBackupBtn">
+                        ${pt('whBackupCreate')}
+                    </button>
+                </div>
+                <div class="card-body">
+                    <p style="color: var(--gray-600); margin-bottom: 1rem;">${pt('whBackupInfo')}</p>
+                    <div id="whBackupList">${renderWhBackupList(whBackups)}</div>
+                </div>
+            </div>
+
+            <!-- SMTP Settings -->
+            <div class="portal-card" style="margin-top: 1.5rem;">
+                <div class="card-header">
+                    <h3>&#128231; ${pt('smtpSettings')}</h3>
+                    <span class="status-badge ${smtp.configured ? 'status-approved' : 'status-pending'}">
+                        ${smtp.configured ? pt('smtpConfigured') : pt('smtpNotConfigured')}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <p style="color: var(--gray-600); margin-bottom: 1.5rem;">${pt('smtpSettingsDesc')}</p>
+                    <form id="smtpForm" onsubmit="saveSmtpSettings(event)" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label class="form-label">${pt('smtpHost')}</label>
+                            <input type="text" class="form-input" id="smtpHost" value="${escapeHtml(smtp.host || '')}" placeholder="smtp.gmail.com">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">${pt('smtpPort')}</label>
+                            <input type="number" class="form-input" id="smtpPort" value="${escapeHtml(smtp.port || '587')}" placeholder="587">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">${pt('smtpUser')}</label>
+                            <input type="email" class="form-input" id="smtpUser" value="${escapeHtml(smtp.user || '')}" placeholder="noreply@example.com">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">${pt('smtpPass')}</label>
+                            <input type="password" class="form-input" id="smtpPass" value="" placeholder="${pt('smtpPassPlaceholder')}">
+                        </div>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label class="form-label">${pt('smtpFrom')}</label>
+                            <input type="text" class="form-input" id="smtpFrom" value="${escapeHtml(smtp.from || '')}" placeholder="${pt('smtpFromPlaceholder')}">
+                        </div>
+                        <div style="grid-column: 1 / -1; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                            <button type="submit" class="btn btn-primary" id="smtpSaveBtn">${pt('smtpSave')}</button>
+                            <button type="button" class="btn btn-secondary" onclick="openSmtpTestModal()">${pt('smtpTest')}</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+async function confirmDeleteAllTickets() {
+    if (!confirm(pt('deleteAllTicketsConfirm'))) return;
+    if (!confirm(pt('deleteConfirmSecond'))) return;
+
+    try {
+        const response = await apiCall('/api/admin/data/tickets', { method: 'DELETE' });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || pt('deleteFailed'));
+        showToast(result.message, 'success');
+        navigateToPage('admin-system');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function confirmDeleteAllSickNotes() {
+    if (!confirm(pt('deleteAllSickNotesConfirm'))) return;
+    if (!confirm(pt('deleteConfirmSecond'))) return;
+
+    try {
+        const response = await apiCall('/api/admin/data/sick-notes', { method: 'DELETE' });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || pt('deleteFailed'));
+        showToast(result.message, 'success');
+        navigateToPage('admin-system');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function confirmDeleteAllQuotas() {
+    if (!confirm(pt('deleteAllQuotasConfirm'))) return;
+    if (!confirm(pt('deleteConfirmSecond'))) return;
+
+    try {
+        const response = await apiCall('/api/admin/data/quotas', { method: 'DELETE' });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || pt('deleteFailed'));
+        showToast(result.message, 'success');
+        navigateToPage('admin-system');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function confirmResetQuotasUsed() {
+    const year = new Date().getFullYear();
+    if (!confirm(pt('resetQuotasUsedConfirm').replace('{year}', year))) return;
+
+    try {
+        const response = await apiCall(`/api/admin/data/quotas/reset-used?year=${year}`, { method: 'POST' });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || pt('changeFailed'));
+        showToast(result.message, 'success');
+        navigateToPage('admin-system');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function triggerBackup() {
+    const btn = document.getElementById('backupBtn');
+    btn.disabled = true;
+    btn.textContent = pt('creatingBackup');
+
+    try {
+        const response = await apiCall('/api/admin/backup', { method: 'POST' });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || pt('backupFailed'));
+        showToast(pt('backupCreated') + ': ' + result.data.file, 'success');
+        navigateToPage('admin-system');
+    } catch (error) {
+        showToast(error.message, 'error');
+        btn.disabled = false;
+        btn.textContent = pt('createBackup');
+    }
+}
+
+// ---- Warehouse backups (admin) ----
+function renderWhBackupList(list) {
+    if (!list || list.length === 0) {
+        return `<div class="empty-state" style="padding:2rem;"><div class="empty-icon">&#128230;</div><div class="empty-text">${pt('whBackupEmpty')}</div></div>`;
+    }
+    return `
+        <table class="data-table">
+            <thead><tr>
+                <th>${pt('whBackupColDate')}</th>
+                <th>${pt('whBackupColRows')}</th>
+                <th>${pt('colSize')}</th>
+                <th>${pt('colActions')}</th>
+            </tr></thead>
+            <tbody>
+                ${list.map(b => `
+                    <tr>
+                        <td>${formatDateTime(b.created_at)}</td>
+                        <td>${b.total_rows != null ? b.total_rows : '-'}</td>
+                        <td>${whFormatBytes(b.size)}</td>
+                        <td><button class="btn btn-warning btn-sm" onclick="confirmRestoreWarehouseBackup('${escapeHtml(b.name)}', '${formatDateTime(b.created_at)}')">${pt('whBackupRestore')}</button></td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>`;
+}
+
+function whFormatBytes(bytes) {
+    if (bytes == null) return '-';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+}
+
+async function reloadWhBackups() {
+    const el = document.getElementById('whBackupList');
+    if (!el) return;
+    try {
+        const res = await apiCall('/api/warehouse/backups');
+        const list = res.ok ? ((await res.json()).data || []) : [];
+        el.innerHTML = renderWhBackupList(list);
+    } catch (e) { /* ignore */ }
+}
+
+async function triggerWarehouseBackup() {
+    const btn = document.getElementById('whBackupBtn');
+    if (btn) { btn.disabled = true; btn.textContent = pt('creatingBackup'); }
+    try {
+        const res = await apiCall('/api/warehouse/backups', { method: 'POST' });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.message || pt('whBackupFailed'));
+        showToast(pt('whBackupCreated'), 'success');
+        await reloadWhBackups();
+    } catch (error) {
+        showToast(error.message, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = pt('whBackupCreate'); }
+    }
+}
+
+function confirmRestoreWarehouseBackup(name, dateLabel) {
+    document.getElementById('modalTitle').textContent = pt('whBackupRestoreTitle');
+    document.getElementById('modalBody').innerHTML = `
+        <div style="background:#fef2f2;border-left:3px solid #ef4444;padding:12px;border-radius:6px;margin-bottom:1rem;">
+            &#9888; ${pt('whBackupRestoreWarning')}
+        </div>
+        <p>${pt('whBackupRestoreConfirm')}</p>
+        <p style="margin-top:0.5rem;color:#64748b;"><strong>${escapeHtml(dateLabel)}</strong><br><code>${escapeHtml(name)}</code></p>`;
+    document.getElementById('modalFooter').innerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
+        <button class="btn btn-danger" onclick="restoreWarehouseBackup('${escapeHtml(name)}')">${pt('whBackupRestore')}</button>`;
+    openModal();
+}
+
+async function restoreWarehouseBackup(name) {
+    try {
+        const res = await apiCall(`/api/warehouse/backups/${encodeURIComponent(name)}/restore`, { method: 'POST' });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || result.message || pt('whBackupRestoreFailed'));
+        closeModal();
+        showToast(pt('whBackupRestored'), 'success');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function saveSmtpSettings(event) {
+    event.preventDefault();
+    const btn = document.getElementById('smtpSaveBtn');
+    btn.disabled = true;
+
+    const payload = {
+        host: document.getElementById('smtpHost').value.trim(),
+        port: document.getElementById('smtpPort').value.trim(),
+        user: document.getElementById('smtpUser').value.trim(),
+        pass: document.getElementById('smtpPass').value,
+        from: document.getElementById('smtpFrom').value.trim()
+    };
+
+    try {
+        const response = await apiCall('/api/admin/settings/smtp', { method: 'PUT', body: JSON.stringify(payload) });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || pt('smtpSaveFailed'));
+        showToast(pt('smtpSaved'), 'success');
+        navigateToPage('admin-system');
+    } catch (error) {
+        showToast(error.message, 'error');
+        btn.disabled = false;
+    }
+}
+
+function openSmtpTestModal() {
+    document.getElementById('modalTitle').textContent = pt('smtpTest');
+    document.getElementById('modalBody').innerHTML = `
+        <div class="form-group">
+            <label class="form-label">${pt('smtpTestEmail')}</label>
+            <input type="email" class="form-input" id="smtpTestEmailInput" placeholder="vas@email.com">
+        </div>`;
+    document.getElementById('modalFooter').innerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
+        <button class="btn btn-primary" onclick="sendSmtpTest()">${pt('smtpTestSend')}</button>`;
+    openModal();
+}
+
+async function sendSmtpTest() {
+    const to = document.getElementById('smtpTestEmailInput')?.value?.trim();
+    if (!to) { showToast(pt('smtpTestEmail'), 'warning'); return; }
+
+    try {
+        const response = await apiCall('/api/admin/settings/smtp/test', { method: 'POST', body: JSON.stringify({ to }) });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || pt('smtpTestFailed'));
+        showToast(result.message || pt('smtpTestSuccess'), 'success');
+        closeModal();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+function formatDateTime(dateStr) {
+    if (!dateStr) return '-';
+    const d = new Date(dateStr);
+    return d.toLocaleString(portalLang === 'sk' ? 'sk-SK' : 'en-GB', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+    });
+}
+
+// ============================================
 // HELPERS
 // ============================================
 
@@ -1711,7 +3140,7 @@ function renderTicketsTable(tickets) {
                                     ${t.attachment_count > 0 ? `<button class="btn btn-ghost btn-sm" onclick="openTicketAttachments('${t.ticket_id}', '${escapeHtml(t.title)}')">&#128206; ${pt('attachments')} (${t.attachment_count})</button>` : '<span style="color:var(--gray-300)">—</span>'}
                                 </td>
                                 <td>
-                                    ${(t.status === 'Pending' || t.status === 'Approved') ? `<button class="btn-icon danger" onclick="openCancelTicketModal('${t.ticket_id}', '${escapeHtml(t.title)}')" title="${pt('btnCancelTicket')}">&#10005;</button>` : '<span style="color:var(--gray-300)">—</span>'}
+                                    ${canCancelTicket(t) ? `<button class="btn-icon danger" onclick="openCancelTicketModal('${t.ticket_id}', '${escapeHtml(t.title)}')" title="${pt('btnCancelTicket')}">&#10005;</button>` : '<span style="color:var(--gray-300)">—</span>'}
                                 </td>
                             </tr>
                         `).join('')}
@@ -1724,6 +3153,17 @@ function renderTicketsTable(tickets) {
 
 // Cancel ticket modal & logic
 let _pendingCancelTicketId = null;
+
+// A ticket can be cancelled only while Pending/Approved AND before its start date
+function canCancelTicket(t) {
+    if (t.status !== 'Pending' && t.status !== 'Approved') return false;
+    if (t.start_date) {
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const start = new Date(t.start_date); start.setHours(0, 0, 0, 0);
+        if (today >= start) return false;
+    }
+    return true;
+}
 
 function openCancelTicketModal(ticketId, title) {
     _pendingCancelTicketId = ticketId;
@@ -1756,6 +3196,9 @@ async function submitCancelTicket() {
         });
         if (!response.ok) {
             const err = await response.json().catch(() => null);
+            if (err?.message === 'Cannot cancel request after start date') {
+                throw new Error(pt('cancelAfterStart'));
+            }
             throw new Error(err?.message || pt('cancelFailed'));
         }
         closeModal();
@@ -1924,9 +3367,1713 @@ function openModal() {
     document.getElementById('modalOverlay').classList.add('active');
 }
 
-function closeModal(event) {
-    if (event && event.target !== event.currentTarget) return;
+// Drag-safe overlay close: only close when BOTH mousedown and the click land on
+// the overlay itself. Prevents closing when a drag (e.g. selecting text or a
+// dropdown) starts inside the modal and the mouse is released on the overlay.
+let _overlayDownOnSelf = false;
+function overlayMouseDown(e) {
+    _overlayDownOnSelf = (e.target === e.currentTarget);
+}
+function overlayClickClose(e, closer) {
+    const ok = (e.target === e.currentTarget) && _overlayDownOnSelf;
+    _overlayDownOnSelf = false;
+    if (ok) (closer || closeModal)();
+}
+
+function closeModal(eventOrElement) {
+    // Handle ticket detail popup (modal-backdrop inserted into body)
+    if (eventOrElement && eventOrElement.classList && eventOrElement.classList.contains('modal-backdrop')) {
+        eventOrElement.remove();
+        return;
+    }
+
+    // Handle click on backdrop (event bubbling check)
+    if (eventOrElement && eventOrElement.target && eventOrElement.target !== eventOrElement.currentTarget) {
+        return;
+    }
+
+    // Handle standard modal overlay
     document.getElementById('modalOverlay').classList.remove('active');
+    // Reset any size modifiers applied by specific modals
+    const modalEl = document.getElementById('modal');
+    if (modalEl) modalEl.classList.remove('modal-xl');
+    // Drop the warehouse location-modal return context when the modal fully closes
+    whLocReturnId = null;
+}
+
+// ============================================
+// WAREHOUSE MODULE
+// ============================================
+
+// Module-level state
+let warehouseLocations = [];          // [{id, zone, position, code, material_count, total_quantity}]
+let warehouseLocByKey = {};           // "A-1" -> location
+let warehouseSearchTimer = null;
+
+function whLocKey(zone, num) {
+    return `${zone}-${num}`;
+}
+
+async function renderWarehouseDashboard(container) {
+    container.innerHTML = `
+        <div class="page-header">
+            <div><h1>${pt('whDashboardTitle')}</h1><p>${pt('whDashboardDesc')}</p></div>
+        </div>
+        <div class="page-body">
+            <div class="stats-grid" id="whStats">
+                <div class="stat-card"><div class="stat-icon" style="background:#dbeafe;color:#2563eb;">&#128230;</div><div><div class="stat-value" id="whStatMaterials">-</div><div class="stat-label">${pt('whStatMaterials')}</div></div></div>
+                <div class="stat-card"><div class="stat-icon" style="background:#dcfce7;color:#16a34a;">&#128205;</div><div><div class="stat-value" id="whStatOccupied">-</div><div class="stat-label">${pt('whStatOccupied')}</div></div></div>
+                <div class="stat-card"><div class="stat-icon" style="background:#fef3c7;color:#d97706;">&#128200;</div><div><div class="stat-value" id="whStatToday">-</div><div class="stat-label">${pt('whStatToday')}</div></div></div>
+            </div>
+
+            <div class="portal-card">
+                <div class="card-header wh-map-head">
+                    <h2>${pt('whMapTitle')}</h2>
+                    <div class="wh-search-wrap">
+                        <input type="text" id="whDashSearch" class="form-control wh-search-input" placeholder="${pt('whSearchPlaceholder')}" autocomplete="off">
+                        <div class="wh-search-results" id="whDashResults"></div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="wh-map-container" id="whMap">
+                        <div class="empty-state"><div class="spinner"></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    await Promise.all([loadWarehouseStats(), loadWarehouseMap()]);
+
+    // Wire dashboard search
+    const searchInput = document.getElementById('whDashSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            clearTimeout(warehouseSearchTimer);
+            warehouseSearchTimer = setTimeout(() => warehouseDashSearch(searchInput.value), 300);
+        });
+    }
+}
+
+async function loadWarehouseStats() {
+    try {
+        const res = await apiCall('/api/warehouse/stats');
+        const s = (await res.json()).data || {};
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        set('whStatMaterials', s.total_materials ?? 0);
+        set('whStatOccupied', `${s.occupied_locations ?? 0}/${s.total_locations ?? 0}`);
+        set('whStatToday', s.added_today ?? 0);
+    } catch (e) { console.error('wh stats', e); }
+}
+
+async function loadWarehouseMap() {
+    const mapEl = document.getElementById('whMap');
+    if (!mapEl) return;
+    try {
+        const [locRes, svgText] = await Promise.all([
+            apiCall('/api/warehouse/locations'),
+            fetch('/portal/assets/images/warehouse-map.svg').then(r => r.text())
+        ]);
+        warehouseLocations = (await locRes.json()).data || [];
+        warehouseLocByKey = {};
+        warehouseLocations.forEach(l => { warehouseLocByKey[whLocKey(l.zone, l.position)] = l; });
+
+        // Wrap the SVG in a transform stage so we can zoom/pan just the map
+        // (not the whole page). Zoom controls float in the corner.
+        mapEl.innerHTML = `
+            <div class="wh-map-stage" id="whMapStage">${svgText}</div>
+            <div class="wh-map-zoom-controls">
+                <button type="button" class="wh-map-zoom-btn" onclick="whMapZoom(1.3)" title="${pt('whZoomIn') || 'Priblížiť'}" aria-label="zoom in">+</button>
+                <button type="button" class="wh-map-zoom-btn" onclick="whMapZoom(1/1.3)" title="${pt('whZoomOut') || 'Oddialiť'}" aria-label="zoom out">&minus;</button>
+                <button type="button" class="wh-map-zoom-btn" onclick="whMapZoomReset()" title="${pt('whZoomReset') || 'Obnoviť'}" aria-label="reset zoom">&#8634;</button>
+            </div>`;
+
+        // Color + wire each pallet location
+        mapEl.querySelectorAll('.pallet-loc').forEach(el => {
+            const zone = el.dataset.zone;
+            const num = el.dataset.num;
+            const loc = warehouseLocByKey[whLocKey(zone, num)];
+            if (loc) {
+                el.dataset.locationId = loc.id;
+                if (loc.material_count > 0) {
+                    el.classList.add('wh-occupied');
+                    el.parentElement && el.parentElement.classList.add('wh-has-items');
+                }
+                el.addEventListener('click', () => openLocationModal(loc.id));
+                el.addEventListener('mouseenter', (ev) => showLocationTooltip(ev, loc));
+                el.addEventListener('mouseleave', hideLocationTooltip);
+            }
+        });
+
+        initMapZoomPan(mapEl);
+    } catch (e) {
+        console.error('wh map', e);
+        mapEl.innerHTML = `<div class="empty-state"><div class="empty-text">${pt('pageLoadError')}</div></div>`;
+    }
+}
+
+// ===== Interactive map zoom & pan (isolated to the map, not the page) =====
+let whMapState = { scale: 1, tx: 0, ty: 0 };
+const WH_MAP_MIN = 1;
+const WH_MAP_MAX = 6;
+
+function whMapApply() {
+    const stage = document.getElementById('whMapStage');
+    if (!stage) return;
+    const s = whMapState;
+    stage.style.transform = `translate(${s.tx}px, ${s.ty}px) scale(${s.scale})`;
+}
+
+// Clamp translate so the map can't be dragged fully out of view
+function whMapClamp(container) {
+    const s = whMapState;
+    if (s.scale <= 1) { s.tx = 0; s.ty = 0; return; }
+    const w = container.clientWidth, h = container.clientHeight;
+    const maxX = w * (s.scale - 1);
+    const maxY = h * (s.scale - 1);
+    s.tx = Math.min(0, Math.max(-maxX, s.tx));
+    s.ty = Math.min(0, Math.max(-maxY, s.ty));
+}
+
+// Zoom around a focal point (cx, cy) in container-local coordinates
+function whMapZoomAt(factor, cx, cy, container) {
+    const s = whMapState;
+    const newScale = Math.min(WH_MAP_MAX, Math.max(WH_MAP_MIN, s.scale * factor));
+    if (newScale === s.scale) return;
+    // Keep the focal point stationary during the zoom
+    s.tx = cx - (cx - s.tx) * (newScale / s.scale);
+    s.ty = cy - (cy - s.ty) * (newScale / s.scale);
+    s.scale = newScale;
+    whMapClamp(container);
+    whMapApply();
+}
+
+// Button zoom (focuses the map center)
+function whMapZoom(factor) {
+    const container = document.getElementById('whMap');
+    if (!container) return;
+    whMapZoomAt(factor, container.clientWidth / 2, container.clientHeight / 2, container);
+}
+
+function whMapZoomReset() {
+    whMapState = { scale: 1, tx: 0, ty: 0 };
+    whMapApply();
+}
+
+function initMapZoomPan(container) {
+    whMapState = { scale: 1, tx: 0, ty: 0 };
+    whMapApply();
+
+    const pointers = new Map();     // active pointers by id
+    const captured = new Set();      // pointer ids we've captured (gesture started)
+    let startDist = 0, startScale = 1;
+    let lastX = 0, lastY = 0;
+    let moved = false;              // did we pan/pinch enough to suppress a click?
+
+    const rectPoint = (e) => {
+        const r = container.getBoundingClientRect();
+        return { x: e.clientX - r.left, y: e.clientY - r.top };
+    };
+
+    // Capture a pointer only once a real gesture starts. Capturing on
+    // pointerdown would steal the click from child elements (pallet
+    // locations, zoom buttons), so we defer it to the first qualifying move.
+    const capture = (e) => {
+        if (captured.has(e.pointerId)) return;
+        try { container.setPointerCapture(e.pointerId); } catch (_) {}
+        captured.add(e.pointerId);
+    };
+
+    container.addEventListener('pointerdown', (e) => {
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        moved = false;
+        if (pointers.size === 1) {
+            lastX = e.clientX; lastY = e.clientY;
+        } else if (pointers.size === 2) {
+            const pts = [...pointers.values()];
+            startDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+            startScale = whMapState.scale;
+        }
+    });
+
+    container.addEventListener('pointermove', (e) => {
+        if (!pointers.has(e.pointerId)) return;
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+        if (pointers.size === 2) {
+            // Pinch zoom around the midpoint of the two fingers
+            const pts = [...pointers.values()];
+            const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+            if (startDist > 0) {
+                const r = container.getBoundingClientRect();
+                const midX = (pts[0].x + pts[1].x) / 2 - r.left;
+                const midY = (pts[0].y + pts[1].y) / 2 - r.top;
+                const target = Math.min(WH_MAP_MAX, Math.max(WH_MAP_MIN, startScale * (dist / startDist)));
+                whMapZoomAt(target / whMapState.scale, midX, midY, container);
+            }
+            moved = true;
+            capture(e);
+            e.preventDefault();
+        } else if (pointers.size === 1 && whMapState.scale > 1) {
+            // Pan (only meaningful when zoomed in)
+            const dx = e.clientX - lastX, dy = e.clientY - lastY;
+            if (!moved && Math.abs(dx) + Math.abs(dy) <= 3) return; // ignore micro-jitter, keep click alive
+            moved = true;
+            capture(e);
+            whMapState.tx += dx; whMapState.ty += dy;
+            lastX = e.clientX; lastY = e.clientY;
+            whMapClamp(container);
+            whMapApply();
+            e.preventDefault();
+        }
+    });
+
+    const endPointer = (e) => {
+        if (pointers.has(e.pointerId)) pointers.delete(e.pointerId);
+        captured.delete(e.pointerId);
+        if (pointers.size < 2) startDist = 0;
+        if (pointers.size === 1) {
+            const p = [...pointers.values()][0];
+            lastX = p.x; lastY = p.y;
+        }
+    };
+    container.addEventListener('pointerup', endPointer);
+    container.addEventListener('pointercancel', endPointer);
+
+    // Suppress click on a pallet location if it was actually a pan/pinch gesture
+    container.addEventListener('click', (e) => {
+        if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; }
+    }, true);
+
+    // Desktop wheel zoom (focuses the cursor)
+    container.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const p = rectPoint(e);
+        whMapZoomAt(e.deltaY < 0 ? 1.15 : 1 / 1.15, p.x, p.y, container);
+    }, { passive: false });
+}
+
+// --- Tooltip ---
+let whTooltipEl = null;
+function showLocationTooltip(ev, loc) {
+    hideLocationTooltip();
+    whTooltipEl = document.createElement('div');
+    whTooltipEl.className = 'wh-tooltip';
+    whTooltipEl.innerHTML = loc.material_count > 0
+        ? `<strong>${escapeHtml(loc.code)}</strong> · ${loc.material_count} ${pt('whTooltipItems')}`
+        : `<strong>${escapeHtml(loc.code)}</strong> · ${pt('whTooltipEmpty')}`;
+    document.body.appendChild(whTooltipEl);
+    moveTooltip(ev);
+    ev.target.addEventListener('mousemove', moveTooltip);
+}
+function moveTooltip(ev) {
+    if (!whTooltipEl) return;
+    whTooltipEl.style.left = (ev.clientX + 14) + 'px';
+    whTooltipEl.style.top = (ev.clientY + 14) + 'px';
+}
+function hideLocationTooltip() {
+    if (whTooltipEl) { whTooltipEl.remove(); whTooltipEl = null; }
+}
+
+// --- Location modal (materials at a location) ---
+async function openLocationModal(locationId) {
+    whLocReturnId = locationId;
+    const canEdit = canEditWarehouse();
+    // Reset size modifier in case we return here from the wider material modal
+    document.getElementById('modal').classList.remove('modal-xl');
+    document.getElementById('modalTitle').textContent = pt('whLocationTitle');
+    document.getElementById('modalBody').innerHTML = `<div class="empty-state"><div class="spinner"></div></div>`;
+    document.getElementById('modalFooter').innerHTML = `<button class="btn btn-secondary" onclick="closeModal()">${pt('close')}</button>`;
+    openModal();
+
+    try {
+        const res = await apiCall(`/api/warehouse/locations/${locationId}/materials`);
+        const { location, materials } = (await res.json()).data;
+        document.getElementById('modalTitle').textContent = `${pt('whLocationTitle')} ${location.code}`;
+        document.getElementById('modalBody').innerHTML = `
+            ${materials.length > 0 ? `
+                <table class="data-table">
+                    <thead><tr><th>${pt('whColCode')}</th><th>${pt('whColName')}</th><th>${pt('whColQty')}</th>${canEdit ? `<th>${pt('colActions')}</th>` : ''}</tr></thead>
+                    <tbody>
+                        ${materials.map(m => `
+                            <tr>
+                                <td><strong>${escapeHtml(m.code)}</strong></td>
+                                <td>${escapeHtml(m.name)}</td>
+                                <td>${m.placement_quantity != null ? m.placement_quantity : m.quantity} ${escapeHtml(m.unit || '')}</td>
+                                ${canEdit ? `<td>
+                                    <div class="table-actions">
+                                        <button class="btn-icon" onclick="whLocEditMaterial(${m.id})" title="${pt('edit')}">&#9998;</button>
+                                        <button class="btn-icon" onclick="whLocMoveMaterial(${m.id}, '${escapeHtml(m.code)}')" title="${pt('whMove')}">&#128257;</button>
+                                        <button class="btn-icon" onclick="whLocDeleteMaterial(${m.id}, '${escapeHtml(m.code)}')" title="${pt('delete')}">&#128465;</button>
+                                    </div>
+                                </td>` : ''}
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            ` : `<div class="empty-state"><div class="empty-icon">&#128230;</div><div class="empty-text">${pt('whLocationEmpty')}</div></div>`}
+            ${location.notes ? `<p style="margin-top:1rem;color:#64748b;"><strong>${pt('whNotes')}:</strong> ${escapeHtml(location.notes)}</p>` : ''}
+        `;
+        document.getElementById('modalFooter').innerHTML = `
+            <button class="btn btn-secondary" onclick="closeModal()">${pt('close')}</button>
+            ${canEdit ? `<button class="btn btn-primary" onclick="whLocAddMaterial(${locationId})">+ ${pt('whAddMaterial')}</button>` : ''}
+        `;
+    } catch (e) {
+        document.getElementById('modalBody').innerHTML = `<div class="empty-state"><div class="empty-text">${pt('pageLoadError')}</div></div>`;
+    }
+}
+
+// --- Action wrappers invoked from the location modal (keep return context) ---
+function whLocEditMaterial(id) { openMaterialModal(id); }
+function whLocAddMaterial(locationId) { whLocReturnId = locationId; openMaterialModal(null, locationId); }
+function whLocMoveMaterial(id, code) { openMoveModal(id, code); }
+function whLocDeleteMaterial(id, code) { deleteMaterial(id, code); }
+
+// Refresh whichever warehouse views are currently mounted, behind the modal
+function whRefreshViews() {
+    if (document.getElementById('whMaterialsTable')) loadMaterialsTable();
+    if (document.getElementById('whMap')) { loadWarehouseMap(); loadWarehouseStats(); }
+}
+
+// --- Dashboard search (find material -> highlight on map) ---
+let whDashSearchResults = [];   // cache of last search results (for multi-position highlight)
+
+async function warehouseDashSearch(query) {
+    const resultsEl = document.getElementById('whDashResults');
+    if (!resultsEl) return;
+    clearMapHighlights();
+    if (!query || query.trim().length < 1) { resultsEl.innerHTML = ''; resultsEl.classList.remove('active'); return; }
+
+    try {
+        const res = await apiCall(`/api/warehouse/materials?search=${encodeURIComponent(query.trim())}`);
+        const materials = (await res.json()).data || [];
+        whDashSearchResults = materials;
+        if (materials.length === 0) {
+            resultsEl.innerHTML = `<div class="wh-search-empty">${pt('whSearchNoResults')}</div>`;
+            resultsEl.classList.add('active');
+            return;
+        }
+        resultsEl.innerHTML = materials.slice(0, 20).map(m => {
+            const pl = Array.isArray(m.placements) ? m.placements : [];
+            const locText = pl.length
+                ? pl.map(p => escapeHtml(p.location_code)).join(', ')
+                : (m.location_code ? escapeHtml(m.location_code) : pt('whNoLocation'));
+            return `
+            <div class="wh-search-item" onclick="warehouseFocusMaterial(${m.id})">
+                <span class="wh-search-code">${escapeHtml(m.code)}</span>
+                <span class="wh-search-name">${escapeHtml(m.name)}</span>
+                <span class="wh-search-loc">${locText}</span>
+            </div>`;
+        }).join('');
+        resultsEl.classList.add('active');
+    } catch (e) { console.error('wh search', e); }
+}
+
+// Highlight ALL placements of the chosen material (blinks every position)
+function warehouseFocusMaterial(materialId) {
+    clearMapHighlights();
+    // Hide the search results dropdown so the map (and its pulse) is fully visible
+    const resultsEl = document.getElementById('whDashResults');
+    if (resultsEl) { resultsEl.innerHTML = ''; resultsEl.classList.remove('active'); }
+
+    const mat = whDashSearchResults.find(m => m.id === materialId);
+    if (!mat) return;
+
+    // Collect every position: split placements, else legacy single location
+    let positions = (Array.isArray(mat.placements) && mat.placements.length)
+        ? mat.placements.map(p => ({ zone: p.zone, position: p.position }))
+        : (mat.location_zone != null ? [{ zone: mat.location_zone, position: mat.location_position }] : []);
+
+    if (positions.length === 0) { showToast(pt('whNoLocation'), 'info'); return; }
+
+    positions.forEach(pos => {
+        if (!pos.zone || pos.position == null) return;
+        const el = document.querySelector(`#whMap .pallet-loc[data-zone="${pos.zone}"][data-num="${pos.position}"]`);
+        if (el) el.classList.add('highlight');
+    });
+
+    const mapEl = document.getElementById('whMap');
+    if (mapEl) mapEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function clearMapHighlights() {
+    document.querySelectorAll('#whMap .pallet-loc.highlight').forEach(el => el.classList.remove('highlight'));
+}
+
+// --- Materials CRUD (Fáza 4) ---
+let whCategories = [];
+let whMaterialsList = [];
+let whAllLocations = [];
+let whSelectedLocationId = null;
+let whLocReturnId = null;   // location id to reopen after a sub-action (from map location modal)
+let whSelectedIds = new Set(); // bulk selection
+let whSortCol = 'updated_at'; // current sort column
+let whSortDir = 'desc';       // 'asc' or 'desc'
+
+async function renderWarehouseMaterials(container) {
+    whSelectedIds.clear();
+    const canEdit = canEditWarehouse();
+    container.innerHTML = `
+        <div class="page-header">
+            <div><h1>${pt('whMaterialsTitle')}</h1><p>${pt('whMaterialsDesc')}</p></div>
+            ${canEdit ? `<button class="btn btn-primary" onclick="openMaterialModal()">+ ${pt('whAddMaterial')}</button>` : ''}
+        </div>
+        <div class="page-body">
+            <div class="portal-card">
+                <div class="card-body">
+                    <div class="wh-filter-bar">
+                        <input type="text" id="whMatSearch" class="form-control" placeholder="${pt('whSearchPlaceholder')}" style="flex:2;">
+                        <select id="whMatZone" class="form-control" style="flex:1;">
+                            <option value="">${pt('whAllZones')}</option>
+                            <option value="MINI">MINI</option><option value="D">D</option><option value="A">A</option><option value="B">B</option><option value="C">C</option>
+                        </select>
+                        <select id="whMatSort" class="form-control" style="flex:1;" onchange="whChangeSort(this.value)">
+                            <option value="updated_at:desc">${pt('whSortUpdatedDesc')}</option>
+                            <option value="updated_at:asc">${pt('whSortUpdatedAsc')}</option>
+                            <option value="created_at:desc">${pt('whSortCreatedDesc')}</option>
+                            <option value="created_at:asc">${pt('whSortCreatedAsc')}</option>
+                            <option value="code:asc">${pt('whSortCodeAsc')}</option>
+                            <option value="code:desc">${pt('whSortCodeDesc')}</option>
+                            <option value="quantity:desc">${pt('whSortQtyDesc')}</option>
+                            <option value="quantity:asc">${pt('whSortQtyAsc')}</option>
+                            <option value="location:asc">${pt('whSortLocAsc')}</option>
+                        </select>
+                        <button class="btn btn-secondary" onclick="loadMaterialsTable()">${pt('whFilter')}</button>
+                    </div>
+                </div>
+            </div>
+            ${canEdit ? `<!-- Bulk action bar (hidden by default) -->
+            <div class="wh-bulk-bar" id="whBulkBar" style="display:none;">
+                <span class="wh-bulk-count"><span id="whBulkCount">0</span> ${pt('whBulkSelected')}</span>
+                <div class="wh-bulk-actions">
+                    <button class="btn btn-secondary btn-sm" onclick="whBulkMove()">&#128257; ${pt('whBulkMove')}</button>
+                    <button class="btn btn-secondary btn-sm" onclick="whBulkExportPdf()">&#128196; ${pt('whBulkExportPdf')}</button>
+                    <button class="btn btn-danger btn-sm" onclick="whBulkDelete()">&#128465; ${pt('whBulkDelete')}</button>
+                </div>
+            </div>` : ''}
+            <div class="portal-card">
+                <div class="card-body">
+                    <div id="whMaterialsTable"><div class="empty-state"><div class="spinner"></div></div></div>
+                </div>
+            </div>
+        </div>
+    `;
+    // Sync sort dropdown with current state
+    const sortSel = document.getElementById('whMatSort');
+    if (sortSel) sortSel.value = `${whSortCol}:${whSortDir}`;
+    // Load locations for map picker
+    try {
+        const locRes = await apiCall('/api/warehouse/locations');
+        whAllLocations = (await locRes.json()).data || [];
+    } catch (e) { console.error('wh locs', e); }
+    // Wire search
+    const searchEl = document.getElementById('whMatSearch');
+    if (searchEl) searchEl.addEventListener('keyup', e => { if (e.key === 'Enter') loadMaterialsTable(); });
+    await loadMaterialsTable();
+}
+
+function whChangeSort(val) {
+    const [col, dir] = val.split(':');
+    whSortCol = col;
+    whSortDir = dir || 'asc';
+    whSortAndRender();
+}
+
+function whHeaderSort(col) {
+    if (whSortCol === col) {
+        whSortDir = whSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+        whSortCol = col;
+        whSortDir = col === 'code' || col === 'location' ? 'asc' : 'desc';
+    }
+    // Sync dropdown
+    const sortSel = document.getElementById('whMatSort');
+    if (sortSel) sortSel.value = `${whSortCol}:${whSortDir}`;
+    whSortAndRender();
+}
+
+function whSortAndRender() {
+    whMaterialsList.sort((a, b) => {
+        let av, bv;
+        switch (whSortCol) {
+            case 'code': av = (a.code || '').toLowerCase(); bv = (b.code || '').toLowerCase(); break;
+            case 'name': av = (a.name || '').toLowerCase(); bv = (b.name || '').toLowerCase(); break;
+            case 'quantity': av = a.quantity || 0; bv = b.quantity || 0; break;
+            case 'location':
+                const pa = Array.isArray(a.placements) && a.placements[0] ? a.placements[0].location_code : (a.location_code || '');
+                const pb = Array.isArray(b.placements) && b.placements[0] ? b.placements[0].location_code : (b.location_code || '');
+                av = pa.toLowerCase(); bv = pb.toLowerCase(); break;
+            case 'created_at': av = a.created_at || ''; bv = b.created_at || ''; break;
+            case 'updated_at': default: av = a.updated_at || ''; bv = b.updated_at || ''; break;
+        }
+        if (av < bv) return whSortDir === 'asc' ? -1 : 1;
+        if (av > bv) return whSortDir === 'asc' ? 1 : -1;
+        return 0;
+    });
+    whRenderMaterialsTable();
+}
+
+function whSortIndicator(col) {
+    if (whSortCol !== col) return '';
+    return whSortDir === 'asc' ? ' ▲' : ' ▼';
+}
+
+// Render location badge(s) for a material; shows qty per position when split
+function whLocationBadges(m) {
+    const pl = Array.isArray(m.placements) ? m.placements : [];
+    if (pl.length === 0) {
+        return m.location_code
+            ? `<span class="wh-loc-badge">${escapeHtml(m.location_code)}</span>`
+            : `<em style="color:#94a3b8">${pt('whNoLocation')}</em>`;
+    }
+    if (pl.length === 1) {
+        return `<span class="wh-loc-badge">${escapeHtml(pl[0].location_code)}</span>`;
+    }
+    const MAX = 3;
+    const shown = pl.slice(0, MAX);
+    const rest = pl.length - MAX;
+    return `<div class="wh-loc-badges">`
+        + shown.map(p =>
+            `<span class="wh-loc-badge" title="${p.quantity}">${escapeHtml(p.location_code)} <small>(${p.quantity})</small></span>`
+          ).join('')
+        + (rest > 0
+            ? `<span class="wh-loc-more" onclick="whShowAllPlacements(${m.id})" title="${pt('whShowAllPositions')}">+${rest}</span>`
+            : '')
+        + `</div>`;
+}
+
+// Modal listing every placement of a material (opened from the "+X" chip)
+function whShowAllPlacements(materialId) {
+    const m = whMaterialsList.find(x => x.id === materialId);
+    if (!m) return;
+    const pl = Array.isArray(m.placements) ? m.placements : [];
+    const total = pl.reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
+    const unit = escapeHtml(m.unit || 'ks');
+
+    document.getElementById('modal').classList.remove('modal-xl');
+    document.getElementById('modalTitle').textContent = `${pt('whPlacementsTitle')} — ${m.code}`;
+    document.getElementById('modalBody').innerHTML = `
+        <div style="margin-bottom:0.75rem;color:#64748b;">${escapeHtml(m.name)}</div>
+        <table class="data-table">
+            <thead><tr><th>${pt('whColLocation')}</th><th style="text-align:right;">${pt('whColQty')}</th></tr></thead>
+            <tbody>
+                ${pl.map(p => `
+                    <tr class="wh-placement-row" onclick="closeModal(); openLocationModal(${p.location_id});" style="cursor:pointer;">
+                        <td><span class="wh-loc-badge">${escapeHtml(p.location_code)}</span></td>
+                        <td style="text-align:right;">${p.quantity} ${unit}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+            <tfoot><tr>
+                <td style="font-weight:700;">${pt('whTotal')}</td>
+                <td style="text-align:right;font-weight:700;">${total} ${unit}</td>
+            </tr></tfoot>
+        </table>
+    `;
+    document.getElementById('modalFooter').innerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">${pt('close')}</button>
+    `;
+    openModal();
+}
+
+function whFormatDate(dt) {
+    if (!dt) return '-';
+    const d = new Date(dt);
+    const locale = (typeof portalLang !== 'undefined' && portalLang === 'en') ? 'en-GB' : 'sk-SK';
+    return d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' +
+           d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+}
+
+async function loadMaterialsTable() {
+    const tableEl = document.getElementById('whMaterialsTable');
+    if (!tableEl) return;
+    const search = document.getElementById('whMatSearch')?.value || '';
+    const zone = document.getElementById('whMatZone')?.value || '';
+    let url = '/api/warehouse/materials?';
+    if (search) url += `search=${encodeURIComponent(search)}&`;
+    if (zone) url += `zone=${zone}&`;
+    try {
+        const res = await apiCall(url);
+        whMaterialsList = (await res.json()).data || [];
+        whSortAndRender();
+    } catch (e) {
+        console.error('wh materials', e);
+        tableEl.innerHTML = `<div class="empty-state"><div class="empty-text">${pt('pageLoadError')}</div></div>`;
+    }
+}
+
+function whRenderMaterialsTable() {
+    const tableEl = document.getElementById('whMaterialsTable');
+    if (!tableEl) return;
+    if (whMaterialsList.length === 0) {
+        tableEl.innerHTML = `<div class="empty-state"><div class="empty-icon">&#128230;</div><div class="empty-text">${pt('whMaterialsEmpty')}</div></div>`;
+        return;
+    }
+    const canEdit = canEditWarehouse();
+    tableEl.innerHTML = `
+        <table class="data-table wh-sortable">
+            <thead><tr>
+                ${canEdit ? `<th class="th-check"><input type="checkbox" id="whSelectAll" onchange="whToggleSelectAll(this.checked)" title="${pt('whSelectAll')}"></th>` : ''}
+                <th class="sortable" onclick="whHeaderSort('code')">${pt('whColCode')}${whSortIndicator('code')}</th>
+                <th class="sortable" onclick="whHeaderSort('name')">${pt('whColName')}${whSortIndicator('name')}</th>
+                <th class="sortable" onclick="whHeaderSort('quantity')">${pt('whColQty')}${whSortIndicator('quantity')}</th>
+                <th class="sortable" onclick="whHeaderSort('location')">${pt('whColLocation')}${whSortIndicator('location')}</th>
+                <th class="sortable" onclick="whHeaderSort('created_at')">${pt('whColCreated')}${whSortIndicator('created_at')}</th>
+                <th class="sortable" onclick="whHeaderSort('updated_at')">${pt('whColUpdated')}${whSortIndicator('updated_at')}</th>
+                ${canEdit ? `<th>${pt('colActions')}</th>` : ''}
+            </tr></thead>
+            <tbody>
+                ${whMaterialsList.map(m => `
+                    <tr data-id="${m.id}">
+                        ${canEdit ? `<td class="td-check"><input type="checkbox" class="wh-row-check" value="${m.id}" onchange="whToggleRow(${m.id}, this.checked)" ${whSelectedIds.has(m.id) ? 'checked' : ''}></td>` : ''}
+                        <td><strong>${escapeHtml(m.code)}</strong></td>
+                        <td>${escapeHtml(m.name)}</td>
+                        <td>${m.quantity} ${escapeHtml(m.unit || 'ks')}</td>
+                        <td>${whLocationBadges(m)}</td>
+                        <td class="wh-date-cell">${whFormatDate(m.created_at)}</td>
+                        <td class="wh-date-cell">${whFormatDate(m.updated_at)}</td>
+                        ${canEdit ? `<td>
+                            <div class="table-actions">
+                                <button class="btn-icon" onclick="openMaterialModal(${m.id})" title="${pt('edit')}">&#9998;</button>
+                                <button class="btn-icon" onclick="openMoveModal(${m.id}, '${escapeHtml(m.code)}')" title="${pt('whMove')}">&#128257;</button>
+                                <button class="btn-icon" onclick="deleteMaterial(${m.id}, '${escapeHtml(m.code)}')" title="${pt('delete')}">&#128465;</button>
+                            </div>
+                        </td>` : ''}
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+    whUpdateBulkBar();
+}
+
+// --- Material modal (create / edit) ---
+let whPlacements = [];   // split rows: [{ location_id, location_code, quantity }]
+
+async function openMaterialModal(materialId = null, presetLocationId = null) {
+    const isEdit = !!materialId;
+    let mat = null;
+    if (isEdit) {
+        try {
+            const res = await apiCall(`/api/warehouse/materials/${materialId}`);
+            mat = (await res.json()).data;
+        } catch (e) { showToast(pt('pageLoadError'), 'error'); return; }
+    }
+    whSelectedLocationId = mat?.location_id || presetLocationId || null;
+
+    // Resolve the location code for the readonly display (preset from map click)
+    let presetLocCode = mat?.location_code || '';
+    if (!presetLocCode && presetLocationId) {
+        if (!whAllLocations.length) {
+            try { const r = await apiCall('/api/warehouse/locations'); whAllLocations = (await r.json()).data || []; } catch (e) {}
+        }
+        const pl = whAllLocations.find(l => l.id === presetLocationId);
+        if (pl) presetLocCode = pl.code;
+    }
+
+    // Build placement state from existing material (split = >1 placement)
+    const existing = (mat && Array.isArray(mat.placements)) ? mat.placements : [];
+    const startSplit = existing.length > 1;
+    whPlacements = existing.map(p => ({ location_id: p.location_id, location_code: p.location_code, quantity: p.quantity }));
+
+    document.getElementById('modal').classList.add('modal-xl');
+    document.getElementById('modalTitle').textContent = isEdit ? pt('whEditMaterial') : pt('whAddMaterial');
+    document.getElementById('modalBody').innerHTML = `
+        <div class="form-group"><label>${pt('whColCode')} *</label><input type="text" id="matCode" class="form-control" value="${mat ? escapeHtml(mat.code) : ''}" required></div>
+        <div class="form-group"><label>${pt('whColName')} *</label><input type="text" id="matName" class="form-control" value="${mat ? escapeHtml(mat.name) : ''}"></div>
+        <div class="form-row">
+            <div class="form-group"><label>${pt('whTotalQuantity')}</label><input type="number" id="matQty" class="form-control" min="0" value="${mat ? mat.quantity : 1}" oninput="whUpdateSplitIndicator()"></div>
+            <div class="form-group"><label>${pt('whUnit')}</label><input type="text" id="matUnit" class="form-control" value="${mat ? escapeHtml(mat.unit || 'ks') : 'ks'}"></div>
+        </div>
+
+        <div class="wh-split-toggle">
+            <label class="wh-checkbox">
+                <input type="checkbox" id="matSplit" ${startSplit ? 'checked' : ''} onchange="whToggleSplit(this.checked)">
+                <span>${pt('whSplitToggle')}</span>
+            </label>
+        </div>
+
+        <!-- Single location (default) -->
+        <div class="form-group" id="whSingleLoc" style="${startSplit ? 'display:none;' : ''}">
+            <label>${pt('whColLocation')}</label>
+            <div class="wh-loc-picker">
+                <input type="text" id="matLocDisplay" class="form-control" readonly placeholder="${pt('whClickMap')}" value="${escapeHtml(presetLocCode)}">
+                <button type="button" class="btn btn-secondary" onclick="openMaterialLocPicker()">&#128506; ${pt('whPickLocation')}</button>
+            </div>
+        </div>
+
+        <!-- Split into multiple locations -->
+        <div id="whSplitLoc" style="${startSplit ? '' : 'display:none;'}">
+            <div id="whPlacementRows"></div>
+            <button type="button" class="btn btn-secondary btn-sm wh-add-pos" onclick="whAddPlacementRow()">+ ${pt('whSplitAddPosition')}</button>
+            <div id="whSplitIndicator" class="wh-split-indicator"></div>
+        </div>
+    `;
+    document.getElementById('modalFooter').innerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
+        <button class="btn btn-primary" id="whSaveBtn" onclick="saveMaterial(${materialId || 'null'})">${pt('save')}</button>
+    `;
+    if (startSplit) whRenderPlacements();
+    openModal();
+}
+
+// Open fullscreen picker for the material modal single-location field
+function openMaterialLocPicker() {
+    openMapPickerFS({
+        title: pt('whPickLocation'),
+        selectedId: whSelectedLocationId,
+        onSelect: (loc) => {
+            whSelectedLocationId = loc.id;
+            const disp = document.getElementById('matLocDisplay');
+            if (disp) disp.value = loc.code;
+            showToast(`${pt('whLocationSelected')}: ${loc.code}`, 'success');
+        }
+    });
+}
+
+// ===== Split (multi-location) handling =====
+function whToggleSplit(checked) {
+    document.getElementById('whSingleLoc').style.display = checked ? 'none' : '';
+    document.getElementById('whSplitLoc').style.display = checked ? '' : 'none';
+    if (checked) {
+        // Seed from single-location selection or start with 2 empty rows
+        if (whPlacements.length === 0) {
+            const total = parseInt(document.getElementById('matQty')?.value, 10) || 0;
+            if (whSelectedLocationId) {
+                const loc = whAllLocations.find(l => l.id === whSelectedLocationId);
+                whPlacements.push({ location_id: whSelectedLocationId, location_code: loc?.code || '', quantity: total });
+            } else {
+                whPlacements.push({ location_id: null, location_code: '', quantity: total });
+            }
+            whPlacements.push({ location_id: null, location_code: '', quantity: 0 });
+        }
+        whRenderPlacements();
+    } else {
+        // Collapse back: keep first placement as single location
+        const first = whPlacements.find(p => p.location_id);
+        if (first) {
+            whSelectedLocationId = first.location_id;
+            const disp = document.getElementById('matLocDisplay');
+            if (disp) disp.value = first.location_code || '';
+        }
+    }
+}
+
+function whRemainingQty(excludeIdx = -1) {
+    const total = parseInt(document.getElementById('matQty')?.value, 10) || 0;
+    const allocated = whPlacements.reduce((s, p, i) => i === excludeIdx ? s : s + (parseInt(p.quantity, 10) || 0), 0);
+    return total - allocated;
+}
+
+function whAddPlacementRow() {
+    // New row auto-prefilled with remaining quantity (zero math for the user)
+    const remaining = Math.max(0, whRemainingQty());
+    whPlacements.push({ location_id: null, location_code: '', quantity: remaining });
+    whRenderPlacements();
+}
+
+function whRemovePlacementRow(idx) {
+    whPlacements.splice(idx, 1);
+    if (whPlacements.length === 0) whPlacements.push({ location_id: null, location_code: '', quantity: 0 });
+    whRenderPlacements();
+}
+
+function whPlacementQtyChange(idx, val) {
+    whPlacements[idx].quantity = Math.max(0, parseInt(val, 10) || 0);
+    whUpdateSplitIndicator();
+}
+
+function whPickPlacementLoc(idx) {
+    const usedIds = whPlacements.filter((p, i) => i !== idx && p.location_id).map(p => p.location_id);
+    openMapPickerFS({
+        title: pt('whPickLocation'),
+        selectedId: whPlacements[idx].location_id,
+        excludeIds: usedIds,
+        onSelect: (loc) => {
+            whPlacements[idx].location_id = loc.id;
+            whPlacements[idx].location_code = loc.code;
+            whRenderPlacements();
+        }
+    });
+}
+
+function whRenderPlacements() {
+    const wrap = document.getElementById('whPlacementRows');
+    if (!wrap) return;
+    wrap.innerHTML = whPlacements.map((p, i) => `
+        <div class="wh-placement-row">
+            <span class="wh-placement-num">${pt('whSplitPosition')} ${i + 1}</span>
+            <input type="text" class="form-control wh-placement-loc" readonly
+                   placeholder="${pt('whClickMap')}" value="${escapeHtml(p.location_code || '')}"
+                   onclick="whPickPlacementLoc(${i})">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="whPickPlacementLoc(${i})">&#128506;</button>
+            <input type="number" class="form-control wh-placement-qty" min="0" value="${p.quantity}"
+                   oninput="whPlacementQtyChange(${i}, this.value)">
+            <button type="button" class="btn-icon wh-placement-del" onclick="whRemovePlacementRow(${i})" title="${pt('delete')}">&#128465;</button>
+        </div>
+    `).join('');
+    whUpdateSplitIndicator();
+}
+
+function whUpdateSplitIndicator() {
+    const ind = document.getElementById('whSplitIndicator');
+    const split = document.getElementById('matSplit')?.checked;
+    const saveBtn = document.getElementById('whSaveBtn');
+    if (!ind || !split) { if (saveBtn) saveBtn.disabled = false; return; }
+
+    const total = parseInt(document.getElementById('matQty')?.value, 10) || 0;
+    const allocated = whPlacements.reduce((s, p) => s + (parseInt(p.quantity, 10) || 0), 0);
+    const unit = document.getElementById('matUnit')?.value || 'ks';
+    const diff = total - allocated;
+
+    let cls, msg;
+    if (diff === 0) {
+        cls = 'ok';
+        msg = `${pt('whSplitAllocated')}: ${allocated} / ${total} ${escapeHtml(unit)} &nbsp; ✓ ${pt('whSplitMatch')}`;
+    } else if (diff > 0) {
+        cls = 'under';
+        msg = `${pt('whSplitAllocated')}: ${allocated} / ${total} ${escapeHtml(unit)} &nbsp; ✗ ${pt('whSplitUnder').replace('{n}', diff)}`;
+    } else {
+        cls = 'over';
+        msg = `${pt('whSplitAllocated')}: ${allocated} / ${total} ${escapeHtml(unit)} &nbsp; ✗ ${pt('whSplitOver').replace('{n}', -diff)}`;
+    }
+    ind.className = 'wh-split-indicator ' + cls;
+    ind.innerHTML = msg;
+    if (saveBtn) saveBtn.disabled = (diff !== 0);
+}
+
+// ===== Reusable fullscreen map picker =====
+async function openMapPickerFS({ title, selectedId = null, onSelect, excludeIds = [] }) {
+    let chosen = null;
+    const overlay = document.createElement('div');
+    overlay.className = 'wh-map-fs';
+    overlay.innerHTML = `
+        <div class="wh-map-fs-panel">
+            <div class="wh-map-fs-header">
+                <h3>${title || pt('whPickLocation')}</h3>
+                <span class="wh-map-fs-hint">${pt('whClickMap')}</span>
+                <button class="modal-close" type="button" aria-label="close">&times;</button>
+            </div>
+            <div class="wh-map-fs-body"><div class="empty-state"><div class="spinner"></div></div></div>
+            <div class="wh-map-fs-footer">
+                <span class="wh-map-fs-selected" id="whFsSelected">—</span>
+                <div>
+                    <button class="btn btn-secondary" type="button" id="whFsCancel">${pt('cancel')}</button>
+                    <button class="btn btn-primary" type="button" id="whFsConfirm">${pt('whConfirmSelection')}</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.remove();
+    overlay.querySelector('.modal-close').addEventListener('click', close);
+    overlay.querySelector('#whFsCancel').addEventListener('click', close);
+    // Drag-safe close: require mousedown AND click both on the overlay backdrop
+    let fsDownOnSelf = false;
+    overlay.addEventListener('mousedown', (e) => { fsDownOnSelf = (e.target === overlay); });
+    overlay.addEventListener('click', (e) => { if (e.target === overlay && fsDownOnSelf) close(); fsDownOnSelf = false; });
+    overlay.querySelector('#whFsConfirm').addEventListener('click', () => {
+        if (!chosen) { showToast(pt('whSelectLocation'), 'error'); return; }
+        onSelect(chosen);
+        close();
+    });
+
+    const body = overlay.querySelector('.wh-map-fs-body');
+    try {
+        const svgText = await fetch('/portal/assets/images/warehouse-map.svg').then(r => r.text());
+        body.innerHTML = svgText;
+        body.querySelectorAll('.pallet-loc').forEach(el => {
+            const zone = el.dataset.zone, num = el.dataset.num;
+            const loc = whAllLocations.find(l => l.zone === zone && l.position == num);
+            if (!loc) return;
+            // Positions already used by other split rows are disabled
+            if (excludeIds.includes(loc.id)) { el.classList.add('wh-loc-disabled'); return; }
+            if (selectedId && loc.id === selectedId) { el.classList.add('selected'); chosen = loc; overlay.querySelector('#whFsSelected').textContent = loc.code; }
+            el.addEventListener('click', () => {
+                body.querySelectorAll('.pallet-loc.selected').forEach(s => s.classList.remove('selected'));
+                el.classList.add('selected');
+                chosen = loc;
+                overlay.querySelector('#whFsSelected').textContent = loc.code;
+            });
+            el.addEventListener('dblclick', () => { chosen = loc; onSelect(loc); close(); });
+        });
+    } catch (e) {
+        body.innerHTML = `<div class="empty-state"><div class="empty-text">${pt('pageLoadError')}</div></div>`;
+    }
+}
+
+async function saveMaterial(materialId) {
+    const code = document.getElementById('matCode')?.value.trim();
+    const name = document.getElementById('matName')?.value.trim();
+    if (!code || !name) { showToast(pt('whRequiredFields'), 'error'); return; }
+    const total = parseInt(document.getElementById('matQty')?.value, 10) || 0;
+    const split = document.getElementById('matSplit')?.checked;
+
+    const body = {
+        code, name,
+        quantity: total,
+        unit: document.getElementById('matUnit')?.value || 'ks'
+    };
+
+    if (split) {
+        const rows = whPlacements.filter(p => p.location_id);
+        if (rows.length < 1) { showToast(pt('whSelectLocation'), 'error'); return; }
+        // Duplicate position guard
+        const ids = rows.map(p => p.location_id);
+        if (new Set(ids).size !== ids.length) { showToast(pt('whSplitDuplicateLoc'), 'error'); return; }
+        // Sum must equal total
+        const sum = rows.reduce((s, p) => s + (parseInt(p.quantity, 10) || 0), 0);
+        if (sum !== total) { showToast(pt('whSplitMismatch'), 'error'); return; }
+        body.placements = rows.map(p => ({ location_id: p.location_id, quantity: p.quantity }));
+    } else {
+        body.location_id = whSelectedLocationId;
+    }
+
+    try {
+        const url = materialId ? `/api/warehouse/materials/${materialId}` : '/api/warehouse/materials';
+        const method = materialId ? 'PUT' : 'POST';
+        const res = await apiCall(url, { method, body: JSON.stringify(body) });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            if (res.status === 409) { showToast(pt('whCodeExists'), 'error'); return; }
+            throw new Error(err.message || err.error || 'Failed');
+        }
+        showToast(materialId ? pt('whMaterialUpdated') : pt('whMaterialCreated'), 'success');
+        const ret = whLocReturnId;
+        whRefreshViews();
+        if (ret) { openLocationModal(ret); }
+        else { closeModal(); await loadMaterialsTable(); }
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+// --- Move / relocate modal ---
+async function openMoveModal(materialId, code) {
+    whSelectedLocationId = null;
+    // Ensure locations loaded (e.g. when opened straight from dashboard)
+    if (!whAllLocations.length) {
+        try { const r = await apiCall('/api/warehouse/locations'); whAllLocations = (await r.json()).data || []; } catch (e) {}
+    }
+    document.getElementById('modalTitle').textContent = `${pt('whMove')}: ${code}`;
+    document.getElementById('modalBody').innerHTML = `
+        <p style="color:#64748b;margin-bottom:1rem;">${pt('whMoveInstructions')}</p>
+        <div class="form-group">
+            <label>${pt('whColLocation')}</label>
+            <div class="wh-loc-picker">
+                <input type="text" id="moveLocDisplay" class="form-control" readonly placeholder="${pt('whClickMap')}">
+                <button type="button" class="btn btn-secondary" onclick="openMoveLocPicker()">&#128506; ${pt('whPickLocation')}</button>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>${pt('whMoveReason')}</label>
+            <input type="text" id="moveReason" class="form-control" placeholder="${pt('whMoveReasonPlaceholder')}">
+        </div>
+        <input type="hidden" id="moveMatId" value="${materialId}">
+    `;
+    document.getElementById('modalFooter').innerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
+        <button class="btn btn-primary" onclick="submitMove()">${pt('whMoveConfirm')}</button>
+    `;
+    openModal();
+}
+
+function openMoveLocPicker() {
+    openMapPickerFS({
+        title: pt('whMove'),
+        selectedId: whSelectedLocationId,
+        onSelect: (loc) => {
+            whSelectedLocationId = loc.id;
+            const disp = document.getElementById('moveLocDisplay');
+            if (disp) disp.value = loc.code;
+        }
+    });
+}
+
+async function submitMove() {
+    const materialId = document.getElementById('moveMatId')?.value;
+    if (!whSelectedLocationId) { showToast(pt('whSelectLocation'), 'error'); return; }
+    const reason = document.getElementById('moveReason')?.value || null;
+    try {
+        const res = await apiCall(`/api/warehouse/materials/${materialId}/move`, {
+            method: 'PATCH', body: JSON.stringify({ to_location_id: whSelectedLocationId, reason })
+        });
+        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+        showToast(pt('whMaterialMoved'), 'success');
+        const ret = whLocReturnId;
+        whRefreshViews();
+        if (ret) { openLocationModal(ret); }
+        else { closeModal(); await loadMaterialsTable(); }
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+// --- Delete ---
+async function deleteMaterial(id, code) {
+    if (!confirm(`${pt('whDeleteConfirm')} "${code}"?`)) return;
+    try {
+        const res = await apiCall(`/api/warehouse/materials/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed');
+        showToast(pt('whMaterialDeleted'), 'success');
+        const ret = whLocReturnId;
+        whRefreshViews();
+        if (ret) { openLocationModal(ret); }
+        else { await loadMaterialsTable(); }
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+// --- Bulk actions ---
+function whToggleRow(id, checked) {
+    if (checked) whSelectedIds.add(id);
+    else whSelectedIds.delete(id);
+    whUpdateBulkBar();
+}
+
+function whToggleSelectAll(checked) {
+    document.querySelectorAll('.wh-row-check').forEach(cb => {
+        cb.checked = checked;
+        const id = parseInt(cb.value, 10);
+        if (checked) whSelectedIds.add(id);
+        else whSelectedIds.delete(id);
+    });
+    whUpdateBulkBar();
+}
+
+function whUpdateBulkBar() {
+    const bar = document.getElementById('whBulkBar');
+    const count = document.getElementById('whBulkCount');
+    if (!bar) return;
+    if (whSelectedIds.size > 0) {
+        bar.style.display = 'flex';
+        if (count) count.textContent = whSelectedIds.size;
+    } else {
+        bar.style.display = 'none';
+    }
+    // Sync select-all checkbox
+    const allCb = document.getElementById('whSelectAll');
+    const rowCbs = document.querySelectorAll('.wh-row-check');
+    if (allCb && rowCbs.length) {
+        allCb.checked = whSelectedIds.size === rowCbs.length;
+        allCb.indeterminate = whSelectedIds.size > 0 && whSelectedIds.size < rowCbs.length;
+    }
+}
+
+async function whBulkMove() {
+    if (!whSelectedIds.size) return;
+    openMapPickerFS({
+        title: `${pt('whBulkMove')} (${whSelectedIds.size})`,
+        onSelect: async (loc) => {
+            const ids = Array.from(whSelectedIds);
+            let ok = 0, fail = 0;
+            for (const id of ids) {
+                try {
+                    const res = await apiCall(`/api/warehouse/materials/${id}/move`, {
+                        method: 'PATCH', body: JSON.stringify({ to_location_id: loc.id })
+                    });
+                    if (res.ok) ok++; else fail++;
+                } catch { fail++; }
+            }
+            showToast(`${pt('whBulkMoveSuccess')}: ${ok}`, ok > 0 ? 'success' : 'error');
+            whSelectedIds.clear();
+            await loadMaterialsTable();
+            whRefreshViews();
+        }
+    });
+}
+
+async function whBulkDelete() {
+    if (!whSelectedIds.size) return;
+    if (!confirm(`${pt('whBulkDeleteConfirm')} ${whSelectedIds.size} ${pt('whBulkSelected').toLowerCase()}?`)) return;
+    const ids = Array.from(whSelectedIds);
+    let ok = 0, fail = 0;
+    for (const id of ids) {
+        try {
+            const res = await apiCall(`/api/warehouse/materials/${id}`, { method: 'DELETE' });
+            if (res.ok) ok++; else fail++;
+        } catch { fail++; }
+    }
+    showToast(`${pt('whBulkDeleteSuccess')}: ${ok}`, ok > 0 ? 'success' : 'error');
+    whSelectedIds.clear();
+    await loadMaterialsTable();
+    whRefreshViews();
+}
+
+function whBulkExportPdf() {
+    if (!whSelectedIds.size) return;
+    const selected = whMaterialsList.filter(m => whSelectedIds.has(m.id));
+    const locale = (typeof portalLang !== 'undefined' && portalLang === 'en') ? 'en-GB' : 'sk-SK';
+    const html = `
+<!DOCTYPE html>
+<html lang="${(typeof portalLang !== 'undefined' && portalLang) || 'sk'}"><head>
+<meta charset="UTF-8">
+<title>${pt('whPdfHeading')} - ${pt('whBulkExportPdf')}</title>
+<style>
+body { font-family: Arial, sans-serif; padding: 20px; }
+h1 { color: #D9000C; margin-bottom: 5px; }
+.subtitle { color: #666; margin-bottom: 20px; }
+table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+th { background: #f5f5f5; font-weight: 600; }
+tr:nth-child(even) { background: #fafafa; }
+.loc { background: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+.footer { margin-top: 30px; font-size: 12px; color: #999; }
+@media print { body { padding: 0; } }
+</style>
+</head><body>
+<h1>${pt('whPdfHeading')}</h1>
+<div class="subtitle">${pt('whPdfSubtitle')} · ${new Date().toLocaleDateString(locale)} · ${selected.length} ${pt('whPdfItems')}</div>
+<table>
+<thead><tr><th>${pt('whColCode')}</th><th>${pt('whColName')}</th><th>${pt('whColQty')}</th><th>${pt('whUnit')}</th><th>${pt('whColLocation')}</th></tr></thead>
+<tbody>
+${selected.map(m => {
+    const pl = Array.isArray(m.placements) ? m.placements : [];
+    const locCell = pl.length
+        ? pl.map(p => `<span class="loc">${escapeHtml(p.location_code)} (${p.quantity})</span>`).join(' ')
+        : (m.location_code ? `<span class="loc">${escapeHtml(m.location_code)}</span>` : '-');
+    return `<tr><td><strong>${escapeHtml(m.code)}</strong></td><td>${escapeHtml(m.name)}</td><td>${m.quantity}</td><td>${escapeHtml(m.unit || 'ks')}</td><td>${locCell}</td></tr>`;
+}).join('')}
+</tbody>
+</table>
+<div class="footer">${pt('whPdfGenerated')}: ${new Date().toLocaleString(locale)}</div>
+</body></html>`;
+    const w = window.open('', '_blank');
+    w.document.write(html);
+    w.document.close();
+    w.onload = () => { w.print(); };
+}
+
+// --- Movements page (unified activity feed: created/updated/deleted/moved) ---
+async function renderWarehouseMovements(container) {
+    container.innerHTML = `
+        <div class="page-header"><div><h1>${pt('whMovementsTitle')}</h1><p>${pt('whMovementsDesc')}</p></div></div>
+        <div class="page-body">
+            <div class="portal-card"><div class="card-body">
+                <div class="wh-filter-bar">
+                    <input type="text" id="whMovSearch" class="form-control" placeholder="${pt('whMovSearchPlaceholder')}" style="flex:2;">
+                    <select id="whMovAction" class="form-control" style="flex:1;" onchange="loadMovements()">
+                        <option value="">${pt('whMovAllActions')}</option>
+                        <option value="created">${pt('whActCreated')}</option>
+                        <option value="updated">${pt('whActUpdated')}</option>
+                        <option value="deleted">${pt('whActDeleted')}</option>
+                        <option value="moved">${pt('whActMoved')}</option>
+                        <option value="restored">${pt('whActRestored')}</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="loadMovements()">${pt('whFilter')}</button>
+                </div>
+            </div></div>
+            <div class="portal-card"><div class="card-body" id="whMovementsTable">
+                <div class="empty-state"><div class="spinner"></div></div>
+            </div></div>
+        </div>`;
+    const searchEl = document.getElementById('whMovSearch');
+    if (searchEl) searchEl.addEventListener('keyup', e => { if (e.key === 'Enter') loadMovements(); });
+    await loadMovements();
+}
+
+async function loadMovements() {
+    const tableEl = document.getElementById('whMovementsTable');
+    if (!tableEl) return;
+    const action = document.getElementById('whMovAction')?.value || '';
+    const search = document.getElementById('whMovSearch')?.value || '';
+    let url = '/api/warehouse/movements?';
+    if (action) url += `action=${encodeURIComponent(action)}&`;
+    if (search) url += `search=${encodeURIComponent(search)}&`;
+    tableEl.innerHTML = `<div class="empty-state"><div class="spinner"></div></div>`;
+    try {
+        const res = await apiCall(url);
+        const feed = (await res.json()).data || [];
+        if (feed.length === 0) {
+            tableEl.innerHTML = `<div class="empty-state"><div class="empty-icon">&#128257;</div><div class="empty-text">${pt('whMovementsEmpty')}</div></div>`;
+            return;
+        }
+        const canEdit = canEditWarehouse();
+        tableEl.innerHTML = `
+            <table class="data-table wh-movements-table">
+                <thead><tr>
+                    <th>${pt('whColDateTime')}</th>
+                    <th>${pt('whColAction')}</th>
+                    <th>${pt('whColMaterial')}</th>
+                    <th>${pt('whColDetails')}</th>
+                    <th>${pt('whColUser')}</th>
+                    ${canEdit ? `<th></th>` : ''}
+                </tr></thead>
+                <tbody>
+                    ${feed.map(l => {
+                        const meta = whActionMeta(l.action);
+                        const code = l.material_code || whDetailCode(l.details) || '-';
+                        const name = l.material_name || whDetailName(l.details) || '';
+                        // Restorable = a soft-deleted material that still exists
+                        const restorable = l.action === 'deleted' && l.material_exists && l.material_deleted_at;
+                        return `
+                        <tr>
+                            <td class="wh-date-cell">${whFormatDate(l.created_at)}</td>
+                            <td><span class="badge badge-${meta.cls}">${meta.icon} ${meta.label}</span></td>
+                            <td><strong>${escapeHtml(code)}</strong>${name ? `<br><small>${escapeHtml(name)}</small>` : ''}</td>
+                            <td class="wh-mov-details">${formatMovementDetails(l.action, l.details)}</td>
+                            <td>${escapeHtml(l.user_name || '-')}</td>
+                            ${canEdit ? `<td>${restorable ? `<button class="btn btn-secondary btn-sm" onclick="restoreMaterial(${l.entity_id}, '${escapeHtml(code)}')">&#8630; ${pt('whRestore')}</button>` : ''}</td>` : ''}
+                        </tr>`;
+                    }).join('')}
+                </tbody>
+            </table>
+        `;
+    } catch (e) {
+        tableEl.innerHTML = `<div class="empty-state"><div class="empty-text">${pt('pageLoadError')}</div></div>`;
+    }
+}
+
+// Action → { label, badge class, icon }
+function whActionMeta(action) {
+    switch (String(action).toLowerCase()) {
+        case 'created':  return { label: pt('whActCreated'),  cls: 'created',  icon: '&#10133;' };
+        case 'updated':  return { label: pt('whActUpdated'),  cls: 'updated',  icon: '&#9998;' };
+        case 'deleted':  return { label: pt('whActDeleted'),  cls: 'deleted',  icon: '&#128465;' };
+        case 'moved':    return { label: pt('whActMoved'),    cls: 'moved',    icon: '&#128257;' };
+        case 'restored': return { label: pt('whActRestored'), cls: 'restored', icon: '&#8630;' };
+        default:         return { label: action, cls: 'user', icon: '&#8226;' };
+    }
+}
+
+async function restoreMaterial(id, code) {
+    try {
+        const res = await apiCall(`/api/warehouse/materials/${id}/restore`, { method: 'POST' });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || result.message || pt('whRestoreFailed'));
+        showToast(`${pt('whRestored')}: ${code}`, 'success');
+        await loadMovements();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+function whParseDetails(details) {
+    if (!details) return {};
+    try { return typeof details === 'string' ? JSON.parse(details) : details; }
+    catch (e) { return {}; }
+}
+function whDetailCode(details) { return whParseDetails(details).code || ''; }
+function whDetailName(details) { return whParseDetails(details).name || ''; }
+
+// Render a placements array [{code, quantity}] as location badges
+function whFmtPlacements(arr) {
+    if (!Array.isArray(arr) || !arr.length) return '';
+    return arr.map(p => `<span class="wh-loc-badge">${escapeHtml(p.code || '?')} <small>(${p.quantity})</small></span>`).join(' ');
+}
+
+// Diff two placement snapshots by location code
+function whPlacementDiff(before, after) {
+    const bMap = new Map((before || []).map(p => [p.code, p.quantity]));
+    const aMap = new Map((after || []).map(p => [p.code, p.quantity]));
+    const added = [], removed = [], changed = [];
+    aMap.forEach((q, code) => {
+        if (!bMap.has(code)) added.push({ code, quantity: q });
+        else if (bMap.get(code) !== q) changed.push({ code, from: bMap.get(code), to: q });
+    });
+    bMap.forEach((q, code) => { if (!aMap.has(code)) removed.push({ code, quantity: q }); });
+    return { added, removed, changed };
+}
+
+// Human-readable, detailed description of one movement/action
+function formatMovementDetails(action, details) {
+    const d = whParseDetails(details);
+    const line = (s) => `<div class="wh-mov-sub">${s}</div>`;
+    try {
+        switch (String(action).toLowerCase()) {
+            case 'created': {
+                const head = [];
+                if (d.quantity != null) head.push(`<strong>${d.quantity}</strong> ks`);
+                let html = head.join(' · ');
+                const pl = whFmtPlacements(d.placements);
+                if (pl) html += line(`${pt('whMovPositions')}: ${pl}`);
+                return html || '-';
+            }
+            case 'deleted': {
+                const head = [];
+                if (d.quantity != null) head.push(`<strong>${d.quantity}</strong> ks`);
+                let html = head.join(' · ');
+                const pl = whFmtPlacements(d.placements);
+                if (pl) html += line(`${pt('whMovFreed')}: ${pl}`);
+                return html || '-';
+            }
+            case 'restored': {
+                const head = [];
+                if (d.quantity != null) head.push(`<strong>${d.quantity}</strong> ks`);
+                let html = head.join(' · ');
+                const pl = whFmtPlacements(d.placements);
+                if (pl) html += line(`${pt('whMovPositions')}: ${pl}`);
+                return html || '-';
+            }
+            case 'moved': {
+                const from = d.from_location_code || '—';
+                const to = d.to_location_code || '—';
+                let html = `<span class="wh-loc-badge">${escapeHtml(from)}</span> &rarr; <span class="wh-loc-badge">${escapeHtml(to)}</span>`;
+                if (d.quantity != null) html += ` · <strong>${d.quantity}</strong> ks`;
+                if (d.reason) html += line(`${pt('whColReason')}: ${escapeHtml(d.reason)}`);
+                return html;
+            }
+            case 'updated': {
+                const rows = [];
+                if (d.quantity_before != null && d.quantity_after != null && d.quantity_before !== d.quantity_after) {
+                    const dir = d.quantity_after > d.quantity_before ? '&#9650;' : '&#9660;';
+                    rows.push(`${pt('whMovQty')}: <strong>${d.quantity_before}</strong> &rarr; <strong>${d.quantity_after}</strong> ks ${dir}`);
+                }
+                if (Array.isArray(d.placements_before) || Array.isArray(d.placements_after)) {
+                    const diff = whPlacementDiff(d.placements_before, d.placements_after);
+                    if (diff.added.length)   rows.push(`${pt('whMovAdded')}: ${whFmtPlacements(diff.added)}`);
+                    if (diff.removed.length) rows.push(`${pt('whMovRemoved')}: ${whFmtPlacements(diff.removed)}`);
+                    if (diff.changed.length) rows.push(`${pt('whMovChanged')}: ` +
+                        diff.changed.map(c => `<span class="wh-loc-badge">${escapeHtml(c.code)}</span> ${c.from}&rarr;${c.to}`).join(', '));
+                    const afterCount = (d.placements_after || []).length;
+                    if (afterCount > 1 && (diff.added.length || diff.removed.length)) {
+                        rows.push(`<em>${pt('whMovSplit')}: ${afterCount}× ${pt('whSplitPosition')}</em>`);
+                    }
+                }
+                if (!rows.length) return `<span style="color:#94a3b8">${pt('whMovNoDetail')}</span>`;
+                return rows.map(line).join('');
+            }
+            default:
+                return '-';
+        }
+    } catch (e) { return '-'; }
+}
+
+// ============================================
+// ADMIN - FLEET MANAGEMENT
+// ============================================
+
+async function renderAdminFleet(container) {
+    const response = await apiCall('/api/fleet');
+    const vehicles = (await response.json()).data || [];
+
+    container.innerHTML = `
+        <div class="page-header">
+            <div><h1>${pt('fleetTitle')}</h1><p>${pt('fleetDesc')}</p></div>
+            <button class="btn btn-primary" onclick="openNewVehicleModal()">+ ${pt('fleetAddNew')}</button>
+        </div>
+        <div class="page-body">
+            ${vehicles.length > 0 ? `
+                <div class="fleet-grid">
+                    ${vehicles.map(v => renderVehicleCard(v)).join('')}
+                </div>
+            ` : `
+                <div class="portal-card">
+                    <div class="card-body">
+                        <div class="empty-state">
+                            <div class="empty-icon">&#128663;</div>
+                            <div class="empty-text">${pt('fleetEmpty')}</div>
+                        </div>
+                    </div>
+                </div>
+            `}
+        </div>
+    `;
+}
+
+function renderVehicleCard(v) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    function getExpiryInfo(dateStr) {
+        if (!dateStr) return { label: pt('fleetNotSet'), cls: 'neutral', days: null };
+        const d = new Date(dateStr);
+        d.setHours(0, 0, 0, 0);
+        const days = Math.ceil((d - today) / (1000 * 60 * 60 * 24));
+        const dateOnly = d.toLocaleDateString(portalLang === 'sk' ? 'sk-SK' : 'en-GB', { day: 'numeric', month: 'numeric', year: 'numeric' });
+        if (days < 0) return { label: dateOnly, cls: 'expired', days };
+        if (days <= 7) return { label: dateOnly, cls: 'critical', days };
+        if (days <= 14) return { label: dateOnly, cls: 'warning', days };
+        if (days <= 30) return { label: dateOnly, cls: 'soon', days };
+        return { label: dateOnly, cls: 'ok', days };
+    }
+
+    const stk = getExpiryInfo(v.stk_valid_until);
+    const ek = getExpiryInfo(v.ek_valid_until);
+    const hw = getExpiryInfo(v.highway_sticker_valid_until);
+
+    const emails = (v.notification_email || '').split(',').map(e => e.trim()).filter(Boolean);
+    const emailDisplay = emails.length > 1 ? `${emails[0]} (+${emails.length - 1})` : (emails[0] || '-');
+
+    const yearMonth = v.year_manufactured
+        ? `${v.year_manufactured}${v.month_manufactured ? ' / ' + v.month_manufactured : ''}`
+        : '';
+
+    const plateSvg = `<svg class="eu-plate-svg" viewBox="0 0 3416.51 761.68" xmlns="http://www.w3.org/2000/svg">
+        <rect width="3416.51" height="761.68" rx="77.7" ry="77.7" fill="#f6f6f6"/>
+        <path d="M3338.47,15.55H78.06c-34.45,0-62.5,28.05-62.5,62.5v605.56c0,34.45,28.05,62.5,62.5,62.5h3260.4c34.45,0,62.5-28.05,62.5-62.5V78.06c0-34.45-28.05-62.5-62.5-62.5ZM3384.75,683.62c0,25.62-20.75,46.29-46.29,46.29H78.06c-25.62,0-46.29-20.67-46.29-46.29V78.06c0-25.62,20.67-46.29,46.29-46.29h3260.4c25.53,0,46.29,20.67,46.29,46.29v605.56Z" fill="#1d1d1b"/>
+        <path d="M362.9,31.77v698.14H78.06c-25.62,0-46.29-20.67-46.29-46.29V78.06c0-25.62,20.67-46.29,46.29-46.29h284.84Z" fill="#003caa"/>
+        <g fill="#fdcb00">
+            <polygon points="197.36 94 200.81 104.47 211.84 104.52 202.95 111.05 206.31 121.55 197.36 115.11 188.41 121.55 191.77 111.05 182.88 104.52 193.9 104.47 197.36 94"/>
+            <polygon points="145.46 108.4 148.91 118.87 159.94 118.92 151.05 125.44 154.41 135.95 145.46 129.51 136.51 135.95 139.87 125.44 130.97 118.92 142 118.87 145.46 108.4"/>
+            <polygon points="106.79 145.23 110.25 155.7 121.28 155.75 112.38 162.28 115.74 172.78 106.79 166.34 97.84 172.78 101.2 162.28 92.31 155.75 103.34 155.7 106.79 145.23"/>
+            <polygon points="91.26 200.1 94.71 210.58 105.74 210.63 96.85 217.15 100.21 227.65 91.26 221.21 82.31 227.65 85.67 217.15 76.77 210.63 87.8 210.58 91.26 200.1"/>
+            <polygon points="108.62 250.86 112.08 261.34 123.11 261.39 114.21 267.91 117.57 278.41 108.62 271.97 99.67 278.41 103.03 267.91 94.14 261.39 105.17 261.34 108.62 250.86"/>
+            <polygon points="143.63 287.7 147.08 298.17 158.11 298.22 149.22 304.74 152.58 315.24 143.63 308.8 134.68 315.24 138.04 304.74 129.14 298.22 140.17 298.17 143.63 287.7"/>
+            <polygon points="197.36 306.2 200.81 316.68 211.84 316.73 202.95 323.25 206.31 333.75 197.36 327.31 188.41 333.75 191.77 323.25 182.88 316.73 193.9 316.68 197.36 306.2"/>
+            <polygon points="251.09 287.7 254.54 298.17 265.57 298.22 256.68 304.74 260.04 315.24 251.09 308.8 242.14 315.24 245.5 304.74 236.61 298.22 247.63 298.17 251.09 287.7"/>
+            <polygon points="286.09 250.86 289.55 261.34 300.57 261.39 291.68 267.91 295.04 278.41 286.09 271.97 277.14 278.41 280.5 267.91 271.61 261.39 282.64 261.34 286.09 250.86"/>
+            <polygon points="303.46 200.1 306.91 210.58 317.94 210.63 309.05 217.15 312.41 227.65 303.46 221.21 294.51 227.65 297.87 217.15 288.98 210.63 300 210.58 303.46 200.1"/>
+            <polygon points="287.92 145.23 291.38 155.7 302.4 155.75 293.51 162.28 296.87 172.78 287.92 166.34 278.97 172.78 282.33 162.28 273.44 155.75 284.47 155.7 287.92 145.23"/>
+            <polygon points="249.26 108.4 252.71 118.87 263.74 118.92 254.85 125.44 258.21 135.95 249.26 129.51 240.31 135.95 243.67 125.44 234.78 118.92 245.8 118.87 249.26 108.4"/>
+        </g>
+        <text x="197" y="580" fill="#fff" font-family="Arial, sans-serif" font-size="220" font-weight="700" text-anchor="middle">SK</text>
+    </svg>`;
+
+    return `
+        <div class="fleet-card ${!v.is_active ? 'inactive' : ''}">
+            <div class="fleet-card-top">
+                <div class="fleet-badges">
+                    <span class="fleet-badge ${v.is_active ? 'active' : 'inactive'}">${v.is_active ? pt('fleetActive') : pt('fleetInactive')}</span>
+                    ${v.brand ? `<span class="fleet-badge brand">${escapeHtml(v.brand)}</span>` : ''}
+                </div>
+                <div class="fleet-card-actions">
+                    <button class="fleet-action-btn edit" onclick="editVehicle(${v.id})" title="${pt('edit')}">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button class="fleet-action-btn toggle" onclick="toggleVehicleActive(${v.id})" title="${v.is_active ? pt('fleetDeactivate') : pt('fleetActivate')}">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                    </button>
+                    <button class="fleet-action-btn delete" onclick="deleteVehicle(${v.id})" title="${pt('delete')}">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <h3 class="fleet-card-title">${escapeHtml(v.name)}</h3>
+
+            <div class="fleet-meta">
+                ${v.brand ? `<span class="fleet-meta-item">&#128663; ${escapeHtml(v.brand)}</span>` : ''}
+                ${v.model ? `<span class="fleet-meta-item">&#128203; ${escapeHtml(v.model)}</span>` : ''}
+                ${yearMonth ? `<span class="fleet-meta-item">&#128197; ${yearMonth}</span>` : ''}
+            </div>
+
+            <div class="eu-plate-wrapper">
+                ${plateSvg}
+                <span class="eu-plate-number">${escapeHtml(v.license_plate)}</span>
+            </div>
+
+            <div class="fleet-expiry-list">
+                <div class="fleet-expiry-row fleet-status-${stk.cls}">
+                    <span class="fleet-expiry-label">STK</span>
+                    <span class="fleet-expiry-value fleet-status-${stk.cls}">${stk.label}</span>
+                </div>
+                <div class="fleet-expiry-row fleet-status-${ek.cls}">
+                    <span class="fleet-expiry-label">EK</span>
+                    <span class="fleet-expiry-value fleet-status-${ek.cls}">${ek.label}</span>
+                </div>
+                <div class="fleet-expiry-row fleet-status-${hw.cls}">
+                    <span class="fleet-expiry-label">${pt('fleetHighwaySticker')}</span>
+                    <span class="fleet-expiry-value fleet-status-${hw.cls}">${hw.label}</span>
+                </div>
+            </div>
+
+            <div class="fleet-card-footer">
+                <div class="fleet-contact">
+                    <div class="fleet-contact-label">${pt('fleetContactPerson')}</div>
+                    <div class="fleet-contact-email">${escapeHtml(emailDisplay)}</div>
+                </div>
+                <div class="fleet-footer-actions">
+                    <button class="fleet-btn primary" onclick="editVehicle(${v.id})">${pt('edit')}</button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function openNewVehicleModal() {
+    document.getElementById('modalTitle').textContent = pt('fleetNewTitle');
+    document.getElementById('modalBody').innerHTML = buildVehicleForm();
+    document.getElementById('modalFooter').innerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
+        <button class="btn btn-primary" onclick="submitNewVehicle()">${pt('save')}</button>
+    `;
+    openModal();
+}
+
+async function editVehicle(id) {
+    const response = await apiCall(`/api/fleet/${id}`);
+    const v = (await response.json()).data;
+    if (!v) { showToast(pt('fleetNotFound'), 'error'); return; }
+
+    document.getElementById('modalTitle').textContent = pt('fleetEditTitle');
+    document.getElementById('modalBody').innerHTML = buildVehicleForm(v);
+    document.getElementById('modalFooter').innerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
+        <button class="btn btn-primary" onclick="submitEditVehicle(${id})">${pt('save')}</button>
+    `;
+    openModal();
+}
+
+function buildVehicleForm(v = {}) {
+    const fmt = (d) => d ? new Date(d).toISOString().split('T')[0] : '';
+    const emails = (v.notification_email || '').split(',').map(e => e.trim()).filter(Boolean);
+    if (emails.length === 0) emails.push('');
+    return `
+        <form id="vehicleForm">
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">${pt('fleetName')} *</label>
+                    <input type="text" class="form-input" name="name" value="${escapeHtml(v.name || '')}" required placeholder="${pt('fleetNamePlaceholder')}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">${pt('fleetLicensePlate')} *</label>
+                    <input type="text" class="form-input" name="license_plate" value="${escapeHtml(v.license_plate || '')}" required placeholder="BA-123AB" style="text-transform: uppercase;">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">${pt('fleetBrand')}</label>
+                    <input type="text" class="form-input" name="brand" value="${escapeHtml(v.brand || '')}" placeholder="Škoda">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">${pt('fleetModel')}</label>
+                    <input type="text" class="form-input" name="model" value="${escapeHtml(v.model || '')}" placeholder="Octavia">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">${pt('fleetYearManufactured')}</label>
+                    <input type="number" class="form-input" name="year_manufactured" value="${v.year_manufactured || ''}" min="1990" max="2030" placeholder="2022">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">${pt('fleetMonthManufactured')}</label>
+                    <input type="number" class="form-input" name="month_manufactured" value="${v.month_manufactured || ''}" min="1" max="12" placeholder="6">
+                </div>
+            </div>
+
+            <div style="margin: 1rem 0 0.5rem; padding-top: 1rem; border-top: 1px solid var(--gray-200, #e5e7eb);">
+                <div style="font-weight: 700; font-size: 0.85rem; color: var(--gray-600); margin-bottom: 0.5rem;">&#128203; ${pt('fleetExpiryDates')}</div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">STK ${pt('fleetValidUntil')}</label>
+                    <input type="date" class="form-input" name="stk_valid_until" value="${fmt(v.stk_valid_until)}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">EK ${pt('fleetValidUntil')}</label>
+                    <input type="date" class="form-input" name="ek_valid_until" value="${fmt(v.ek_valid_until)}">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">${pt('fleetHighwaySticker')} ${pt('fleetValidUntil')}</label>
+                <input type="date" class="form-input" name="highway_sticker_valid_until" value="${fmt(v.highway_sticker_valid_until)}">
+            </div>
+
+            <div style="margin: 1rem 0 0.5rem; padding-top: 1rem; border-top: 1px solid var(--gray-200, #e5e7eb);">
+                <div style="font-weight: 700; font-size: 0.85rem; color: var(--gray-600); margin-bottom: 0.25rem;">&#128231; ${pt('fleetNotificationEmail')} *</div>
+                <div style="font-size: 0.75rem; color: var(--gray-500); margin-bottom: 0.5rem;">${pt('fleetNotificationEmailHint')}</div>
+            </div>
+            <div id="emailList">
+                ${emails.map((email, idx) => `
+                    <div class="email-row" style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <input type="email" class="form-input fleet-email-input" value="${escapeHtml(email)}" placeholder="email@example.com" style="flex: 1;">
+                        <button type="button" class="btn btn-sm btn-danger" onclick="removeFleetEmail(this)" ${emails.length === 1 && idx === 0 ? 'disabled style="opacity:0.4;"' : ''}>&#128465;</button>
+                    </div>
+                `).join('')}
+            </div>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="addFleetEmail()" style="margin-bottom: 1rem;">+ ${pt('fleetAddEmail')}</button>
+
+            <div class="form-group">
+                <label class="form-label">${pt('fleetNotes')}</label>
+                <textarea class="form-input" name="notes" rows="2" placeholder="${pt('fleetNotesPlaceholder')}">${escapeHtml(v.notes || '')}</textarea>
+            </div>
+        </form>
+    `;
+}
+
+function addFleetEmail() {
+    const list = document.getElementById('emailList');
+    const row = document.createElement('div');
+    row.className = 'email-row';
+    row.style.cssText = 'display: flex; gap: 0.5rem; margin-bottom: 0.5rem;';
+    row.innerHTML = `
+        <input type="email" class="form-input fleet-email-input" value="" placeholder="email@example.com" style="flex: 1;">
+        <button type="button" class="btn btn-sm btn-danger" onclick="removeFleetEmail(this)">&#128465;</button>
+    `;
+    list.appendChild(row);
+    updateEmailDeleteButtons();
+}
+
+function removeFleetEmail(btn) {
+    btn.parentElement.remove();
+    updateEmailDeleteButtons();
+}
+
+function updateEmailDeleteButtons() {
+    const rows = document.querySelectorAll('#emailList .email-row');
+    rows.forEach((row, idx) => {
+        const btn = row.querySelector('button');
+        if (rows.length === 1) {
+            btn.disabled = true;
+            btn.style.opacity = '0.4';
+        } else {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+        }
+    });
+}
+
+function getVehicleFormData() {
+    const f = document.getElementById('vehicleForm');
+    const emailInputs = document.querySelectorAll('.fleet-email-input');
+    const emails = Array.from(emailInputs).map(inp => inp.value.trim()).filter(Boolean).join(', ');
+    return {
+        name: f.name.value.trim(),
+        license_plate: f.license_plate.value.trim().toUpperCase(),
+        brand: f.brand.value.trim() || null,
+        model: f.model.value.trim() || null,
+        year_manufactured: f.year_manufactured.value ? parseInt(f.year_manufactured.value) : null,
+        month_manufactured: f.month_manufactured.value ? parseInt(f.month_manufactured.value) : null,
+        stk_valid_until: f.stk_valid_until.value || null,
+        ek_valid_until: f.ek_valid_until.value || null,
+        highway_sticker_valid_until: f.highway_sticker_valid_until.value || null,
+        notification_email: emails,
+        notes: f.notes.value.trim() || null
+    };
+}
+
+async function submitNewVehicle() {
+    const data = getVehicleFormData();
+    if (!data.name || !data.license_plate || !data.notification_email) {
+        showToast(pt('fleetRequiredFields'), 'error'); return;
+    }
+    try {
+        const response = await apiCall('/api/fleet', { method: 'POST', body: JSON.stringify(data) });
+        if (!response.ok) { const err = await response.json(); throw new Error(err.error || pt('saveFailed')); }
+        showToast(pt('fleetCreated'), 'success');
+        closeModal();
+        navigateToPage('admin-fleet');
+    } catch (error) { showToast(error.message, 'error'); }
+}
+
+async function submitEditVehicle(id) {
+    const data = getVehicleFormData();
+    if (!data.name || !data.license_plate || !data.notification_email) {
+        showToast(pt('fleetRequiredFields'), 'error'); return;
+    }
+    try {
+        const response = await apiCall(`/api/fleet/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+        if (!response.ok) { const err = await response.json(); throw new Error(err.error || pt('saveFailed')); }
+        showToast(pt('fleetUpdated'), 'success');
+        closeModal();
+        navigateToPage('admin-fleet');
+    } catch (error) { showToast(error.message, 'error'); }
+}
+
+async function toggleVehicleActive(id) {
+    try {
+        const response = await apiCall(`/api/fleet/${id}/toggle`, { method: 'PATCH' });
+        if (!response.ok) throw new Error(pt('changeFailed'));
+        navigateToPage('admin-fleet');
+    } catch (error) { showToast(error.message, 'error'); }
+}
+
+async function deleteVehicle(id) {
+    if (!confirm(pt('fleetDeleteConfirm'))) return;
+    try {
+        const response = await apiCall(`/api/fleet/${id}`, { method: 'DELETE' });
+        if (!response.ok) { const err = await response.json(); throw new Error(err.error || pt('deleteFailed')); }
+        showToast(pt('fleetDeleted'), 'success');
+        navigateToPage('admin-fleet');
+    } catch (error) { showToast(error.message, 'error'); }
 }
 
 // Toast

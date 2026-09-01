@@ -8,6 +8,9 @@
 </head>
 <body>
     <button class="mobile-toggle" onclick="toggleSidebar()">&#9776;</button>
+    <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebarCollapse()" aria-label="Skryť menu" title="Skryť menu">
+        <span class="toggle-icon">&#10094;</span>
+    </button>
 
     <!-- Language Switcher -->
     <div class="portal-lang-switcher">
@@ -19,47 +22,87 @@
         <!-- SIDEBAR -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <img src="/assets/images/logo.png" alt="ETILOG">
+                <a href="#hub" class="sidebar-link" data-page="hub" style="display: block;">
+                    <img src="/assets/images/logo.png" alt="ETILOG">
+                </a>
             </div>
 
             <nav class="sidebar-nav">
-                <div class="nav-section-title">Hlavné menu</div>
-                <a href="#dashboard" class="sidebar-link active" data-page="dashboard">
-                    <span class="nav-icon">&#128200;</span> Dashboard
-                </a>
-                <a href="#my-quotas" class="sidebar-link" data-page="my-quotas">
-                    <span class="nav-icon">&#128197;</span> Moje kvóty
-                </a>
-                <a href="#my-sick-notes" class="sidebar-link" data-page="my-sick-notes">
-                    <span class="nav-icon">&#128203;</span> Paragrafy & OČR
-                </a>
-                <a href="#my-requests" class="sidebar-link" data-page="my-requests">
-                    <span class="nav-icon">&#128196;</span> Moje žiadosti
-                </a>
-                <a href="#my-approvals" class="sidebar-link" data-page="my-approvals">
-                    <span class="nav-icon">&#9989;</span> Moje schválenia
+                <!-- Back to modules -->
+                <a href="#hub" class="sidebar-link nav-back" data-page="hub">
+                    <span class="nav-icon">&#8592;</span> <span id="navBackLabel">Späť na moduly</span>
                 </a>
 
-                <!-- Admin section (hidden by default) -->
-                <div id="adminNav" style="display: none;">
-                    <div class="nav-section-title">Administrácia</div>
-                    <a href="#admin-dashboard" class="sidebar-link" data-page="admin-dashboard">
-                        <span class="nav-icon">&#9881;</span> Admin Dashboard
+                <!-- ===== HR MODULE ===== -->
+                <div id="hrNav" style="display: none;">
+                    <div class="nav-section-title">Hlavné menu</div>
+                    <a href="#dashboard" class="sidebar-link active" data-page="dashboard">
+                        <span class="nav-icon">&#128200;</span> Dashboard
                     </a>
-                    <a href="#admin-employees" class="sidebar-link" data-page="admin-employees">
-                        <span class="nav-icon">&#128101;</span> Zamestnanci
+                    <a href="#my-quotas" class="sidebar-link" data-page="my-quotas">
+                        <span class="nav-icon">&#128197;</span> Moje kvóty
                     </a>
-                    <a href="#admin-quotas" class="sidebar-link" data-page="admin-quotas">
-                        <span class="nav-icon">&#128202;</span> Kvóty
+                    <a href="#my-sick-notes" class="sidebar-link" data-page="my-sick-notes">
+                        <span class="nav-icon">&#128203;</span> Paragrafy & OČR
                     </a>
-                    <a href="#admin-sick-notes" class="sidebar-link" data-page="admin-sick-notes">
-                        <span class="nav-icon">&#128209;</span> Paragrafy & OČR
+                    <a href="#my-requests" class="sidebar-link" data-page="my-requests">
+                        <span class="nav-icon">&#128196;</span> Moje žiadosti
                     </a>
-                    <a href="#admin-tickets" class="sidebar-link" data-page="admin-tickets">
-                        <span class="nav-icon">&#127915;</span> Všetky tikety
+                    <a href="#my-approvals" class="sidebar-link" data-page="my-approvals">
+                        <span class="nav-icon">&#9989;</span> Moje schválenia
                     </a>
-                    <a href="#admin-ticket-types" class="sidebar-link" data-page="admin-ticket-types">
-                        <span class="nav-icon">&#9881;</span> Typy tiketov
+
+                    <!-- Manager section (visible for spravca and admin) -->
+                    <div id="managerNav" style="display: none;">
+                        <div class="nav-section-title">Administrácia</div>
+                        <a href="#admin-employees" class="sidebar-link" data-page="admin-employees">
+                            <span class="nav-icon">&#128101;</span> Zamestnanci
+                        </a>
+                        <a href="#admin-quotas" class="sidebar-link" data-page="admin-quotas">
+                            <span class="nav-icon">&#128202;</span> Kvóty
+                        </a>
+                        <a href="#admin-sick-notes" class="sidebar-link" data-page="admin-sick-notes">
+                            <span class="nav-icon">&#128209;</span> Paragrafy & OČR
+                        </a>
+                        <a href="#admin-tickets" class="sidebar-link" data-page="admin-tickets">
+                            <span class="nav-icon">&#127915;</span> Všetky tikety
+                        </a>
+                    </div>
+
+                    <!-- Admin-only section (visible only for admin) -->
+                    <div id="adminNav" style="display: none;">
+                        <div class="nav-section-title">Systém</div>
+                        <a href="#admin-dashboard" class="sidebar-link" data-page="admin-dashboard">
+                            <span class="nav-icon">&#9881;</span> Admin Dashboard
+                        </a>
+                        <a href="#admin-ticket-types" class="sidebar-link" data-page="admin-ticket-types">
+                            <span class="nav-icon">&#9881;</span> Typy tiketov
+                        </a>
+                        <a href="#admin-system" class="sidebar-link" data-page="admin-system">
+                            <span class="nav-icon">&#128295;</span> Správa systému
+                        </a>
+                    </div>
+                </div>
+
+                <!-- ===== FLEET MODULE ===== -->
+                <div id="fleetNav" style="display: none;">
+                    <div class="nav-section-title">Vozový park</div>
+                    <a href="#admin-fleet" class="sidebar-link" data-page="admin-fleet">
+                        <span class="nav-icon">&#128663;</span> Vozový park
+                    </a>
+                </div>
+
+                <!-- ===== WAREHOUSE MODULE ===== -->
+                <div id="warehouseNav" style="display: none;">
+                    <div class="nav-section-title">Skladový systém</div>
+                    <a href="#warehouse-dashboard" class="sidebar-link" data-page="warehouse-dashboard">
+                        <span class="nav-icon">&#128506;</span> Dashboard
+                    </a>
+                    <a href="#warehouse-materials" class="sidebar-link" data-page="warehouse-materials">
+                        <span class="nav-icon">&#128230;</span> Evidencia materiálu
+                    </a>
+                    <a href="#warehouse-movements" class="sidebar-link" data-page="warehouse-movements">
+                        <span class="nav-icon">&#128257;</span> Pohyby
                     </a>
                 </div>
             </nav>
@@ -87,7 +130,7 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <!-- MODAL -->
-    <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+    <div class="modal-overlay" id="modalOverlay" onmousedown="overlayMouseDown(event)" onclick="overlayClickClose(event)">
         <div class="modal" id="modal">
             <div class="modal-header">
                 <h3 id="modalTitle">Modal</h3>

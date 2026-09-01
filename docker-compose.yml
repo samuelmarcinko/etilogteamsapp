@@ -3,14 +3,18 @@ version: "3.9"
 services:
   teams-app:
     image: node:20
-    container_name: teams-approval-app
+    container_name: teams-app
     restart: unless-stopped
     working_dir: /app
     command: sh -c "npm install && npm start"
     volumes:
       - .:/app
+      - ./uploads:/app/uploads
+      - ./backups:/app/backups
     environment:
       - NODE_ENV=production
+      - UPLOAD_DIR=/app/uploads
+      - BACKUP_DIR=/app/backups
     env_file:
       - .env
     networks:

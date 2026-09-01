@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Requests - ETILOG Approval System</title>
-    <link rel="stylesheet" href="/assets/css/style.css">
+    <link rel="stylesheet" href="/assets/css/style.css?v=20260413a">
     <script src="https://res.cdn.office.net/teams-js/2.19.0/js/MicrosoftTeams.min.js"></script>
-    <script src="/assets/js/i18n.js"></script>
-    <script src="/assets/js/navigation.js"></script>
+    <script src="/assets/js/i18n.js?v=20260206a"></script>
+    <script src="/assets/js/navigation.js?v=20260206a"></script>
 </head>
 <body data-page="my-requests">
     <div class="container">
@@ -250,7 +250,7 @@
                                     &#128206; ${t('attachments')}
                                 </button>
                             ` : ''}
-                            ${(ticket.status === 'Pending' || ticket.status === 'Approved') ? `
+                            ${canCancelTicket(ticket) ? `
                                 <button class="btn btn-sm" style="background:#ef4444;color:#fff;border:none;font-weight:600;cursor:pointer;padding:6px 12px;border-radius:6px;font-size:0.8rem;" onclick="openCancelModal('${ticket.ticket_id}', '${ticket.title.replace(/'/g, '&#39;')}')">
                                     &#10005; ${t('btnCancelTicket')}
                                 </button>
@@ -405,6 +405,17 @@
             document.addEventListener('keydown', escHandler);
         }
 
+        // A ticket can be cancelled only while Pending/Approved AND before its start date
+        function canCancelTicket(ticket) {
+            if (ticket.status !== 'Pending' && ticket.status !== 'Approved') return false;
+            if (ticket.start_date) {
+                const today = new Date(); today.setHours(0, 0, 0, 0);
+                const start = new Date(ticket.start_date); start.setHours(0, 0, 0, 0);
+                if (today >= start) return false;
+            }
+            return true;
+        }
+
         // Cancel modal functions
         function openCancelModal(ticketId, title) {
             cancelTicketId = ticketId;
@@ -453,6 +464,9 @@
 
                 const result = await response.json();
                 if (!response.ok) {
+                    if (result.message === 'Cannot cancel request after start date') {
+                        throw new Error(t('cancelAfterStart'));
+                    }
                     throw new Error(result.message || t('cancelFailed'));
                 }
 

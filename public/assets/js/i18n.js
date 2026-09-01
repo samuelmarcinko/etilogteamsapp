@@ -26,6 +26,7 @@ const translations = {
     dashNextHoliday: 'Next holiday',
     dashYourTickets: 'Your Tickets',
     dashDays: 'days',
+    dashHours: 'hours',
     dashUsed: 'used',
     dashNoQuota: 'Not set up yet',
     dashNoUpcomingHoliday: 'No upcoming holidays',
@@ -104,6 +105,7 @@ const translations = {
     quotaInfoRemaining: 'remaining',
     quotaInfoOf: 'of',
     quotaInfoDays: 'days',
+    quotaInfoHours: 'hours',
     quotaInfoVacation: 'Vacation balance',
     quotaInfoSick: 'Sick days balance',
     quotaInfoParagraph: 'Paragraph leave balance',
@@ -150,6 +152,7 @@ const translations = {
     cancelReasonRequired: 'Cancellation reason is required',
     cancelSuccess: 'Request cancelled successfully!',
     cancelFailed: 'Failed to cancel request',
+    cancelAfterStart: 'This request can no longer be cancelled – its start date has already begun or passed.',
     cancelReason: 'Cancellation reason',
 
     // Confirm dialogs
@@ -178,13 +181,19 @@ const translations = {
 
     // Team Calendar
     teamCalendarTitle: 'Team Calendar',
-    teamCalendarSubtitle: "See who's off today and upcoming days",
+    teamCalendarSubtitle: "See who's off in selected date range",
     calendarToday: 'Today',
     calendarTomorrow: 'Tomorrow',
     calendarDayAfter: 'Day After Tomorrow',
     calendarNoOneOff: 'No one is off',
     loadingCalendar: 'Loading calendar...',
     labelDate: 'Date',
+    calendarDateFrom: 'From',
+    calendarDateTo: 'To',
+    calendarApplyFilter: 'Apply',
+    calendarQuickToday: 'Today',
+    calendarQuickWeek: 'This week',
+    calendarQuickMonth: 'This month',
 
     // Sick Notes page (Paragraphs & FMC)
     sickNotesTitle: 'Paragraphs & FMC',
@@ -226,11 +235,31 @@ const translations = {
     sickNotesViewDoc: 'View document',
     sickNotesNoFile: 'No document',
     sickNotesDays: 'days',
+    sickNotesHours: 'hours',
     sickNotesDate: 'Date',
     sickNotesClose: 'Close',
 
+    // Half-day vacation
+    halfDayLabel: 'Half-day',
+    halfDayFullDay: 'Full day',
+    halfDayHalfDay: 'Half day (0.5)',
+    halfDayHelperText: 'Select if you want to request only half a day off',
+
+    // Selected days validation
+    selectedDays: 'Selected working days',
+    notEnoughDaysWarning: 'Not enough days! You selected {selected} days, but only {remaining} days remaining.',
+    dateRangeError: 'Start date must be before end date',
+
     // Required field
-    required: '*'
+    required: '*',
+
+    // Out of Office widget
+    dashOutOfOfficeTitle: 'Out of Office Today',
+    dashOooNobody: 'Everyone is in the office today!',
+    dashOooVacation: 'Vacation',
+    dashOooSickLeave: 'Sick Leave',
+    dashOooParagraph: 'Paragraph',
+    dashOooOcr: 'Family Care'
   },
   sk: {
     // Header
@@ -257,6 +286,7 @@ const translations = {
     dashNextHoliday: 'Najbližší sviatok',
     dashYourTickets: 'Vaše tikety',
     dashDays: 'dní',
+    dashHours: 'hodín',
     dashUsed: 'vyčerpané',
     dashNoQuota: 'Zatiaľ nenastavené',
     dashNoUpcomingHoliday: 'Žiadne nadchádzajúce sviatky',
@@ -336,6 +366,7 @@ const translations = {
     quotaInfoRemaining: 'zostáva',
     quotaInfoOf: 'z',
     quotaInfoDays: 'dní',
+    quotaInfoHours: 'hodín',
     quotaInfoVacation: 'Zostatok dovolenky',
     quotaInfoSick: 'Zostatok sick days',
     quotaInfoParagraph: 'Zostatok paragrafov',
@@ -382,6 +413,7 @@ const translations = {
     cancelReasonRequired: 'Dôvod zrušenia je povinný',
     cancelSuccess: 'Žiadosť bola úspešne zrušená!',
     cancelFailed: 'Nepodarilo sa zrušiť žiadosť',
+    cancelAfterStart: 'Žiadosť už nie je možné zrušiť – dátum začiatku už nastal alebo prebehol.',
     cancelReason: 'Dôvod zrušenia',
 
     // Confirm dialogs
@@ -410,13 +442,19 @@ const translations = {
 
     // Team Calendar
     teamCalendarTitle: 'Teamový kalendár',
-    teamCalendarSubtitle: 'Pozrite si kto má voľno dnes a v nasledujúcich dňoch',
+    teamCalendarSubtitle: 'Pozrite si kto má voľno vo vybranom období',
     calendarToday: 'Dnes',
     calendarTomorrow: 'Zajtra',
     calendarDayAfter: 'Pozajtra',
     calendarNoOneOff: 'Nikto nemá voľno',
     loadingCalendar: 'Načítavam kalendár...',
     labelDate: 'Dátum',
+    calendarDateFrom: 'Od',
+    calendarDateTo: 'Do',
+    calendarApplyFilter: 'Zobraziť',
+    calendarQuickToday: 'Dnes',
+    calendarQuickWeek: 'Tento týždeň',
+    calendarQuickMonth: 'Tento mesiac',
 
     // Sick Notes page (Paragrafy & OČR)
     sickNotesTitle: 'Paragrafy & OČR',
@@ -458,11 +496,31 @@ const translations = {
     sickNotesViewDoc: 'Zobraziť doklad',
     sickNotesNoFile: 'Bez dokladu',
     sickNotesDays: 'dní',
+    sickNotesHours: 'hodín',
     sickNotesDate: 'Dátum',
     sickNotesClose: 'Zavrieť',
 
+    // Half-day vacation
+    halfDayLabel: 'Pol dňa',
+    halfDayFullDay: 'Celý deň',
+    halfDayHalfDay: 'Pol dňa (0,5)',
+    halfDayHelperText: 'Vyberte ak chcete požiadať iba o pol dňa voľna',
+
+    // Selected days validation
+    selectedDays: 'Vybrané pracovné dni',
+    notEnoughDaysWarning: 'Nedostatok dní! Vybrali ste {selected} dní, ale zostáva vám len {remaining} dní.',
+    dateRangeError: 'Dátum od musí byť pred dátumom do',
+
     // Required field
-    required: '*'
+    required: '*',
+
+    // Out of Office widget
+    dashOutOfOfficeTitle: 'Dnes mimo kancelárie',
+    dashOooNobody: 'Dnes sú všetci v kancelárii!',
+    dashOooVacation: 'Dovolenka',
+    dashOooSickLeave: 'PN',
+    dashOooParagraph: 'Paragraf',
+    dashOooOcr: 'OČR'
   }
 };
 

@@ -3,32 +3,56 @@
  */
 let msalInstance = null;
 let currentAccount = null;
+let msalInitPromise = null;
 
 /**
- * Initialize MSAL
+ * Initialize MSAL (idempotent — safe to call from both auth.js and portal.js;
+ * the actual init runs once and every caller awaits the same promise).
  */
-async function initializeMsal() {
-    try {
-        await loadAuthConfig();
-        msalInstance = new msal.PublicClientApplication(msalConfig);
-        await msalInstance.initialize();
+function initializeMsal() {
+    if (msalInitPromise) return msalInitPromise;
+    msalInitPromise = (async () => {
+        try {
+            // If an already-authenticated user lands on the login page with a valid
+            // (non-expired) token, skip the login screen and go straight to the portal.
+            const onLoginPage = window.location.pathname === '/login' || window.location.pathname === '/login/';
+            if (onLoginPage) {
+                const stored = localStorage.getItem('etilog_token');
+                if (stored) {
+                    try {
+                        const payload = JSON.parse(atob(stored.split('.')[1]));
+                        if (payload.exp * 1000 > Date.now() + 60 * 1000) {
+                            window.location.href = '/portal/';
+                            return;
+                        }
+                    } catch (e) {
+                        // Invalid token format - fall through to normal login flow
+                    }
+                }
+            }
 
-        // Handle redirect response (from login page redirect flow)
-        const response = await msalInstance.handleRedirectPromise();
-        if (response) {
-            currentAccount = response.account;
-            handleLoginSuccess(response);
-            return;
-        }
+            await loadAuthConfig();
+            msalInstance = new msal.PublicClientApplication(msalConfig);
+            await msalInstance.initialize();
 
-        // Check for existing session - just set currentAccount for token renewal
-        const accounts = msalInstance.getAllAccounts();
-        if (accounts.length > 0) {
-            currentAccount = accounts[0];
+            // Handle redirect response (returning from the Microsoft sign-in redirect)
+            const response = await msalInstance.handleRedirectPromise();
+            if (response) {
+                currentAccount = response.account;
+                handleLoginSuccess(response);
+                return;
+            }
+
+            // Check for existing session - just set currentAccount for token renewal
+            const accounts = msalInstance.getAllAccounts();
+            if (accounts.length > 0) {
+                currentAccount = accounts[0];
+            }
+        } catch (error) {
+            console.error('MSAL initialization error:', error);
         }
-    } catch (error) {
-        console.error('MSAL initialization error:', error);
-    }
+    })();
+    return msalInitPromise;
 }
 
 /**
@@ -49,9 +73,11 @@ async function signIn() {
             await initializeMsal();
         }
 
-        const response = await msalInstance.loginPopup(loginRequest);
-        currentAccount = response.account;
-        handleLoginSuccess(response);
+        // Redirect flow (not popup): reliable on tablets/mobile and avoids the
+        // "block_nested_popups" error that popup + full-SPA redirectUri caused.
+        // The browser leaves this page and returns to redirectUri, where
+        // handleRedirectPromise() (in initializeMsal) completes the sign-in.
+        await msalInstance.loginRedirect(loginRequest);
     } catch (error) {
         console.error('Login error:', error);
         loginContent.style.display = 'block';
@@ -108,17 +134,35 @@ async function getAccessToken() {
     // First try stored token
     const stored = localStorage.getItem('etilog_token');
     if (stored) {
-        // Check if token is expired
+        // Check if token is expired (with 60 second buffer to prevent edge-case expiration during request)
         try {
             const payload = JSON.parse(atob(stored.split('.')[1]));
-            if (payload.exp * 1000 > Date.now()) {
+            const bufferMs = 60 * 1000; // 60 second buffer
+            if (payload.exp * 1000 > Date.now() + bufferMs) {
                 return stored;
             }
-            // Token expired, remove it
+            // Token expired or about to expire, remove it and get fresh token
             localStorage.removeItem('etilog_token');
         } catch (e) {
             // Invalid token format
             localStorage.removeItem('etilog_token');
+        }
+    }
+
+    // Try to reinitialize MSAL if needed
+    if (!msalInstance) {
+        try {
+            await initializeMsal();
+        } catch (e) {
+            console.error('Failed to reinitialize MSAL:', e);
+        }
+    }
+
+    // If still no msalInstance or account, try to get account from MSAL
+    if (msalInstance && !currentAccount) {
+        const accounts = msalInstance.getAllAccounts();
+        if (accounts.length > 0) {
+            currentAccount = accounts[0];
         }
     }
 

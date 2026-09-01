@@ -84,8 +84,8 @@ class SickNoteController {
         });
       }
 
-      // Users can only see their own, admins can see all
-      if (note.user_id !== req.user.id && req.userRole !== 'admin') {
+      // Users can only see their own, admins and spravca can see all
+      if (note.user_id !== req.user.id && req.userRole !== 'admin' && req.userRole !== 'spravca') {
         return res.status(403).json({
           error: 'Forbidden',
           message: 'Access denied'
@@ -235,7 +235,8 @@ class SickNoteController {
         });
       }
 
-      if (note.user_id !== req.user.id && req.userRole !== 'admin') {
+      // Users can only download their own, admins and spravca can download all
+      if (note.user_id !== req.user.id && req.userRole !== 'admin' && req.userRole !== 'spravca') {
         return res.status(403).json({
           error: 'Forbidden',
           message: 'Access denied'

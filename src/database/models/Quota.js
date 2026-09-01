@@ -58,15 +58,39 @@ class Quota {
 
   /**
    * Get all quotas for a year (admin view)
+   * Shows ALL users, including those without quota records yet
    */
   static async findAllByYear(year) {
-    const result = await pool.query(
-      `SELECT eq.*, u.display_name, u.email
-       FROM employee_quotas eq
-       LEFT JOIN users u ON eq.user_id = u.user_id
-       WHERE eq.year = $1
-       ORDER BY u.display_name`,
+    // Get defaults from quota_settings
+    const defaults = await pool.query(
+      'SELECT * FROM quota_settings WHERE year = $1',
       [year]
+    );
+    const defVacation = defaults.rows[0]?.default_vacation_days || 20;
+    const defSick = defaults.rows[0]?.default_sick_days || 5;
+    const defParagraph = defaults.rows[0]?.default_paragraph_days || 7;
+    const defOcr = defaults.rows[0]?.default_ocr_days || 7;
+
+    const result = await pool.query(
+      `SELECT
+         u.user_id,
+         u.display_name,
+         u.email,
+         COALESCE(eq.year, $1) as year,
+         COALESCE(eq.vacation_days_total, $2) as vacation_days_total,
+         COALESCE(eq.vacation_days_used, 0) as vacation_days_used,
+         COALESCE(eq.sick_days_total, $3) as sick_days_total,
+         COALESCE(eq.sick_days_used, 0) as sick_days_used,
+         COALESCE(eq.paragraph_days_total, $4) as paragraph_days_total,
+         COALESCE(eq.paragraph_days_used, 0) as paragraph_days_used,
+         COALESCE(eq.ocr_days_total, $5) as ocr_days_total,
+         COALESCE(eq.ocr_days_used, 0) as ocr_days_used,
+         CASE WHEN eq.user_id IS NULL THEN true ELSE false END as needs_initialization
+       FROM users u
+       LEFT JOIN employee_quotas eq ON u.user_id = eq.user_id AND eq.year = $1
+       WHERE COALESCE(u.hidden, false) = false
+       ORDER BY u.display_name`,
+      [year, defVacation, defSick, defParagraph, defOcr]
     );
     return result.rows;
   }
@@ -84,6 +108,39 @@ class Quota {
        WHERE user_id = $3 AND year = $4
        RETURNING *`,
       [vacationTotal, sickTotal, userId, year, paragraphTotal || null, ocrTotal || null]
+    );
+    return result.rows[0];
+  }
+
+  /**
+   * Update quota totals AND used values (admin) - for manual adjustments
+   */
+  static async updateQuotaFull(userId, year, data) {
+    const result = await pool.query(
+      `UPDATE employee_quotas
+       SET vacation_days_total = COALESCE($1, vacation_days_total),
+           vacation_days_used = COALESCE($2, vacation_days_used),
+           paragraph_days_total = COALESCE($3, paragraph_days_total),
+           paragraph_days_used = COALESCE($4, paragraph_days_used),
+           ocr_days_total = COALESCE($5, ocr_days_total),
+           ocr_days_used = COALESCE($6, ocr_days_used),
+           sick_days_total = COALESCE($7, sick_days_total),
+           sick_days_used = COALESCE($8, sick_days_used),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE user_id = $9 AND year = $10
+       RETURNING *`,
+      [
+        data.vacation_days_total,
+        data.vacation_days_used,
+        data.paragraph_days_total,
+        data.paragraph_days_used,
+        data.ocr_days_total,
+        data.ocr_days_used,
+        data.sick_days_total,
+        data.sick_days_used,
+        userId,
+        year
+      ]
     );
     return result.rows[0];
   }

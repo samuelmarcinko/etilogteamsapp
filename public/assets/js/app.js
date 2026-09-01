@@ -10,6 +10,7 @@ function toggleDateFields() {
     const dateRangeContainer = document.getElementById('dateRangeContainer');
     const startDateInput = document.getElementById('startDate');
     const endDateInput = document.getElementById('endDate');
+    const halfDayContainer = document.getElementById('halfDayContainer');
 
     // Check if selected type requires dates (from API data)
     const typeInfo = ticketTypesData.find(t => t.key === ticketType);
@@ -25,10 +26,166 @@ function toggleDateFields() {
         endDateInput.required = false;
         startDateInput.value = '';
         endDateInput.value = '';
+        // Hide half-day toggle when dates are not needed
+        if (halfDayContainer) {
+            halfDayContainer.style.display = 'none';
+            setHalfDay(false);
+        }
     }
 
     // Show quota info for vacation / sick-leave
     updateQuotaInfoBanner(ticketType);
+    // Check half-day toggle visibility
+    checkHalfDayToggle();
+}
+
+// Track selected working days for validation
+let selectedWorkingDays = 0;
+let hasEnoughDays = true;
+
+// Check if half-day toggle should be shown (when start date = end date)
+function checkHalfDayToggle() {
+    const startDate = document.getElementById('startDate')?.value;
+    const endDate = document.getElementById('endDate')?.value;
+    const halfDayContainer = document.getElementById('halfDayContainer');
+    const ticketType = document.getElementById('ticketType')?.value;
+
+    if (!halfDayContainer) return;
+
+    // Check if type supports half-day (only vacation)
+    const halfDayTypes = ['vacation'];
+    const supportsHalfDay = halfDayTypes.includes(ticketType);
+
+    // Show toggle only if both dates are the same and type supports half-day
+    if (startDate && endDate && startDate === endDate && supportsHalfDay) {
+        halfDayContainer.style.display = 'block';
+    } else {
+        halfDayContainer.style.display = 'none';
+        // Reset to full day when hiding
+        setHalfDay(false);
+    }
+
+    // Update selected days info
+    updateSelectedDaysInfo();
+}
+
+// Calculate and display selected working days
+async function updateSelectedDaysInfo() {
+    const startDate = document.getElementById('startDate')?.value;
+    const endDate = document.getElementById('endDate')?.value;
+    const ticketType = document.getElementById('ticketType')?.value;
+    const banner = document.getElementById('quotaInfoBanner');
+    const submitBtn = document.getElementById('submitBtn');
+    const isHalfDay = document.getElementById('isHalfDay')?.value === 'true';
+    const warningContainer = document.getElementById('quotaWarningContainer');
+    const selectedDaysInline = document.getElementById('selectedDaysInline');
+    const selectedDaysValue = document.getElementById('selectedDaysValue');
+
+    // Only for quota types with dates - case-insensitive check
+    const quotaTypes = ['vacation', 'sick-leave', 'paragraph', 'ocr'];
+    const ticketTypeLower = (ticketType || '').toLowerCase();
+    if (!banner || !quotaTypes.includes(ticketTypeLower) || !startDate || !endDate) {
+        selectedWorkingDays = 0;
+        hasEnoughDays = true;
+        if (selectedDaysInline) selectedDaysInline.style.display = 'none';
+        if (warningContainer) warningContainer.innerHTML = '';
+        if (submitBtn) submitBtn.disabled = false;
+        return;
+    }
+
+    // Validate date range
+    if (new Date(startDate) > new Date(endDate)) {
+        if (warningContainer) {
+            warningContainer.innerHTML = `
+                <div class="quota-warning-bar quota-warning-error">
+                    <strong>&#9888;</strong> ${t('dateRangeError')}
+                </div>
+            `;
+        }
+        hasEnoughDays = false;
+        if (submitBtn) submitBtn.disabled = true;
+        return;
+    }
+
+    // Fetch working days from API
+    try {
+        const res = await fetch(`/api/teams/dashboard/working-days?startDate=${startDate}&endDate=${endDate}`);
+        if (res.ok) {
+            const result = await res.json();
+            selectedWorkingDays = result.data?.workingDays || 0;
+
+            // If half-day is selected and single day, use 0.5
+            if (isHalfDay && startDate === endDate) {
+                selectedWorkingDays = 0.5;
+            }
+
+            // Get remaining days from cached quota
+            let remainingDays = 0;
+            if (userQuotaData) {
+                const quotaMap = {
+                    'vacation': 'vacation_days_remaining',
+                    'sick-leave': 'sick_days_remaining',
+                    'paragraph': 'paragraph_days_remaining',
+                    'ocr': 'ocr_days_remaining'
+                };
+                remainingDays = userQuotaData[quotaMap[ticketTypeLower]] || 0;
+            }
+
+            hasEnoughDays = selectedWorkingDays <= remainingDays;
+
+            // Update inline selected days display
+            if (selectedDaysInline && selectedDaysValue) {
+                selectedDaysInline.style.display = 'inline-flex';
+                selectedDaysValue.textContent = `${selectedWorkingDays} ${t('quotaInfoDays')}`;
+                selectedDaysValue.style.color = hasEnoughDays ? '#0d6efd' : '#dc3545';
+            }
+
+            // Show/hide warning
+            if (warningContainer) {
+                if (!hasEnoughDays) {
+                    const warningMsg = t('notEnoughDaysWarning')
+                        .replace('{selected}', selectedWorkingDays)
+                        .replace('{remaining}', remainingDays);
+                    warningContainer.innerHTML = `
+                        <div class="quota-warning-bar">
+                            <strong>&#9888;</strong> ${warningMsg}
+                        </div>
+                    `;
+                } else {
+                    warningContainer.innerHTML = '';
+                }
+            }
+
+            // Enable/disable submit button
+            if (submitBtn) submitBtn.disabled = !hasEnoughDays;
+        }
+    } catch (e) {
+        console.warn('Could not calculate working days:', e);
+    }
+}
+
+// Set half-day value
+function setHalfDay(isHalfDay) {
+    const halfDayInput = document.getElementById('isHalfDay');
+    const fullDayBtn = document.getElementById('fullDayBtn');
+    const halfDayBtn = document.getElementById('halfDayBtn');
+
+    if (halfDayInput) {
+        halfDayInput.value = isHalfDay ? 'true' : 'false';
+    }
+
+    if (fullDayBtn && halfDayBtn) {
+        if (isHalfDay) {
+            fullDayBtn.classList.remove('active');
+            halfDayBtn.classList.add('active');
+        } else {
+            fullDayBtn.classList.add('active');
+            halfDayBtn.classList.remove('active');
+        }
+    }
+
+    // Recalculate selected days when half-day changes
+    updateSelectedDaysInfo();
 }
 
 // Load and display quota info banner
@@ -78,16 +235,41 @@ async function updateQuotaInfoBanner(ticketType) {
 
     banner.style.display = 'block';
     banner.className = `quota-info-banner ${colorClass}`;
-    banner.innerHTML = `
-        <div class="quota-info-main">
-            <span class="quota-info-label">${label}</span>
-            <span class="quota-info-value">${remaining} ${t('quotaInfoDays')} ${t('quotaInfoRemaining')}</span>
-        </div>
-        <div class="quota-info-bar-track">
-            <div class="quota-info-bar-fill" style="width:${total > 0 ? ((total - remaining) / total * 100) : 0}%"></div>
-        </div>
-        <span class="quota-info-detail">${used} ${t('quotaInfoOf')} ${total} ${t('quotaInfoDays')}</span>
-    `;
+
+    // Vacation: show remaining balance with placeholder for selected days
+    if (ticketType === 'vacation') {
+        banner.innerHTML = `
+            <div class="quota-info-main">
+                <span class="quota-info-inline">
+                    <span class="quota-info-label">${label}:</span>
+                    <span class="quota-info-value">${remaining} ${t('quotaInfoDays')}</span>
+                </span>
+                <span class="quota-info-inline quota-info-selected-inline" id="selectedDaysInline" style="display:none;">
+                    <span class="quota-info-label">${t('selectedDays')}:</span>
+                    <span class="quota-info-value" id="selectedDaysValue">0 ${t('quotaInfoDays')}</span>
+                </span>
+            </div>
+            <div id="quotaWarningContainer"></div>
+        `;
+        // Update selected days info if dates are already set (delay to ensure DOM is ready)
+        setTimeout(() => updateSelectedDaysInfo(), 0);
+    } else {
+        // Paragraph, OCR, Sick-leave: show progress bar and used/total (with 2 decimal places)
+        // Use hours for paragraph and ocr, days for sick-leave
+        const unitLabel = (ticketType === 'paragraph' || ticketType === 'ocr') ? t('quotaInfoHours') : t('quotaInfoDays');
+        banner.innerHTML = `
+            <div class="quota-info-main">
+                <span class="quota-info-label">${label}</span>
+                <span class="quota-info-value">${Number(remaining).toFixed(2)} ${unitLabel} ${t('quotaInfoRemaining')}</span>
+            </div>
+            <div class="quota-info-bar-track">
+                <div class="quota-info-bar-fill" style="width:${total > 0 ? ((total - remaining) / total * 100) : 0}%"></div>
+            </div>
+            <span class="quota-info-detail">${Number(used).toFixed(2)} ${t('quotaInfoOf')} ${total} ${unitLabel}</span>
+        `;
+        // Update selected days info if dates are already set
+        updateSelectedDaysInfo();
+    }
 }
 
 // Load ticket types from API
@@ -225,6 +407,12 @@ async function loadApprovers() {
 document.getElementById('approvalForm').addEventListener('submit', async (e) => {
     e.preventDefault();
 
+    // Check if user has enough days for quota types
+    if (!hasEnoughDays) {
+        showToast(t('notEnoughDaysWarning').replace('{selected}', selectedWorkingDays).replace('{remaining}', '0'), 'error');
+        return;
+    }
+
     const submitBtn = document.getElementById('submitBtn');
     const btnText = document.getElementById('btnText');
     const btnLoader = document.getElementById('btnLoader');
@@ -250,6 +438,7 @@ document.getElementById('approvalForm').addEventListener('submit', async (e) => 
         ticketData.append('assigned_approver_email', approverData.email);
         ticketData.append('start_date', formData.get('startDate') || '');
         ticketData.append('end_date', formData.get('endDate') || '');
+        ticketData.append('is_half_day', formData.get('isHalfDay') || 'false');
 
         const attachments = formData.getAll('attachments');
         attachments.forEach(file => {

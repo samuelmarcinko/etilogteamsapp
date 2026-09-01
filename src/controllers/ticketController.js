@@ -1,6 +1,7 @@
 const TicketService = require('../services/ticketService');
 const NotificationService = require('../services/notificationService');
 const TicketAttachment = require('../database/models/TicketAttachment');
+const logger = require('../utils/logger');
 const fs = require('fs');
 const path = require('path');
 
@@ -11,7 +12,7 @@ class TicketController {
    */
   static async createTicket(req, res, next) {
     try {
-      const { title, description, ticket_type, priority, conversationId, start_date, end_date } = req.body;
+      const { title, description, ticket_type, priority, conversationId, start_date, end_date, is_half_day } = req.body;
 
       // Validate input
       if (!title || !description) {
@@ -49,7 +50,8 @@ class TicketController {
         assignedApprover,
         conversationId,
         startDate: start_date || null,
-        endDate: end_date || null
+        endDate: end_date || null,
+        isHalfDay: is_half_day === 'true' || is_half_day === true
       };
 
       // Create ticket
@@ -62,7 +64,7 @@ class TicketController {
       // Send notification to approver (don't wait for it)
       if (ticket.assigned_approver_id) {
         NotificationService.notifyApproverNewTicket(ticket).catch(err => {
-          console.error('Failed to send notification to approver:', err);
+          logger.error('Failed to send notification to approver', { error: err.message });
         });
       }
 
@@ -149,7 +151,7 @@ class TicketController {
 
       // Send notification to creator (don't wait for it)
       NotificationService.notifyCreatorApproved(ticket, approver.name).catch(err => {
-        console.error('Failed to send notification to creator:', err);
+        logger.error('Failed to send approval notification to creator', { error: err.message });
       });
 
       res.json({
@@ -198,7 +200,7 @@ class TicketController {
 
       // Send notification to creator (don't wait for it)
       NotificationService.notifyCreatorRejected(ticket, rejector.name, rejectionReason || 'No reason provided').catch(err => {
-        console.error('Failed to send notification to creator:', err);
+        logger.error('Failed to send rejection notification to creator', { error: err.message });
       });
 
       res.json({
@@ -255,7 +257,7 @@ class TicketController {
       // If ticket was approved (quota was deducted), notify the approver via bot
       if (result.wasApproved && result.ticket.assigned_approver_id) {
         NotificationService.notifyApproverCancelled(result.ticket, canceller.name, cancellationReason.trim()).catch(err => {
-          console.error('Failed to send cancellation notification to approver:', err);
+          logger.error('Failed to send cancellation notification to approver', { error: err.message });
         });
       }
 
@@ -269,7 +271,8 @@ class TicketController {
         return res.status(404).json({ error: 'Not Found', message: error.message });
       }
       if (error.message === 'Only pending or approved tickets can be cancelled' ||
-          error.message === 'Only the ticket creator can cancel this request') {
+          error.message === 'Only the ticket creator can cancel this request' ||
+          error.message === 'Cannot cancel request after start date') {
         return res.status(400).json({ error: 'Bad Request', message: error.message });
       }
       next(error);

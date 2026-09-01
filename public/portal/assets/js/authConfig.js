@@ -10,8 +10,12 @@ const msalConfig = {
         postLogoutRedirectUri: window.location.origin + '/login'
     },
     cache: {
+        // localStorage keeps the MSAL session across tabs and browser restarts,
+        // so users stay signed in (silent token renewal) instead of re-logging in.
         cacheLocation: 'localStorage',
-        storeAuthStateInCookie: false
+        // Persist auth state in a cookie too — makes the redirect sign-in flow
+        // reliable across the navigation away/back (esp. on tablets/mobile).
+        storeAuthStateInCookie: true
     }
 };
 

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warehouse Map Preview</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: Inter, system-ui, sans-serif;
+            background: #f1f5f9;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 1rem;
+            color: #1e293b;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .map-container {
+            width: 100%;
+            overflow: auto;
+        }
+        .map-container svg {
+            width: 100%;
+            height: auto;
+            min-width: 1000px;
+        }
+        .info {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #f8fafc;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+        #clicked-info {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #dbeafe;
+            border-radius: 8px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>ETILOG Sklad - Preview mapy</h1>
+    <div class="container">
+        <div class="map-container" id="map"></div>
+        <div id="clicked-info"></div>
+        <div class="info">
+            <strong>Interaktívne:</strong> Prejdite myšou nad paletové miesto pre hover efekt. Kliknite pre zobrazenie ID.
+        </div>
+    </div>
+
+    <script>
+        // Load SVG inline for interactivity
+        fetch('/portal/assets/images/warehouse-map.svg')
+            .then(r => r.text())
+            .then(svg => {
+                document.getElementById('map').innerHTML = svg;
+                // Add click handlers
+                document.querySelectorAll('.pallet-loc').forEach(loc => {
+                    loc.addEventListener('click', () => {
+                        const info = document.getElementById('clicked-info');
+                        const zone = loc.dataset.zone;
+                        const num = loc.dataset.num;
+                        info.style.display = 'block';
+                        info.innerHTML = `<strong>Vybrané paletové miesto:</strong> ${zone}${num} <span style="color:#64748b">(id: ${loc.id})</span>`;
+                    });
+                });
+            });
+    </script>
+</body>
+</html>

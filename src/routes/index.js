@@ -8,6 +8,8 @@ const sickNoteRoutes = require('./sickNoteRoutes');
 const teamsSickNoteRoutes = require('./teamsSickNoteRoutes');
 const ticketTypeRoutes = require('./ticketTypeRoutes');
 const teamsDashboardRoutes = require('./teamsDashboardRoutes');
+const fleetRoutes = require('./fleetRoutes');
+const warehouseRoutes = require('./warehouseRoutes');
 
 // Health check endpoint
 router.get('/health', (req, res) => {
@@ -27,5 +29,7 @@ router.use('/sick-notes', sickNoteRoutes);
 router.use('/teams/sick-notes', teamsSickNoteRoutes);
 router.use('/ticket-types', ticketTypeRoutes);
 router.use('/teams/dashboard', teamsDashboardRoutes);
+router.use('/fleet', fleetRoutes);
+router.use('/warehouse', warehouseRoutes);
 
 module.exports = router;

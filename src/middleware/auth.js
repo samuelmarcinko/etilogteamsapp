@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const jwksClient = require('jwks-rsa');
+const logger = require('../utils/logger');
 require('dotenv').config();
 
 // JWKS client for validating Azure AD tokens
@@ -54,7 +55,7 @@ async function verifyToken(req, res, next) {
       },
       (err, decoded) => {
         if (err) {
-          console.error('Token verification failed:', err.message);
+          logger.warn('Token verification failed', { error: err.message });
           return res.status(401).json({
             error: 'Unauthorized',
             message: 'Invalid token: ' + err.message
@@ -74,7 +75,7 @@ async function verifyToken(req, res, next) {
       }
     );
   } catch (error) {
-    console.error('Auth middleware error:', error);
+    logger.error('Auth middleware error', { error: error.message });
     return res.status(500).json({
       error: 'Internal Server Error',
       message: 'Authentication failed'

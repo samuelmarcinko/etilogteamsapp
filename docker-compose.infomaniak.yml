@@ -1,0 +1,108 @@
+# ============================================
+# ETILOG Teams Approval App - Infomaniak VPS Deployment
+# ============================================
+# Compatible with Traefik v3 reverse proxy
+#
+# Deploy location: /srv/stacks/apps/teams-app/
+# Usage: docker compose -f docker-compose.infomaniak.yml up -d
+
+version: "3.9"
+
+services:
+  # ==========================================
+  # Teams Approval App (Node.js)
+  # ==========================================
+  teams-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: etilog/teams-approval-app:latest
+    container_name: teams-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=teams-app-db
+      - DB_PORT=5432
+      - UPLOAD_DIR=/app/uploads
+      - BACKUP_DIR=/app/backups
+    volumes:
+      # Host mount for persistent file storage - accessible directly on VPS
+      - /srv/stacks/apps/teams-app/uploads:/app/uploads
+      - /srv/stacks/apps/teams-app/backups:/app/backups
+    depends_on:
+      teams-app-db:
+        condition: service_healthy
+    networks:
+      - proxy
+      - teams-app-internal
+    labels:
+      # ========== Traefik v3 Configuration ==========
+      - "traefik.enable=true"
+
+      # HTTP Router (redirect to HTTPS)
+      - "traefik.http.routers.teams-app-http.rule=Host(`portal.etilog.com`)"
+      - "traefik.http.routers.teams-app-http.entrypoints=web"
+      - "traefik.http.routers.teams-app-http.middlewares=https-redirect@docker"
+
+      # HTTPS Router
+      - "traefik.http.routers.teams-app.rule=Host(`portal.etilog.com`)"
+      - "traefik.http.routers.teams-app.entrypoints=websecure"
+      - "traefik.http.routers.teams-app.tls=true"
+      - "traefik.http.routers.teams-app.tls.certresolver=le"
+
+      # Service configuration
+      - "traefik.http.services.teams-app.loadbalancer.server.port=3978"
+
+      # Network configuration
+      - "traefik.docker.network=proxy"
+
+      # HTTPS redirect middleware
+      - "traefik.http.middlewares.https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.https-redirect.redirectscheme.permanent=true"
+
+  # ==========================================
+  # PostgreSQL Database
+  # ==========================================
+  teams-app-db:
+    image: postgres:15-alpine
+    container_name: teams-app-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-teams_approval}
+      POSTGRES_USER: ${DB_USER:-approval_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - teams-app-db-data:/var/lib/postgresql/data
+    networks:
+      - teams-app-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-approval_user} -d ${DB_NAME:-teams_approval}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    labels:
+      - "traefik.enable=false"
+
+# ==========================================
+# Volumes
+# ==========================================
+volumes:
+  teams-app-db-data:
+    name: teams-app-db-data
+  # Note: uploads are stored directly on host at /srv/stacks/apps/teams-app/uploads
+
+# ==========================================
+# Networks
+# ==========================================
+networks:
+  # External proxy network for Traefik
+  proxy:
+    external: true
+
+  # Internal network for app <-> database communication
+  teams-app-internal:
+    name: teams-app-internal
+    driver: bridge

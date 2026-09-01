@@ -4,6 +4,7 @@ let currentUser = null;
 let allTickets = [];
 let dashboardData = null;
 let ticketTypeMap = new Map();
+let outOfOfficeData = [];
 
 async function loadTicketTypes() {
     try {
@@ -34,10 +35,11 @@ async function loadTicketTypes() {
 
 // Load all dashboard data
 async function loadDashboardData() {
-    // Load overview (quotas + holidays) and tickets separately
-    // so one failure doesn't block the other
+    // Load overview (quotas + holidays), out of office, and tickets in parallel
+    // so one failure doesn't block the others
     await Promise.all([
         loadOverviewData(),
+        loadOutOfOfficeData(),
         loadTicketsData()
     ]);
 }
@@ -71,6 +73,150 @@ async function loadOverviewData() {
         document.getElementById('ocrRemaining').textContent = '-';
         document.getElementById('nextHolidayName').textContent = '-';
     }
+}
+
+// Load out of office data
+async function loadOutOfOfficeData() {
+    const loading = document.getElementById('oooLoading');
+    const content = document.getElementById('oooContent');
+    const emptyState = document.getElementById('oooEmpty');
+    const list = document.getElementById('oooList');
+
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const response = await fetch(`/api/teams/dashboard/out-of-office?date=${today}`);
+
+        if (!response.ok) {
+            throw new Error('API error ' + response.status);
+        }
+
+        const result = await response.json();
+        outOfOfficeData = result.data?.employees || [];
+
+        // Hide loading, show content
+        loading.style.display = 'none';
+        content.style.display = 'block';
+
+        if (outOfOfficeData.length === 0) {
+            emptyState.style.display = 'block';
+            list.style.display = 'none';
+        } else {
+            emptyState.style.display = 'none';
+            list.style.display = 'flex';
+            renderOutOfOffice(outOfOfficeData);
+        }
+    } catch (error) {
+        console.error('Error loading out of office data:', error);
+        loading.style.display = 'none';
+        content.style.display = 'block';
+        emptyState.style.display = 'block';
+        list.style.display = 'none';
+    }
+}
+
+// Render out of office employees
+function renderOutOfOffice(employees) {
+    const list = document.getElementById('oooList');
+    const lang = getCurrentLang();
+
+    list.innerHTML = employees.map(emp => {
+        // Get the primary absence type (first one, or most important)
+        const primaryAbsence = emp.absences[0];
+        const initials = getInitials(emp.name);
+        const typeLabel = translateOooType(primaryAbsence.type);
+        const typeIcon = getOooTypeIcon(primaryAbsence.type);
+        const dateRange = formatOooDateRange(primaryAbsence.startDate, primaryAbsence.endDate);
+
+        return `
+            <div class="ooo-person">
+                <div class="ooo-avatar ${primaryAbsence.type}">${initials}</div>
+                <div class="ooo-info">
+                    <div class="ooo-name">${emp.name}</div>
+                    <div class="ooo-details">
+                        <span class="ooo-type-badge ${primaryAbsence.type}">${typeIcon} ${typeLabel}</span>
+                        <span class="ooo-date-range">${dateRange}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Get initials from name
+function getInitials(name) {
+    if (!name) return '?';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+}
+
+// Get icon for absence type
+function getOooTypeIcon(type) {
+    const icons = {
+        'vacation': '&#127796;',
+        'sick-leave': '&#129298;',
+        'paragraph': '&#167;',
+        'ocr': '&#128106;'
+    };
+    return icons[type] || '&#128197;';
+}
+
+// Translate absence type
+function translateOooType(type) {
+    const key = type?.toLowerCase();
+    const fromApi = ticketTypeMap.get(key);
+    if (fromApi) {
+        const lang = getCurrentLang();
+        return lang === 'sk' ? (fromApi.label_sk || fromApi.key) : (fromApi.label_en || fromApi.key);
+    }
+    const typeMap = {
+        'vacation': 'typeVacation',
+        'sick-leave': 'typeSickLeave',
+        'paragraph': 'typeParagraph',
+        'ocr': 'typeOcr'
+    };
+    return t(typeMap[key] || key);
+}
+
+// Format date range for OOO
+function formatOooDateRange(startDate, endDate) {
+    if (!startDate || !endDate) return '';
+    const lang = getCurrentLang();
+    const locale = lang === 'sk' ? 'sk-SK' : 'en-US';
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+
+    const currentYear = today.getFullYear();
+    const startYear = start.getFullYear();
+    const endYear = end.getFullYear();
+
+    // Include year if different from current year
+    const startOptions = { day: 'numeric', month: 'short' };
+    const endOptions = { day: 'numeric', month: 'short' };
+
+    if (startYear !== currentYear) {
+        startOptions.year = 'numeric';
+    }
+    if (endYear !== currentYear) {
+        endOptions.year = 'numeric';
+    }
+
+    const startStr = start.toLocaleDateString(locale, startOptions);
+    const endStr = end.toLocaleDateString(locale, endOptions);
+
+    // If same day, show single date with year
+    if (start.getTime() === end.getTime()) {
+        // Always include year for single day
+        return start.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    return `${startStr} → ${endStr}`;
 }
 
 // Load tickets separately
@@ -119,23 +265,14 @@ function renderOverviewCards(data) {
     const quota = data.quota;
     const holidays = data.nextHolidays || [];
 
-    // Vacation card
+    // Vacation card - only show remaining balance, no progress bar
     const vacCard = document.getElementById('vacationCard');
     vacCard.classList.remove('loading');
     if (quota) {
         const vacRemaining = quota.vacation_days_remaining;
-        const vacTotal = quota.vacation_days_total;
-        const vacUsedPct = Math.round((quota.vacation_days_used / vacTotal) * 100);
-        const barClass = vacUsedPct > 90 ? 'bar-red' : vacUsedPct > 70 ? 'bar-amber' : 'bar-green';
-
         document.getElementById('vacationRemaining').textContent = `${vacRemaining} ${t('dashDays')}`;
-        document.getElementById('vacationDetail').textContent = `${quota.vacation_days_used} / ${vacTotal} ${t('dashUsed')}`;
-        const vacBar = document.getElementById('vacationBar');
-        vacBar.className = `overview-bar-fill ${barClass}`;
-        vacBar.style.width = `${Math.min(vacUsedPct, 100)}%`;
     } else {
         document.getElementById('vacationRemaining').textContent = '-';
-        document.getElementById('vacationDetail').textContent = t('dashNoQuota');
     }
 
     // Paragraph card
@@ -147,8 +284,8 @@ function renderOverviewCards(data) {
         const parUsedPct = parTotal > 0 ? Math.round((quota.paragraph_days_used / parTotal) * 100) : 0;
         const parBarClass = parUsedPct > 90 ? 'bar-red' : parUsedPct > 70 ? 'bar-amber' : 'bar-green';
 
-        document.getElementById('paragraphRemaining').textContent = `${parRemaining} ${t('dashDays')}`;
-        document.getElementById('paragraphDetail').textContent = `${quota.paragraph_days_used} / ${parTotal} ${t('dashUsed')}`;
+        document.getElementById('paragraphRemaining').textContent = `${parRemaining.toFixed(2)} ${t('dashHours')}`;
+        document.getElementById('paragraphDetail').textContent = `${Number(quota.paragraph_days_used).toFixed(2)} / ${parTotal} ${t('dashUsed')}`;
         const parBar = document.getElementById('paragraphBar');
         parBar.className = `overview-bar-fill ${parBarClass}`;
         parBar.style.width = `${Math.min(parUsedPct, 100)}%`;
@@ -166,8 +303,8 @@ function renderOverviewCards(data) {
         const ocrUsedPct = ocrTotal > 0 ? Math.round((quota.ocr_days_used / ocrTotal) * 100) : 0;
         const ocrBarClass = ocrUsedPct > 90 ? 'bar-red' : ocrUsedPct > 70 ? 'bar-amber' : 'bar-green';
 
-        document.getElementById('ocrRemaining').textContent = `${ocrRemaining} ${t('dashDays')}`;
-        document.getElementById('ocrDetail').textContent = `${quota.ocr_days_used} / ${ocrTotal} ${t('dashUsed')}`;
+        document.getElementById('ocrRemaining').textContent = `${ocrRemaining.toFixed(2)} ${t('dashHours')}`;
+        document.getElementById('ocrDetail').textContent = `${Number(quota.ocr_days_used).toFixed(2)} / ${ocrTotal} ${t('dashUsed')}`;
         const ocrBar = document.getElementById('ocrBar');
         ocrBar.className = `overview-bar-fill ${ocrBarClass}`;
         ocrBar.style.width = `${Math.min(ocrUsedPct, 100)}%`;
@@ -324,28 +461,30 @@ const publicHolidays = {
     SK: [
         { date: '01-01', sk: 'Deň vzniku Slovenskej republiky', en: 'Day of the Establishment of the Slovak Republic' },
         { date: '01-06', sk: 'Zjavenie Pána (Traja králi)', en: 'Epiphany' },
-        { date: '03-28', sk: 'Veľký piatok', en: 'Good Friday' },
-        { date: '03-31', sk: 'Veľkonočný pondelok', en: 'Easter Monday' },
+        { date: '04-03', sk: 'Veľký piatok', en: 'Good Friday' },
+        { date: '04-06', sk: 'Veľkonočný pondelok', en: 'Easter Monday' },
         { date: '05-01', sk: 'Sviatok práce', en: 'Labour Day' },
-        { date: '05-08', sk: 'Deň víťazstva nad fašizmom', en: 'Victory over Fascism Day' },
-        { date: '07-05', sk: 'Sviatok svätého Cyrila a Metoda', en: 'Saints Cyril and Methodius Day' },
+        { date: '07-05', sk: 'Sviatok svätých Cyrila a Metoda', en: 'Saints Cyril and Methodius Day' },
         { date: '08-29', sk: 'Výročie SNP', en: 'Slovak National Uprising Anniversary' },
-        { date: '09-01', sk: 'Deň Ústavy Slovenskej republiky', en: 'Constitution Day' },
-        { date: '09-15', sk: 'Sedembolestná Panna Mária', en: 'Our Lady of Sorrows' },
         { date: '11-01', sk: 'Sviatok všetkých svätých', en: 'All Saints\' Day' },
-        { date: '11-17', sk: 'Deň boja za slobodu a demokraciu', en: 'Struggle for Freedom and Democracy Day' },
         { date: '12-24', sk: 'Štedrý deň', en: 'Christmas Eve' },
         { date: '12-25', sk: 'Prvý sviatok vianočný', en: 'Christmas Day' },
         { date: '12-26', sk: 'Druhý sviatok vianočný', en: 'St. Stephen\'s Day' }
     ],
     DE: [
-        { date: '01-01', sk: 'Nový rok', en: 'New Year\'s Day' },
-        { date: '03-28', sk: 'Veľký piatok', en: 'Good Friday' },
-        { date: '03-31', sk: 'Veľkonočný pondelok', en: 'Easter Monday' },
-        { date: '05-01', sk: 'Sviatok práce', en: 'Labour Day' },
-        { date: '05-29', sk: 'Nanebovstúpenie Pána', en: 'Ascension Day' },
-        { date: '06-09', sk: 'Svätodušný pondelok', en: 'Whit Monday' },
-        { date: '10-03', sk: 'Deň nemeckého zjednotenia', en: 'German Unity Day' },
+        { date: '01-01', sk: 'Nový Rok', en: 'New Year\'s Day' },
+        { date: '01-06', sk: 'Traja Králi', en: 'Epiphany' },
+        { date: '03-08', sk: 'Medzinárodný deň žien', en: 'International Women\'s Day' },
+        { date: '04-03', sk: 'Veľký piatok', en: 'Good Friday' },
+        { date: '04-06', sk: 'Veľkonočný pondelok', en: 'Easter Monday' },
+        { date: '05-01', sk: 'Prvý máj', en: 'Labour Day' },
+        { date: '05-14', sk: 'Nanebovzatie Ježiša Krista', en: 'Ascension Day' },
+        { date: '05-25', sk: 'Svätodušný pondelok', en: 'Whit Monday' },
+        { date: '06-04', sk: 'Božie telo', en: 'Corpus Christi' },
+        { date: '08-15', sk: 'Nanebovzatie Panny Márie', en: 'Assumption of Mary' },
+        { date: '10-03', sk: 'Deň zjednotenia Nemecka', en: 'German Unity Day' },
+        { date: '10-31', sk: 'Deň reformácie', en: 'Reformation Day' },
+        { date: '11-01', sk: 'Sviatok všetkých svätých', en: 'All Saints\' Day' },
         { date: '12-25', sk: 'Prvý sviatok vianočný', en: 'Christmas Day' },
         { date: '12-26', sk: 'Druhý sviatok vianočný', en: 'St. Stephen\'s Day' }
     ]
@@ -405,6 +544,9 @@ window.switchLanguage = function(lang) {
     originalSwitchLanguage(lang);
     if (dashboardData) {
         renderOverviewCards(dashboardData);
+    }
+    if (outOfOfficeData.length > 0) {
+        renderOutOfOffice(outOfOfficeData);
     }
     renderRequests(allTickets.slice(0, 10));
 };

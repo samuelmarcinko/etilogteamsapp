@@ -2,6 +2,10 @@ const Ticket = require('../database/models/Ticket');
 const CardService = require('./cardService');
 const Quota = require('../database/models/Quota');
 const Holiday = require('../database/models/Holiday');
+const logger = require('../utils/logger');
+
+// Hours per working day for paragraph and OČR quotas
+const HOURS_PER_DAY = 8;
 
 class TicketService {
   /**
@@ -20,13 +24,26 @@ class TicketService {
 
       // Quota check for types that require dates and have quotas
       const quotaTypes = ['vacation', 'sick-leave', 'paragraph', 'ocr'];
+      // Types that use hours instead of days
+      const hourBasedTypes = ['paragraph', 'ocr'];
       if (quotaTypes.includes(ticketData.ticketType) &&
           ticketData.startDate && ticketData.endDate) {
         try {
           const year = new Date(ticketData.startDate).getFullYear();
-          const workingDays = await Holiday.countWorkingDays(ticketData.startDate, ticketData.endDate);
+          let workingDays = await Holiday.countWorkingDays(ticketData.startDate, ticketData.endDate);
+          // If half-day is requested and it's a single day, use 0.5 instead of 1
+          if (ticketData.isHalfDay && ticketData.startDate === ticketData.endDate) {
+            workingDays = 0.5;
+          }
+
+          // Convert days to hours for paragraph and OČR
+          let quotaAmount = workingDays;
+          if (hourBasedTypes.includes(ticketData.ticketType)) {
+            quotaAmount = workingDays * HOURS_PER_DAY;
+          }
+
           const hasEnough = await Quota.hasEnoughDays(
-            ticketData.createdBy.id, year, ticketData.ticketType, workingDays
+            ticketData.createdBy.id, year, ticketData.ticketType, quotaAmount
           );
 
           if (!hasEnough) {
@@ -46,16 +63,24 @@ class TicketService {
             const label = typeLabels[ticketData.ticketType] || ticketData.ticketType;
             const col = colPrefixes[ticketData.ticketType] || 'sick';
             const remaining = quota[`${col}_days_total`] - parseFloat(quota[`${col}_days_used`]);
-            throw new Error(
-              `Nedostatok dni ${label}. Pozadovane: ${workingDays} pracovnych dni, zostatok: ${remaining} dni.`
-            );
+
+            // Use appropriate unit in error message
+            if (hourBasedTypes.includes(ticketData.ticketType)) {
+              throw new Error(
+                `Nedostatok hodin ${label}. Pozadovane: ${quotaAmount} hodin, zostatok: ${remaining} hodin.`
+              );
+            } else {
+              throw new Error(
+                `Nedostatok dni ${label}. Pozadovane: ${quotaAmount} pracovnych dni, zostatok: ${remaining} dni.`
+              );
+            }
           }
         } catch (quotaError) {
           // Re-throw quota errors, but don't block on DB errors
           if (quotaError.message.includes('Nedostatok')) {
             throw quotaError;
           }
-          console.warn('Quota check failed, allowing ticket creation:', quotaError.message);
+          logger.warn('Quota check failed, allowing ticket creation', { error: quotaError.message });
         }
       }
 
@@ -81,14 +106,14 @@ class TicketService {
             );
           }
         } catch (cardError) {
-          console.error('Error sending approval card:', cardError);
+          logger.error('Error sending approval card', { error: cardError.message });
           // Continue even if card sending fails
         }
       }
 
       return ticket;
     } catch (error) {
-      console.error('Error creating ticket:', error);
+      logger.error('Error creating ticket', { error: error.message });
       throw error;
     }
   }
@@ -104,7 +129,7 @@ class TicketService {
       }
       return ticket;
     } catch (error) {
-      console.error('Error getting ticket:', error);
+      logger.error('Error getting ticket', { error: error.message });
       throw error;
     }
   }
@@ -116,7 +141,7 @@ class TicketService {
     try {
       return await Ticket.findAll(filters);
     } catch (error) {
-      console.error('Error getting tickets:', error);
+      logger.error('Error getting tickets', { error: error.message });
       throw error;
     }
   }
@@ -138,24 +163,39 @@ class TicketService {
       // Update ticket status
       const updatedTicket = await Ticket.updateStatus(ticketId, 'Approved', approver);
 
-      // Deduct quota days for types with quotas (vacation, sick-leave, paragraph, ocr)
+      // Deduct quota for types with quotas (vacation, sick-leave, paragraph, ocr)
       const quotaTypes = ['vacation', 'sick-leave', 'paragraph', 'ocr'];
+      // Types that use hours instead of days
+      const hourBasedTypes = ['paragraph', 'ocr'];
       if (quotaTypes.includes(ticket.ticket_type) &&
           ticket.start_date && ticket.end_date) {
         try {
           const year = new Date(ticket.start_date).getFullYear();
-          const workingDays = await Holiday.countWorkingDays(ticket.start_date, ticket.end_date);
+          let workingDays = await Holiday.countWorkingDays(ticket.start_date, ticket.end_date);
+          // If half-day is requested and it's a single day, use 0.5 instead of 1
+          const startStr = new Date(ticket.start_date).toISOString().split('T')[0];
+          const endStr = new Date(ticket.end_date).toISOString().split('T')[0];
+          if (ticket.is_half_day && startStr === endStr) {
+            workingDays = 0.5;
+          }
+
+          // Convert days to hours for paragraph and OČR
+          let quotaAmount = workingDays;
+          if (hourBasedTypes.includes(ticket.ticket_type)) {
+            quotaAmount = workingDays * HOURS_PER_DAY;
+          }
+
           await Quota.getOrCreate(ticket.created_by_id, year);
-          await Quota.addUsedDays(ticket.created_by_id, year, ticket.ticket_type, workingDays);
-          console.log(`Deducted ${workingDays} ${ticket.ticket_type} days for user ${ticket.created_by_id}`);
+          await Quota.addUsedDays(ticket.created_by_id, year, ticket.ticket_type, quotaAmount);
+          logger.debug('Quota deducted', { amount: quotaAmount, unit: hourBasedTypes.includes(ticket.ticket_type) ? 'hours' : 'days', type: ticket.ticket_type, userId: ticket.created_by_id, isHalfDay: ticket.is_half_day });
         } catch (quotaError) {
-          console.error('Failed to deduct quota days:', quotaError);
+          logger.error('Failed to deduct quota', { error: quotaError.message });
         }
       }
 
       return updatedTicket;
     } catch (error) {
-      console.error('Error approving ticket:', error);
+      logger.error('Error approving ticket', { error: error.message });
       throw error;
     }
   }
@@ -184,7 +224,7 @@ class TicketService {
 
       return updatedTicket;
     } catch (error) {
-      console.error('Error rejecting ticket:', error);
+      logger.error('Error rejecting ticket', { error: error.message });
       throw error;
     }
   }
@@ -209,6 +249,17 @@ class TicketService {
         throw new Error('Only the ticket creator can cancel this request');
       }
 
+      // Block self-cancellation once the request period has started
+      if (ticket.start_date) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const startDate = new Date(ticket.start_date);
+        startDate.setHours(0, 0, 0, 0);
+        if (today >= startDate) {
+          throw new Error('Cannot cancel request after start date');
+        }
+      }
+
       const wasApproved = ticket.status === 'Approved';
 
       // Update ticket status to Cancelled
@@ -219,23 +270,38 @@ class TicketService {
         cancellationReason
       );
 
-      // If ticket was approved and has quota types, return the days
+      // If ticket was approved and has quota types, return the quota
       const quotaTypes = ['vacation', 'sick-leave', 'paragraph', 'ocr'];
+      // Types that use hours instead of days
+      const hourBasedTypes = ['paragraph', 'ocr'];
       if (wasApproved && quotaTypes.includes(ticket.ticket_type) &&
           ticket.start_date && ticket.end_date) {
         try {
           const year = new Date(ticket.start_date).getFullYear();
-          const workingDays = await Holiday.countWorkingDays(ticket.start_date, ticket.end_date);
-          await Quota.removeUsedDays(ticket.created_by_id, year, ticket.ticket_type, workingDays);
-          console.log(`Returned ${workingDays} ${ticket.ticket_type} days to user ${ticket.created_by_id}`);
+          let workingDays = await Holiday.countWorkingDays(ticket.start_date, ticket.end_date);
+          // If half-day was requested and it's a single day, return 0.5 instead of 1
+          const startStr = new Date(ticket.start_date).toISOString().split('T')[0];
+          const endStr = new Date(ticket.end_date).toISOString().split('T')[0];
+          if (ticket.is_half_day && startStr === endStr) {
+            workingDays = 0.5;
+          }
+
+          // Convert days to hours for paragraph and OČR
+          let quotaAmount = workingDays;
+          if (hourBasedTypes.includes(ticket.ticket_type)) {
+            quotaAmount = workingDays * HOURS_PER_DAY;
+          }
+
+          await Quota.removeUsedDays(ticket.created_by_id, year, ticket.ticket_type, quotaAmount);
+          logger.debug('Quota returned', { amount: quotaAmount, unit: hourBasedTypes.includes(ticket.ticket_type) ? 'hours' : 'days', type: ticket.ticket_type, userId: ticket.created_by_id, isHalfDay: ticket.is_half_day });
         } catch (quotaError) {
-          console.error('Failed to return quota days:', quotaError);
+          logger.error('Failed to return quota', { error: quotaError.message });
         }
       }
 
       return { ticket: updatedTicket, wasApproved };
     } catch (error) {
-      console.error('Error cancelling ticket:', error);
+      logger.error('Error cancelling ticket', { error: error.message });
       throw error;
     }
   }
@@ -248,7 +314,7 @@ class TicketService {
       const actions = await Ticket.getActions(ticketId);
       return actions;
     } catch (error) {
-      console.error('Error getting audit log:', error);
+      logger.error('Error getting audit log', { error: error.message });
       throw error;
     }
   }
@@ -260,7 +326,7 @@ class TicketService {
     try {
       return await Ticket.findApprovalsByUserId(userId);
     } catch (error) {
-      console.error('Error getting approvals by user:', error);
+      logger.error('Error getting approvals by user', { error: error.message });
       throw error;
     }
   }

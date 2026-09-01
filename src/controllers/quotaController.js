@@ -2,6 +2,7 @@ const Quota = require('../database/models/Quota');
 const Holiday = require('../database/models/Holiday');
 const GraphService = require('../services/graphService');
 const pool = require('../database/config');
+const logger = require('../utils/logger');
 
 class QuotaController {
   /**
@@ -93,23 +94,57 @@ class QuotaController {
   /**
    * Update user quota (admin)
    * PUT /api/quotas/user/:userId
+   * Supports both totals and used values for manual adjustments
    */
   static async updateUserQuota(req, res, next) {
     try {
       const { userId } = req.params;
-      const { vacation_days_total, sick_days_total, paragraph_days_total, ocr_days_total } = req.body;
+      const {
+        vacation_days_total, vacation_days_used, vacation_days_remaining,
+        sick_days_total, sick_days_used,
+        paragraph_days_total, paragraph_days_used,
+        ocr_days_total, ocr_days_used
+      } = req.body;
       const year = parseInt(req.body.year) || new Date().getFullYear();
 
       // Ensure quota exists first
       await Quota.getOrCreate(userId, year);
 
-      const updated = await Quota.updateTotals(
-        userId, year,
-        vacation_days_total,
-        sick_days_total,
-        paragraph_days_total,
-        ocr_days_total
-      );
+      // For vacation: if only remaining is provided, set total = remaining, used = 0
+      let vacTotal = vacation_days_total;
+      let vacUsed = vacation_days_used;
+      if (vacation_days_remaining !== undefined && vacation_days_total === undefined) {
+        vacTotal = vacation_days_remaining;
+        vacUsed = 0;
+      }
+
+      // Use the new full update method if used values are provided
+      const hasUsedValues = vacUsed !== undefined ||
+                            paragraph_days_used !== undefined ||
+                            ocr_days_used !== undefined ||
+                            sick_days_used !== undefined;
+
+      let updated;
+      if (hasUsedValues) {
+        updated = await Quota.updateQuotaFull(userId, year, {
+          vacation_days_total: vacTotal,
+          vacation_days_used: vacUsed,
+          paragraph_days_total,
+          paragraph_days_used,
+          ocr_days_total,
+          ocr_days_used,
+          sick_days_total,
+          sick_days_used
+        });
+      } else {
+        updated = await Quota.updateTotals(
+          userId, year,
+          vacTotal,
+          sick_days_total,
+          paragraph_days_total,
+          ocr_days_total
+        );
+      }
 
       res.json({
         success: true,
@@ -193,7 +228,7 @@ class QuotaController {
           syncedCount++;
         }
       } catch (e) {
-        console.error('Failed to sync Graph users:', e.message);
+        logger.warn('Failed to sync Graph users', { error: e.message });
       }
 
       // Step 2: Initialize quotas for all users in DB
