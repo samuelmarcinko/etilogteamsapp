@@ -266,7 +266,7 @@ class NotificationService {
       // Create conversation with approver
       const serviceUrl = 'https://smba.trafficmanager.net/emea/';
       const conversationParams = {
-        bot: { id: process.env.MICROSOFT_APP_ID, name: 'ETILOG Approval Bot' },
+        bot: { id: process.env.MICROSOFT_APP_ID, name: 'ETILOG Portal' },
         isGroup: false,
         members: [{ id: ticket.assigned_approver_id }],
         tenantId: process.env.TENANT_ID,
@@ -286,8 +286,11 @@ class NotificationService {
         `${serviceUrl}v3/conversations/${conversationId}/activities`,
         {
           type: 'message',
-          from: { id: process.env.MICROSOFT_APP_ID, name: 'ETILOG Approval Bot' },
+          from: { id: process.env.MICROSOFT_APP_ID, name: 'ETILOG Portal' },
           conversation: { id: conversationId },
+          // Teams shows this in the toast. Without it the notification says
+          // only that a card was sent, which is true and useless.
+          summary: `Approvals — ${ticket.title}`,
           attachments: [{ contentType: 'application/vnd.microsoft.card.adaptive', content: card }]
         },
         { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } }

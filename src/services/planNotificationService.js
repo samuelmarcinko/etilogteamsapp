@@ -260,13 +260,20 @@ class PlanNotificationService {
         planUrl: `${base}/production/view#location=${encodeURIComponent(location.code)}`
       });
 
+      // What the phone shows before anybody opens anything: where it is from,
+      // and how much of it there is.
+      const { added, changed, removed } = summary.counts;
+      const toast = `Production plan · ${location.code} — `
+        + [added && `${added} added`, changed && `${changed} changed`, removed && `${removed} removed`]
+          .filter(Boolean).join(', ');
+
       const token = await botToken();
       let sent = 0;
       const failed = [];
 
       for (const recipient of recipients) {
         try {
-          await PlanNotificationService.sendCard(token, recipient.user_id, card);
+          await PlanNotificationService.sendCard(token, recipient.user_id, card, toast);
           sent += 1;
         } catch (error) {
           // Almost always "the app was never installed for this person". Worth
@@ -294,8 +301,14 @@ class PlanNotificationService {
     }
   }
 
-  /** Open a one-to-one chat with somebody and put the card in it. */
-  static async sendCard(token, teamsUserId, card) {
+  /**
+   * Open a one-to-one chat with somebody and put the card in it.
+   *
+   * `summary` is what Teams shows in the toast and the activity feed. Without
+   * it the notification reads "Karta sa odoslala" - Teams' own fallback for an
+   * attachment with no text - which tells nobody what arrived or from where.
+   */
+  static async sendCard(token, teamsUserId, card, summary) {
     const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
     const conversation = await http.post(
@@ -318,6 +331,7 @@ class PlanNotificationService {
         type: 'message',
         from: { id: process.env.MICROSOFT_APP_ID, name: BOT_NAME },
         conversation: { id: conversationId },
+        summary: summary || 'Production plan updated',
         attachments: [{
           contentType: 'application/vnd.microsoft.card.adaptive',
           content: card

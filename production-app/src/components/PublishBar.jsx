@@ -47,33 +47,38 @@ export default function PublishBar({ pending, onPublish, publishing, lastPublish
 
   return (
     <>
-      {/* One quiet line, the same height whether there is one change or forty.
-          It used to be a full amber panel that reappeared after every edit and
-          pushed the calendar down the page - which, during an afternoon of
-          moving cards around, is a nag rather than information. Publishing is
-          something you do when you are finished, so the count sits here and
-          waits instead of asking. */}
-      <div className="no-print flex flex-wrap items-center gap-x-2 gap-y-1 px-1 text-[12px] text-gray-500">
-        <Upload className="h-3.5 w-3.5 shrink-0 text-amber-600" aria-hidden="true" />
+      {/* Loud on purpose. This is the one thing on the screen that says the
+          floor is looking at something older than what is in front of you, and
+          it should be impossible to miss - it was quietened once and the
+          planner could no longer see it. What must not interrupt is a dialog;
+          a banner that sits there and waits is not an interruption. */}
+      <div
+        className="no-print flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-amber-300
+                   bg-amber-50 px-4 py-2.5"
+      >
+        <Upload className="h-4 w-4 shrink-0 text-amber-700" aria-hidden="true" />
 
-        <span>
-          <span className="font-semibold text-gray-700">
+        <p className="text-[14px] text-amber-900">
+          <span className="font-bold">
             {changes} unpublished {changes === 1 ? 'change' : 'changes'}
           </span>
           {' · '}
-          {weeks.map((week) => weekLabel(week.weekStart)).join(' · ')}
-          {' · '}
-          the floor still sees the last published plan
-        </span>
+          <span className="text-amber-800">
+            {weeks.map((week) => weekLabel(week.weekStart)).join(' · ')}
+          </span>
+        </p>
+
+        <p className="w-full text-[12px] text-amber-800 sm:w-auto sm:flex-1">
+          The production view still shows the last published plan.
+        </p>
 
         <button
           type="button"
           onClick={() => setConfirming(true)}
-          className="ml-auto flex shrink-0 items-center gap-1.5 rounded-md border border-gray-300 bg-white
-                     px-2.5 py-1 text-[12px] font-semibold text-gray-700 transition
-                     hover:border-etilog hover:text-etilog"
+          className="ml-auto flex shrink-0 items-center gap-1.5 rounded-md bg-amber-600 px-3.5 py-1.5
+                     text-[14px] font-semibold text-white shadow-sm transition hover:bg-amber-700"
         >
-          <Send className="h-3 w-3" aria-hidden="true" />
+          <Send className="h-3.5 w-3.5" aria-hidden="true" />
           Publish changes
         </button>
       </div>

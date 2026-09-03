@@ -11,12 +11,12 @@
     "termsOfUseUrl": "https://etilog.com/terms"
   },
   "name": {
-    "short": "ETILOG Approval Center",
-    "full": "Internal Ticket Approval App"
+    "short": "ETILOG Portal",
+    "full": "ETILOG Portal — approvals, production plan, fleet and warehouse"
   },
   "description": {
-    "short": "Manage approval requests for employees",
-    "full": "Internal Microsoft Teams application that allows staff to submit approval tickets, which managers can approve or reject directly inside Microsoft Teams using Adaptive Cards."
+    "short": "Approvals, the production plan and everything else in one place",
+    "full": "ETILOG's internal portal in Microsoft Teams: submit and approve requests, follow the production plan and be told when it changes, and reach the fleet and warehouse records. Started as an approval app and grew past it."
   },
   "icons": {
     "color": "color.png",
