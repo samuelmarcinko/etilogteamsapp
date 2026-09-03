@@ -20,9 +20,6 @@ import { api } from '../lib/api';
  * the list, which is slower, not fresher.
  */
 
-/** How many SAP projects to show before anything is typed. */
-const SAP_PREVIEW = 8;
-
 export default function FgCombobox({ value, onChange, autoFocus }) {
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
@@ -47,9 +44,12 @@ export default function FgCombobox({ value, onChange, autoFocus }) {
   });
 
   const term = query.trim().toLowerCase();
+  // The whole list, always - a preview of the first few made it look as though
+  // SAP held only that many projects. The list scrolls; the count above it says
+  // how many there really are.
   const sapMatches = useMemo(() => {
     const all = sap.data?.projects || [];
-    if (!term) return all.slice(0, SAP_PREVIEW);
+    if (!term) return all;
     return all.filter((project) =>
       project.itemCode.toLowerCase().includes(term)
       || String(project.description || '').toLowerCase().includes(term)
@@ -143,7 +143,7 @@ export default function FgCombobox({ value, onChange, autoFocus }) {
             {sapMatches.length > 0 && (
               <>
                 <div className="px-2 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                  Open projects in SAP
+                  Open projects in SAP ({sapMatches.length})
                 </div>
                 {sapMatches.map((project) => (
                   <Command.Item
