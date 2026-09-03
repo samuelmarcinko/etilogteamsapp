@@ -198,7 +198,7 @@ function worstOf(states) {
  */
 async function projectByItem(itemCode) {
   const { rows } = await pool.query(
-    `SELECT item_code, item_name FROM sap_items WHERE item_code = $1`, [itemCode]
+    `SELECT item_code, item_name, project_type FROM sap_items WHERE item_code = $1`, [itemCode]
   );
   if (!rows.length) return null;
 
@@ -207,8 +207,9 @@ async function projectByItem(itemCode) {
     itemCode: rows[0].item_code,
     itemName: rows[0].item_name,
     description: rows[0].item_name,
-    // The platform is in the name when there is no order to read it from.
-    projectType: projectTypeOf(rows[0].item_name),
+    // Learned from an order - the current one, or the newest closed one a live
+    // read found. Falls back to the name, which occasionally carries it.
+    projectType: rows[0].project_type || projectTypeOf(rows[0].item_name),
     plannedQty: null,
     completedQty: null,
     remainingQty: null,

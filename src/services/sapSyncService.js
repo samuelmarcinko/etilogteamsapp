@@ -338,6 +338,14 @@ class SapSyncService {
     const client = await pool.connect();
     const fgCodes = new Set(finishedGoods.map((order) => order.ItemNo));
 
+    // The platform is written on the order, not the item, so it is carried
+    // across here - otherwise a project whose order later closes loses it.
+    const platforms = new Map();
+    for (const order of finishedGoods) {
+      const type = projectTypeOf(order.ProductDescription);
+      if (type) platforms.set(order.ItemNo, type);
+    }
+
     try {
       await client.query('BEGIN');
 
@@ -352,13 +360,14 @@ class SapSyncService {
         await client.query(
           `INSERT INTO sap_items
              (item_code, item_name, group_code, group_name, procurement,
-              is_inventory, uom, on_stock, ordered_from_vendors)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+              is_inventory, uom, on_stock, ordered_from_vendors, project_type)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
           [
             code, item.ItemName || null, Number.isFinite(group) ? group : null,
             groups.get(group) || null, item.ProcurementMethod || null,
             item.InventoryItem === 'tYES', item.InventoryUOM || null,
-            num(item.QuantityOnStock), num(item.QuantityOrderedFromVendors)
+            num(item.QuantityOnStock), num(item.QuantityOrderedFromVendors),
+            platforms.get(code) || null
           ]
         );
 
@@ -623,6 +632,13 @@ class SapSyncService {
         groups.set(Number(row.Number), row.GroupName);
       }
 
+      // SLT / TXT / GLT / KLT is on the order, never on the item - so for a
+      // project with no open order the newest CLOSED one still says what the
+      // project is. One extra call, and it is the difference between telling
+      // the planner "a TXT project has no construction by design" and leaving
+      // them to work that out.
+      const platform = await this.#platformOf(itemCode);
+
       // Whether a bag is already being made is half the answer, so its own open
       // order is read as freshly as its stock.
       const open = await this.#openOrdersFor([...items.keys()]);
@@ -638,7 +654,7 @@ class SapSyncService {
         }
       }
 
-      await this.#storeOne(itemCode, { groups, items, bomLines, open }, guesses);
+      await this.#storeOne(itemCode, { groups, items, bomLines, open, platform }, guesses);
 
       return {
         ok: true,
@@ -688,6 +704,27 @@ class SapSyncService {
     return done;
   }
 
+  /**
+   * Which platform a finished good is, from its newest order of any status.
+   *
+   * A project that exists in SAP has almost always been made before, so a
+   * closed order is usually there to read even when no open one is. Null when
+   * SAP genuinely has never had an order for it.
+   */
+  async #platformOf(itemCode) {
+    const safe = String(itemCode).replace(/'/g, "''");
+    const page = await this.client.get(
+      'ProductionOrders?$select=ItemNo,ProductDescription'
+      + `&$filter=ItemNo eq '${safe}'&$orderby=AbsoluteEntry desc&$top=20`
+    );
+
+    for (const order of (page && page.value) || []) {
+      const type = projectTypeOf(order.ProductDescription);
+      if (type) return type;
+    }
+    return null;
+  }
+
   /** Open orders on any of these items, in batches the Service Layer accepts. */
   async #openOrdersFor(codes) {
     const wanted = [...new Set(codes)].filter(Boolean);
@@ -717,7 +754,7 @@ class SapSyncService {
    * the rows belonging to this project are cleared and rewritten, so the copy
    * every other screen is reading is never briefly empty.
    */
-  async #storeOne(itemCode, { groups, items, bomLines, open }, guesses) {
+  async #storeOne(itemCode, { groups, items, bomLines, open, platform = null }, guesses) {
     const client = await pool.connect();
     const parents = [...new Set(bomLines.map((line) => line.parentCode))];
     const codes = [...items.keys()];
@@ -731,10 +768,12 @@ class SapSyncService {
         await client.query(
           `INSERT INTO sap_items
              (item_code, item_name, group_code, group_name, procurement,
-              is_inventory, uom, on_stock, ordered_from_vendors, synced_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,CURRENT_TIMESTAMP)
+              is_inventory, uom, on_stock, ordered_from_vendors, project_type, synced_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,CURRENT_TIMESTAMP)
            ON CONFLICT (item_code) DO UPDATE
               SET item_name = EXCLUDED.item_name,
+                  -- Never overwrite a known platform with nothing.
+                  project_type = COALESCE(EXCLUDED.project_type, sap_items.project_type),
                   group_code = EXCLUDED.group_code,
                   group_name = EXCLUDED.group_name,
                   procurement = EXCLUDED.procurement,
@@ -747,7 +786,8 @@ class SapSyncService {
             code, item.ItemName || null, Number.isFinite(group) ? group : null,
             groups.get(group) || null, item.ProcurementMethod || null,
             item.InventoryItem === 'tYES', item.InventoryUOM || null,
-            num(item.QuantityOnStock), num(item.QuantityOrderedFromVendors)
+            num(item.QuantityOnStock), num(item.QuantityOrderedFromVendors),
+            code === itemCode ? platform : null
           ]
         );
       }
