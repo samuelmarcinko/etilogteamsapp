@@ -51,7 +51,8 @@ const COMPONENT_SQL = `
          i.group_code, i.group_name, i.procurement, i.uom,
          i.on_stock, i.ordered_from_vendors,
          k.kind, k.source, k.reason,
-         COALESCE(o.open_qty, 0) AS open_order_qty
+         COALESCE(o.open_qty, 0) AS open_order_qty,
+         shared.parents AS shared_with
     FROM walk w
     LEFT JOIN sap_items i      ON i.item_code = w.item_code
     LEFT JOIN sap_item_kinds k ON k.item_code = w.item_code
@@ -61,6 +62,17 @@ const COMPONENT_SQL = `
          WHERE NOT is_finished_good
          GROUP BY item_code
     ) o ON o.item_code = w.item_code
+    -- Where else this exact item is used. A component keeps the name it was
+    -- given when it was created, so a part shared between two projects carries
+    -- the OTHER project's number in its name - FG100783 lists a bag called
+    -- FG100782_05_02, because the left and right headlamp share it. Without
+    -- this the row looks like a mistake; with it, it says what it is.
+    LEFT JOIN LATERAL (
+        SELECT array_agg(DISTINCT ob.parent_code) AS parents
+          FROM sap_boms ob
+         WHERE ob.item_code = w.item_code
+           AND ob.parent_code <> w.parent_code
+    ) shared ON TRUE
    ORDER BY w.lvl, w.item_code`;
 
 /** The open finished-good orders, which is what the planner picks from. */
@@ -147,6 +159,9 @@ function merge(rows) {
       existing.perPiece += Number(row.per_piece);
       if (!existing.parents.includes(row.parent_code)) existing.parents.push(row.parent_code);
       existing.level = Math.min(existing.level, row.lvl);
+      for (const parent of row.shared_with || []) {
+        if (!existing.sharedWith.includes(parent)) existing.sharedWith.push(parent);
+      }
       continue;
     }
 
@@ -169,6 +184,9 @@ function merge(rows) {
       // and a decision must not look the same.
       kindSource: row.source,
       kindReason: row.reason,
+      // Other bills of materials holding this same item. Empty for the usual
+      // case; a list for a part two projects share.
+      sharedWith: row.shared_with || [],
       // Null until the item master is known. An item in a BOM that SAP has no
       // master record for is possible and must not read as "zero in stock".
       known: row.procurement !== null

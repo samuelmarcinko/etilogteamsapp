@@ -143,6 +143,22 @@ function ComponentRow({ component, pending }) {
                 <span className="font-medium text-gray-500">marked by hand</span>
               </>
             )}
+            {/* A part keeps the name it was given when it was created, so one
+                shared between two projects carries the OTHER project's number.
+                Saying where else it is used turns a row that looks like a
+                mistake into a fact about the part. */}
+            {component.sharedWith?.length > 0 && (
+              <>
+                <span>·</span>
+                <span
+                  className="font-medium text-gray-500"
+                  title={component.sharedWith.join(', ')}
+                >
+                  also used in {component.sharedWith.slice(0, 2).join(', ')}
+                  {component.sharedWith.length > 2 && ` +${component.sharedWith.length - 2}`}
+                </span>
+              </>
+            )}
           </div>
         </div>
         <StateChip state={pending ? 'pending' : component.state} />
