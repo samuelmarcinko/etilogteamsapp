@@ -288,9 +288,12 @@ class NotificationService {
           type: 'message',
           from: { id: process.env.MICROSOFT_APP_ID, name: 'ETILOG Portal' },
           conversation: { id: conversationId },
-          // Teams shows this in the toast. Without it the notification says
-          // only that a card was sent, which is true and useless.
-          summary: `Approvals — ${ticket.title}`,
+          // Teams shows this in the toast and the activity feed. Without it
+          // the notification says only that a card was sent, which is true and
+          // useless. It names the event as well as the subject: this is the
+          // one card that arrives when something a person already approved
+          // stops being true, and "Approvals — Dovolenka" would not say that.
+          summary: `Approvals · Request cancelled — ${ticket.title || 'a request'}`,
           attachments: [{ contentType: 'application/vnd.microsoft.card.adaptive', content: card }]
         },
         { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } }
