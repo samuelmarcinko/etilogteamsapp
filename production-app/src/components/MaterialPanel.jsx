@@ -47,6 +47,15 @@ const STATE_STYLE = {
     dot: 'bg-gray-400',
     Icon: CircleHelp,
     label: 'Check by hand'
+  },
+  // No quantity typed yet. Deliberately not green: with nothing to compare
+  // against, every component would read "in stock, nothing needed", which looks
+  // like an all-clear for a batch nobody has sized.
+  pending: {
+    chip: 'bg-gray-100 text-gray-500 ring-gray-300',
+    dot: 'bg-gray-300',
+    Icon: CircleHelp,
+    label: 'Not checked'
   }
 };
 
@@ -59,9 +68,16 @@ const number = (value) => Number(value || 0).toLocaleString('sk-SK');
  * the planner can act on it: "nobody has started making it" and "122 on order
  * from the supplier" call for two completely different phone calls.
  */
-function explain(component) {
+function explain(component, pending) {
   const { state, needed, inStock, orderedFromVendors, openOrderQty, procurement } = component;
   const made = procurement === 'bom_Make';
+
+  // Still worth saying what is on the shelf - it just is not a verdict yet.
+  if (pending) {
+    return made
+      ? `${number(inStock)} in stock. Enter a quantity to check it.`
+      : `${number(inStock)} in stock, ${number(orderedFromVendors)} on order. Enter a quantity to check it.`;
+  }
 
   if (state === 'unknown') return 'SAP has no item master for this code.';
   if (needed <= 0) return 'Nothing needed for this batch.';
@@ -106,7 +122,7 @@ function StateChip({ state }) {
  * is what we actually have on the shelf". Both matter and they are not the
  * same statement.
  */
-function ComponentRow({ component }) {
+function ComponentRow({ component, pending }) {
   const nested = component.level > 1;
 
   return (
@@ -129,17 +145,17 @@ function ComponentRow({ component }) {
             )}
           </div>
         </div>
-        <StateChip state={component.state} />
+        <StateChip state={pending ? 'pending' : component.state} />
       </div>
       <p className={clsx('mt-1 text-[12px] leading-snug text-gray-600', nested ? 'pl-[22px]' : 'pl-[18px]')}>
-        {explain(component)}
+        {explain(component, pending)}
       </p>
     </li>
   );
 }
 
 /** A section with its own heading, or the grey box explaining why it is empty. */
-function Section({ title, components, emptyTitle, emptyBody }) {
+function Section({ title, components, emptyTitle, emptyBody, pending }) {
   if (!components.length) {
     return (
       <section>
@@ -160,7 +176,7 @@ function Section({ title, components, emptyTitle, emptyBody }) {
       <h4 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{title}</h4>
       <ul className="divide-y divide-gray-100">
         {components.map((component) => (
-          <ComponentRow key={component.itemCode} component={component} />
+          <ComponentRow key={component.itemCode} component={component} pending={pending} />
         ))}
       </ul>
     </section>
@@ -399,6 +415,7 @@ export default function MaterialPanel({ sapOrderEntry, quantity, projectType }) 
 
       <div className="flex flex-1 flex-col gap-3.5 overflow-y-auto">
         <Section
+          pending={qty <= 0}
           title="Constructions"
           components={data.constructions}
           emptyTitle={isTxt ? 'A TXT project has no construction' : 'SAP has nothing about a construction here'}
@@ -408,6 +425,7 @@ export default function MaterialPanel({ sapOrderEntry, quantity, projectType }) 
         />
 
         <Section
+          pending={qty <= 0}
           title="Bags"
           components={data.bags}
           emptyTitle="No sewn parts found"

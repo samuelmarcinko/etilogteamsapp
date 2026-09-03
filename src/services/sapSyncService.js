@@ -444,16 +444,16 @@ class SapSyncService {
   /**
    * Re-read ONE project straight from SAP, right now.
    *
-   * The background pass keeps the whole mirror at most 15 minutes old, which is
-   * fine for a list. It is not what someone wants at the moment they decide to
-   * put 200 pieces on Tuesday - there the stock figure should be today's. So
-   * choosing a project reads that project again and writes what it finds into
-   * the mirror, which also leaves it fresher for whoever opens it next.
+   * Only what actually moves: the stock on every component and the open orders
+   * against them. The bill of materials is not re-read, and this is the whole
+   * design - a BOM changes when an engineer edits it, perhaps monthly, while
+   * stock changes with every pallet that leaves the yard. Reading the structure
+   * again cost around ninety round trips on a large project like FG100782 and
+   * timed out; reading the numbers costs about eight and comes back in a couple
+   * of seconds. The structure is the background pass's job, every 15 minutes.
    *
-   * Everything it touches belongs to this one project: items, their stock, the
-   * two BOM levels below it, and the open orders on the items involved. Nothing
-   * else in the mirror is disturbed, so a live read cannot damage the copy the
-   * rest of the plan is reading.
+   * The component list therefore comes out of the mirror, and a project the
+   * mirror has never seen falls back to the full read below.
    *
    * Never throws. A tunnel that is down, a SAP that is slow, a project SAP has
    * no BOM for - all of them come back as { ok: false, reason } and the caller
@@ -466,6 +466,127 @@ class SapSyncService {
     const began = Date.now();
     this.client.resetCallCount();
 
+    try {
+      const { rows } = await pool.query(
+        `WITH RECURSIVE walk AS (
+             SELECT b.item_code, 1 AS lvl
+               FROM sap_boms b
+              WHERE b.parent_code = $1 AND b.item_code IS NOT NULL AND b.line_type = 'pit_Item'
+             UNION ALL
+             SELECT b.item_code, w.lvl + 1
+               FROM walk w
+               JOIN sap_boms b ON b.parent_code = w.item_code
+              WHERE w.lvl < 2 AND b.item_code IS NOT NULL AND b.line_type = 'pit_Item'
+         )
+         SELECT DISTINCT item_code FROM walk`,
+        [itemCode]
+      );
+
+      const codes = [itemCode, ...rows.map((row) => row.item_code)];
+      if (codes.length > 1) {
+        const items = await this.client.itemsByCode(codes, ITEM_FIELDS);
+        const open = await this.#openOrdersFor(codes);
+        await this.#storeNumbers(itemCode, codes, items, open);
+
+        return {
+          ok: true,
+          items: items.size,
+          calls: this.client.callCount,
+          ms: Date.now() - began
+        };
+      }
+
+      // Nothing mirrored for this project yet - read it properly, once.
+      return await this.#refreshWholeProject(itemCode, began);
+    } catch (error) {
+      logger.warn('Live SAP read failed, the mirror stands', { itemCode, error: error.message });
+      return { ok: false, reason: error.message };
+    }
+  }
+
+  /**
+   * Write back only the figures a live read went for.
+   *
+   * Deliberately touches neither sap_boms nor sap_item_kinds: the structure was
+   * not re-read, so rewriting it from stale knowledge would be a lie, and a
+   * classification nobody re-derived must not be disturbed.
+   */
+  async #storeNumbers(itemCode, codes, items, open) {
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      for (const [code, item] of items) {
+        if (!item) continue;
+        await client.query(
+          `UPDATE sap_items
+              SET on_stock = $2,
+                  ordered_from_vendors = $3,
+                  synced_at = CURRENT_TIMESTAMP
+            WHERE item_code = $1`,
+          [code, num(item.QuantityOnStock), num(item.QuantityOrderedFromVendors)]
+        );
+      }
+
+      await client.query('DELETE FROM sap_item_stock WHERE item_code = ANY($1::varchar[])', [codes]);
+      for (const [code, item] of items) {
+        if (!item) continue;
+        for (const store of item.ItemWarehouseInfoCollection || []) {
+          const inStock = num(store.InStock);
+          const committed = num(store.Committed);
+          const ordered = num(store.Ordered);
+          if (!inStock && !committed && !ordered) continue;
+          await client.query(
+            `INSERT INTO sap_item_stock (item_code, warehouse, in_stock, committed, ordered)
+             VALUES ($1,$2,$3,$4,$5)`,
+            [code, store.WarehouseCode, inStock, committed, ordered]
+          );
+        }
+      }
+
+      await client.query(
+        'DELETE FROM sap_production_orders WHERE item_code = ANY($1::varchar[])', [codes]
+      );
+      for (const order of open) {
+        await client.query(
+          `INSERT INTO sap_production_orders
+             (absolute_entry, item_code, description, project_type, planned_qty,
+              completed_qty, status, warehouse, start_date, due_date, is_finished_good)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+           ON CONFLICT (absolute_entry) DO UPDATE
+              SET planned_qty = EXCLUDED.planned_qty,
+                  completed_qty = EXCLUDED.completed_qty,
+                  status = EXCLUDED.status,
+                  synced_at = CURRENT_TIMESTAMP`,
+          [
+            Number(order.AbsoluteEntry), order.ItemNo,
+            order.ProductDescription || null, projectTypeOf(order.ProductDescription),
+            num(order.PlannedQuantity), num(order.CompletedQuantity),
+            order.ProductionOrderStatus || null, order.Warehouse || null,
+            day(order.StartDate), day(order.DueDate),
+            order.ItemNo === itemCode
+          ]
+        );
+      }
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * The full reading of one project, structure included.
+   *
+   * Only for a project the mirror has never held - otherwise the background
+   * pass owns the structure and this would be an expensive way to learn nothing
+   * new.
+   */
+  async #refreshWholeProject(itemCode, began) {
     try {
       const items = new Map();
       const trees = new Map();
