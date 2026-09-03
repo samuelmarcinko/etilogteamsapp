@@ -8,6 +8,8 @@ const Role = require('../database/models/Role');
 const User = require('../database/models/User');
 const SystemSettings = require('../database/models/SystemSettings');
 const { sendEmail, getSmtpConfig } = require('../services/emailService');
+const SapSyncService = require('../services/sapSyncService');
+const { SapClient } = require('../services/sapClient');
 
 // All admin routes require authentication
 router.use(verifyToken);
@@ -180,6 +182,28 @@ router.post('/settings/smtp/test', requireDbRole('admin'), asyncHandler(async (r
   } else {
     res.status(500).json({ success: false, message: 'SMTP nie je nakonfigurované alebo odosielanie zlyhalo' });
   }
+}));
+
+/**
+ * Is the SAP mirror current, and if not, why.
+ *
+ * The only way to tell from outside the box whether the sync is running. Phase 1
+ * ships nothing else that is visible, so this is how the deployment is checked.
+ */
+router.get('/sap/status', requireDbRole('admin'), asyncHandler(async (req, res) => {
+  const last = await SapSyncService.lastRun();
+  res.json({
+    success: true,
+    data: {
+      enabled: SapClient.enabled,
+      // Null when it could run; a sentence naming the missing setting otherwise.
+      blockedBy: SapClient.misconfigured,
+      host: process.env.SAP_HOST || null,
+      companyDb: process.env.SAP_DB || null,
+      readOnly: true,
+      lastRun: last
+    }
+  });
 }));
 
 module.exports = router;
