@@ -69,6 +69,16 @@ router.get('/projects', viewAccess, asyncHandler(async (req, res) => {
  */
 const LIVE_TIMEOUT_MS = Number(process.env.SAP_LIVE_TIMEOUT_MS || 15000);
 
+/**
+ * How long the FIRST read of a project may take.
+ *
+ * A project the mirror has never held needs its bill of materials read as well
+ * as its stock, and on a large one - FG100782 has 52 components under nine
+ * sub-assemblies - that is sixty to ninety round trips. It happens once per
+ * project; every read after it is the quick kind.
+ */
+const FIRST_LOAD_TIMEOUT_MS = Number(process.env.SAP_FIRST_LOAD_TIMEOUT_MS || 45000);
+
 /** Resolve to whatever comes first: the read, or the clock. */
 function within(ms, work) {
   return Promise.race([
@@ -94,9 +104,15 @@ function within(ms, work) {
  * of the two it is looking at; planning never waits on SAP being up.
  */
 router.get('/availability', viewAccess, asyncHandler(async (req, res) => {
-  const entry = Number(req.query.order);
-  if (!Number.isInteger(entry) || entry <= 0) {
+  const hasOrder = req.query.order != null && req.query.order !== '';
+  const entry = hasOrder ? Number(req.query.order) : null;
+  const itemCode = String(req.query.item || '').trim().toUpperCase();
+
+  if (hasOrder && (!Number.isInteger(entry) || entry <= 0)) {
     return res.status(400).json({ error: 'Bad Request', message: 'order must be a SAP order number' });
+  }
+  if (!hasOrder && !itemCode) {
+    return res.status(400).json({ error: 'Bad Request', message: 'Pass either order or item' });
   }
 
   const qty = Number(req.query.qty);
@@ -104,18 +120,45 @@ router.get('/availability', viewAccess, asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Bad Request', message: 'qty must be a number' });
   }
 
-  const known = await SapAvailability.order(entry);
-  if (!known) {
-    return res.status(404).json({ error: 'Not Found', message: 'That SAP order is not in the mirror' });
+  // The finished good this is about, from whichever way it was asked for.
+  let code = itemCode;
+  if (hasOrder) {
+    const known = await SapAvailability.order(entry);
+    if (!known) {
+      return res.status(404).json({ error: 'Not Found', message: 'That SAP order is not in the mirror' });
+    }
+    code = known.itemCode;
   }
 
   let live = null;
   if (req.query.live === '1' || req.query.live === 'true') {
-    live = await within(LIVE_TIMEOUT_MS, SapSyncService.shared().refreshOne(known.itemCode));
+    // A project the mirror has never held has to have its structure read too,
+    // which is the expensive path - so it gets the longer wait, once. After
+    // that it is in the mirror and a refresh is the quick kind.
+    const known = await SapAvailability.projectByItem(code);
+    live = await within(
+      known ? LIVE_TIMEOUT_MS : FIRST_LOAD_TIMEOUT_MS,
+      SapSyncService.shared().refreshOne(code)
+    );
   }
 
   // Read after the refresh, so a successful live read is what comes back.
-  const answer = await SapAvailability.forOrder(entry, qty);
+  const answer = await SapAvailability.forProject(
+    hasOrder ? { orderEntry: entry } : { itemCode: code },
+    qty
+  );
+
+  if (!answer) {
+    return res.status(404).json({
+      error: 'Not Found',
+      // Distinguishes "SAP does not know this number" from "we have not read it
+      // yet", which are different problems for whoever typed it.
+      message: live && live.ok === false
+        ? `SAP could not be read for ${code}: ${live.reason}`
+        : `SAP has nothing for ${code}`
+    });
+  }
+
   res.json({ success: true, data: { ...answer, live } });
 }));
 

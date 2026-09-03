@@ -306,9 +306,13 @@ function LiveBanner({ busy, live, syncedAt, onRefresh }) {
   );
 }
 
-export default function MaterialPanel({ sapOrderEntry, quantity, projectType }) {
+export default function MaterialPanel({ sapOrderEntry, sapItemCode, quantity, projectType }) {
   const queryClient = useQueryClient();
   const qty = Number(quantity) || 0;
+
+  // Addressed by order when there is one, by the FG number when there is not.
+  const key = sapOrderEntry ? { order: sapOrderEntry } : { item: sapItemCode };
+  const target = sapOrderEntry || sapItemCode;
 
   // What the live read did, or null before it has been tried.
   const [live, setLive] = useState(null);
@@ -323,33 +327,33 @@ export default function MaterialPanel({ sapOrderEntry, quantity, projectType }) 
    * not send a request per keystroke down the tunnel.
    */
   const readLive = useCallback(async () => {
-    if (!sapOrderEntry) return;
+    if (!target) return;
     setReading(true);
     try {
-      const data = await api.sapAvailability(sapOrderEntry, 0, { live: true });
+      const data = await api.sapAvailability(key, 0, { live: true });
       setLive(data.live || { ok: false, reason: 'SAP was not asked' });
-      queryClient.invalidateQueries({ queryKey: ['sap', 'availability', sapOrderEntry] });
+      queryClient.invalidateQueries({ queryKey: ['sap', 'availability', target] });
     } catch (error) {
       // The mirror is still there; this only decides what the banner says.
       setLive({ ok: false, reason: error.message });
     } finally {
       setReading(false);
     }
-  }, [sapOrderEntry, queryClient]);
+  }, [target, sapOrderEntry, sapItemCode, queryClient]);
 
   // Once per project, as it is chosen.
   useEffect(() => {
-    if (!sapOrderEntry) return undefined;
+    if (!target) return undefined;
     let cancelled = false;
     setLive(null);
     (async () => { if (!cancelled) await readLive(); })();
     return () => { cancelled = true; };
-  }, [sapOrderEntry, readLive]);
+  }, [target, readLive]);
 
   const availability = useQuery({
-    queryKey: ['sap', 'availability', sapOrderEntry, qty],
-    queryFn: () => api.sapAvailability(sapOrderEntry, qty),
-    enabled: Boolean(sapOrderEntry),
+    queryKey: ['sap', 'availability', target, qty],
+    queryFn: () => api.sapAvailability(key, qty),
+    enabled: Boolean(target),
     staleTime: 30 * 1000
   });
 
@@ -358,7 +362,7 @@ export default function MaterialPanel({ sapOrderEntry, quantity, projectType }) 
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sap', 'availability'] })
   });
 
-  if (!sapOrderEntry) {
+  if (!target) {
     return (
       <div className="flex h-full items-center justify-center px-6 text-center">
         <p className="text-[13px] leading-relaxed text-gray-400">
@@ -374,7 +378,8 @@ export default function MaterialPanel({ sapOrderEntry, quantity, projectType }) 
         <Loader2 className="h-4 w-4 animate-spin text-gray-400" aria-hidden="true" />
         <p className="text-[13px] text-gray-500">Reading this project live from SAP…</p>
         <p className="text-[11px] text-gray-400">
-          A few seconds over the tunnel. If it does not answer, the saved copy is shown instead.
+          A project being loaded for the first time has its whole bill of materials read,
+          which can take half a minute. After that it is quick.
         </p>
       </div>
     );
@@ -405,9 +410,18 @@ export default function MaterialPanel({ sapOrderEntry, quantity, projectType }) 
           </span>
         </div>
         <p className="mt-0.5 text-[11px] leading-snug text-gray-400">
-          Order {data.order.absoluteEntry} · {number(data.order.remainingQty)} of{' '}
-          {number(data.order.plannedQty)} still to make. This is a guide, not a limit —
-          you can plan whatever you decide to plan.
+          {data.hasOpenOrder ? (
+            <>
+              Order {data.order.absoluteEntry} · {number(data.order.remainingQty)} of{' '}
+              {number(data.order.plannedQty)} still to make.
+            </>
+          ) : (
+            <>
+              No open order in SAP for this project — loaded on request, so there is no
+              order quantity to compare against.
+            </>
+          )}
+          {' '}This is a guide, not a limit — you can plan whatever you decide to plan.
         </p>
       </header>
 

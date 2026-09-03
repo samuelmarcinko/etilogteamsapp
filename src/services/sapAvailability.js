@@ -1,5 +1,5 @@
 const pool = require('../database/config');
-const { KIND, STATE, componentState } = require('./sapClassifier');
+const { KIND, STATE, componentState, projectTypeOf } = require('./sapClassifier');
 
 /**
  * What the planner sees about materials when a batch goes on a day.
@@ -187,15 +187,50 @@ function worstOf(states) {
 }
 
 /**
- * The material picture for one batch of one order.
+ * A finished good that has no open order, described from the item master.
  *
- * `batchQty` is what is going on the day, not what the order is for. That
+ * Not every project the planner works on has a live order in SAP - work is
+ * often planned before the order exists, and a project can be picked up again
+ * long after its order closed. Such a project still has a bill of materials and
+ * its components still have stock, which is the part that matters; what it
+ * cannot say is how much of an order is left, so those fields stay null rather
+ * than being invented.
+ */
+async function projectByItem(itemCode) {
+  const { rows } = await pool.query(
+    `SELECT item_code, item_name FROM sap_items WHERE item_code = $1`, [itemCode]
+  );
+  if (!rows.length) return null;
+
+  return {
+    absoluteEntry: null,
+    itemCode: rows[0].item_code,
+    itemName: rows[0].item_name,
+    description: rows[0].item_name,
+    // The platform is in the name when there is no order to read it from.
+    projectType: projectTypeOf(rows[0].item_name),
+    plannedQty: null,
+    completedQty: null,
+    remainingQty: null,
+    status: null,
+    startDate: null,
+    dueDate: null
+  };
+}
+
+/**
+ * The material picture for one batch.
+ *
+ * Addressed either by SAP order or by the finished good's own item code - the
+ * second is how a project with no open order is checked at all.
+ *
+ * `batchQty` is what is going on the day, not what any order is for. That
  * distinction is the whole point: an order for 424 pieces with 122 covered is
  * perfectly fine for a batch of 50, and checking against the order total would
  * light up nearly every project in the factory.
  */
-async function forOrder(absoluteEntry, batchQty) {
-  const found = await order(absoluteEntry);
+async function forProject({ orderEntry = null, itemCode = null }, batchQty) {
+  const found = orderEntry ? await order(orderEntry) : await projectByItem(itemCode);
   if (!found) return null;
 
   const qty = Math.max(Number(batchQty) || 0, 0);
@@ -247,6 +282,9 @@ async function forOrder(absoluteEntry, batchQty) {
 
   return {
     order: found,
+    // Null when the project has no live order - the screen says so rather than
+    // leaving a blank where a quantity should be.
+    hasOpenOrder: found.absoluteEntry !== null,
     batchQty: qty,
     syncedAt: await lastSyncedAt(),
     // Sorted so the level-1 group comes before the box inside it and the screen
@@ -296,7 +334,8 @@ async function setKind(itemCode, kind, user) {
 module.exports = {
   projects,
   order,
-  forOrder,
+  projectByItem,
+  forProject,
   setKind,
   lastSyncedAt
 };

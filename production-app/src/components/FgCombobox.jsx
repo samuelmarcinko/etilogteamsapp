@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Command } from 'cmdk';
 import { useQuery } from '@tanstack/react-query';
-import { Check, Factory, Package, Plus, Search } from 'lucide-react';
+import { Check, CloudDownload, Factory, Package, Plus, Search } from 'lucide-react';
 import clsx from 'clsx';
 
 import { api } from '../lib/api';
@@ -57,7 +57,36 @@ export default function FgCombobox({ value, onChange, autoFocus }) {
   }, [sap.data, term]);
 
   /**
-   * Take a SAP project as this card's product.
+   * Take an FG that SAP has, but has no open order for.
+   *
+   * Same card shape as any other: a row in our FG master, plus the FG number as
+   * the key the material panel reads. There is no order number to store, and
+   * none is needed - the FG number IS the item code in SAP.
+   */
+  const chooseLoadedProject = async (code) => {
+    setResolving(true);
+    try {
+      const known = await api.searchProducts(code);
+      const match = (known || []).find((p) => p.fg_number.toUpperCase() === code);
+      const product = match || await api.createProduct(code, '');
+
+      onChange({
+        productId: product.id,
+        fgNumber: product.fg_number,
+        customProductName: null,
+        description: product.description || '',
+        sapOrderEntry: null,
+        sapItemCode: code,
+        projectType: null,
+        sapRemainingQty: null
+      });
+    } finally {
+      setResolving(false);
+    }
+  };
+
+  /**
+   * Take an open SAP project as this card's product.
    *
    * The card keeps the shape it already has - it points at a row in our own FG
    * master - and gains the SAP order number alongside. The FG number is the key
@@ -88,6 +117,12 @@ export default function FgCombobox({ value, onChange, autoFocus }) {
   };
 
   const looksLikeFg = /^FG\d+/i.test(query.trim());
+  const typedCode = query.trim().toUpperCase();
+  // An FG that has no open order will never be in the list above, so the picker
+  // offers to fetch it. This is what makes a project planned ahead of its order
+  // - or picked up again long after it closed - checkable at all.
+  const offerLoad = looksLikeFg
+    && !sapMatches.some((project) => project.itemCode.toUpperCase() === typedCode);
   const results = products.data || [];
   const exactMatch = results.some((p) => p.fg_number.toLowerCase() === query.trim().toLowerCase());
 
@@ -192,6 +227,29 @@ export default function FgCombobox({ value, onChange, autoFocus }) {
                 <span className="truncate text-[13px] text-gray-500">{product.description}</span>
               </Command.Item>
             ))}
+
+            {/* An FG SAP knows but has no open order for. Its own group, because
+                "no open order" is a fact about the project rather than a gap in
+                our data, and the planner should see which of the two they are
+                choosing. */}
+            {offerLoad && (
+              <>
+                <div className="px-2 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                  Loaded projects from SAP (no open order)
+                </div>
+                <Command.Item
+                  value="__load-sap"
+                  onSelect={() => chooseLoadedProject(typedCode)}
+                  className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[14px] data-[selected=true]:bg-gray-100"
+                >
+                  <CloudDownload className="h-3.5 w-3.5 shrink-0 text-etilog" aria-hidden="true" />
+                  <span className="text-gray-700">
+                    Load <span className="font-medium text-gray-900">{typedCode}</span> from SAP
+                  </span>
+                  <span className="ml-auto shrink-0 text-[11px] text-gray-400">reads its BOM and stock</span>
+                </Command.Item>
+              </>
+            )}
 
             {/* An FG the master list does not know yet */}
             {looksLikeFg && !exactMatch && !products.isFetching && (

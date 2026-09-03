@@ -142,9 +142,10 @@ export const api = {
    * today's. It takes a few seconds and it can fail; when it does, the answer
    * still comes back from the mirror and `live.ok` says what happened.
    */
-  sapAvailability: (order, qty, { live = false } = {}) =>
+  sapAvailability: ({ order = null, item = null }, qty, { live = false } = {}) =>
     request(
-      `/api/production/sap/availability?order=${encodeURIComponent(order)}`
+      '/api/production/sap/availability?'
+      + (order ? `order=${encodeURIComponent(order)}` : `item=${encodeURIComponent(item)}`)
       + `&qty=${encodeURIComponent(qty)}${live ? '&live=1' : ''}`
     ).then((r) => r.data),
 

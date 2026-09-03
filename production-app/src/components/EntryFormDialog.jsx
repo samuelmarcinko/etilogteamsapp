@@ -121,7 +121,11 @@ export default function EntryFormDialog({
             description: entry.product_description || '',
             // Set when the card was created from a SAP project, so reopening it
             // shows the same material picture rather than an empty panel.
-            sapOrderEntry: entry.sap_order_entry || null
+            sapOrderEntry: entry.sap_order_entry || null,
+            // With no order behind it, the FG number is the key - which is why
+            // a project loaded by hand needs nothing stored beyond the card's
+            // existing product link.
+            sapItemCode: entry.sap_order_entry ? null : entry.fg_number || null
           }
         : null
     );
@@ -181,7 +185,9 @@ export default function EntryFormDialog({
   // The material check appears once the card is tied to a SAP order, and only
   // then. It never gates anything: Save behaves identically whether the panel
   // is green, red or absent.
-  const showPanel = Boolean(product?.sapOrderEntry);
+  // Either identifier is enough: an open order, or the FG number itself for a
+  // project loaded on request.
+  const showPanel = Boolean(product?.sapOrderEntry || product?.sapItemCode);
 
   const heading = isEdit
     ? 'Edit production'
@@ -352,6 +358,7 @@ export default function EntryFormDialog({
               <div className="min-h-0 flex-1 overflow-y-auto border-t border-gray-200 bg-gray-50/60 lg:border-l lg:border-t-0">
                 <MaterialPanel
                   sapOrderEntry={product.sapOrderEntry}
+                  sapItemCode={product.sapItemCode}
                   quantity={quantity}
                   projectType={product.projectType}
                 />

@@ -51,6 +51,11 @@ const SEWING_DEPTH = 4;
 
 const FINISHED_GOODS_GROUP = 102;
 
+// How many order-less projects one pass will refresh. They are only on the plan
+// because someone put them there, so the real number is small; the cap is a
+// guard against a pass that grows without anyone noticing.
+const PLANNED_REFRESH_MAX = Number(process.env.SAP_PLANNED_REFRESH_MAX || 25);
+
 const ORDER_FIELDS = [
   'AbsoluteEntry', 'ItemNo', 'ProductDescription', 'PlannedQuantity',
   'CompletedQuantity', 'ProductionOrderStatus', 'Warehouse', 'StartDate', 'DueDate'
@@ -648,6 +653,41 @@ class SapSyncService {
     }
   }
 
+  /**
+   * Keep the projects that are actually on the plan current, orders or not.
+   *
+   * A project loaded by hand has no open order, so the main pass - which walks
+   * open orders - never sees it again. Left alone, its stock figures would age
+   * quietly while a card for it sits on next Tuesday.
+   *
+   * Bounded on purpose to what is planned. Refreshing every project anyone ever
+   * looked at would grow the pass without limit, and most of them are opened
+   * once and never again; those get read fresh when someone opens them. What is
+   * planned is current, and only the numbers are re-read - the cheap path.
+   */
+  async #refreshPlannedProjects() {
+    const { rows } = await pool.query(
+      `SELECT DISTINCT p.fg_number AS code
+         FROM production_plan_entries e
+         JOIN products p ON p.id = e.product_id
+         LEFT JOIN sap_production_orders o
+                ON o.item_code = p.fg_number AND o.is_finished_good
+        WHERE e.deleted_at IS NULL
+          AND p.fg_number IS NOT NULL
+          AND o.item_code IS NULL
+          AND EXISTS (SELECT 1 FROM sap_boms b WHERE b.parent_code = p.fg_number)
+        LIMIT $1`,
+      [PLANNED_REFRESH_MAX]
+    );
+
+    let done = 0;
+    for (const row of rows) {
+      const result = await this.refreshOne(row.code);
+      if (result.ok) done += 1;
+    }
+    return done;
+  }
+
   /** Open orders on any of these items, in batches the Service Layer accepts. */
   async #openOrdersFor(codes) {
     const wanted = [...new Set(codes)].filter(Boolean);
@@ -816,12 +856,18 @@ class SapSyncService {
       const guesses = await this.classifyAll(collected);
       await this.store(collected, guesses);
 
+      // After the mirror is whole, top up the projects that are planned but
+      // have no open order - store() has just wiped their orders along with
+      // everything else, so this has to come second.
+      const plannedRefreshed = await this.#refreshPlannedProjects();
+
       const summary = {
         orders: collected.open.length,
         finishedGoods: collected.finishedGoods.length,
         items: [...collected.items.values()].filter(Boolean).length,
         bomLines: collected.bomLines.length,
         classified: guesses.size,
+        plannedRefreshed,
         calls: this.client.callCount,
         ms: Date.now() - began
       };
