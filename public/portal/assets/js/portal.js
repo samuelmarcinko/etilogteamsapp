@@ -2837,7 +2837,10 @@ const PERMISSION_LABELS = {
     'warehouse.read':   { title: 'Sklad – čítanie',    note: 'materiál a pohyby' },
     'warehouse.write':  { title: 'Sklad – úpravy',     note: 'príjem, výdaj, presuny' },
     'production.view':  { title: 'Výrobný plán',       note: 'čítanie plánu' },
-    'production.manage':{ title: 'Výrobný plán – úpravy', note: 'plánovanie, presuny, poznámky' }
+    'production.manage':{ title: 'Výrobný plán – úpravy', note: 'plánovanie, presuny, poznámky' },
+    // Held apart from čítanie on purpose: mnohí plán čítajú, ale správu pri
+    // každej zmene nechcú.
+    'production.notify':{ title: 'Výrobný plán – notifikácie', note: 'správa v Teams po zverejnení zmien' }
 };
 
 // Roles whose checkboxes changed since the page was rendered.

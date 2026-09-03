@@ -100,6 +100,38 @@ class User {
   }
 
   /**
+   * Everyone whose role grants a permission.
+   *
+   * Used to decide who hears about something rather than who may do it, so the
+   * recipient list is one query against the same matrix the admin screen edits
+   * - never a list of names in a config file that nobody remembers to update
+   * when somebody joins or leaves.
+   *
+   * `admin` is included unconditionally, matching Role.getPermissionsForRole:
+   * an administrator holds every key by definition, and is not in
+   * role_permissions for it.
+   */
+  static async findByPermission(permissionKey) {
+    const query = `
+      SELECT u.user_id, u.email, u.display_name, u.role
+        FROM users u
+       WHERE u.user_id IS NOT NULL
+         AND (
+           u.role = 'admin'
+           OR EXISTS (
+             SELECT 1
+               FROM roles r
+               JOIN role_permissions rp ON rp.role_id = r.id
+              WHERE r.name = u.role AND rp.permission_key = $1
+           )
+         )
+       ORDER BY u.display_name NULLS LAST, u.email`;
+
+    const result = await pool.query(query, [permissionKey]);
+    return result.rows;
+  }
+
+  /**
    * Get all hidden user IDs
    */
   static async getHiddenUserIds() {

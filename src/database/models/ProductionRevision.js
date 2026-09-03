@@ -364,7 +364,16 @@ class ProductionRevision {
             JSON.stringify(snapshot), user?.id || null, user?.name || null
           ]
         );
-        published.push({ ...rows[0], weekStart });
+        // The snapshots go out with the result so a notification can say WHAT
+        // changed. They are already in hand here; fetching them again outside
+        // the transaction would risk describing a different publish than the
+        // one that just happened.
+        published.push({
+          ...rows[0],
+          weekStart,
+          before: previous?.snapshot || null,
+          after: snapshot
+        });
       }
 
       await client.query('COMMIT');

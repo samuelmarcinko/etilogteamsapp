@@ -8,6 +8,7 @@ const { asyncHandler } = require('../middleware/errorHandler');
 const ProductionRevision = require('../database/models/ProductionRevision');
 const ProductionRetentionService = require('../services/productionRetentionService');
 const PlanChangeSummary = require('../services/planChangeSummary');
+const PlanNotificationService = require('../services/planNotificationService');
 
 /**
  * Production Plan API.
@@ -344,9 +345,29 @@ router.post('/publish', manageAccess, asyncHandler(async (req, res) => {
   }
 
   const published = await ProductionRevision.publish(location.id, weeks, currentUser(req));
+
+  // After the commit, and never in front of it. The plan is published the
+  // moment the transaction lands; telling people is a separate job that must
+  // not be able to fail it. Not awaited, so a slow Teams API does not hold the
+  // planner's browser - the service logs its own outcome and never throws.
+  if (published.length) {
+    PlanNotificationService.notifyPublished({
+      location,
+      weeks: published.map((week) => ({
+        weekStart: week.weekStart,
+        before: week.before,
+        after: week.after
+      })),
+      publishedByName: currentUser(req).name
+    });
+  }
+
   res.json({
     data: {
-      published,
+      // Without the snapshots: they exist for the notification above, and a
+      // publish of several weeks would otherwise send the whole plan twice
+      // back to the browser that just sent it.
+      published: published.map(({ before, after, ...week }) => week),
       changes: published.reduce((total, week) => total + week.change_count, 0)
     }
   });
