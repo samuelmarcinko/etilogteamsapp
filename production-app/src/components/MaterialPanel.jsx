@@ -386,13 +386,31 @@ export default function MaterialPanel({ sapOrderEntry, sapItemCode, quantity, pr
   }
 
   if (availability.isError) {
+    // Two different situations, and the planner needs to tell them apart: SAP
+    // has never heard of this number, or SAP could not be reached just now.
+    const unknown = availability.error?.status === 404;
     return (
       <div className="px-4 py-4">
-        <p className="text-[13px] font-semibold text-gray-700">The material check is unavailable.</p>
-        <p className="mt-1 text-[12px] leading-snug text-gray-500">
-          Planning is unaffected — you can save this card as normal. The check will
-          be back once the SAP data has refreshed.
+        <p className="text-[13px] font-semibold text-gray-700">
+          {unknown ? 'Nothing in SAP for this number' : 'The material check is unavailable'}
         </p>
+        <p className="mt-1 text-[12px] leading-snug text-gray-500">
+          {availability.error?.message}
+        </p>
+        <p className="mt-2 text-[12px] leading-snug text-gray-500">
+          {unknown
+            ? 'It may be an old number from the Excel sheets, or one SAP has never had a bill of materials for. The card saves as normal — it just gets no material check.'
+            : 'Planning is unaffected — you can save this card as normal, and the check returns once SAP can be read again.'}
+        </p>
+        {!unknown && (
+          <button
+            type="button"
+            onClick={readLive}
+            className="mt-2 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-[12px] font-semibold text-gray-700 transition hover:border-etilog hover:text-etilog"
+          >
+            Try again
+          </button>
+        )}
       </div>
     );
   }

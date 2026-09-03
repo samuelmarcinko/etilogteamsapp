@@ -20,6 +20,13 @@ import { api } from '../lib/api';
  * the list, which is slower, not fresher.
  */
 
+/**
+ * FG numbers are the key both sides share, so anything shaped like one is worth
+ * asking SAP about - whichever list it was picked from.
+ */
+const asSapCode = (fgNumber) =>
+  /^FG\d+$/i.test(String(fgNumber || '').trim()) ? String(fgNumber).trim().toUpperCase() : null;
+
 export default function FgCombobox({ value, onChange, autoFocus }) {
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
@@ -202,7 +209,7 @@ export default function FgCombobox({ value, onChange, autoFocus }) {
                 ))}
                 {results.length > 0 && (
                   <div className="px-2 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                    Our FG list
+                    Our FG list (not open in SAP right now)
                   </div>
                 )}
               </>
@@ -217,7 +224,12 @@ export default function FgCombobox({ value, onChange, autoFocus }) {
                     productId: product.id,
                     fgNumber: product.fg_number,
                     customProductName: null,
-                    description: product.description || ''
+                    description: product.description || '',
+                    // Our list is our own; it says nothing about whether SAP
+                    // knows the number. It usually does, so the panel asks -
+                    // and says so plainly when SAP has never heard of it.
+                    sapOrderEntry: null,
+                    sapItemCode: asSapCode(product.fg_number)
                   })
                 }
                 className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[14px] data-[selected=true]:bg-gray-100"
@@ -261,7 +273,9 @@ export default function FgCombobox({ value, onChange, autoFocus }) {
                     productId: created.id,
                     fgNumber: created.fg_number,
                     customProductName: null,
-                    description: created.description || ''
+                    description: created.description || '',
+                    sapOrderEntry: null,
+                    sapItemCode: asSapCode(created.fg_number)
                   });
                 }}
                 className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[14px] data-[selected=true]:bg-gray-100"
