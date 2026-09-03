@@ -145,6 +145,16 @@ export default function Viewer({ initialLocation }) {
 
   const seenPublish = useRef(null);
   const [justPublished, setJustPublished] = useState(null);
+  const [showChanges, setShowChanges] = useState(false);
+
+  // Only fetched when somebody asks to see it. A wall display should not be
+  // pulling a summary nobody is reading.
+  const summary = useQuery({
+    queryKey: ['production', 'changes', locationCode, range.from, range.to],
+    queryFn: () => api.changes({ location: locationCode, from: range.from, to: range.to }),
+    enabled: Boolean(showChanges && locationCode),
+    staleTime: 30 * 1000
+  });
 
   useEffect(() => {
     if (!latestPublish) return;
@@ -223,11 +233,85 @@ export default function Viewer({ initialLocation }) {
                 </p>
                 <button
                   type="button"
-                  onClick={() => setJustPublished(null)}
+                  onClick={() => setShowChanges((open) => !open)}
+                  className="shrink-0 rounded px-2 py-0.5 text-[13px] font-semibold text-white/90 transition hover:bg-white/15 hover:text-white"
+                >
+                  {showChanges ? 'Hide the list' : 'What changed'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setJustPublished(null); setShowChanges(false); }}
                   className="shrink-0 rounded px-2 py-0.5 text-[13px] font-semibold text-white/90 transition hover:bg-white/15 hover:text-white"
                 >
                   Got it
                 </button>
+              </div>
+            )}
+
+            {/* The same sentences a notification carries: week, then day, then
+                the card and what happened to it. */}
+            {justPublished && showChanges && (
+              <div className="rounded-lg border border-blue-200 bg-white px-4 py-3">
+                {summary.isPending ? (
+                  <p className="text-[13px] text-gray-500">Working out what changed…</p>
+                ) : summary.isError ? (
+                  <p className="text-[13px] text-gray-500">The list of changes could not be loaded.</p>
+                ) : !summary.data?.counts?.total ? (
+                  <p className="text-[13px] text-gray-500">Nothing changed in these weeks.</p>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    <p className="text-[13px] font-bold text-gray-900">
+                      {[
+                        summary.data.counts.added && `${summary.data.counts.added} added`,
+                        summary.data.counts.changed && `${summary.data.counts.changed} changed`,
+                        summary.data.counts.removed && `${summary.data.counts.removed} removed`
+                      ].filter(Boolean).join(' · ')}
+                    </p>
+                    {summary.data.weeks.map((week) => (
+                      <section key={week.weekStart}>
+                        <h3 className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
+                          CW {week.calendarWeek}
+                        </h3>
+                        {week.days.map((day) => (
+                          <div key={day.date || 'none'} className="mt-1.5">
+                            <p className="text-[12px] font-semibold text-gray-600">{day.label}</p>
+                            <ul className="mt-0.5 flex flex-col gap-1">
+                              {day.items.map((item) => (
+                                <li key={`${item.kind}-${item.id}`} className="flex gap-2 text-[13px]">
+                                  <span className={clsx(
+                                    'w-4 shrink-0 text-center font-bold',
+                                    item.kind === 'added' ? 'text-emerald-600'
+                                      : item.kind === 'removed' ? 'text-etilog' : 'text-amber-600'
+                                  )}>
+                                    {item.kind === 'added' ? '+' : item.kind === 'removed' ? '−' : '~'}
+                                  </span>
+                                  <span className="min-w-0">
+                                    <span className="font-semibold text-gray-900">{item.label}</span>
+                                    {item.quantity != null && (
+                                      <span className="text-gray-500"> · {item.quantity} pcs</span>
+                                    )}
+                                    {item.shift && <span className="text-gray-500"> · {item.shift}</span>}
+                                    {item.urgent && (
+                                      <span className="ml-1 rounded bg-red-50 px-1 text-[10px] font-bold text-etilog">
+                                        URGENT
+                                      </span>
+                                    )}
+                                    {item.kind === 'removed' && (
+                                      <span className="text-gray-600"> — removed from the plan</span>
+                                    )}
+                                    {item.notes.length > 0 && (
+                                      <span className="text-gray-600"> — {item.notes.join(', ')}</span>
+                                    )}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                      </section>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

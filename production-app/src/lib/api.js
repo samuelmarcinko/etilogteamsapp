@@ -102,6 +102,16 @@ export const api = {
     request(`/api/production/pending?location=${encodeURIComponent(location)}&from=${from}&to=${to}`)
       .then((r) => r.data),
 
+  /**
+   * What the last publish of each week actually did, in sentences.
+   *
+   * The same structure the notification will carry, so the screen and the
+   * message can never disagree about what happened.
+   */
+  changes: ({ location, from, to }) =>
+    request(`/api/production/changes?location=${encodeURIComponent(location)}&from=${from}&to=${to}`)
+      .then((r) => r.data),
+
   /** Publish the named weeks. One event, one transaction. */
   publish: ({ location, weeks }) =>
     request('/api/production/publish', json({ location, weeks })).then((r) => r.data),

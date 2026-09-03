@@ -47,6 +47,7 @@ const CHECKS = [
   // Mounted before /production, so a 401 here also proves it is not being
   // swallowed by the production router first.
   ['/api/production/sap/projects', 401, 'SAP routes load and are protected'],
+  ['/api/production/changes', 401, 'the publish summary loads and is protected'],
   ['/production/', 200, 'production SPA shell']
 ];
 

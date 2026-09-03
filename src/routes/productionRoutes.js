@@ -7,6 +7,7 @@ const { attachDbRole, requirePermission } = require('../middleware/portalAuth');
 const { asyncHandler } = require('../middleware/errorHandler');
 const ProductionRevision = require('../database/models/ProductionRevision');
 const ProductionRetentionService = require('../services/productionRetentionService');
+const PlanChangeSummary = require('../services/planChangeSummary');
 
 /**
  * Production Plan API.
@@ -347,6 +348,54 @@ router.post('/publish', manageAccess, asyncHandler(async (req, res) => {
     data: {
       published,
       changes: published.reduce((total, week) => total + week.change_count, 0)
+    }
+  });
+}));
+
+/**
+ * GET /api/production/changes?location=PO1&from=&to=
+ *
+ * What the last publish of each week actually did, in sentences. The same
+ * structure the viewer renders and the same one a Teams message or an email
+ * will carry, so those can never disagree about what happened.
+ */
+router.get('/changes', viewAccess, asyncHandler(async (req, res) => {
+  const rangeError = validateRange(req.query.from, req.query.to);
+  if (rangeError) return res.status(400).json({ error: 'Bad Request', message: rangeError });
+
+  const location = await ProductionPlan.findLocationByCode(req.query.location);
+  if (!location) return res.status(404).json({ error: 'Location not found' });
+
+  const weeks = ProductionRevision.weeksBetween(req.query.from, req.query.to);
+  const [current, previous] = await Promise.all([
+    ProductionRevision.findCurrent(location.id, weeks),
+    ProductionRevision.findPrevious(location.id, weeks)
+  ]);
+
+  // A week published for the very first time is left out: every card in it
+  // would read as new, which is true and says nothing.
+  const pairs = weeks
+    .filter((weekStart) => current[weekStart]?.snapshot && previous[weekStart]?.snapshot)
+    .map((weekStart) => ({
+      weekStart,
+      before: previous[weekStart].snapshot,
+      after: current[weekStart].snapshot
+    }));
+
+  const summary = PlanChangeSummary.summarise(pairs);
+  const publishedAt = weeks
+    .map((weekStart) => current[weekStart]?.published_at)
+    .filter(Boolean)
+    .sort()
+    .pop() || null;
+
+  res.json({
+    data: {
+      ...summary,
+      publishedAt,
+      text: PlanChangeSummary.asText(summary, {
+        title: `Production plan updated — ${location.code}`
+      })
     }
   });
 }));
