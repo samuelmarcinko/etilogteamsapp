@@ -219,6 +219,14 @@ class SapSyncService {
    *
    * Only components of finished goods are classified: a rivet three levels down
    * is never shown to anyone, so naming it would just fill the table.
+   *
+   * Level 2 is not optional and was once missed here, with a cost worth
+   * recording: the containers themselves mostly sit at level 2, inside the
+   * project's `_01` group, so classifying only level 1 left 24 real pallets,
+   * lids, sleeves and KLT boxes with no kind at all - among them a StackMaxx
+   * pallet standing at zero stock, which is exactly the case the planner needs
+   * to be told about. Level 1 alone answers "is there a construction group";
+   * level 2 answers "is the box in it actually there".
    */
   async classifyAll({ finishedGoods, items, trees }) {
     const guesses = new Map();
@@ -228,33 +236,60 @@ class SapSyncService {
       if (!tree) continue;
 
       for (const raw of tree.ProductTreeLines || []) {
-        const line = this.#asLine(raw);
-        if (isSkippableLine(line)) continue;
+        const item = await this.#guess(raw, order.ItemNo, { items, trees, guesses });
 
-        const item = items.get(line.itemCode);
-        if (!item) continue;
-        if (guesses.has(line.itemCode)) continue;
+        // Descend only into assemblies we make ourselves - a purchased item has
+        // no tree of its own, and this is the same test collect() used when it
+        // decided which level-2 rows to mirror, so nothing is classified that
+        // was not stored.
+        if (!item || item.ProcurementMethod !== 'bom_Make') continue;
 
-        const contents = await this.#contentsOf(line.itemCode, item, trees, items);
-        const { kind, reason } = classifyComponent({
-          item: {
-            itemName: item.ItemName,
-            groupCode: Number(item.ItemsGroupCode),
-            procurement: item.ProcurementMethod,
-            isInventory: item.InventoryItem === 'tYES'
-          },
-          line,
-          projectCode: order.ItemNo,
-          contents
-        });
+        const sub = trees.get(raw.ItemCode);
+        if (!sub) continue;
 
-        // A null kind means the rules could not tell - left out so the planner
-        // sees it as "needs a decision" rather than as a settled ignore.
-        if (kind) guesses.set(line.itemCode, { kind, reason });
+        for (const child of sub.ProductTreeLines || []) {
+          await this.#guess(child, order.ItemNo, { items, trees, guesses });
+        }
       }
     }
 
     return guesses;
+  }
+
+  /**
+   * Guess one BOM line, and hand back its item so the caller can decide whether
+   * to walk into it.
+   *
+   * Returns null for a line that is not material at all - a resource or a
+   * text-only row - and for one SAP does not know; neither is worth descending
+   * into. An item that was already settled by an earlier project is still
+   * returned, so a sub-assembly shared between projects does not stop the walk.
+   */
+  async #guess(raw, projectCode, { items, trees, guesses }) {
+    const line = this.#asLine(raw);
+    if (isSkippableLine(line)) return null;
+
+    const item = items.get(line.itemCode);
+    if (!item) return null;
+    if (guesses.has(line.itemCode)) return item;
+
+    const contents = await this.#contentsOf(line.itemCode, item, trees, items);
+    const { kind, reason } = classifyComponent({
+      item: {
+        itemName: item.ItemName,
+        groupCode: Number(item.ItemsGroupCode),
+        procurement: item.ProcurementMethod,
+        isInventory: item.InventoryItem === 'tYES'
+      },
+      line,
+      projectCode,
+      contents
+    });
+
+    // A null kind means the rules could not tell - left out so the planner
+    // sees it as "needs a decision" rather than as a settled ignore.
+    if (kind) guesses.set(line.itemCode, { kind, reason });
+    return item;
   }
 
   /** What an assembly holds, in the terms the classifier asks about. */
