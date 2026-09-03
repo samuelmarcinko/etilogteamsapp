@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  AlertTriangle, Check, ChevronDown, ChevronRight, CircleHelp, Clock, CornerDownRight, Loader2
+  AlertTriangle, Check, ChevronDown, ChevronRight, CircleHelp, Clock, CloudOff,
+  CornerDownRight, Loader2, RefreshCw, Wifi
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -232,9 +233,102 @@ function OtherFindings({ items, onMark, marking }) {
   );
 }
 
+/**
+ * The banner saying which data is on screen.
+ *
+ * Never left to guess. Either SAP answered just now, or it did not and this is
+ * the saved copy - and in the second case the reason is spelled out, because
+ * "the numbers are from twenty past four" is something a planner can weigh,
+ * while a silently stale figure is not.
+ */
+function LiveBanner({ busy, live, syncedAt, onRefresh }) {
+  const when = syncedAt
+    ? new Date(syncedAt).toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' })
+    : null;
+
+  if (busy) {
+    return (
+      <div className="flex items-center gap-2 rounded-md bg-gray-100 px-2.5 py-1.5 text-[12px] text-gray-600">
+        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true" />
+        Reading this project live from SAP…
+      </div>
+    );
+  }
+
+  const failed = live && live.ok === false;
+
+  return (
+    <div className={clsx(
+      'flex items-start gap-2 rounded-md px-2.5 py-1.5 text-[12px]',
+      failed ? 'bg-amber-50 text-amber-900' : 'bg-emerald-50 text-emerald-800'
+    )}>
+      {failed
+        ? <CloudOff className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        : <Wifi className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
+      <span className="min-w-0 flex-1">
+        {failed ? (
+          <>
+            <span className="font-semibold">SAP did not answer — showing saved data{when ? ` from ${when}` : ''}.</span>
+            {live.reason && <span className="block opacity-80">{live.reason}</span>}
+          </>
+        ) : (
+          <span className="font-semibold">
+            Live from SAP{live?.ms ? ` · read in ${(live.ms / 1000).toFixed(1)} s` : ''}
+          </span>
+        )}
+      </span>
+      <button
+        type="button"
+        onClick={onRefresh}
+        className="shrink-0 rounded p-0.5 opacity-70 transition hover:bg-white/60 hover:opacity-100"
+        title="Read from SAP again"
+        aria-label="Read from SAP again"
+      >
+        <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
 export default function MaterialPanel({ sapOrderEntry, quantity, projectType }) {
   const queryClient = useQueryClient();
   const qty = Number(quantity) || 0;
+
+  // What the live read did, or null before it has been tried.
+  const [live, setLive] = useState(null);
+  const [reading, setReading] = useState(false);
+
+  /**
+   * Re-read this project from SAP, then let the ordinary query pick the fresh
+   * rows up out of the mirror.
+   *
+   * Deliberately not tied to the quantity: changing the batch size changes only
+   * what is compared, never what SAP holds, so typing in the quantity box must
+   * not send a request per keystroke down the tunnel.
+   */
+  const readLive = useCallback(async () => {
+    if (!sapOrderEntry) return;
+    setReading(true);
+    try {
+      const data = await api.sapAvailability(sapOrderEntry, 0, { live: true });
+      setLive(data.live || { ok: false, reason: 'SAP was not asked' });
+      queryClient.invalidateQueries({ queryKey: ['sap', 'availability', sapOrderEntry] });
+    } catch (error) {
+      // The mirror is still there; this only decides what the banner says.
+      setLive({ ok: false, reason: error.message });
+    } finally {
+      setReading(false);
+    }
+  }, [sapOrderEntry, queryClient]);
+
+  // Once per project, as it is chosen.
+  useEffect(() => {
+    if (!sapOrderEntry) return undefined;
+    let cancelled = false;
+    setLive(null);
+    (async () => { if (!cancelled) await readLive(); })();
+    return () => { cancelled = true; };
+  }, [sapOrderEntry, readLive]);
 
   const availability = useQuery({
     queryKey: ['sap', 'availability', sapOrderEntry, qty],
@@ -258,11 +352,14 @@ export default function MaterialPanel({ sapOrderEntry, quantity, projectType }) 
     );
   }
 
-  if (availability.isLoading) {
+  if (availability.isLoading || (reading && !availability.data)) {
     return (
-      <div className="flex h-full items-center justify-center gap-2 text-[13px] text-gray-400">
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-        Reading the SAP data…
+      <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+        <Loader2 className="h-4 w-4 animate-spin text-gray-400" aria-hidden="true" />
+        <p className="text-[13px] text-gray-500">Reading this project live from SAP…</p>
+        <p className="text-[11px] text-gray-400">
+          A few seconds over the tunnel. If it does not answer, the saved copy is shown instead.
+        </p>
       </div>
     );
   }
@@ -298,6 +395,8 @@ export default function MaterialPanel({ sapOrderEntry, quantity, projectType }) 
         </p>
       </header>
 
+      <LiveBanner busy={reading} live={live} syncedAt={data.syncedAt} onRefresh={readLive} />
+
       <div className="flex flex-1 flex-col gap-3.5 overflow-y-auto">
         <Section
           title="Constructions"
@@ -323,9 +422,12 @@ export default function MaterialPanel({ sapOrderEntry, quantity, projectType }) 
       </div>
 
       <footer className="border-t border-gray-100 pt-2 text-[11px] text-gray-400">
+        {/* The background copy's age, which is what a failed live read falls
+            back on. Shown even when the live read worked, so the difference
+            between the two is visible rather than implied. */}
         {data.syncedAt
-          ? `SAP data from ${new Date(data.syncedAt).toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' })}`
-          : 'SAP data has not been read yet'}
+          ? `Background copy last filled at ${new Date(data.syncedAt).toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' })}`
+          : 'The background copy has not been filled yet'}
       </footer>
     </div>
   );

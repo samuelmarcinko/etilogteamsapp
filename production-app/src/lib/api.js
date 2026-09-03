@@ -137,10 +137,16 @@ export const api = {
    *
    * `qty` is the batch going on the day, not the order total - an order for 425
    * with 122 done is fine for a batch of 50.
+   *
+   * `live` re-reads the project from SAP before answering, so the stock is
+   * today's. It takes a few seconds and it can fail; when it does, the answer
+   * still comes back from the mirror and `live.ok` says what happened.
    */
-  sapAvailability: (order, qty) =>
-    request(`/api/production/sap/availability?order=${encodeURIComponent(order)}&qty=${encodeURIComponent(qty)}`)
-      .then((r) => r.data),
+  sapAvailability: (order, qty, { live = false } = {}) =>
+    request(
+      `/api/production/sap/availability?order=${encodeURIComponent(order)}`
+      + `&qty=${encodeURIComponent(qty)}${live ? '&live=1' : ''}`
+    ).then((r) => r.data),
 
   /**
    * Record what a component really is.

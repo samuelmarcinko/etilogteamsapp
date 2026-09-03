@@ -441,6 +441,238 @@ class SapSyncService {
 
   // -------------------------------------------------------------------- a pass
 
+  /**
+   * Re-read ONE project straight from SAP, right now.
+   *
+   * The background pass keeps the whole mirror at most 15 minutes old, which is
+   * fine for a list. It is not what someone wants at the moment they decide to
+   * put 200 pieces on Tuesday - there the stock figure should be today's. So
+   * choosing a project reads that project again and writes what it finds into
+   * the mirror, which also leaves it fresher for whoever opens it next.
+   *
+   * Everything it touches belongs to this one project: items, their stock, the
+   * two BOM levels below it, and the open orders on the items involved. Nothing
+   * else in the mirror is disturbed, so a live read cannot damage the copy the
+   * rest of the plan is reading.
+   *
+   * Never throws. A tunnel that is down, a SAP that is slow, a project SAP has
+   * no BOM for - all of them come back as { ok: false, reason } and the caller
+   * falls back to the mirror, which is the entire reason the mirror exists.
+   */
+  async refreshOne(itemCode) {
+    const blocked = this.client.unavailable;
+    if (blocked) return { ok: false, reason: blocked };
+
+    const began = Date.now();
+    this.client.resetCallCount();
+
+    try {
+      const items = new Map();
+      const trees = new Map();
+      const bomLines = [];
+
+      const tree = await this.#tree(itemCode, trees);
+      if (!tree) {
+        return { ok: false, reason: 'SAP has no bill of materials for this project' };
+      }
+
+      await this.#loadItems([itemCode], items);
+      const level1 = tree.ProductTreeLines || [];
+      await this.#loadItems(level1.map((line) => line.ItemCode), items);
+      bomLines.push(...this.#linesOf(itemCode, tree));
+
+      for (const raw of level1) {
+        if (isSkippableLine(this.#asLine(raw))) continue;
+        const item = items.get(raw.ItemCode);
+        if (!item || item.ProcurementMethod !== 'bom_Make') continue;
+
+        const sub = await this.#tree(raw.ItemCode, trees);
+        if (!sub) continue;
+        await this.#loadItems((sub.ProductTreeLines || []).map((x) => x.ItemCode), items);
+        bomLines.push(...this.#linesOf(raw.ItemCode, sub));
+      }
+
+      const groups = new Map();
+      for (const row of await this.client.list('ItemGroups?$select=Number,GroupName', { max: 200 })) {
+        groups.set(Number(row.Number), row.GroupName);
+      }
+
+      // Whether a bag is already being made is half the answer, so its own open
+      // order is read as freshly as its stock.
+      const open = await this.#openOrdersFor([...items.keys()]);
+
+      const guesses = new Map();
+      for (const raw of level1) {
+        const item = await this.#guess(raw, itemCode, { items, trees, guesses });
+        if (!item || item.ProcurementMethod !== 'bom_Make') continue;
+        const sub = trees.get(raw.ItemCode);
+        if (!sub) continue;
+        for (const child of sub.ProductTreeLines || []) {
+          await this.#guess(child, itemCode, { items, trees, guesses });
+        }
+      }
+
+      await this.#storeOne(itemCode, { groups, items, bomLines, open }, guesses);
+
+      return {
+        ok: true,
+        items: items.size,
+        bomLines: bomLines.length,
+        calls: this.client.callCount,
+        ms: Date.now() - began
+      };
+    } catch (error) {
+      logger.warn('Live SAP read failed, the mirror stands', { itemCode, error: error.message });
+      return { ok: false, reason: error.message };
+    }
+  }
+
+  /** Open orders on any of these items, in batches the Service Layer accepts. */
+  async #openOrdersFor(codes) {
+    const wanted = [...new Set(codes)].filter(Boolean);
+    const found = [];
+
+    for (let i = 0; i < wanted.length; i += 20) {
+      const filter = wanted.slice(i, i + 20)
+        .map((code) => `ItemNo eq '${String(code).replace(/'/g, "''")}'`)
+        .join(' or ');
+      found.push(...await this.client.list(
+        `ProductionOrders?$select=${ORDER_FIELDS}&$filter=${filter}`,
+        { max: 400 }
+      ));
+    }
+
+    return found.filter((order) => {
+      const status = order.ProductionOrderStatus;
+      const remaining = num(order.PlannedQuantity) - num(order.CompletedQuantity);
+      return (status === 'boposPlanned' || status === 'boposReleased') && remaining > 0;
+    });
+  }
+
+  /**
+   * Write one project's fresh reading into the mirror.
+   *
+   * Scoped deletes rather than the wholesale replacement a full pass does: only
+   * the rows belonging to this project are cleared and rewritten, so the copy
+   * every other screen is reading is never briefly empty.
+   */
+  async #storeOne(itemCode, { groups, items, bomLines, open }, guesses) {
+    const client = await pool.connect();
+    const parents = [...new Set(bomLines.map((line) => line.parentCode))];
+    const codes = [...items.keys()];
+
+    try {
+      await client.query('BEGIN');
+
+      for (const [code, item] of items) {
+        if (!item) continue;
+        const group = Number(item.ItemsGroupCode);
+        await client.query(
+          `INSERT INTO sap_items
+             (item_code, item_name, group_code, group_name, procurement,
+              is_inventory, uom, on_stock, ordered_from_vendors, synced_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,CURRENT_TIMESTAMP)
+           ON CONFLICT (item_code) DO UPDATE
+              SET item_name = EXCLUDED.item_name,
+                  group_code = EXCLUDED.group_code,
+                  group_name = EXCLUDED.group_name,
+                  procurement = EXCLUDED.procurement,
+                  is_inventory = EXCLUDED.is_inventory,
+                  uom = EXCLUDED.uom,
+                  on_stock = EXCLUDED.on_stock,
+                  ordered_from_vendors = EXCLUDED.ordered_from_vendors,
+                  synced_at = CURRENT_TIMESTAMP`,
+          [
+            code, item.ItemName || null, Number.isFinite(group) ? group : null,
+            groups.get(group) || null, item.ProcurementMethod || null,
+            item.InventoryItem === 'tYES', item.InventoryUOM || null,
+            num(item.QuantityOnStock), num(item.QuantityOrderedFromVendors)
+          ]
+        );
+      }
+
+      // Stock and orders are replaced rather than merged: a warehouse that has
+      // emptied since the last pass must lose its row, not keep an old number.
+      await client.query('DELETE FROM sap_item_stock WHERE item_code = ANY($1::varchar[])', [codes]);
+      for (const [code, item] of items) {
+        if (!item) continue;
+        for (const store of item.ItemWarehouseInfoCollection || []) {
+          const inStock = num(store.InStock);
+          const committed = num(store.Committed);
+          const ordered = num(store.Ordered);
+          if (!inStock && !committed && !ordered) continue;
+          await client.query(
+            `INSERT INTO sap_item_stock (item_code, warehouse, in_stock, committed, ordered)
+             VALUES ($1,$2,$3,$4,$5)`,
+            [code, store.WarehouseCode, inStock, committed, ordered]
+          );
+        }
+      }
+
+      await client.query(
+        'DELETE FROM sap_production_orders WHERE item_code = ANY($1::varchar[])', [codes]
+      );
+      for (const order of open) {
+        await client.query(
+          `INSERT INTO sap_production_orders
+             (absolute_entry, item_code, description, project_type, planned_qty,
+              completed_qty, status, warehouse, start_date, due_date, is_finished_good)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+           ON CONFLICT (absolute_entry) DO UPDATE
+              SET planned_qty = EXCLUDED.planned_qty,
+                  completed_qty = EXCLUDED.completed_qty,
+                  status = EXCLUDED.status,
+                  due_date = EXCLUDED.due_date,
+                  synced_at = CURRENT_TIMESTAMP`,
+          [
+            Number(order.AbsoluteEntry), order.ItemNo,
+            order.ProductDescription || null, projectTypeOf(order.ProductDescription),
+            num(order.PlannedQuantity), num(order.CompletedQuantity),
+            order.ProductionOrderStatus || null, order.Warehouse || null,
+            day(order.StartDate), day(order.DueDate),
+            order.ItemNo === itemCode
+          ]
+        );
+      }
+
+      await client.query('DELETE FROM sap_boms WHERE parent_code = ANY($1::varchar[])', [parents]);
+      for (const line of bomLines) {
+        await client.query(
+          `INSERT INTO sap_boms
+             (parent_code, line_no, item_code, item_name, quantity_per,
+              warehouse, line_type, price)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [
+            line.parentCode, line.lineNo, line.itemCode, line.itemName,
+            line.quantityPer, line.warehouse, line.lineType, line.price
+          ]
+        );
+      }
+
+      // A person's decision outranks anything worked out here, exactly as in a
+      // full pass.
+      for (const [code, { kind, reason }] of guesses) {
+        await client.query(
+          `INSERT INTO sap_item_kinds (item_code, kind, source, reason)
+           VALUES ($1,$2,'auto',$3)
+           ON CONFLICT (item_code) DO UPDATE
+              SET kind = EXCLUDED.kind,
+                  reason = EXCLUDED.reason,
+                  set_at = CURRENT_TIMESTAMP
+            WHERE sap_item_kinds.source = 'auto'`,
+          [code, kind, reason]
+        );
+      }
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async runOnce() {
     if (this.inFlight) {
       logger.debug('SAP sync already running, skipping this tick');
@@ -537,6 +769,19 @@ class SapSyncService {
     this.isRunning = false;
   }
 }
+
+/**
+ * The one instance the app uses.
+ *
+ * The scheduled pass and a live read from the planning dialog share it, and so
+ * share one SAP session: a second instance would log in again on every click,
+ * and SAP counts sessions.
+ */
+let shared = null;
+SapSyncService.shared = () => {
+  if (!shared) shared = new SapSyncService();
+  return shared;
+};
 
 module.exports = SapSyncService;
 module.exports.KIND = KIND;

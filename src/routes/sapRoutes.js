@@ -60,11 +60,38 @@ router.get('/projects', viewAccess, asyncHandler(async (req, res) => {
 }));
 
 /**
+ * How long a live read may hold up the dialog.
+ *
+ * A project costs roughly 25 round trips over the tunnel. Past this the answer
+ * is no longer worth waiting for and the mirror - at most fifteen minutes old -
+ * is the better one to show. The read itself is not cancelled; if it finishes
+ * afterwards the mirror simply gets fresher for the next person.
+ */
+const LIVE_TIMEOUT_MS = Number(process.env.SAP_LIVE_TIMEOUT_MS || 15000);
+
+/** Resolve to whatever comes first: the read, or the clock. */
+function within(ms, work) {
+  return Promise.race([
+    work,
+    new Promise((resolve) => setTimeout(
+      () => resolve({ ok: false, reason: `SAP did not answer within ${Math.round(ms / 1000)} s` }),
+      ms
+    ))
+  ]);
+}
+
+/**
  * The material picture for one batch.
  *
  * `qty` is the batch going on the day, not the order total. Passing the order
  * total instead would raise an alarm on nearly every project, which is exactly
  * what made two earlier versions of this check useless.
+ *
+ * With `live=1` the project is re-read from SAP first, so the stock figures are
+ * today's rather than up to fifteen minutes old. That read can fail - a dropped
+ * tunnel, a slow server - and when it does the answer is still returned, built
+ * from the mirror, with `live.ok` false and the reason. The screen says which
+ * of the two it is looking at; planning never waits on SAP being up.
  */
 router.get('/availability', viewAccess, asyncHandler(async (req, res) => {
   const entry = Number(req.query.order);
@@ -77,12 +104,19 @@ router.get('/availability', viewAccess, asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Bad Request', message: 'qty must be a number' });
   }
 
-  const answer = await SapAvailability.forOrder(entry, qty);
-  if (!answer) {
+  const known = await SapAvailability.order(entry);
+  if (!known) {
     return res.status(404).json({ error: 'Not Found', message: 'That SAP order is not in the mirror' });
   }
 
-  res.json({ success: true, data: answer });
+  let live = null;
+  if (req.query.live === '1' || req.query.live === 'true') {
+    live = await within(LIVE_TIMEOUT_MS, SapSyncService.shared().refreshOne(known.itemCode));
+  }
+
+  // Read after the refresh, so a successful live read is what comes back.
+  const answer = await SapAvailability.forOrder(entry, qty);
+  res.json({ success: true, data: { ...answer, live } });
 }));
 
 /**

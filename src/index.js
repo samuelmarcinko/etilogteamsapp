@@ -90,7 +90,9 @@ productionRetentionService.start();
 // Mirrors the SAP data the production plan needs. Reads only, and does nothing
 // at all unless SAP_ENABLED=true and the connection is configured - so a
 // deployment without those settings behaves exactly as before.
-const sapSyncService = new SapSyncService();
+// The shared instance, so a live read from the planning dialog reuses this
+// service's SAP session rather than logging in again on every click.
+const sapSyncService = SapSyncService.shared();
 sapSyncService.start();
 
 // Idempotent schema top-up for material soft-delete (migration 023).
