@@ -212,6 +212,10 @@ router.put('/production-notify', requireDbRole('admin'), asyncHandler(async (req
     });
   }
 
+  if (typeof req.body.emailEnabled === 'boolean') {
+    await PlanNotificationService.setEmailEnabled(req.body.emailEnabled);
+  }
+
   const result = await PlanNotificationService.setRecipients(req.body.userIds);
   res.json({ success: true, data: result });
 }));

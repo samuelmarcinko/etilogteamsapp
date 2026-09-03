@@ -3071,7 +3071,7 @@ async function renderAdminSystem(container) {
     // apiCall hands back the Response, so this unwraps it the same way SMTP does.
     const notifyRes = await apiCall('/api/admin/production-notify').catch(() => null);
     const notify = (notifyRes && notifyRes.ok ? (await notifyRes.json()).data : null)
-        || { mode: 'permission', chosen: [], byPermission: [], effective: [], users: [] };
+        || { mode: 'permission', chosen: [], byPermission: [], effective: [], users: [], emailEnabled: true };
     const smtp = smtpRes.ok ? ((await smtpRes.json()).data || {}) : {};
 
     container.innerHTML = `
@@ -3211,6 +3211,15 @@ async function renderAdminSystem(container) {
                         </select>
                         <small style="color: var(--gray-600);">
                             Viacerých vyberieš s Ctrl (Cmd). Prázdny výber = podľa rolí.
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="checkbox" id="notifyEmail" ${notify.emailEnabled === false ? '' : 'checked'}>
+                            <span>Poslať aj e-mailom</span>
+                        </label>
+                        <small style="color: var(--gray-600);">
+                            Rovnaký súhrn ako v Teams, naštýlovaný e-mail. Chodí tým istým ľuďom.
                         </small>
                     </div>
                     <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
@@ -3434,9 +3443,10 @@ async function saveNotifyRecipients() {
     const userIds = Array.from(select?.selectedOptions || []).map(o => o.value);
 
     try {
+        const emailEnabled = !!document.getElementById('notifyEmail')?.checked;
         const response = await apiCall('/api/admin/production-notify', {
             method: 'PUT',
-            body: JSON.stringify({ userIds })
+            body: JSON.stringify({ userIds, emailEnabled })
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.message || 'Uloženie zlyhalo');

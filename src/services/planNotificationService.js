@@ -3,6 +3,8 @@ const logger = require('../utils/logger');
 const User = require('../database/models/User');
 const SystemSettings = require('../database/models/SystemSettings');
 const PlanChangeSummary = require('./planChangeSummary');
+const { buildEmail } = require('./planEmailTemplate');
+const { sendEmail } = require('./emailService');
 
 /**
  * Tells people in Teams what a publish changed.
@@ -172,6 +174,11 @@ function buildCard(summary, { locationName, locationCode, publishedByName, planU
 // user ids, which is what Teams is addressed by.
 const LIST_SETTING = 'production.notify.users';
 
+// Whether the same summary also goes out by email. On by default; a checkbox
+// rather than a deployment, because whether two channels is useful or noise is
+// something only the people receiving them can judge.
+const EMAIL_SETTING = 'production.notify.email';
+
 class PlanNotificationService {
   /**
    * Who hears about a publish.
@@ -212,7 +219,8 @@ class PlanNotificationService {
       mode: chosen.length ? 'explicit' : 'permission',
       chosen,
       byPermission,
-      effective: chosen.length ? await User.findByIds(chosen) : byPermission
+      effective: chosen.length ? await User.findByIds(chosen) : byPermission,
+      emailEnabled: await PlanNotificationService.emailEnabled()
     };
   }
 
@@ -285,20 +293,75 @@ class PlanNotificationService {
         }
       }
 
+      // The same summary by email, to the same people. Sent separately and
+      // independently: somebody who never opened the Teams app still gets told,
+      // and a mail server that is down costs nothing that already worked.
+      const emailed = await PlanNotificationService.sendEmails(recipients, summary, {
+        location, publishedByName, toast
+      });
+
       logger.info('Plan notification sent', {
         location: location.code,
         sent,
         failed: failed.length,
+        emailed,
         changes: summary.counts.total
       });
       if (failed.length) logger.debug('Plan notification could not reach some people', { failed });
 
-      return { sent, failed: failed.length, counts: summary.counts };
+      return { sent, failed: failed.length, emailed, counts: summary.counts };
     } catch (error) {
       // The plan is already published. This is the part that may fail.
       logger.error('Plan notification failed', { error: error.message });
       return { sent: 0, error: error.message };
     }
+  }
+
+  /**
+   * The same summary by email.
+   *
+   * Never throws, for the same reason nothing else here does: the plan is
+   * already published. A recipient with no email address is skipped rather than
+   * counted as a failure - not everybody in a Teams tenant has one on file.
+   */
+  static async sendEmails(recipients, summary, { location, publishedByName, toast }) {
+    const enabled = await SystemSettings.get(EMAIL_SETTING);
+    // Absent means on: it is what was asked for, and a setting nobody has
+    // touched should behave the way it was built.
+    if (String(enabled ?? 'true').toLowerCase() === 'false') return 0;
+
+    const base = process.env.APP_BASE_URL || 'https://portal.etilog.com';
+    const html = buildEmail(summary, {
+      locationName: location.name,
+      locationCode: location.code,
+      publishedByName,
+      planUrl: `${base}/production/view#location=${encodeURIComponent(location.code)}`
+    });
+
+    let count = 0;
+    for (const recipient of recipients) {
+      if (!recipient.email) continue;
+      try {
+        const ok = await sendEmail({ to: recipient.email, subject: toast, html });
+        if (ok) count += 1;
+      } catch (error) {
+        logger.debug('Plan notification email failed', {
+          to: recipient.email, error: error.message
+        });
+      }
+    }
+    return count;
+  }
+
+  /** Whether the email copy is switched on. */
+  static async emailEnabled() {
+    const value = await SystemSettings.get(EMAIL_SETTING);
+    return String(value ?? 'true').toLowerCase() !== 'false';
+  }
+
+  static async setEmailEnabled(enabled) {
+    await SystemSettings.set(EMAIL_SETTING, enabled ? 'true' : 'false');
+    return PlanNotificationService.emailEnabled();
   }
 
   /**
