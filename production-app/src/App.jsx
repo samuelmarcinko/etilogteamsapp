@@ -27,6 +27,7 @@ import {
 import AppHeader from './components/AppHeader';
 import PlanLegend from './components/PlanLegend';
 import PublishBar from './components/PublishBar';
+import ConfirmDialog from './components/ConfirmDialog';
 import WeekBlock from './components/WeekBlock';
 import ProductionCard from './components/ProductionCard';
 import CardContextMenu from './components/CardContextMenu';
@@ -122,6 +123,9 @@ export default function App() {
   const [bulk, setBulk] = useState(null);          // { kind, sourceDate }
   const [splitting, setSplitting] = useState(null); // card being split
   const [cardMenu, setCardMenu] = useState(null);   // { entry, x, y } - right-click
+  // The card a delete has been asked for but not yet confirmed. Deleting is the
+  // one action here with no undo, so it is the one that asks.
+  const [deleting, setDeleting] = useState(null);
 
   const profile = useQuery({ queryKey: ['me'], queryFn: api.me, staleTime: 5 * 60 * 1000 });
   const canView = profile.data?.permissions?.includes('production.view');
@@ -448,6 +452,29 @@ export default function App() {
     onError: (error) => toast.error(error.message)
   });
 
+  /**
+   * Warn before leaving with work the floor has not been told about.
+   *
+   * Nothing is at risk of being lost - every edit is written to the database as
+   * it is made, and closing the tab loses none of it. What is outstanding is
+   * that the floor is still reading the previously published plan, and someone
+   * walking away believing they had handed the week over would be wrong. Hence
+   * a reminder, not a rescue.
+   *
+   * The browser shows its own wording; the string only tells it to ask.
+   */
+  const pendingChanges = pending.data?.changes || 0;
+  useEffect(() => {
+    if (!pendingChanges) return undefined;
+    const warn = (event) => {
+      event.preventDefault();
+      event.returnValue = 'You have changes the production floor has not seen yet. Publish them before leaving?';
+      return event.returnValue;
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [pendingChanges]);
+
   const shifts = plan.data?.shifts || [];
 
   if (profile.isLoading) {
@@ -671,6 +698,22 @@ export default function App() {
           }}
           onDelete={(entry) => {
             setCardMenu(null);
+            setDeleting(entry);
+          }}
+        />
+
+        <ConfirmDialog
+          open={Boolean(deleting)}
+          onOpenChange={(open) => !open && setDeleting(null)}
+          title="Delete this card?"
+          detail={deleting ? `${cardLabel(deleting)}${deleting.planned_quantity ? ` — ${deleting.planned_quantity} pcs` : ''}` : null}
+          body="It will be removed from the plan. This cannot be undone."
+          confirmLabel="Delete card"
+          busy={deleteMutation.isPending}
+          onConfirm={() => {
+            const entry = deleting;
+            setDeleting(null);
+            setFormState(null);
             deleteMutation.mutate(entry);
           }}
         />
@@ -682,7 +725,7 @@ export default function App() {
           slot={formState?.slot || null}
           shifts={shifts}
           saving={saveMutation.isPending}
-          onDelete={(entry) => deleteMutation.mutate(entry)}
+          onDelete={(entry) => setDeleting(entry)}
           onSubmit={(payload) => {
             const entry = formState?.entry || null;
             const productionDate = entry
