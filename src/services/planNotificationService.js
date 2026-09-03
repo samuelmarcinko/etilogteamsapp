@@ -1,6 +1,7 @@
 const axios = require('axios');
 const logger = require('../utils/logger');
 const User = require('../database/models/User');
+const SystemSettings = require('../database/models/SystemSettings');
 const PlanChangeSummary = require('./planChangeSummary');
 
 /**
@@ -167,7 +168,62 @@ function buildCard(summary, { locationName, locationCode, publishedByName, planU
   };
 }
 
+// Where an explicit recipient list is kept when one is set. Comma-separated
+// user ids, which is what Teams is addressed by.
+const LIST_SETTING = 'production.notify.users';
+
 class PlanNotificationService {
+  /**
+   * Who hears about a publish.
+   *
+   * Normally the permission matrix answers this: whoever holds
+   * production.notify, plus every administrator, because an administrator holds
+   * every key by definition.
+   *
+   * An explicit list overrides that entirely when one is set - including the
+   * administrators, which is the whole point of it. It exists so a change can
+   * be tried on one person before it starts arriving in everybody's Teams, and
+   * clearing it hands the decision back to the roles. The screen says which of
+   * the two is in force, because a list quietly left in place months later
+   * would look exactly like a broken notification.
+   */
+  static async recipients() {
+    const raw = await SystemSettings.get(LIST_SETTING);
+    const chosen = String(raw || '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+
+    if (!chosen.length) return User.findByPermission('production.notify');
+
+    const found = await User.findByIds(chosen);
+    // Ids that match nobody are dropped rather than sent to: an id that no
+    // longer exists is somebody who left, and Teams would only answer 404.
+    return found;
+  }
+
+  /** Both answers at once, for the admin screen. */
+  static async recipientOptions() {
+    const raw = await SystemSettings.get(LIST_SETTING);
+    const chosen = String(raw || '').split(',').map((id) => id.trim()).filter(Boolean);
+    const byPermission = await User.findByPermission('production.notify');
+
+    return {
+      mode: chosen.length ? 'explicit' : 'permission',
+      chosen,
+      byPermission,
+      effective: chosen.length ? await User.findByIds(chosen) : byPermission
+    };
+  }
+
+  static async setRecipients(userIds) {
+    const clean = (Array.isArray(userIds) ? userIds : [])
+      .map((id) => String(id).trim())
+      .filter(Boolean);
+    await SystemSettings.set(LIST_SETTING, clean.join(','));
+    return PlanNotificationService.recipientOptions();
+  }
+
   /**
    * Send the summary of one publish.
    *
@@ -190,7 +246,7 @@ class PlanNotificationService {
         return { sent: 0, skipped: 'nothing changed' };
       }
 
-      const recipients = await User.findByPermission('production.notify');
+      const recipients = await PlanNotificationService.recipients();
       if (!recipients.length) {
         logger.info('Plan published, but nobody holds production.notify', { location: location.code });
         return { sent: 0, skipped: 'no recipients' };

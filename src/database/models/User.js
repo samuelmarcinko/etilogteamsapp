@@ -132,6 +132,44 @@ class User {
   }
 
   /**
+   * Users by their Teams ids, in the order the database finds them.
+   *
+   * Ids that match nobody are simply absent from the result. That is the
+   * behaviour the caller wants: an id nobody holds any more is somebody who
+   * left, and there is nothing to be done about it at send time.
+   */
+  static async findByIds(userIds) {
+    const wanted = [...new Set((userIds || []).map((id) => String(id).trim()).filter(Boolean))];
+    if (!wanted.length) return [];
+
+    const result = await pool.query(
+      `SELECT user_id, email, display_name, role
+         FROM users
+        WHERE user_id = ANY($1::varchar[])
+        ORDER BY display_name NULLS LAST, email`,
+      [wanted]
+    );
+    return result.rows;
+  }
+
+  /**
+   * Everyone who could be picked as a notification recipient.
+   *
+   * Hidden users are left out: they are hidden because nobody should be
+   * choosing them from a list.
+   */
+  static async findSelectable() {
+    const result = await pool.query(
+      `SELECT user_id, email, display_name, role
+         FROM users
+        WHERE user_id IS NOT NULL
+          AND COALESCE(hidden, false) = false
+        ORDER BY display_name NULLS LAST, email`
+    );
+    return result.rows;
+  }
+
+  /**
    * Get all hidden user IDs
    */
   static async getHiddenUserIds() {

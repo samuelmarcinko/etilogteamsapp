@@ -10,6 +10,7 @@ const SystemSettings = require('../database/models/SystemSettings');
 const { sendEmail, getSmtpConfig } = require('../services/emailService');
 const SapSyncService = require('../services/sapSyncService');
 const { SapClient } = require('../services/sapClient');
+const PlanNotificationService = require('../services/planNotificationService');
 
 // All admin routes require authentication
 router.use(verifyToken);
@@ -182,6 +183,37 @@ router.post('/settings/smtp/test', requireDbRole('admin'), asyncHandler(async (r
   } else {
     res.status(500).json({ success: false, message: 'SMTP nie je nakonfigurované alebo odosielanie zlyhalo' });
   }
+}));
+
+/**
+ * Who gets a Teams message when the production plan is published.
+ *
+ * Two ways of deciding, and the screen shows which is in force. Normally the
+ * permission matrix answers it - whoever holds production.notify, and every
+ * administrator, since an administrator holds every key. Naming people
+ * explicitly overrides that completely, administrators included, which is the
+ * point: a change can be tried on one person before it starts arriving in
+ * everybody's Teams. Saving an empty list hands the decision back to the roles.
+ */
+router.get('/production-notify', requireDbRole('admin'), asyncHandler(async (req, res) => {
+  const [options, users] = await Promise.all([
+    PlanNotificationService.recipientOptions(),
+    User.findSelectable()
+  ]);
+
+  res.json({ success: true, data: { ...options, users } });
+}));
+
+router.put('/production-notify', requireDbRole('admin'), asyncHandler(async (req, res) => {
+  if (!Array.isArray(req.body.userIds)) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: 'userIds must be an array - an empty one returns to the role-based list'
+    });
+  }
+
+  const result = await PlanNotificationService.setRecipients(req.body.userIds);
+  res.json({ success: true, data: result });
 }));
 
 /**

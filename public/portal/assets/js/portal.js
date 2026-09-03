@@ -3068,6 +3068,10 @@ async function renderAdminSystem(container) {
 
     // Load SMTP config
     const smtpRes = await apiCall('/api/admin/settings/smtp');
+    // apiCall hands back the Response, so this unwraps it the same way SMTP does.
+    const notifyRes = await apiCall('/api/admin/production-notify').catch(() => null);
+    const notify = (notifyRes && notifyRes.ok ? (await notifyRes.json()).data : null)
+        || { mode: 'permission', chosen: [], byPermission: [], effective: [], users: [] };
     const smtp = smtpRes.ok ? ((await smtpRes.json()).data || {}) : {};
 
     container.innerHTML = `
@@ -3178,6 +3182,45 @@ async function renderAdminSystem(container) {
                 <div class="card-body">
                     <p style="color: var(--gray-600); margin-bottom: 1rem;">${pt('whBackupInfo')}</p>
                     <div id="whBackupList">${renderWhBackupList(whBackups)}</div>
+                </div>
+            </div>
+
+            <!-- Kto dostáva správu po zverejnení výrobného plánu -->
+            <div class="portal-card" style="margin-top: 1.5rem;">
+                <div class="card-header">
+                    <h3>&#128227; Výrobný plán – notifikácie</h3>
+                    <span class="status-badge ${notify.mode === 'explicit' ? 'status-pending' : 'status-approved'}">
+                        ${notify.mode === 'explicit' ? 'menný zoznam' : 'podľa rolí'}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <p style="color: var(--gray-600); margin-bottom: 1rem;">
+                        Po zverejnení zmien pošle Teams bot súhrn do súkromného chatu.
+                        ${notify.mode === 'explicit'
+                            ? '<strong>Teraz to chodí len vybraným ľuďom nižšie</strong> – roly aj administrátori sú dočasne obídení.'
+                            : 'Teraz to chodí každému, kto má oprávnenie <strong>Výrobný plán – notifikácie</strong>, a všetkým administrátorom.'}
+                        Ak nižšie nikoho nevyberieš a uložíš, rozhodovanie sa vráti rolám.
+                    </p>
+                    <div class="form-group">
+                        <label class="form-label">Poslať len týmto ľuďom</label>
+                        <select id="notifyUsers" class="form-input" multiple size="8" style="height: auto;">
+                            ${(notify.users || []).map(u => `
+                                <option value="${escapeHtml(u.user_id)}" ${notify.chosen.includes(u.user_id) ? 'selected' : ''}>
+                                    ${escapeHtml(u.display_name || u.email)}${u.role === 'admin' ? ' (admin)' : ''}
+                                </option>`).join('')}
+                        </select>
+                        <small style="color: var(--gray-600);">
+                            Viacerých vyberieš s Ctrl (Cmd). Prázdny výber = podľa rolí.
+                        </small>
+                    </div>
+                    <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                        <button type="button" class="btn btn-primary" onclick="saveNotifyRecipients()">Uložiť príjemcov</button>
+                        <button type="button" class="btn btn-secondary" onclick="clearNotifyRecipients()">Vrátiť na roly</button>
+                        <span style="color: var(--gray-600);">
+                            Momentálne dostáva správu: <strong>${(notify.effective || []).length}</strong>
+                            ${(notify.effective || []).length ? '– ' + (notify.effective || []).map(u => escapeHtml(u.display_name || u.email)).join(', ') : ''}
+                        </span>
+                    </div>
                 </div>
             </div>
 
@@ -3384,6 +3427,34 @@ async function restoreWarehouseBackup(name) {
     } catch (error) {
         showToast(error.message, 'error');
     }
+}
+
+async function saveNotifyRecipients() {
+    const select = document.getElementById('notifyUsers');
+    const userIds = Array.from(select?.selectedOptions || []).map(o => o.value);
+
+    try {
+        const response = await apiCall('/api/admin/production-notify', {
+            method: 'PUT',
+            body: JSON.stringify({ userIds })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || 'Uloženie zlyhalo');
+
+        showToast(userIds.length
+            ? `Notifikácie chodia ${result.data.effective.length} ľuďom`
+            : 'Príjemcovia sa opäť riadia rolami', 'success');
+        // Same reload the SMTP form uses - the screen is rendered from scratch.
+        navigateToPage('admin-system');
+    } catch (error) {
+        showToast('Uloženie zlyhalo: ' + error.message, 'error');
+    }
+}
+
+async function clearNotifyRecipients() {
+    const select = document.getElementById('notifyUsers');
+    if (select) Array.from(select.options).forEach(o => { o.selected = false; });
+    await saveNotifyRecipients();
 }
 
 async function saveSmtpSettings(event) {
