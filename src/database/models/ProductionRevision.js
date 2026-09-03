@@ -128,10 +128,50 @@ function countDifferences(before, after) {
   return changes;
 }
 
+/**
+ * WHICH cards changed between two published revisions, not just how many.
+ *
+ * The floor is told the plan changed; what it needs to see is where. A card
+ * that appeared, a card that is not what it was - moved, requantified,
+ * recoloured - and a card that is gone. Removals carry their label because
+ * there is nothing left on screen to attach them to.
+ *
+ * A card that moved is one change and keeps its identity, the same reading
+ * countDifferences takes: it is the same card, on a different day.
+ */
+function diffEntries(before, after) {
+  const byId = (rows) => new Map((rows || []).map((row) => [row.id, row]));
+  const was = byId(before?.entries);
+  const now = byId(after?.entries);
+
+  const added = [];
+  const changed = [];
+  const removed = [];
+
+  for (const [id, entry] of now) {
+    const previous = was.get(id);
+    if (!previous) added.push(id);
+    else if (entryFingerprint(previous) !== entryFingerprint(entry)) changed.push(id);
+  }
+
+  for (const [id, entry] of was) {
+    if (now.has(id)) continue;
+    removed.push({
+      id,
+      label: entry.fg_number || entry.custom_product_name || `#${id}`,
+      productionDate: entry.production_date || null,
+      quantity: entry.planned_quantity ?? null
+    });
+  }
+
+  return { added, changed, removed };
+}
+
 class ProductionRevision {
   static weekStartOf = weekStartOf;
   static weeksBetween = weeksBetween;
   static countDifferences = countDifferences;
+  static diffEntries = diffEntries;
 
   /**
    * The week as it stands right now, in the shape a revision stores.
@@ -214,6 +254,35 @@ class ProductionRevision {
     for (const row of rows) {
       byWeek[asDay(row.week_start)] = row;
     }
+    return byWeek;
+  }
+
+  /**
+   * The revision published before the current one, per week.
+   *
+   * Only the snapshot is needed, and only to compare against - so a week with
+   * just one revision (nothing published before it) is simply absent, and
+   * everything in it reads as new, which is what it is.
+   */
+  static async findPrevious(locationId, weekStarts) {
+    if (!weekStarts.length) return {};
+
+    const { rows } = await pool.query(
+      `SELECT DISTINCT ON (week_start)
+              to_char(week_start, 'YYYY-MM-DD') AS week_start,
+              revision, snapshot
+         FROM production_plan_revisions r
+        WHERE location_id = $1 AND week_start = ANY($2::date[])
+          AND revision < (
+              SELECT max(revision) FROM production_plan_revisions
+               WHERE location_id = r.location_id AND week_start = r.week_start
+          )
+        ORDER BY week_start, revision DESC`,
+      [locationId, weekStarts]
+    );
+
+    const byWeek = {};
+    for (const row of rows) byWeek[asDay(row.week_start)] = row;
     return byWeek;
   }
 

@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { useQuery } from '@tanstack/react-query';
 import { addWeeks } from 'date-fns';
+import { RefreshCw } from 'lucide-react';
 
 import { api } from './lib/api';
 import {
@@ -98,13 +99,65 @@ export default function Viewer({ initialLocation }) {
     () => indexCalendarExceptions(plan.data?.calendarExceptions || []), [plan.data]
   );
 
+  /**
+   * What the last publish brought.
+   *
+   * This is the reading the floor needs, and it is not the same as "edited
+   * recently": a card corrected on Monday and published on Thursday is new to
+   * the floor on Thursday, and one edited an hour ago but never published is
+   * not news at all. The server compares the two newest revisions, so what is
+   * marked here is exactly what changed in the plan people are being shown.
+   *
+   * The 24-hour rule remains the fallback for a week published for the very
+   * first time, where there is no earlier revision to compare against.
+   */
+  const published = plan.data?.changes;
+  const addedIds = useMemo(() => new Set(published?.added || []), [published]);
+  const changedIds = useMemo(() => new Set(published?.changed || []), [published]);
+  const removed = published?.removed || [];
+
   const isUpdated = (entry) => {
-    if (!entry?.updated_at) return false;
+    if (!entry) return false;
+    if (published) return addedIds.has(entry.id) || changedIds.has(entry.id);
+    if (!entry.updated_at) return false;
     const at = new Date(entry.updated_at).getTime();
     return Number.isFinite(at) && Date.now() - at < UPDATED_WINDOW_MS;
   };
 
   const updatedCount = (plan.data?.entries || []).filter(isUpdated).length;
+
+  /**
+   * A publish that lands while somebody is watching the screen.
+   *
+   * The view already refreshes itself every minute, quietly - which is right
+   * for a wall display but means a change can appear with nobody noticing it
+   * did. The newest publish time is remembered, and when it moves the screen
+   * says so until someone acknowledges it.
+   */
+  const latestPublish = useMemo(() => {
+    const times = (plan.data?.revisions || [])
+      .map((revision) => revision.publishedAt)
+      .filter(Boolean)
+      .map((at) => new Date(at).getTime())
+      .filter(Number.isFinite);
+    return times.length ? Math.max(...times) : null;
+  }, [plan.data]);
+
+  const seenPublish = useRef(null);
+  const [justPublished, setJustPublished] = useState(null);
+
+  useEffect(() => {
+    if (!latestPublish) return;
+    // The first load is the baseline, not an announcement.
+    if (seenPublish.current === null) {
+      seenPublish.current = latestPublish;
+      return;
+    }
+    if (latestPublish > seenPublish.current) {
+      seenPublish.current = latestPublish;
+      setJustPublished(new Date(latestPublish));
+    }
+  }, [latestPublish]);
 
   // A week with no revision has never been published. Rendering it as an empty
   // week would be a lie - there may be a full week of work sitting in the
@@ -155,12 +208,52 @@ export default function Viewer({ initialLocation }) {
           <div className="flex flex-col gap-3">
             {/* Said once at the top, so nobody has to scan seven columns to
                 find out whether anything moved. */}
+            {/* A publish that landed while this screen was open. Louder than
+                the summary below it, because it is news rather than context,
+                and it stays until somebody dismisses it. */}
+            {justPublished && (
+              <div className="flex items-start gap-3 rounded-lg border-2 border-blue-600 bg-blue-600 px-4 py-3 text-white">
+                <RefreshCw className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <p className="flex-1 text-[14px]">
+                  <span className="font-bold">The plan was just updated</span>
+                  {' · '}
+                  {justPublished.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' })}
+                  {'. '}
+                  What changed is marked below.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setJustPublished(null)}
+                  className="shrink-0 rounded px-2 py-0.5 text-[13px] font-semibold text-white/90 transition hover:bg-white/15 hover:text-white"
+                >
+                  Got it
+                </button>
+              </div>
+            )}
+
             {updatedCount > 0 && (
               <p className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-[14px] text-blue-900">
                 <span className="font-bold">
                   {updatedCount} {updatedCount === 1 ? 'card' : 'cards'} changed
                 </span>
-                {' '}in the last 24 hours. Tap one to see what changed.
+                {published
+                  ? ' in the latest publish. Tap one to see what changed.'
+                  : ' in the last 24 hours. Tap one to see what changed.'}
+              </p>
+            )}
+
+            {/* Cards that were taken out have nothing left on screen to mark,
+                so they are named here or they vanish silently - and a job
+                somebody was expecting to make is exactly the kind of change
+                that must not vanish silently. */}
+            {removed.length > 0 && (
+              <p className="rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-[14px] text-gray-700">
+                <span className="font-bold">
+                  {removed.length} {removed.length === 1 ? 'card was' : 'cards were'} removed
+                </span>
+                {': '}
+                {removed.slice(0, 6).map((card) => card.label).join(', ')}
+                {removed.length > 6 && ` and ${removed.length - 6} more`}
               </p>
             )}
 

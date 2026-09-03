@@ -215,12 +215,21 @@ router.get('/plan', viewAccess, asyncHandler(async (req, res) => {
   // reason revisions exist.
   if (req.query.published === '1') {
     const weeks = ProductionRevision.weeksBetween(from, to);
-    const current = await ProductionRevision.findCurrent(location.id, weeks);
+    const [current, previous] = await Promise.all([
+      ProductionRevision.findCurrent(location.id, weeks),
+      ProductionRevision.findPrevious(location.id, weeks)
+    ]);
 
     const entries = [];
     const dayFlags = [];
     const shiftNotes = [];
     const revisions = [];
+    // What the last publish brought, per card. The floor is told the plan
+    // changed; this is what lets the screen show WHERE, instead of leaving
+    // everyone to spot it. A first revision has nothing to compare against, so
+    // its cards are not marked new - a week published for the first time is all
+    // new, and flagging every card would say nothing.
+    const changes = { added: [], changed: [], removed: [] };
 
     for (const weekStart of weeks) {
       const published = current[weekStart];
@@ -236,6 +245,13 @@ router.get('/plan', viewAccess, asyncHandler(async (req, res) => {
       entries.push(...(snapshot.entries || []));
       dayFlags.push(...(snapshot.dayFlags || []));
       shiftNotes.push(...(snapshot.shiftNotes || []));
+
+      const before = previous[weekStart];
+      if (!before?.snapshot) continue;
+      const diff = ProductionRevision.diffEntries(before.snapshot, snapshot);
+      changes.added.push(...diff.added);
+      changes.changed.push(...diff.changed);
+      changes.removed.push(...diff.removed.map((row) => ({ ...row, weekStart })));
     }
 
     return res.json({
@@ -248,7 +264,8 @@ router.get('/plan', viewAccess, asyncHandler(async (req, res) => {
         dayFlags,
         shiftNotes,
         calendarExceptions: exceptions,
-        revisions
+        revisions,
+        changes
       }
     });
   }
