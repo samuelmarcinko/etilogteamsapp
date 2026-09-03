@@ -102,6 +102,20 @@ function parseEntryPayload(body, { requireLocation }) {
 
   value.notes = typeof body.notes === 'string' && body.notes.trim() ? body.notes.trim() : null;
 
+  // Which SAP production order this card is a slice of, when it came from one.
+  // Optional on purpose: planning ahead of SAP, or for work SAP knows nothing
+  // about, has to keep working exactly as it does today - such a card simply
+  // gets no material check.
+  if (body.sapOrderEntry == null || body.sapOrderEntry === '') {
+    value.sapOrderEntry = null;
+  } else {
+    const sapOrderEntry = Number(body.sapOrderEntry);
+    if (!Number.isInteger(sapOrderEntry) || sapOrderEntry <= 0) {
+      return { error: 'sapOrderEntry must be a SAP order number' };
+    }
+    value.sapOrderEntry = sapOrderEntry;
+  }
+
   return { value };
 }
 

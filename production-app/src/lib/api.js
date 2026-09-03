@@ -117,6 +117,43 @@ export const api = {
   createProduct: (fgNumber, description) =>
     request('/api/production/products', json({ fgNumber, description })).then((r) => r.data),
 
+  // --------------------------------------------------------------------- SAP
+  // All four read our own mirror of SAP, never SAP itself, so they answer at
+  // local speed and keep answering when the VPN tunnel is down - the reply just
+  // carries an older syncedAt. Nothing here can block planning: the material
+  // picture is information the planner weighs, not a rule to satisfy.
+
+  /**
+   * Every open finished-good project, in one response.
+   *
+   * There are around 46, a few kilobytes altogether, so the picker filters them
+   * in the browser as fast as someone types instead of waiting on a request per
+   * keystroke.
+   */
+  sapProjects: () => request('/api/production/sap/projects').then((r) => r.data),
+
+  /**
+   * Constructions and bags for one batch.
+   *
+   * `qty` is the batch going on the day, not the order total - an order for 425
+   * with 122 done is fine for a batch of 50.
+   */
+  sapAvailability: (order, qty) =>
+    request(`/api/production/sap/availability?order=${encodeURIComponent(order)}&qty=${encodeURIComponent(qty)}`)
+      .then((r) => r.data),
+
+  /**
+   * Record what a component really is.
+   *
+   * Stored against the item, so marking a StackMaxx lid a construction settles
+   * it for every project it appears in, and the sync never overwrites it.
+   */
+  setSapKind: (itemCode, kind) =>
+    request(`/api/production/sap/kinds/${encodeURIComponent(itemCode)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ kind })
+    }).then((r) => r.data),
+
   /** Correct an FG's description. It belongs to the FG, not to one card. */
   updateProduct: (id, description) =>
     request(`/api/production/products/${id}`, {

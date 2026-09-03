@@ -5,6 +5,7 @@ import { format, parseISO } from 'date-fns';
 import clsx from 'clsx';
 
 import FgCombobox from './FgCombobox';
+import MaterialPanel from './MaterialPanel';
 import { CARD_COLORS, DEFAULT_COLOR } from '../lib/colors';
 
 /**
@@ -117,7 +118,10 @@ export default function EntryFormDialog({
             productId: entry.product_id || null,
             fgNumber: entry.fg_number || null,
             customProductName: entry.custom_product_name || null,
-            description: entry.product_description || ''
+            description: entry.product_description || '',
+            // Set when the card was created from a SAP project, so reopening it
+            // shows the same material picture rather than an empty panel.
+            sapOrderEntry: entry.sap_order_entry || null
           }
         : null
     );
@@ -167,9 +171,17 @@ export default function EntryFormDialog({
       status,
       notes,
       dueDate: dueDate || null,
-      shiftId: shiftId ? Number(shiftId) : null
+      shiftId: shiftId ? Number(shiftId) : null,
+      // Which SAP order this card is a slice of. Null for work planned outside
+      // SAP, which has to keep working exactly as it does today.
+      sapOrderEntry: product.sapOrderEntry || null
     });
   };
+
+  // The material check appears once the card is tied to a SAP order, and only
+  // then. It never gates anything: Save behaves identically whether the panel
+  // is green, red or absent.
+  const showPanel = Boolean(product?.sapOrderEntry);
 
   const heading = isEdit
     ? 'Edit production'
@@ -181,7 +193,17 @@ export default function EntryFormDialog({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-gray-900/40 backdrop-blur-[2px]" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[min(30rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-gray-200 bg-white shadow-lg focus:outline-none">
+        {/* The dialog only grows once there is something to show on the right,
+            so planning that has nothing to do with SAP keeps the compact form
+            it has today rather than a wide box with an empty half. */}
+        <Dialog.Content
+          className={clsx(
+            'fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 rounded-lg border border-gray-200 bg-white shadow-lg transition-[width] focus:outline-none',
+            showPanel
+              ? 'w-[min(56rem,calc(100vw-2rem))]'
+              : 'w-[min(30rem,calc(100vw-2rem))]'
+          )}
+        >
           <form onSubmit={submit}>
             <div className="flex items-start justify-between gap-3 border-b border-gray-200 px-5 py-3.5">
               <div>
@@ -201,7 +223,13 @@ export default function EntryFormDialog({
               </Dialog.Close>
             </div>
 
-            <div className="flex max-h-[70vh] min-h-[26rem] flex-col gap-3.5 overflow-y-auto px-5 py-4">
+            {/* Stacks on a phone or a tablet held upright, where the panel goes
+                below the form instead of beside it. */}
+            <div className="flex max-h-[70vh] min-h-[26rem] flex-col lg:flex-row">
+            <div className={clsx(
+              'flex flex-col gap-3.5 overflow-y-auto px-5 py-4',
+              showPanel ? 'lg:w-[30rem] lg:shrink-0' : 'flex-1'
+            )}>
               <Field label="Product" as="div">
                 <FgCombobox value={product} onChange={chooseProduct} autoFocus={!isEdit} />
               </Field>
@@ -318,6 +346,17 @@ export default function EntryFormDialog({
               {error && (
                 <p role="alert" className="text-[13px] font-medium text-etilog">{error}</p>
               )}
+            </div>
+
+            {showPanel && (
+              <div className="min-h-0 flex-1 overflow-y-auto border-t border-gray-200 bg-gray-50/60 lg:border-l lg:border-t-0">
+                <MaterialPanel
+                  sapOrderEntry={product.sapOrderEntry}
+                  quantity={quantity}
+                  projectType={product.projectType}
+                />
+              </div>
+            )}
             </div>
 
             <div className="flex items-center justify-between gap-2 border-t border-gray-200 px-5 py-3">
