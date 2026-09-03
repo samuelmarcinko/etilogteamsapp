@@ -160,7 +160,7 @@ class ReminderService {
       const conversationParams = {
         bot: {
           id: process.env.MICROSOFT_APP_ID,
-          name: 'ETILOG Approval Bot'
+          name: 'ETILOG Portal'
         },
         isGroup: false,
         members: [{ id: approverId }],
@@ -187,7 +187,7 @@ class ReminderService {
         type: 'message',
         from: {
           id: process.env.MICROSOFT_APP_ID,
-          name: 'ETILOG Approval Bot'
+          name: 'ETILOG Portal'
         },
         conversation: { id: conversationId },
         attachments: [{

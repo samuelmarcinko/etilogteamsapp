@@ -525,7 +525,7 @@ function createReminderCard(tickets) {
         items: [
           {
             type: 'TextBlock',
-            text: '💡 **Tip:** Open the ETILOG Approval Center app in Teams to review and process these requests.',
+            text: '💡 **Tip:** Open the ETILOG Portal app in Teams to review and process these requests.',
             wrap: true,
             isSubtle: true,
             size: 'Small'
