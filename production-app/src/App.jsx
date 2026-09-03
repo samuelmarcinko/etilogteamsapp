@@ -20,6 +20,7 @@ import {
   indexDayFlags,
   indexShiftNotes,
   rangeForWeeks,
+  toISODate,
   weekStart
 } from './lib/weeks';
 
@@ -46,13 +47,26 @@ import { EmptyRangeNote, ErrorState, NoAccess, WeekSkeleton } from './components
  * can be linked to or reloaded without losing your place.
  */
 
+/**
+ * The week in the URL is a plain calendar date and has to stay one.
+ *
+ * Both halves below were once a timezone conversion, and together they walked
+ * the plan a week into the past on every reload. `new Date('2026-08-24')` reads
+ * a date-only string as UTC midnight, which east of Greenwich is the previous
+ * evening; writing it back with toISOString() converted local Monday 00:00 the
+ * other way and stored the Sunday. Read the Sunday, take the Monday of ITS
+ * week, and you are seven days earlier than you started - every refresh, for
+ * ever. parseISO and format both work in local time, so the date that goes into
+ * the URL is the one that comes back out.
+ */
 function readHash() {
   const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
   const span = Number(params.get('span'));
+  const week = params.get('week');
   return {
     location: params.get('location') || null,
     span: [1, 4, 8].includes(span) ? span : 4,
-    anchor: params.get('week') ? new Date(params.get('week')) : new Date()
+    anchor: week ? parseISO(week) : new Date()
   };
 }
 
@@ -60,7 +74,7 @@ function writeHash({ location, span, anchor }) {
   const params = new URLSearchParams();
   if (location) params.set('location', location);
   params.set('span', String(span));
-  params.set('week', weekStart(anchor).toISOString().slice(0, 10));
+  params.set('week', toISODate(weekStart(anchor)));
   window.history.replaceState(null, '', `#${params.toString()}`);
 }
 
