@@ -35,6 +35,17 @@
 >
 > The database container is defined in the same file but does not need
 > recreating; naming the `teams-app` service keeps it out of the way.
+>
+> Migrations run themselves when the app starts, so a release that carries one
+> needs no extra step - only a check that it landed. The database user is
+> **`approval_user`**, not `postgres`; `postgres` does not exist in that
+> container and asking for it answers `FATAL: role "postgres" does not exist`,
+> which reads like a broken database rather than a wrong username:
+>
+> ```bash
+> docker exec teams-app-db psql -U approval_user -d teams_approval \
+>   -c "SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 5"
+> ```
 
 ## Overview
 
