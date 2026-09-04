@@ -49,23 +49,81 @@ const qty = (value) => {
 /**
  * Sklad v SAPe, proti ktorému sa porovnáva.
  *
- * 02-02 je Prešov - hala, ktorú táto appka eviduje. Súčet cez všetkých 27
- * skladov by hlásil rozdiel pri každej položke, ktorá leží aj inde, takže je to
- * predvoľba a nie voľba. `--warehouse=all` prepne na súčet, keď to niekto
- * naozaj chce vidieť.
+ * Nie je to odhad. Prvé porovnanie sa spustilo proti 02-02 a nesedelo nič, tak
+ * sa oskórovali všetky sklady, ktoré sa v dátach vôbec vyskytli, proti počtom
+ * v portáli - 104 kódov, na ktorých má SAP niekde zásobu:
+ *
+ *     02-03    39 presných zhôd     priemerná odchýlka   72
+ *     súčet    21                                       118
+ *     01-18     2                                         4
+ *     02-02     0                                       233
+ *
+ * 02-03 je jediný, ktorý na počty sadá; 02-02 nesedí ani raz. Zo 101 kódov s
+ * materiálom ich má 91 zásobu práve v 02-03.
+ *
+ * `--suggest` to prepočíta na aktuálnych dátach, keby sa sklad presťahoval
+ * alebo sa toto číslo raz stalo nepravdou. `--warehouse=all` prepne na súčet.
  */
-const DEFAULT_WAREHOUSE = '02-02';
+const DEFAULT_WAREHOUSE = '02-03';
 
 function options(argv) {
-  const opts = { prefix: null, warehouse: DEFAULT_WAREHOUSE, out: '/tmp/sklad-porovnanie', csv: true };
+  const opts = {
+    prefix: null, warehouse: DEFAULT_WAREHOUSE, out: '/tmp/sklad-porovnanie',
+    csv: true, suggest: false, markers: true
+  };
   for (const arg of argv) {
     const [key, value] = arg.replace(/^--/, '').split('=');
     if (key === 'prefix') opts.prefix = value || null;
     if (key === 'warehouse') opts.warehouse = (!value || value === 'all') ? null : value;
     if (key === 'out') opts.out = value;
     if (key === 'csv') opts.csv = value !== 'false';
+    if (key === 'suggest') opts.suggest = value !== 'false';
+    if (key === 'markers') opts.markers = value !== 'false';
   }
   return opts;
+}
+
+/**
+ * Ktorý zo skladov v SAPe zodpovedá tomu, čo eviduje portál.
+ *
+ * Otázka, na ktorú sa nedá odpovedať z konfigurácie - dá sa len zmerať. Pre
+ * každý sklad, ktorý sa v dátach vyskytne, sa spočíta, koľkokrát jeho počet
+ * kusov presne sadne na počet v portáli, a aká je priemerná odchýlka. Sklad,
+ * ktorý appka eviduje, vyskočí z toho zoznamu sám.
+ *
+ * Kódy, na ktorých SAP nemá nikde nič, sa nerátajú: nulou proti nule by sa dal
+ * "potvrdiť" ktorýkoľvek sklad.
+ */
+function suggestWarehouse(matched) {
+  const scorable = matched.filter((row) => row.perWarehouse.length > 0);
+  const stores = new Set();
+  for (const row of scorable) for (const w of row.perWarehouse) stores.add(w.warehouse);
+
+  const score = (pick) => {
+    let exact = 0;
+    let gap = 0;
+    for (const row of scorable) {
+      const sap = pick(row);
+      if (sap === row.portalQty) exact += 1;
+      gap += Math.abs(sap - row.portalQty);
+    }
+    return { exact, avgGap: scorable.length ? Math.round(gap / scorable.length) : 0 };
+  };
+
+  const at = (row, warehouse) => num((row.perWarehouse.find((w) => w.warehouse === warehouse) || {}).inStock);
+
+  const table = [...stores].map((warehouse) => ({
+    warehouse, ...score((row) => at(row, warehouse)),
+    nonZero: scorable.filter((row) => at(row, warehouse) > 0).length
+  }));
+  table.push({
+    warehouse: 'súčet všetkých',
+    ...score((row) => row.perWarehouse.reduce((total, w) => total + w.inStock, 0)),
+    nonZero: scorable.length
+  });
+
+  table.sort((a, b) => b.exact - a.exact || a.avgGap - b.avgGap);
+  return { table, scorable: scorable.length, skipped: matched.length - scorable.length };
 }
 
 /**
@@ -138,7 +196,7 @@ async function fromSap(codes, client) {
  * osobitne. Zmiešať to do jednej tabuľky by znamenalo tváriť sa, že SAP tvrdí
  * nula kusov, čo netvrdí.
  */
-function compare(portal, sap, warehouse) {
+function compare(portal, sap, warehouse, markersApart = true) {
   const matched = [];
   const unknown = [];
 
@@ -168,10 +226,26 @@ function compare(portal, sap, warehouse) {
   // Najväčší rozdiel navrch: to je zoznam, s ktorým sa ide po sklade.
   matched.sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference) || a.code.localeCompare(b.code));
 
+  /**
+   * Riadky, kde portál eviduje presne 1 ks a SAP hovorí niečo iné.
+   *
+   * V dátach ich je štyridsať a všetky sa volajú Tašky, Police, Bočnice,
+   * Dokumentovky alebo Rohy na kryty. To nie je počet kusov - to je značka
+   * „tu ležia tašky k tomuto FG". FG100889 má v portáli 1 a v SAPe 78; nikto
+   * nestratil 77 tašiek, len sa tá jednotka nikdy nemyslela ako počet.
+   *
+   * Do rozdielov teda nepatria - zaplavili by zoznam, s ktorým sa ide po
+   * sklade, štyridsiatimi riadkami, ktoré nikto prepočítavať nebude. Nič sa
+   * nezahadzuje, dostanú vlastnú sekciu. `--markers=false` ich vráti medzi
+   * rozdiely, keby sa ukázalo, že ide o skutočné počty.
+   */
+  const isMarker = (row) => row.portalQty === 1 && row.difference !== 0;
+
   return {
     matched,
     unknown,
-    differing: matched.filter((row) => row.difference !== 0),
+    markers: markersApart ? matched.filter(isMarker) : [],
+    differing: matched.filter((row) => row.difference !== 0 && !(markersApart && isMarker(row))),
     agreeing: matched.filter((row) => row.difference === 0)
   };
 }
@@ -212,16 +286,18 @@ function header(doc, opts, counts) {
     ['Kódov v sklade', counts.total, INK],
     ['Sedí', counts.agreeing, '#1B6E45'],
     ['Nesedí', counts.differing, RED],
+    ['Evidované ako 1 ks', counts.markers, '#4A403C'],
     ['SAP kód nepozná', counts.unknown, '#9C5C00']
   ];
 
   let x = 40;
   const top = doc.y + 10;
+  const tileWidth = (TABLE_WIDTH - (tiles.length - 1) * 8) / tiles.length;
   for (const [label, value, colour] of tiles) {
-    doc.rect(x, top, 150, 40).fillAndStroke('#FBF9F8', LINE);
-    doc.fontSize(8).fillColor(MUTED).text(label.toUpperCase(), x + 10, top + 7, { width: 130 });
-    doc.fontSize(16).fillColor(colour).text(String(value), x + 10, top + 18, { width: 130 });
-    x += 158;
+    doc.rect(x, top, tileWidth, 40).fillAndStroke('#FBF9F8', LINE);
+    doc.fontSize(8).fillColor(MUTED).text(label.toUpperCase(), x + 10, top + 7, { width: tileWidth - 20 });
+    doc.fontSize(16).fillColor(colour).text(String(value), x + 10, top + 18, { width: tileWidth - 20 });
+    x += tileWidth + 8;
   }
 
   doc.y = top + 56;
@@ -281,7 +357,11 @@ function row(doc, entry) {
         width: column.width - 8,
         align: column.align || 'left',
         lineBreak: false,
-        ellipsis: true
+        ellipsis: true,
+        // Bez tejto výšky presiakne do riadku pod sebou spodok druhého riadku
+        // dlhého názvu - orezaný pás, ktorý sa nedá prečítať a vyzerá ako chyba
+        // tlače. `lineBreak: false` sám o sebe to nezastaví.
+        height: 10
       });
     x += column.width;
   }
@@ -321,6 +401,7 @@ function buildPdf(result, opts, target) {
     total: result.matched.length + result.unknown.length,
     agreeing: result.agreeing.length,
     differing: result.differing.length,
+    markers: result.markers?.length || 0,
     unknown: result.unknown.length
   });
 
@@ -335,6 +416,15 @@ function buildPdf(result, opts, target) {
     section(doc, `Sedí (${result.agreeing.length})`, 'Počet v portáli sa zhoduje so SAPom.');
     tableHead(doc);
     for (const entry of result.agreeing) row(doc, entry);
+  }
+
+  if (result.markers?.length) {
+    section(doc, `Evidované ako 1 ks (${result.markers.length})`,
+      'Portál pri nich eviduje presne jeden kus a volajú sa Tašky, Police, Bočnice a podobne. '
+      + 'Vyzerá to na značku „tu to leží" a nie na počet kusov, preto nie sú medzi rozdielmi. '
+      + 'Ak niektorý z nich počet naozaj je, treba ho prepočítať.');
+    tableHead(doc);
+    for (const entry of result.markers) row(doc, entry);
   }
 
   if (result.unknown.length) {
@@ -398,12 +488,13 @@ function buildCsv(result, target) {
       .map(cell).join(';')
   ];
 
+  const markerIds = new Set((result.markers || []).map((row) => row.code));
   for (const entry of result.matched) {
     lines.push([
       entry.code, entry.name || '', (entry.locations || []).join(' '),
       num(entry.portalQty), num(entry.sapQty), num(entry.difference),
       (entry.perWarehouse || []).map((w) => `${w.warehouse}:${w.inStock}`).join(' '),
-      entry.difference === 0 ? 'sedi' : 'nesedi'
+      entry.difference === 0 ? 'sedi' : markerIds.has(entry.code) ? 'evidovane_ako_1ks' : 'nesedi'
     ].map(cell).join(';'));
   }
   for (const entry of result.unknown) {
@@ -433,13 +524,30 @@ async function main() {
 
   console.log(`SAP pozná ${sap.size} z nich.`);
 
-  const result = compare(portal, sap, opts.warehouse);
+  if (opts.suggest) {
+    // Porovnávacie číslo tu musí byť súčet cez sklady, nie jeden z nich, inak
+    // by sa skóre počítalo proti odpovedi, ktorú práve hľadáme.
+    const { table, scorable, skipped } = suggestWarehouse(compare(portal, sap, null).matched);
+    console.log(`\nKódov, na ktorých má SAP niekde zásobu: ${scorable}`
+      + ` (${skipped} bez zásoby kdekoľvek sa neráta)\n`);
+    console.log('sklad             presné zhody   nenulových   priemerná odchýlka');
+    for (const row of table) {
+      console.log(
+        `${row.warehouse.padEnd(18)}${String(row.exact).padStart(12)}`
+        + `${String(row.nonZero).padStart(13)}${String(row.avgGap).padStart(21)}`
+      );
+    }
+    console.log(`\nPredvolený je ${DEFAULT_WAREHOUSE}. Ak je navrchu iný, spusti to s --warehouse=<kód>.`);
+    return;
+  }
+
+  const result = compare(portal, sap, opts.warehouse, opts.markers);
   await buildPdf(result, opts, `${opts.out}.pdf`);
   if (opts.csv) buildCsv(result, `${opts.out}.csv`);
 
   console.log(
     `\nSedí: ${result.agreeing.length} · Nesedí: ${result.differing.length} · `
-    + `SAP nepozná: ${result.unknown.length}`
+    + `Evidované ako 1 ks: ${result.markers.length} · SAP nepozná: ${result.unknown.length}`
   );
   console.log(`\nPDF: ${opts.out}.pdf`);
   if (opts.csv) console.log(`CSV: ${opts.out}.csv`);
