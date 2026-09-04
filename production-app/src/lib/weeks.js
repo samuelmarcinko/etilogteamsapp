@@ -115,6 +115,39 @@ export function indexDayFlags(dayFlags) {
 }
 
 /**
+ * Which of these days read as free.
+ *
+ * Saturday and Sunday are free because that is the week the plant runs, not
+ * because somebody remembered to say so. It used to depend on a flag row per
+ * weekend day, which meant a hundred rows a year kept by hand and a calendar
+ * that quietly looked like a seven-day operation the moment they were missing.
+ * A weekday is free only when it is flagged: a holiday, a shutdown.
+ *
+ * Nothing is free while production sits on it. A green column labelled FREE
+ * over a card somebody has to build is worse than no marking at all, so the day
+ * reads as ordinary the moment work lands on it and free again once it moves
+ * off. The flag itself is never touched.
+ *
+ * An explicit flag beats the weekend default in both directions: a Saturday
+ * marked Important is a Saturday somebody means to work, and it says so.
+ *
+ * One function for the planner and the production view, because the two
+ * disagreeing about which days are worked is exactly the kind of drift nobody
+ * notices until a shift turns up.
+ */
+export function freeDaySet(days, dayFlags, hasWork) {
+  return new Set(
+    days
+      .filter((day) => {
+        if (hasWork(day.iso)) return false;
+        const flag = dayFlags[day.iso]?.flag;
+        return flag ? flag === 'free' : day.isWeekend;
+      })
+      .map((day) => day.iso)
+  );
+}
+
+/**
  * Shift notes keyed by "date|shiftId", since a note belongs to one shift on one
  * day rather than to the day as a whole - the morning and the afternoon shift
  * are often running different orders.

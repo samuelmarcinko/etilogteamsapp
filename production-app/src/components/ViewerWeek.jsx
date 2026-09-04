@@ -4,7 +4,7 @@ import { AlertTriangle, Leaf } from 'lucide-react';
 import ViewerCard from './ViewerCard';
 import useMediaQuery from '../lib/useMediaQuery';
 import { shiftAccent } from '../lib/shifts';
-import { shiftNoteKey } from '../lib/weeks';
+import { freeDaySet, shiftNoteKey } from '../lib/weeks';
 
 /**
  * One week, to be read and not touched.
@@ -104,21 +104,17 @@ function ShiftNoteBox({ note, compact }) {
 
 export default function ViewerWeek({
   week, shifts, entriesByDay, dayFlags, shiftNotes, exceptions,
-  isUpdated, onOpenEntry, density = 'roomy'
+  changeKind, onOpenEntry, density = 'roomy'
 }) {
   const isWide = useMediaQuery('(min-width: 768px)');
   const size = DENSITY[density] || DENSITY.roomy;
 
-  // A day marked free is only free while nothing is planned on it - Saturdays
-  // are worked sometimes, and the plan says so before the flag does.
-  const freeDays = new Set(
-    week.days
-      .filter((day) => {
-        const flag = dayFlags[day.iso];
-        if (flag?.flag !== 'free') return false;
-        return !Object.values(entriesByDay[day.iso] || {}).flat().length;
-      })
-      .map((day) => day.iso)
+  // Weekends and flagged days, minus anything with work on it - the same rule
+  // the planner's grid runs, from the same function, so the two screens can
+  // never show different working weeks.
+  const freeDays = freeDaySet(
+    week.days, dayFlags,
+    (iso) => Object.values(entriesByDay[iso] || {}).flat().length > 0
   );
 
   const flagFor = (iso) => {
@@ -191,7 +187,7 @@ export default function ViewerWeek({
                           <ViewerCard
                             key={entry.id}
                             entry={entry}
-                            updated={isUpdated(entry)}
+                            change={changeKind(entry)}
                             onOpen={onOpenEntry}
                           />
                         ))}
@@ -267,7 +263,7 @@ export default function ViewerWeek({
                       <ViewerCard
                         key={entry.id}
                         entry={entry}
-                        updated={isUpdated(entry)}
+                        change={changeKind(entry)}
                         onOpen={onOpenEntry}
                         density={density}
                       />

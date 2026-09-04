@@ -116,15 +116,32 @@ export default function Viewer({ initialLocation }) {
   const changedIds = useMemo(() => new Set(published?.changed || []), [published]);
   const removed = published?.removed || [];
 
-  const isUpdated = (entry) => {
-    if (!entry) return false;
-    if (published) return addedIds.has(entry.id) || changedIds.has(entry.id);
-    if (!entry.updated_at) return false;
+  /**
+   * Not just THAT a card is news, but which kind.
+   *
+   * A job that was not on the plan yesterday and a job whose quantity moved are
+   * different things to a shift leader: the first is work nobody has accounted
+   * for, the second is work they already knew about done differently. Marking
+   * both "recently updated" made the new ones easy to skim past, which is
+   * exactly backwards.
+   *
+   * Returns 'new', 'changed', or null. The 24-hour fallback can only ever say
+   * 'changed' - `updated_at` alone cannot tell a new card from an edited one.
+   */
+  const changeKind = (entry) => {
+    if (!entry) return null;
+    if (published) {
+      if (addedIds.has(entry.id)) return 'new';
+      return changedIds.has(entry.id) ? 'changed' : null;
+    }
+    if (!entry.updated_at) return null;
     const at = new Date(entry.updated_at).getTime();
-    return Number.isFinite(at) && Date.now() - at < UPDATED_WINDOW_MS;
+    return Number.isFinite(at) && Date.now() - at < UPDATED_WINDOW_MS ? 'changed' : null;
   };
 
-  const updatedCount = (plan.data?.entries || []).filter(isUpdated).length;
+  const marked = (plan.data?.entries || []).map(changeKind).filter(Boolean);
+  const newCount = marked.filter((kind) => kind === 'new').length;
+  const changedCount = marked.filter((kind) => kind === 'changed').length;
 
   /**
    * A publish that lands while somebody is watching the screen.
@@ -315,14 +332,17 @@ export default function Viewer({ initialLocation }) {
               </div>
             )}
 
-            {updatedCount > 0 && (
+            {(newCount > 0 || changedCount > 0) && (
               <p className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-[14px] text-blue-900">
                 <span className="font-bold">
-                  {updatedCount} {updatedCount === 1 ? 'card' : 'cards'} changed
+                  {[
+                    newCount && `${newCount} new ${newCount === 1 ? 'card' : 'cards'}`,
+                    changedCount && `${changedCount} changed`
+                  ].filter(Boolean).join(' · ')}
                 </span>
                 {published
-                  ? ' in the latest publish. Tap one to see what changed.'
-                  : ' in the last 24 hours. Tap one to see what changed.'}
+                  ? ' in the latest publish. Tap one to see what.'
+                  : ' in the last 24 hours. Tap one to see what.'}
               </p>
             )}
 
@@ -391,7 +411,7 @@ export default function Viewer({ initialLocation }) {
                   dayFlags={dayFlags}
                   shiftNotes={shiftNotes}
                   exceptions={exceptions}
-                  isUpdated={isUpdated}
+                  changeKind={changeKind}
                   onOpenEntry={setOpenEntry}
                   density={density}
                 />
@@ -405,7 +425,7 @@ export default function Viewer({ initialLocation }) {
 
       <ViewerDetail
         entry={openEntry}
-        updated={isUpdated(openEntry)}
+        change={changeKind(openEntry)}
         open={Boolean(openEntry)}
         onOpenChange={(open) => !open && setOpenEntry(null)}
         locationCode={locationCode}

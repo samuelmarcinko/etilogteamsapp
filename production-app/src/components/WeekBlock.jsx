@@ -7,7 +7,7 @@ import DayMenu from './DayMenu';
 import ShiftNote from './ShiftNote';
 import useMediaQuery from '../lib/useMediaQuery';
 import { shiftAccent } from '../lib/shifts';
-import { shiftNoteKey } from '../lib/weeks';
+import { freeDaySet, shiftNoteKey } from '../lib/weeks';
 import { DraggableCard, DroppableSlot, slotId } from './dnd';
 
 /**
@@ -140,16 +140,10 @@ export default function WeekBlock({
   // "which of these is now" was a matter of reading dates.
   const isCurrentWeek = week.days.some((day) => day.isToday);
 
-  // A day counts as free only while nothing is planned on it. Saturdays are
-  // worked sometimes, and a green column labelled FREE over a card someone has
-  // to build is worse than no marking at all - so the moment production lands
-  // there the day looks like any other, and looks free again once it is moved
-  // off. The flag itself is left alone.
-  const freeDays = new Set(
-    week.days
-      .filter((day) => dayFlags[day.iso]?.flag === 'free' && emptyDays.has(day.iso))
-      .map((day) => day.iso)
-  );
+  // Weekends, plus whatever anyone has flagged free, minus anything with work
+  // on it. The rule lives in one place so the planner and the production view
+  // cannot end up showing different working weeks.
+  const freeDays = freeDaySet(week.days, dayFlags, (iso) => !emptyDays.has(iso));
 
   /**
    * What an empty slot says, if anything. Marked once per day, on the first

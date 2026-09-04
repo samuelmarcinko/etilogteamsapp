@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import ProductionCard from './ProductionCard';
 import { shiftAccent } from '../lib/shifts';
-import { shiftNoteKey } from '../lib/weeks';
+import { freeDaySet, shiftNoteKey } from '../lib/weeks';
 
 /**
  * The same week as a stacked day list, for phones.
@@ -22,19 +22,37 @@ const DAY_FLAG_LABEL = { free: 'Free', important: 'Important !', urgent: 'Import
 export default function WeekDayList({
   week, shifts, entriesByDay, dayFlags, shiftNotes, exceptions, onOpenEntry, onCardMenu
 }) {
+  // The same rule as the grid, from the same function: weekends and flagged
+  // days, minus anything carrying work.
+  const freeDays = freeDaySet(
+    week.days, dayFlags,
+    (iso) => Object.values(entriesByDay[iso] || {}).flat().length > 0
+  );
+
   return (
     <div className="divide-y divide-gray-200">
       {week.days.map((day) => {
         const perShift = entriesByDay[day.iso] || {};
-        const flag = dayFlags[day.iso];
         const exception = exceptions[day.iso];
         const total = Object.values(perShift).flat().length;
         const hasNote = shifts.some((shift) => shiftNotes[shiftNoteKey(day.iso, shift.id)]);
-        // Marked free but carrying production is not free - same rule as the grid.
-        const showFlag = flag && !(flag.flag === 'free' && total > 0);
+        // A free weekend has no flag row behind it, so the badge follows the
+        // answer rather than the record: Free when the day reads free, and
+        // otherwise whatever anyone flagged - never a stale Free over work.
+        const marked = dayFlags[day.iso];
+        const flag = freeDays.has(day.iso) ? { flag: 'free' }
+          : marked && marked.flag !== 'free' ? marked
+            : null;
+        const showFlag = Boolean(flag);
 
         return (
-          <section key={day.iso} className={clsx('px-3 py-2.5', day.isToday && 'bg-etilog-light')}>
+          <section
+            key={day.iso}
+            className={clsx(
+              'px-3 py-2.5',
+              day.isToday ? 'bg-etilog-light' : freeDays.has(day.iso) && 'bg-emerald-50/60'
+            )}
+          >
             <header className="mb-2 flex items-center gap-2">
               <h3
                 className={clsx(
@@ -63,7 +81,12 @@ export default function WeekDayList({
             </header>
 
             {total === 0 && !hasNote ? (
-              <p className="text-[13px] text-gray-300">Nothing planned yet</p>
+              <p className={clsx(
+                'text-[13px]',
+                freeDays.has(day.iso) ? 'font-medium text-emerald-700' : 'text-gray-300'
+              )}>
+                {freeDays.has(day.iso) ? 'Free day' : 'Nothing planned yet'}
+              </p>
             ) : (
               <div className="flex flex-col gap-2">
                 {shifts.map((shift, shiftIndex) => {
