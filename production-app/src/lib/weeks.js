@@ -5,8 +5,10 @@ import {
   addDays,
   format,
   getISOWeek,
+  isBefore,
   isSameMonth,
   isToday,
+  startOfDay,
   parseISO
 } from 'date-fns';
 
@@ -35,6 +37,9 @@ export function weekStart(date) {
  */
 export function buildWeeks(anchor, spanWeeks) {
   const first = startOfISOWeek(anchor);
+  // Computed once for the whole grid rather than per cell: it is the same
+  // answer 56 times, and it must not change halfway down the page.
+  const today = startOfDay(new Date());
 
   return Array.from({ length: spanWeeks }, (_, i) => {
     const start = addWeeks(first, i);
@@ -47,7 +52,10 @@ export function buildWeeks(anchor, spanWeeks) {
         weekday: format(date, 'EEE').toUpperCase(),
         dayOfMonth: format(date, 'd'),
         isWeekend: d >= 5,
-        isToday: isToday(date)
+        isToday: isToday(date),
+        // Days already behind us. The shop floor screen dims them so the eye
+        // falls on the day being worked rather than searching for it.
+        isPast: isBefore(date, today)
       };
     });
 
