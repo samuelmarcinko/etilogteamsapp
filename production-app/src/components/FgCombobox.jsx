@@ -180,12 +180,19 @@ export default function FgCombobox({ value, onChange, autoFocus }) {
               </div>
             )}
 
-            {/* Open SAP projects first: this is what the plan is actually made
-                of, and picking one brings the material check with it. */}
+            {/* Open SAP production orders first: this is what the plan is
+                actually made of, and picking one brings the material check with
+                it.
+
+                Named for what it is. "Open projects in SAP" read as work we
+                hold customer orders for, which is not what this list is: it is
+                SAP production orders - Planned or Released, with something left
+                to make, on an item in the finished-goods group. A customer
+                order is neither required nor looked at anywhere in the sync. */}
             {sapMatches.length > 0 && (
               <>
                 <div className="px-2 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                  Open projects in SAP ({sapMatches.length})
+                  Open production orders in SAP ({sapMatches.length})
                 </div>
                 {sapMatches.map((project) => (
                   <Command.Item
