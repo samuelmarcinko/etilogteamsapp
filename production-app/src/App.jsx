@@ -468,7 +468,7 @@ export default function App() {
     if (!pendingChanges) return undefined;
     const warn = (event) => {
       event.preventDefault();
-      event.returnValue = 'You have changes the production floor has not seen yet. Publish them before leaving?';
+      event.returnValue = 'You have changes that have not been published yet. Publish them before leaving?';
       return event.returnValue;
     };
     window.addEventListener('beforeunload', warn);

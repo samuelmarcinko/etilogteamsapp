@@ -40,7 +40,7 @@ export default function PublishBar({ pending, onPublish, publishing, lastPublish
     return (
       <div className="no-print flex items-center gap-1.5 px-1 text-[12px] text-gray-500">
         <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
-        Published — the floor is seeing this plan.
+        Published — everyone sees the current plan.
       </div>
     );
   }
@@ -96,7 +96,7 @@ export default function PublishBar({ pending, onPublish, publishing, lastPublish
                   Publish to the production view
                 </Dialog.Title>
                 <Dialog.Description className="mt-0.5 text-[13px] text-gray-500">
-                  These weeks become what the shop floor reads.
+                  These weeks become what everyone sees in the production view.
                 </Dialog.Description>
               </div>
               <Dialog.Close
