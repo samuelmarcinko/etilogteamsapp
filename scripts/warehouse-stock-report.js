@@ -46,12 +46,22 @@ const qty = (value) => {
   return rounded.toLocaleString('sk-SK', { maximumFractionDigits: 3 });
 };
 
+/**
+ * Sklad v SAPe, proti ktorému sa porovnáva.
+ *
+ * 02-02 je Prešov - hala, ktorú táto appka eviduje. Súčet cez všetkých 27
+ * skladov by hlásil rozdiel pri každej položke, ktorá leží aj inde, takže je to
+ * predvoľba a nie voľba. `--warehouse=all` prepne na súčet, keď to niekto
+ * naozaj chce vidieť.
+ */
+const DEFAULT_WAREHOUSE = '02-02';
+
 function options(argv) {
-  const opts = { prefix: null, warehouse: null, out: '/tmp/sklad-porovnanie', csv: true };
+  const opts = { prefix: null, warehouse: DEFAULT_WAREHOUSE, out: '/tmp/sklad-porovnanie', csv: true };
   for (const arg of argv) {
     const [key, value] = arg.replace(/^--/, '').split('=');
     if (key === 'prefix') opts.prefix = value || null;
-    if (key === 'warehouse') opts.warehouse = value || null;
+    if (key === 'warehouse') opts.warehouse = (!value || value === 'all') ? null : value;
     if (key === 'out') opts.out = value;
     if (key === 'csv') opts.csv = value !== 'false';
   }
@@ -59,24 +69,39 @@ function options(argv) {
 }
 
 /**
- * Čo je v sklade podľa portálu.
+ * Čo je v sklade podľa portálu - presne to, čo vidno v Evidencii materiálov.
  *
- * Sčítané podľa kódu, nie podľa riadku: ten istý kód môže ležať na viacerých
- * paletových miestach a skladník ho tam zadal viackrát. Porovnávať sa dá len
- * súčet - SAP o paletách nevie.
+ * `deleted_at IS NULL` je tu to najdôležitejšie. Zmazanie materiálu riadok
+ * nezmaže, iba ho označí (migrácia 023), aby sa dal obnoviť aj s paletovými
+ * miestami. Bez tejto podmienky sa do porovnania dostanú položky, ktoré v
+ * evidencii dávno nie sú, a dokument potom hlási rozdiely na tovare, ktorý
+ * nikto neeviduje. Je to tá istá podmienka, akú má `Material.findAll`.
+ *
+ * Paletové miesta sa berú z `material_placements`, nie z `materials.location_id`:
+ * od migrácie 022 môže jeden materiál ležať na viacerých miestach a to staré
+ * pole je len pozostatok.
+ *
+ * Sčítané podľa kódu. Ten je v praxi jedinečný - appka odmietne založiť druhý
+ * rovnaký - ale tvrdý UNIQUE na ňom zatiaľ nie je, takže historické duplicity
+ * existovať môžu. `rows_count` ich vynesie na povrch.
  */
 async function fromPortal(prefix) {
   const { rows } = await pool.query(
     `SELECT m.code,
-            min(m.name)                         AS name,
-            sum(m.quantity)::numeric            AS quantity,
-            min(m.unit)                         AS unit,
-            count(*)::int                       AS rows_count,
-            array_remove(array_agg(DISTINCT l.code), NULL) AS locations,
-            max(m.updated_at)                   AS updated_at
+            min(m.name)              AS name,
+            sum(m.quantity)::numeric AS quantity,
+            min(m.unit)              AS unit,
+            count(*)::int            AS rows_count,
+            COALESCE((
+              SELECT array_agg(DISTINCT pl.code)
+                FROM material_placements mp
+                JOIN pallet_locations pl ON pl.id = mp.location_id
+               WHERE mp.material_id = ANY(array_agg(m.id))
+            ), ARRAY[]::varchar[]) AS locations,
+            max(m.updated_at)        AS updated_at
        FROM materials m
-       LEFT JOIN pallet_locations l ON l.id = m.location_id
-      WHERE ($1::text IS NULL OR m.code ILIKE $1 || '%')
+      WHERE m.deleted_at IS NULL
+        AND ($1::text IS NULL OR m.code ILIKE $1 || '%')
       GROUP BY m.code
       ORDER BY m.code`,
     [prefix]
@@ -172,13 +197,14 @@ function header(doc, opts, counts) {
   );
 
   const scope = opts.warehouse
-    ? `Porovnáva sa proti skladu ${opts.warehouse} v SAPe.`
+    ? `Porovnáva sa proti skladu ${opts.warehouse}`
+      + `${opts.warehouse === DEFAULT_WAREHOUSE ? ' (Prešov)' : ''} v SAPe.`
     : 'Porovnáva sa proti súčtu cez všetky sklady v SAPe.';
   const filter = opts.prefix ? ` Len kódy začínajúce na „${opts.prefix}".` : '';
 
   doc.fontSize(9).fillColor(INK).text(
-    `${scope}${filter} Počty v portáli sú sčítané cez všetky paletové miesta, `
-    + 'na ktorých ten istý kód leží.',
+    `${scope}${filter} Zo strany portálu sú v porovnaní všetky položky, ktoré sú `
+    + 'práve teraz v Evidencii materiálov - zmazané položky sa neporovnávajú.',
     40, doc.y + 6, { width: TABLE_WIDTH }
   );
 
@@ -235,7 +261,10 @@ function row(doc, entry) {
 
   const values = {
     code: entry.code,
-    name: entry.name || entry.sapName || '',
+    // Ten istý kód dvakrát v evidencii je vec, ktorú treba vyriešiť predtým,
+    // než sa rieši rozdiel v počtoch - preto to riadok povie.
+    name: (entry.name || entry.sapName || '')
+      + (entry.rows_count > 1 ? ` (${entry.rows_count}× v evidencii)` : ''),
     locations: entry.locations?.length ? entry.locations.join(', ') : '—',
     portalQty: qty(entry.portalQty),
     sapQty: qty(entry.sapQty),
@@ -426,4 +455,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { compare, fromPortal, fromSap, buildPdf, buildCsv };
+module.exports = { compare, fromPortal, fromSap, buildPdf, buildCsv, options, DEFAULT_WAREHOUSE };
