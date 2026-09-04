@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Fragment, useCallback, useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle, Check, ChevronDown, ChevronRight, CircleHelp, Clock, CloudOff,
   CornerDownRight, Loader2, RefreshCw, Wifi
@@ -200,17 +200,74 @@ function Section({ title, components, emptyTitle, emptyBody, pending }) {
 }
 
 /**
- * Everything under this FG that the rules did not treat as a construction or a
- * bag, with the reason.
+ * How each kind of component reads at a glance in the tree.
  *
- * This is what makes a grey answer useful instead of a dead end. FG100782's
- * frame is cut from ALU profiles rather than bought as a piece, so the rules
- * would not call it a construction - but the profiles are right here, and one
- * click settles them for every project they appear in.
+ * The eye has to separate two things that look identical in a flat list: what
+ * the rules deliberately set aside, and what they could not decide about. The
+ * second is the only part a person may need to look at.
  */
-function OtherFindings({ items, onMark, marking }) {
+const TREE_STYLE = {
+  konstrukcia: { rail: 'bg-blue-400', label: 'construction', tone: 'text-blue-700' },
+  taska: { rail: 'bg-violet-400', label: 'bag', tone: 'text-violet-700' },
+  ignoruj: { rail: 'bg-gray-200', label: 'not relevant', tone: 'text-gray-400' },
+  unknown: { rail: 'bg-amber-400', label: 'not classified', tone: 'text-amber-700' }
+};
+
+/** One line of the bill of materials, at whatever depth it sits. */
+function TreeRow({ item, depth, name }) {
+  const style = TREE_STYLE[item.kind || 'unknown'] || TREE_STYLE.unknown;
+  const settled = item.kind === 'ignoruj';
+
+  return (
+    <li className="flex gap-2" style={{ paddingLeft: `${depth * 14}px` }}>
+      {/* The rail is the classification, read down the left edge without
+          having to read any of the words. */}
+      <span className={clsx('mt-1.5 w-[3px] shrink-0 self-stretch rounded-sm', style.rail)} aria-hidden="true" />
+      <div className="min-w-0 flex-1 py-1">
+        <p className={clsx('truncate text-[13px]', settled ? 'text-gray-500' : 'text-gray-800')}>
+          {name || item.itemName}
+        </p>
+        <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[11px] text-gray-400">
+          <span className="font-mono">{item.itemCode}</span>
+          {item.groupName && <><span>·</span><span>{item.groupName}</span></>}
+          {item.price != null && <><span>·</span><span>{item.price.toFixed(2)} €</span></>}
+          <span>·</span>
+          <span className={style.tone}>{item.kindReason || style.label}</span>
+        </p>
+      </div>
+    </li>
+  );
+}
+
+/**
+ * The bill of materials as SAP shows it: level 1, and what sits inside each of
+ * those.
+ *
+ * A flat list of forty rivets and profiles is unreadable and, worse, hides the
+ * structure the planner already has in their head from SAP - which group a part
+ * belongs to is half of what identifies it. So the rows nest under their parent
+ * and the classification runs down the left edge as a colour.
+ *
+ * Nothing here is a control. Marking a component by hand is a real feature but
+ * an unused one, and two buttons on every row of a forty-row list read as
+ * something you are supposed to do.
+ */
+function BomTree({ components }) {
   const [open, setOpen] = useState(false);
-  if (!items.length) return null;
+  if (!components.length) return null;
+
+  const names = new Map(components.map((c) => [c.itemCode, c.itemName]));
+  const roots = components.filter((c) => c.level === 1);
+  const rootCodes = new Set(roots.map((c) => c.itemCode));
+
+  const childrenOf = (code) =>
+    components.filter((c) => c.level > 1 && c.parents.includes(code));
+
+  // A level-2 row whose parent was itself filtered out of this list would
+  // otherwise vanish; it is shown at the top instead of nowhere.
+  const orphans = components.filter(
+    (c) => c.level > 1 && !c.parents.some((parent) => rootCodes.has(parent))
+  );
 
   return (
     <section className="rounded-md border border-gray-200">
@@ -221,45 +278,30 @@ function OtherFindings({ items, onMark, marking }) {
       >
         {open ? <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
           : <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />}
-        What else is under this FG ({items.length})
+        Everything else under this FG ({components.length})
       </button>
 
       {open && (
-        <ul className="divide-y divide-gray-100 border-t border-gray-200">
-          {items.map((item) => (
-            <li key={item.itemCode} className="px-3 py-2">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="truncate text-[13px] text-gray-800">{item.itemName}</p>
-                  <p className="mt-0.5 text-[11px] text-gray-400">
-                    <span className="font-mono">{item.itemCode}</span>
-                    {item.groupName ? ` · ${item.groupName}` : ''}
-                    {item.price != null ? ` · ${item.price.toFixed(2)} €` : ''}
-                    {item.kindReason ? ` · ${item.kindReason}` : ' · not classified'}
-                  </p>
-                </div>
-                <div className="flex shrink-0 gap-1">
-                  <button
-                    type="button"
-                    disabled={marking}
-                    onClick={() => onMark(item.itemCode, 'konstrukcia')}
-                    className="rounded border border-gray-300 px-1.5 py-0.5 text-[11px] font-medium text-gray-600 transition hover:border-etilog hover:text-etilog disabled:opacity-50"
-                  >
-                    Construction
-                  </button>
-                  <button
-                    type="button"
-                    disabled={marking}
-                    onClick={() => onMark(item.itemCode, 'taska')}
-                    className="rounded border border-gray-300 px-1.5 py-0.5 text-[11px] font-medium text-gray-600 transition hover:border-etilog hover:text-etilog disabled:opacity-50"
-                  >
-                    Bag
-                  </button>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <div className="border-t border-gray-200 px-3 py-2">
+          <p className="mb-2 text-[11px] leading-snug text-gray-400">
+            The bill of materials as SAP holds it. Colour on the left says what each
+            part was taken for.
+          </p>
+          <ul className="flex flex-col">
+            {orphans.map((item) => (
+              <TreeRow key={item.itemCode} item={item} depth={0} name={names.get(item.itemCode)} />
+            ))}
+            {roots.map((root) => (
+              <Fragment key={root.itemCode}>
+                <TreeRow item={root} depth={0} name={names.get(root.itemCode)} />
+                {childrenOf(root.itemCode).map((child) => (
+                  <TreeRow key={`${root.itemCode}-${child.itemCode}`} item={child} depth={1}
+                           name={names.get(child.itemCode)} />
+                ))}
+              </Fragment>
+            ))}
+          </ul>
+        </div>
       )}
     </section>
   );
@@ -373,11 +415,6 @@ export default function MaterialPanel({ sapOrderEntry, sapItemCode, quantity, pr
     staleTime: 30 * 1000
   });
 
-  const mark = useMutation({
-    mutationFn: ({ itemCode, kind }) => api.setSapKind(itemCode, kind),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sap', 'availability'] })
-  });
-
   if (!target) {
     return (
       <div className="flex h-full items-center justify-center px-6 text-center">
@@ -469,7 +506,7 @@ export default function MaterialPanel({ sapOrderEntry, sapItemCode, quantity, pr
           emptyTitle={isTxt ? 'A TXT project has no construction' : 'SAP has nothing about a construction here'}
           emptyBody={isTxt
             ? 'Bags sewn into a container the customer already owns, so there is nothing to check.'
-            : 'That is often correct — the customer supplies the box, or this is a repair. Open “What else is under this FG” below to see what the BOM does contain, and mark it if the construction is in there.'}
+            : 'That is often correct — the customer supplies the box, or this is a repair. Open “Everything else under this FG” below to see what the bill of materials does contain.'}
         />
 
         <Section
@@ -477,14 +514,12 @@ export default function MaterialPanel({ sapOrderEntry, sapItemCode, quantity, pr
           title="Bags"
           components={data.bags}
           emptyTitle="No sewn parts found"
-          emptyBody="Nothing under this FG carries the sewing operation. If a bag belongs here, it will be in the list below."
+          emptyBody="Nothing under this FG carries the sewing operation. The full bill of materials is below."
         />
 
-        <OtherFindings
-          items={data.other}
-          marking={mark.isPending}
-          onMark={(itemCode, kind) => mark.mutate({ itemCode, kind })}
-        />
+        {/* Everything, not only the leftovers: a tree missing its constructions
+            and bags is not the bill of materials the planner knows from SAP. */}
+        <BomTree components={[...data.constructions, ...data.bags, ...data.other]} />
       </div>
 
       <footer className="border-t border-gray-100 pt-2 text-[11px] text-gray-400">
