@@ -525,6 +525,223 @@ class ProductionRevision {
     }
   }
 
+  /**
+   * What discarding these weeks would cost, before anyone commits to it.
+   *
+   * Counted the way the planner would count it looking at the screen: cards
+   * that go, cards that come back, cards that return to what they were. Plus
+   * who has touched the week since it was published - the difference is
+   * computed against a snapshot and carries no notion of whose change is
+   * whose, so the only honest thing to do is name everyone who has been in
+   * there and let the planner decide whether they are about to throw away
+   * somebody else's afternoon.
+   */
+  static async previewDiscard(locationId, weekStarts) {
+    const published = await ProductionRevision.findCurrent(locationId, weekStarts);
+
+    const weeks = [];
+    for (const weekStart of weekStarts) {
+      const live = await ProductionRevision.buildSnapshot(locationId, weekStart);
+      const before = published[weekStart]?.snapshot || null;
+      const diff = diffEntries(before, live);
+
+      const flagsDiffer =
+        JSON.stringify((before?.dayFlags || []).map(flagFingerprint).sort())
+        !== JSON.stringify((live.dayFlags || []).map(flagFingerprint).sort());
+      const notesDiffer =
+        JSON.stringify((before?.shiftNotes || []).map(noteFingerprint).sort())
+        !== JSON.stringify((live.shiftNotes || []).map(noteFingerprint).sort());
+
+      if (!diff.added.length && !diff.changed.length && !diff.removed.length
+          && !flagsDiffer && !notesDiffer) continue;
+
+      // Who has been in here since the publish. Only the cards that actually
+      // differ, so a name does not appear because of work that was published.
+      const touched = new Set();
+      const byId = new Map((live.entries || []).map((row) => [row.id, row]));
+      for (const id of [...diff.added, ...diff.changed]) {
+        const name = byId.get(id)?.updated_by_name;
+        if (name) touched.add(name);
+      }
+
+      weeks.push({
+        weekStart,
+        // 0 means this week has never been published, and discarding it deletes
+        // everything in it rather than putting anything back. The screen says so
+        // in those words - it is the one case where "discard" is not a rollback.
+        revision: published[weekStart]?.revision || 0,
+        publishedAt: published[weekStart]?.published_at || null,
+        willDelete: diff.added.length,
+        willRestore: diff.removed.length,
+        willRevert: diff.changed.length,
+        dayMarksChange: flagsDiffer,
+        shiftNotesChange: notesDiffer,
+        touchedBy: [...touched]
+      });
+    }
+    return weeks;
+  }
+
+  /**
+   * Make the live plan match a set of week snapshots again.
+   *
+   * The single write path behind both Discard - where the targets are the
+   * published revisions - and its undo, where they are the snapshots taken of
+   * the live weeks a moment before. One code path means undo cannot restore
+   * something discard does not touch, or miss something it does.
+   *
+   * Entries are settled across the whole set before anything is deleted rather
+   * than week by week: a card dragged from CW36 to CW40 belongs to both weeks,
+   * and processing them in order would have the second pass delete what the
+   * first had just put back.
+   */
+  static async restoreLive(locationId, targets, user, action = 'discarded') {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const undo = [];
+      const wanted = new Map();        // id -> the row as the target holds it
+      const weekStarts = [];
+
+      for (const target of targets) {
+        weekStarts.push(target.weekStart);
+        // The live week as it stands, so this operation can be undone.
+        undo.push({
+          weekStart: target.weekStart,
+          snapshot: await ProductionRevision.buildSnapshot(locationId, target.weekStart, client)
+        });
+        for (const entry of target.snapshot?.entries || []) wanted.set(entry.id, entry);
+      }
+
+      let reverted = 0;
+      let missing = 0;
+      for (const [id, entry] of wanted) {
+        const { rowCount } = await client.query(
+          `UPDATE production_plan_entries
+              SET production_date = $2, shift_id = $3, product_id = $4,
+                  custom_product_name = $5, planned_quantity = $6, priority = $7,
+                  color = $8, status = $9, notes = $10, sort_order = $11,
+                  deleted_at = NULL, version = version + 1,
+                  updated_by = $12, updated_by_name = $13
+            WHERE id = $1 AND location_id = $14`,
+          [
+            id, asDay(entry.production_date), entry.shift_id || null,
+            entry.product_id || null, entry.custom_product_name || null,
+            entry.planned_quantity ?? null, entry.priority || 'normal',
+            entry.color || null, entry.status || 'planned', entry.notes || null,
+            entry.sort_order ?? 0, user?.id || null, user?.name || null, locationId
+          ]
+        );
+        // A row erased outright rather than soft-deleted cannot be brought
+        // back, and pretending otherwise would be worse than saying so.
+        if (rowCount) reverted += 1; else missing += 1;
+      }
+
+      // Anything live in these weeks that the targets do not hold. Computed
+      // after the restores above, so a card that has just been moved back into
+      // one of these weeks is not then deleted out of it.
+      const { rows: strays } = await client.query(
+        `SELECT id FROM production_plan_entries
+          WHERE location_id = $1 AND deleted_at IS NULL
+            AND production_date IS NOT NULL
+            AND date_trunc('week', production_date)::date = ANY($2::date[])
+            AND NOT (id = ANY($3::int[]))`,
+        [locationId, weekStarts, [...wanted.keys()]]
+      );
+
+      for (const stray of strays) {
+        await client.query(
+          `UPDATE production_plan_entries
+              SET deleted_at = CURRENT_TIMESTAMP, version = version + 1,
+                  updated_by = $2, updated_by_name = $3
+            WHERE id = $1`,
+          [stray.id, user?.id || null, user?.name || null]
+        );
+      }
+
+      // Day marks and shift notes are replaced wholesale per week, for the
+      // same reason patchDayFlags does: set, changed and cleared are three
+      // edits to one slot, and copying the answer cannot get any of them wrong.
+      for (const target of targets) {
+        const weekEnd = new Date(`${target.weekStart}T00:00:00Z`);
+        weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+        const to = weekEnd.toISOString().slice(0, 10);
+
+        await client.query(
+          `DELETE FROM production_day_flags
+            WHERE location_id = $1 AND production_date BETWEEN $2 AND $3`,
+          [locationId, target.weekStart, to]
+        );
+        for (const flag of target.snapshot?.dayFlags || []) {
+          await client.query(
+            `INSERT INTO production_day_flags (location_id, production_date, flag, note, created_by)
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (location_id, production_date)
+             DO UPDATE SET flag = EXCLUDED.flag, note = EXCLUDED.note`,
+            [locationId, asDay(flag.production_date), flag.flag, flag.note || null, user?.id || null]
+          );
+        }
+
+        await client.query(
+          `DELETE FROM production_shift_notes
+            WHERE location_id = $1 AND production_date BETWEEN $2 AND $3`,
+          [locationId, target.weekStart, to]
+        );
+        for (const note of target.snapshot?.shiftNotes || []) {
+          if (!note.note) continue;
+          await client.query(
+            `INSERT INTO production_shift_notes (location_id, production_date, shift_id, note, created_by)
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (location_id, production_date, shift_id)
+             DO UPDATE SET note = EXCLUDED.note`,
+            [locationId, asDay(note.production_date), note.shift_id, note.note, user?.id || null]
+          );
+        }
+      }
+
+      await client.query(
+        `INSERT INTO production_change_log
+           (location_id, entry_id, action, summary, before_state, after_state, changed_by, changed_by_name)
+         VALUES ($1, NULL, $7, $2, $3, $4, $5, $6)`,
+        [
+          locationId,
+          `${action === 'discarded' ? 'Discarded unpublished changes in' : 'Took back the discard across'} `
+            + `${weekStarts.length} week(s): ${strays.length} card(s) removed, ${reverted} put back`,
+          JSON.stringify(undo.map((week) => ({ weekStart: week.weekStart, entries: week.snapshot.entries.length }))),
+          JSON.stringify(targets.map((t) => ({ weekStart: t.weekStart, entries: (t.snapshot?.entries || []).length }))),
+          user?.id || null, user?.name || null, action
+        ]
+      );
+
+      await client.query('COMMIT');
+      return { deleted: strays.length, reverted, missing, undo };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Throw away everything unpublished in these weeks.
+   *
+   * The one operation in the module that can destroy work, so it is deliberately
+   * the thinnest possible wrapper: read what was published, hand it to
+   * restoreLive, and give back the undo it produced. A week that was never
+   * published restores to nothing, which is what "back to the last publish"
+   * means there - the screen has to have said so first.
+   */
+  static async discard(locationId, weekStarts, user) {
+    const published = await ProductionRevision.findCurrent(locationId, weekStarts);
+    const targets = weekStarts.map((weekStart) => ({
+      weekStart,
+      snapshot: published[weekStart]?.snapshot || { entries: [], dayFlags: [], shiftNotes: [] }
+    }));
+    return ProductionRevision.restoreLive(locationId, targets, user);
+  }
+
   /** Recent publishes for a location, newest first. For the history panel. */
   static async findHistory(locationId, limit = 50) {
     const { rows } = await pool.query(

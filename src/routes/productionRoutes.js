@@ -319,6 +319,89 @@ router.get('/pending', viewAccess, asyncHandler(async (req, res) => {
   });
 }));
 
+/**
+ * The weeks a request names, checked to be Mondays.
+ *
+ * Publish and discard take the same argument and must reject the same things:
+ * two buttons side by side that disagree about what a week is would be a bug
+ * waiting for the day somebody presses the wrong one.
+ */
+function parseWeeks(body) {
+  const weeks = Array.isArray(body.weeks) ? body.weeks : [];
+  if (!weeks.length) return { error: 'weeks is required' };
+  if (weeks.length > 60) return { error: 'too many weeks in one request' };
+  for (const week of weeks) {
+    if (!ISO_DATE.test(week) || ProductionRevision.weekStartOf(week) !== week) {
+      return { error: `weeks must be Mondays formatted YYYY-MM-DD (got ${week})` };
+    }
+  }
+  return { weeks };
+}
+
+// GET /api/production/discard/preview?location&from&to
+//
+// What discarding would cost, so the dialog can say it before anyone agrees to
+// it. Read-only: nothing here changes a row.
+router.get('/discard/preview', manageAccess, asyncHandler(async (req, res) => {
+  const { location: code, from, to } = req.query;
+  if (!code) return res.status(400).json({ error: 'Bad Request', message: 'location is required' });
+
+  const rangeError = validateRange(from, to);
+  if (rangeError) return res.status(400).json({ error: 'Bad Request', message: rangeError });
+
+  const location = await ProductionPlan.findLocationByCode(code);
+  if (!location) return res.status(404).json({ error: 'Location not found' });
+
+  const weeks = await ProductionRevision.previewDiscard(
+    location.id, ProductionRevision.weeksBetween(from, to)
+  );
+  res.json({ data: { weeks } });
+}));
+
+// POST /api/production/discard  { location, weeks: ['2026-08-24', ...] }
+//
+// Throw away everything unpublished in these weeks and put the last published
+// plan back. The only operation here that can destroy work, so it answers with
+// the snapshot needed to take it back - the browser holds that for as long as
+// the toast is up.
+router.post('/discard', manageAccess, asyncHandler(async (req, res) => {
+  const location = await ProductionPlan.findLocationByCode(req.body.location);
+  if (!location) return res.status(404).json({ error: 'Location not found' });
+
+  const parsed = parseWeeks(req.body);
+  if (parsed.error) return res.status(400).json({ error: 'Bad Request', message: parsed.error });
+
+  const result = await ProductionRevision.discard(location.id, parsed.weeks, currentUser(req));
+
+  // Nobody is notified: nothing was published, so as far as the production view
+  // is concerned the plan it is reading has not moved at all.
+  res.json({
+    data: { deleted: result.deleted, reverted: result.reverted, missing: result.missing },
+    undo: { weeks: result.undo }
+  });
+}));
+
+// POST /api/production/discard/undo  { location, weeks: [{ weekStart, snapshot }] }
+//
+// Replays the snapshot a discard handed back. The same write path the discard
+// itself used, so it cannot put back less than was taken.
+router.post('/discard/undo', manageAccess, asyncHandler(async (req, res) => {
+  const location = await ProductionPlan.findLocationByCode(req.body.location);
+  if (!location) return res.status(404).json({ error: 'Location not found' });
+
+  const targets = Array.isArray(req.body.weeks) ? req.body.weeks : [];
+  if (!targets.length) {
+    return res.status(400).json({ error: 'Bad Request', message: 'weeks is required' });
+  }
+  const shapeError = parseWeeks({ weeks: targets.map((week) => week.weekStart) });
+  if (shapeError.error) return res.status(400).json({ error: 'Bad Request', message: shapeError.error });
+
+  const result = await ProductionRevision.restoreLive(
+    location.id, targets, currentUser(req), 'discard_undone'
+  );
+  res.json({ data: { restored: result.reverted, removed: result.deleted } });
+}));
+
 // POST /api/production/publish  { location, weeks: ['2026-08-24', ...] }
 //
 // One transaction for the whole set: a publish is one event, so the floor gets
@@ -328,23 +411,10 @@ router.post('/publish', manageAccess, asyncHandler(async (req, res) => {
   const location = await ProductionPlan.findLocationByCode(req.body.location);
   if (!location) return res.status(404).json({ error: 'Location not found' });
 
-  const weeks = Array.isArray(req.body.weeks) ? req.body.weeks : [];
-  if (!weeks.length) {
-    return res.status(400).json({ error: 'Bad Request', message: 'weeks is required' });
-  }
-  if (weeks.length > 60) {
-    return res.status(400).json({ error: 'Bad Request', message: 'too many weeks in one publish' });
-  }
-  for (const week of weeks) {
-    if (!ISO_DATE.test(week) || ProductionRevision.weekStartOf(week) !== week) {
-      return res.status(400).json({
-        error: 'Bad Request',
-        message: `weeks must be Mondays formatted YYYY-MM-DD (got ${week})`
-      });
-    }
-  }
+  const parsed = parseWeeks(req.body);
+  if (parsed.error) return res.status(400).json({ error: 'Bad Request', message: parsed.error });
 
-  const published = await ProductionRevision.publish(location.id, weeks, currentUser(req));
+  const published = await ProductionRevision.publish(location.id, parsed.weeks, currentUser(req));
 
   // After the commit, and never in front of it. The plan is published the
   // moment the transaction lands; telling people is a separate job that must

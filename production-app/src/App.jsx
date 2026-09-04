@@ -453,6 +453,52 @@ export default function App() {
   });
 
   /**
+   * Discard: back to the last published plan.
+   *
+   * Only fetched when the dialog is opened, and never on a timer: this is a
+   * question about what would be lost, and asking it on a schedule would be
+   * both pointless and a standing invitation to act on a stale answer.
+   */
+  const [discardAsked, setDiscardAsked] = useState(false);
+  const discardPreview = useQuery({
+    queryKey: ['production', 'discard-preview', locationCode, range.from, range.to],
+    queryFn: () => api.discardPreview({ location: locationCode, from: range.from, to: range.to }),
+    enabled: Boolean(discardAsked && locationCode) && canManage,
+    gcTime: 0,
+    staleTime: 0
+  });
+
+  const discardMutation = useMutation({
+    mutationFn: (weeks) => api.discard({ location: locationCode, weeks }),
+    onSuccess: (result) => {
+      refresh();
+      // The one destructive thing here, so the way back is offered in the same
+      // breath rather than left to be looked up. The snapshot lives only in
+      // this toast - dismiss it and the discard stands.
+      const undo = result.undo?.weeks || [];
+      toast.success(
+        `Discarded — ${result.data.deleted} removed, ${result.data.reverted} put back`,
+        {
+          duration: 30000,
+          action: {
+            label: 'Undo',
+            onClick: async () => {
+              try {
+                await api.discardUndo({ location: locationCode, weeks: undo });
+                refresh();
+                toast.success('The changes are back');
+              } catch (error) {
+                toast.error(`Could not undo the discard: ${error.message}`);
+              }
+            }
+          }
+        }
+      );
+    },
+    onError: (error) => toast.error(error.message)
+  });
+
+  /**
    * Warn before leaving with work the floor has not been told about.
    *
    * Nothing is at risk of being lost - every edit is written to the database as
@@ -567,6 +613,10 @@ export default function App() {
                   publishing={publishMutation.isPending}
                   onPublish={(weeks) => publishMutation.mutate(weeks)}
                   lastPublishedAt={plan.data?.revisions?.[0]?.publishedAt || pending.isFetched}
+                  onOpenDiscard={() => { setDiscardAsked(true); discardPreview.refetch(); }}
+                  discardPreview={discardPreview.isFetching ? null : (discardPreview.data?.weeks || null)}
+                  discarding={discardMutation.isPending}
+                  onDiscard={(weeks) => discardMutation.mutate(weeks)}
                 />
               )}
 

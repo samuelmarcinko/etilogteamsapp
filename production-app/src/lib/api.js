@@ -116,6 +116,23 @@ export const api = {
   publish: ({ location, weeks }) =>
     request('/api/production/publish', json({ location, weeks })).then((r) => r.data),
 
+  /**
+   * Discard: back to the last published plan.
+   *
+   * Three calls rather than one, because this is the only thing here that can
+   * destroy work. `discardPreview` says what it would cost and writes nothing;
+   * `discard` hands back the snapshot `discardUndo` replays.
+   */
+  discardPreview: ({ location, from, to }) =>
+    request(`/api/production/discard/preview?location=${encodeURIComponent(location)}&from=${from}&to=${to}`)
+      .then((r) => r.data),
+
+  discard: ({ location, weeks }) =>
+    request('/api/production/discard', json({ location, weeks })),
+
+  discardUndo: ({ location, weeks }) =>
+    request('/api/production/discard/undo', json({ location, weeks })).then((r) => r.data),
+
   entry: (id) => request(`/api/production/entries/${id}`).then((r) => r.data),
 
   unscheduled: (location) =>

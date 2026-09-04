@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { CheckCircle2, Send, Upload, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Send, Trash2, Upload, X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { getISOWeek } from 'date-fns';
 import clsx from 'clsx';
@@ -27,8 +27,61 @@ const weekLabel = (weekStart) => {
   return `CW ${getISOWeek(monday)} · ${format(monday, 'd MMM')}`;
 };
 
-export default function PublishBar({ pending, onPublish, publishing, lastPublishedAt }) {
+/**
+ * What discarding one week would do, in the words a planner would use.
+ *
+ * Deliberately says "delete" rather than anything softer. This is the only
+ * control in the module that destroys work, and a dialog that reads gently is
+ * a dialog people click through.
+ */
+function DiscardWeek({ week }) {
+  const parts = [
+    week.willDelete && `${week.willDelete} card${week.willDelete === 1 ? '' : 's'} deleted`,
+    week.willRestore && `${week.willRestore} put back`,
+    week.willRevert && `${week.willRevert} reverted`,
+    week.dayMarksChange && 'day marks',
+    week.shiftNotesChange && 'shift notes'
+  ].filter(Boolean);
+
+  const neverPublished = !week.revision;
+
+  return (
+    <li className="flex flex-col gap-0.5 py-2">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-[14px] font-semibold text-gray-900">{weekLabel(week.weekStart)}</span>
+        {neverPublished ? (
+          <span className="shrink-0 rounded bg-red-100 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-etilog">
+            never published
+          </span>
+        ) : (
+          <span className="shrink-0 text-[12px] tabular-nums text-gray-500">back to Rev {week.revision}</span>
+        )}
+      </div>
+
+      <p className="text-[13px] text-gray-600">
+        {/* A week that was never published has nothing to go back to, so
+            "discard" there means "delete the lot". Said in those words, because
+            it is the one case where the button does not mean rollback. */}
+        {neverPublished
+          ? `Everything in this week is deleted — ${week.willDelete} card${week.willDelete === 1 ? '' : 's'}.`
+          : parts.join(' · ')}
+      </p>
+
+      {week.touchedBy.length > 0 && (
+        <p className="text-[12px] text-gray-500">
+          Changed by {week.touchedBy.join(', ')}
+        </p>
+      )}
+    </li>
+  );
+}
+
+export default function PublishBar({
+  pending, onPublish, publishing, lastPublishedAt,
+  discardPreview, onDiscard, discarding, onOpenDiscard
+}) {
   const [confirming, setConfirming] = useState(false);
+  const [discardOpen, setDiscardOpen] = useState(false);
 
   const weeks = pending?.weeks || [];
   const changes = pending?.changes || 0;
@@ -72,16 +125,94 @@ export default function PublishBar({ pending, onPublish, publishing, lastPublish
           The production view still shows the last published plan.
         </p>
 
-        <button
-          type="button"
-          onClick={() => setConfirming(true)}
-          className="ml-auto flex shrink-0 items-center gap-1.5 rounded-md bg-amber-600 px-3.5 py-1.5
-                     text-[14px] font-semibold text-white shadow-sm transition hover:bg-amber-700"
-        >
-          <Send className="h-3.5 w-3.5" aria-hidden="true" />
-          Publish changes
-        </button>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          {/* Outlined rather than filled. It sits beside the button people
+              actually mean to press, and two solid blocks of colour side by
+              side is how the wrong one gets hit. */}
+          <button
+            type="button"
+            onClick={() => { onOpenDiscard?.(); setDiscardOpen(true); }}
+            className="flex items-center gap-1.5 rounded-md border border-etilog bg-white px-3 py-1.5
+                       text-[14px] font-semibold text-etilog transition hover:bg-red-50"
+          >
+            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+            Discard changes
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setConfirming(true)}
+            className="flex items-center gap-1.5 rounded-md bg-amber-600 px-3.5 py-1.5
+                       text-[14px] font-semibold text-white shadow-sm transition hover:bg-amber-700"
+          >
+            <Send className="h-3.5 w-3.5" aria-hidden="true" />
+            Publish changes
+          </button>
+        </div>
       </div>
+
+      <Dialog.Root open={discardOpen} onOpenChange={setDiscardOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-gray-900/40 backdrop-blur-[2px]" />
+          <Dialog.Content
+            className="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[min(32rem,calc(100vw-2rem))] -translate-x-1/2
+                       -translate-y-1/2 flex-col rounded-lg border border-gray-200 bg-white shadow-lg focus:outline-none"
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-gray-200 px-5 py-3.5">
+              <div className="flex gap-2.5">
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-etilog" aria-hidden="true" />
+                <div>
+                  <Dialog.Title className="text-[16px] font-bold text-gray-900">
+                    Discard everything unpublished?
+                  </Dialog.Title>
+                  <Dialog.Description className="mt-0.5 text-[13px] text-gray-500">
+                    These weeks go back to the plan as it was last published. This
+                    includes changes made by other people.
+                  </Dialog.Description>
+                </div>
+              </div>
+              <Dialog.Close
+                className="rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </Dialog.Close>
+            </div>
+
+            <ul className="flex flex-col divide-y divide-gray-100 overflow-y-auto px-5 py-1">
+              {discardPreview === null ? (
+                <li className="py-3 text-[13px] text-gray-400">Working out what would be lost…</li>
+              ) : discardPreview.length === 0 ? (
+                <li className="py-3 text-[13px] text-gray-500">Nothing to discard.</li>
+              ) : (
+                discardPreview.map((week) => <DiscardWeek key={week.weekStart} week={week} />)
+              )}
+            </ul>
+
+            <div className="flex items-center justify-end gap-2 border-t border-gray-200 px-5 py-3">
+              <p className="mr-auto text-[12px] text-gray-500">You can undo this straight after.</p>
+              <Dialog.Close className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-[14px] font-medium text-gray-700 transition hover:bg-gray-50">
+                Keep them
+              </Dialog.Close>
+              <button
+                type="button"
+                disabled={discarding || !discardPreview?.length}
+                onClick={() => {
+                  onDiscard(discardPreview.map((week) => week.weekStart));
+                  setDiscardOpen(false);
+                }}
+                className={clsx(
+                  'flex items-center gap-1.5 rounded-md bg-etilog px-3.5 py-1.5 text-[14px]',
+                  'font-semibold text-white transition hover:bg-etilog-hover disabled:opacity-60'
+                )}
+              >
+                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                {discarding ? 'Discarding…' : 'Discard changes'}
+              </button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       <Dialog.Root open={confirming} onOpenChange={setConfirming}>
         <Dialog.Portal>
