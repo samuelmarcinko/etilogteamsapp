@@ -457,6 +457,74 @@ class ProductionRevision {
     }
   }
 
+  /**
+   * Put the day marks - Free, Important - straight into the revision the
+   * production view is reading, without publishing anything.
+   *
+   * Same reasoning as marking a card done. "Saturday is free" and "Thursday
+   * matters" are facts about the day rather than decisions about what to build;
+   * holding them behind a publish would leave the production view showing an
+   * ordinary Thursday, and would mail everyone on the list about a plan whose
+   * work did not move at all.
+   *
+   * The whole week's flags are re-read and replaced rather than the one row
+   * being edited in place. Setting a flag, changing it and clearing it are
+   * three different edits to the same slot, and a function that copies the
+   * live answer for the week cannot get any of them subtly wrong.
+   */
+  static async patchDayFlags(locationId, date) {
+    const day = asDay(date);
+    if (!day) return { patched: false, reason: 'no date' };
+
+    const weekStart = weekStartOf(day);
+    const weekEnd = new Date(`${weekStart}T00:00:00Z`);
+    weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+    const to = weekEnd.toISOString().slice(0, 10);
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const { rows } = await client.query(
+        `SELECT id, snapshot FROM production_plan_revisions
+          WHERE location_id = $1 AND week_start = $2
+          ORDER BY revision DESC LIMIT 1
+          FOR UPDATE`,
+        [locationId, weekStart]
+      );
+
+      const revision = rows[0];
+      if (!revision?.snapshot) {
+        await client.query('ROLLBACK');
+        return { patched: false, reason: 'never published' };
+      }
+
+      // The same query buildSnapshot uses, so the two shapes cannot drift.
+      const live = await client.query(
+        `SELECT id, to_char(production_date, 'YYYY-MM-DD') AS production_date, flag, note
+           FROM production_day_flags
+          WHERE location_id = $1 AND production_date BETWEEN $2 AND $3
+          ORDER BY production_date`,
+        [locationId, weekStart, to]
+      );
+
+      const snapshot = { ...revision.snapshot, dayFlags: live.rows };
+
+      await client.query(
+        'UPDATE production_plan_revisions SET snapshot = $2 WHERE id = $1',
+        [revision.id, JSON.stringify(snapshot)]
+      );
+
+      await client.query('COMMIT');
+      return { patched: true, weekStart };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   /** Recent publishes for a location, newest first. For the history panel. */
   static async findHistory(locationId, limit = 50) {
     const { rows } = await pool.query(

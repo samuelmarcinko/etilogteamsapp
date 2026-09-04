@@ -860,6 +860,19 @@ router.put('/day-flags', manageAccess, asyncHandler(async (req, res) => {
   if (!location) return res.status(404).json({ error: 'Location not found' });
 
   const result = await ProductionEntry.setDayFlag(location.id, date, flag || null, note, currentUser(req));
+
+  // Live at once, like marking a card done. Free and Important say something
+  // about the day, not about what to build on it - so holding them behind a
+  // publish would leave the production view showing an ordinary day, and would
+  // notify everyone about a plan whose work never moved.
+  try {
+    await ProductionRevision.patchDayFlags(location.id, date);
+  } catch (error) {
+    // The flag is saved either way; worst case it reaches the production view
+    // at the next publish, which is where it stood before this existed.
+    console.error('Could not publish the day mark straight away:', error.message);
+  }
+
   res.json({ data: result.flag || null });
 }));
 
