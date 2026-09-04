@@ -560,6 +560,22 @@ router.post('/entries/:id/marks', manageAccess, asyncHandler(async (req, res) =>
 
   const result = await ProductionEntry.setMarks(req.params.id, marks, currentUser(req));
   if (result.notFound) return res.status(404).json({ error: 'Entry not found' });
+
+  // Done goes live at once. It reports what the floor already did, so making it
+  // queue behind a publish would leave finished work looking outstanding to the
+  // people who finished it - and would mail everyone about a plan that has not
+  // changed. Written straight into the revision the floor is reading; priority
+  // and colour still wait for a publish, because those change what to do next.
+  if (marks.status !== undefined && result.entry?.status === marks.status) {
+    try {
+      await ProductionRevision.patchEntryStatus(result.entry.location_id, result.entry, marks.status);
+    } catch (error) {
+      // The card is saved either way. Worst case the floor sees the new status
+      // at the next publish, which is where it stood before this existed.
+      console.error('Could not publish the status straight away:', error.message);
+    }
+  }
+
   // No undo snapshot: the control that set this also unsets it, one click away.
   res.json({ data: result.entry });
 }));

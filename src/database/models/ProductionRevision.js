@@ -386,6 +386,77 @@ class ProductionRevision {
     }
   }
 
+  /**
+   * Mark a card done (or reopen it) in the revision the floor is currently
+   * reading, without publishing anything.
+   *
+   * "Done" is a record of what happened, not a change to the plan. Making the
+   * planner publish it would be backwards on both counts: the floor would keep
+   * seeing finished work as outstanding until somebody remembered to press a
+   * button, and everyone on the notification list would be told the plan
+   * changed when it did not. So the status is written straight into the newest
+   * revision of that week, in place - no new revision, no change_count, nobody
+   * notified, and the production view shows it on its next poll.
+   *
+   * Only `status` is ever patched this way. Priority and colour are decisions
+   * about what the floor should do next, and those still wait for a publish.
+   *
+   * If the card is not in that revision at all - it was added, or moved into
+   * this week, and never published - there is nothing to correct: the floor is
+   * not being shown the card, and the pending publish already carries it, with
+   * whatever status it has by then.
+   */
+  static async patchEntryStatus(locationId, entry, status) {
+    const productionDate = asDay(entry?.production_date);
+    if (!productionDate || !entry?.id) return { patched: false, reason: 'unscheduled' };
+
+    const weekStart = weekStartOf(productionDate);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const { rows } = await client.query(
+        `SELECT id, snapshot FROM production_plan_revisions
+          WHERE location_id = $1 AND week_start = $2
+          ORDER BY revision DESC LIMIT 1
+          FOR UPDATE`,
+        [locationId, weekStart]
+      );
+
+      const revision = rows[0];
+      if (!revision?.snapshot?.entries) {
+        await client.query('ROLLBACK');
+        return { patched: false, reason: 'never published' };
+      }
+
+      const snapshot = revision.snapshot;
+      const card = snapshot.entries.find((row) => String(row.id) === String(entry.id));
+      if (!card || card.status === status) {
+        await client.query('ROLLBACK');
+        return { patched: false, reason: card ? 'already' : 'not in revision' };
+      }
+
+      card.status = status;
+      // Kept in step with the live row so the two tell the same story about who
+      // last touched the card. Neither field counts towards a change.
+      card.updated_at = entry.updated_at || card.updated_at;
+      card.updated_by_name = entry.updated_by_name ?? card.updated_by_name;
+
+      await client.query(
+        'UPDATE production_plan_revisions SET snapshot = $2 WHERE id = $1',
+        [revision.id, JSON.stringify(snapshot)]
+      );
+
+      await client.query('COMMIT');
+      return { patched: true, weekStart };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   /** Recent publishes for a location, newest first. For the history panel. */
   static async findHistory(locationId, limit = 50) {
     const { rows } = await pool.query(
