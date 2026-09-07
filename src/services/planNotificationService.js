@@ -1,0 +1,410 @@
+const axios = require('axios');
+const logger = require('../utils/logger');
+const User = require('../database/models/User');
+const SystemSettings = require('../database/models/SystemSettings');
+const PlanChangeSummary = require('./planChangeSummary');
+const { buildEmail } = require('./planEmailTemplate');
+const { sendEmail } = require('./emailService');
+
+/**
+ * Tells people in Teams what a publish changed.
+ *
+ * Sent to whoever holds `production.notify` - a role edited in the admin screen
+ * rather than a list of names in a config file, so somebody joining or leaving
+ * the shift is one checkbox and not a deployment. Administrators hold every
+ * permission by definition and are therefore always included.
+ *
+ * Reuses the bot the portal already runs: the same proactive path that tells an
+ * approver their request was cancelled. Nothing new is installed in Teams.
+ *
+ * Nothing here may break a publish. The plan is published the moment the
+ * transaction commits; a message that did not send is a message that did not
+ * send, and the floor still has the screen. Every failure is logged and
+ * swallowed - one person whose Teams app was never opened must not stop the
+ * other fourteen being told.
+ */
+
+const SERVICE_URL = 'https://smba.trafficmanager.net/emea/';
+const BOT_NAME = 'ETILOG Production Plan';
+
+// Teams renders a card of any length, but nobody reads forty lines on a phone.
+// Past this the card says how many more there are and points at the plan.
+const MAX_LINES = 20;
+
+const http = axios.create({ timeout: 15000 });
+
+let tokenCache = { token: null, expiresAt: 0 };
+
+/** A bot token, cached until shortly before it expires. */
+async function botToken() {
+  const now = Date.now();
+  if (tokenCache.token && tokenCache.expiresAt > now + 60000) return tokenCache.token;
+
+  const params = new URLSearchParams();
+  params.append('grant_type', 'client_credentials');
+  params.append('client_id', process.env.MICROSOFT_APP_ID);
+  params.append('client_secret', process.env.MICROSOFT_APP_PASSWORD);
+  params.append('scope', 'https://api.botframework.com/.default');
+
+  const response = await http.post(
+    `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`,
+    params
+  );
+
+  tokenCache = {
+    token: response.data.access_token,
+    expiresAt: now + (response.data.expires_in * 1000)
+  };
+  return tokenCache.token;
+}
+
+const MARK = { added: '➕', changed: '✏️', removed: '➖' };
+
+/** One card line, kept to a single row so a phone shows it whole. */
+function cardLine(item) {
+  const parts = [`**${item.label}**`];
+  if (item.quantity != null) parts.push(`${item.quantity} pcs`);
+  if (item.shift) parts.push(item.shift);
+  if (item.urgent) parts.push('**URGENT**');
+
+  let line = `${MARK[item.kind]} ${parts.join(' · ')}`;
+  if (item.kind === 'removed') line += ' — removed from the plan';
+  if (item.notes.length) line += ` — ${item.notes.join(', ')}`;
+  return line;
+}
+
+/**
+ * The card, built from the same summary the screen renders.
+ *
+ * Week, then day, then what happened - the order it is read in. The headline
+ * comes first because most people will read only that and go back to work.
+ */
+function buildCard(summary, { locationName, locationCode, publishedByName, planUrl }) {
+  const { added, changed, removed } = summary.counts;
+  const headline = [
+    added && `${added} added`,
+    changed && `${changed} changed`,
+    removed && `${removed} removed`
+  ].filter(Boolean).join(' · ');
+
+  const body = [
+    {
+      type: 'Container',
+      style: 'emphasis',
+      items: [
+        {
+          type: 'TextBlock',
+          text: `📋 Production plan updated — ${locationName || locationCode}`,
+          weight: 'Bolder',
+          size: 'Medium',
+          wrap: true
+        },
+        {
+          type: 'TextBlock',
+          text: publishedByName ? `${headline} · published by ${publishedByName}` : headline,
+          isSubtle: true,
+          spacing: 'None',
+          wrap: true
+        }
+      ]
+    }
+  ];
+
+  let lines = 0;
+  let skipped = 0;
+
+  for (const week of summary.weeks) {
+    if (lines >= MAX_LINES) {
+      skipped += week.days.reduce((total, day) => total + day.items.length, 0);
+      continue;
+    }
+
+    body.push({
+      type: 'TextBlock',
+      text: `**CW ${week.calendarWeek}**`,
+      spacing: 'Medium',
+      wrap: true
+    });
+
+    for (const day of week.days) {
+      if (lines >= MAX_LINES) {
+        skipped += day.items.length;
+        continue;
+      }
+
+      body.push({
+        type: 'TextBlock',
+        text: day.label,
+        isSubtle: true,
+        size: 'Small',
+        spacing: 'Small',
+        wrap: true
+      });
+
+      for (const item of day.items) {
+        if (lines >= MAX_LINES) { skipped += 1; continue; }
+        body.push({ type: 'TextBlock', text: cardLine(item), wrap: true, spacing: 'None' });
+        lines += 1;
+      }
+    }
+  }
+
+  if (skipped > 0) {
+    body.push({
+      type: 'TextBlock',
+      text: `_and ${skipped} more — open the plan to see everything._`,
+      isSubtle: true,
+      spacing: 'Medium',
+      wrap: true
+    });
+  }
+
+  return {
+    type: 'AdaptiveCard',
+    $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
+    version: '1.4',
+    body,
+    actions: planUrl
+      ? [{ type: 'Action.OpenUrl', title: 'Open the plan', url: planUrl }]
+      : []
+  };
+}
+
+// Where an explicit recipient list is kept when one is set. Comma-separated
+// user ids, which is what Teams is addressed by.
+const LIST_SETTING = 'production.notify.users';
+
+// Whether the same summary also goes out by email. On by default; a checkbox
+// rather than a deployment, because whether two channels is useful or noise is
+// something only the people receiving them can judge.
+const EMAIL_SETTING = 'production.notify.email';
+
+class PlanNotificationService {
+  /**
+   * Who hears about a publish.
+   *
+   * Normally the permission matrix answers this: whoever holds
+   * production.notify, plus every administrator, because an administrator holds
+   * every key by definition.
+   *
+   * An explicit list overrides that entirely when one is set - including the
+   * administrators, which is the whole point of it. It exists so a change can
+   * be tried on one person before it starts arriving in everybody's Teams, and
+   * clearing it hands the decision back to the roles. The screen says which of
+   * the two is in force, because a list quietly left in place months later
+   * would look exactly like a broken notification.
+   */
+  static async recipients() {
+    const raw = await SystemSettings.get(LIST_SETTING);
+    const chosen = String(raw || '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+
+    if (!chosen.length) return User.findByPermission('production.notify');
+
+    const found = await User.findByIds(chosen);
+    // Ids that match nobody are dropped rather than sent to: an id that no
+    // longer exists is somebody who left, and Teams would only answer 404.
+    return found;
+  }
+
+  /** Both answers at once, for the admin screen. */
+  static async recipientOptions() {
+    const raw = await SystemSettings.get(LIST_SETTING);
+    const chosen = String(raw || '').split(',').map((id) => id.trim()).filter(Boolean);
+    const byPermission = await User.findByPermission('production.notify');
+
+    return {
+      mode: chosen.length ? 'explicit' : 'permission',
+      chosen,
+      byPermission,
+      effective: chosen.length ? await User.findByIds(chosen) : byPermission,
+      emailEnabled: await PlanNotificationService.emailEnabled()
+    };
+  }
+
+  static async setRecipients(userIds) {
+    const clean = (Array.isArray(userIds) ? userIds : [])
+      .map((id) => String(id).trim())
+      .filter(Boolean);
+    await SystemSettings.set(LIST_SETTING, clean.join(','));
+    return PlanNotificationService.recipientOptions();
+  }
+
+  /**
+   * Send the summary of one publish.
+   *
+   * `weeks` is [{ weekStart, before, after }] - the snapshots the publish moved
+   * between. Returns what happened, for the log; it never throws.
+   */
+  static async notifyPublished({ location, weeks, publishedByName }) {
+    try {
+      if (!process.env.MICROSOFT_APP_ID || !process.env.MICROSOFT_APP_PASSWORD) {
+        logger.debug('Plan notification skipped: the bot is not configured');
+        return { sent: 0, skipped: 'bot not configured' };
+      }
+
+      const summary = PlanChangeSummary.summarise(weeks);
+      // A publish that changed nothing is not news. This happens whenever
+      // somebody publishes twice, and a message saying so would teach people to
+      // ignore the next one.
+      if (!summary.counts.total) {
+        logger.debug('Plan notification skipped: nothing changed', { location: location.code });
+        return { sent: 0, skipped: 'nothing changed' };
+      }
+
+      const recipients = await PlanNotificationService.recipients();
+      if (!recipients.length) {
+        logger.info('Plan published, but nobody holds production.notify', { location: location.code });
+        return { sent: 0, skipped: 'no recipients' };
+      }
+
+      const base = process.env.APP_BASE_URL || 'https://portal.etilog.com';
+      const card = buildCard(summary, {
+        locationName: location.name,
+        locationCode: location.code,
+        publishedByName,
+        planUrl: `${base}/production/view#location=${encodeURIComponent(location.code)}`
+      });
+
+      // What the phone shows before anybody opens anything: where it is from,
+      // and how much of it there is.
+      const { added, changed, removed } = summary.counts;
+      const toast = `Production plan · ${location.code} — `
+        + [added && `${added} added`, changed && `${changed} changed`, removed && `${removed} removed`]
+          .filter(Boolean).join(', ');
+
+      const token = await botToken();
+      let sent = 0;
+      const failed = [];
+
+      for (const recipient of recipients) {
+        try {
+          await PlanNotificationService.sendCard(token, recipient.user_id, card, toast);
+          sent += 1;
+        } catch (error) {
+          // Almost always "the app was never installed for this person". Worth
+          // knowing, never worth stopping for.
+          failed.push({
+            name: recipient.display_name || recipient.email,
+            error: error.response?.data?.error?.message || error.message
+          });
+        }
+      }
+
+      // The same summary by email, to the same people. Sent separately and
+      // independently: somebody who never opened the Teams app still gets told,
+      // and a mail server that is down costs nothing that already worked.
+      const emailed = await PlanNotificationService.sendEmails(recipients, summary, {
+        location, publishedByName, toast
+      });
+
+      logger.info('Plan notification sent', {
+        location: location.code,
+        sent,
+        failed: failed.length,
+        emailed,
+        changes: summary.counts.total
+      });
+      if (failed.length) logger.debug('Plan notification could not reach some people', { failed });
+
+      return { sent, failed: failed.length, emailed, counts: summary.counts };
+    } catch (error) {
+      // The plan is already published. This is the part that may fail.
+      logger.error('Plan notification failed', { error: error.message });
+      return { sent: 0, error: error.message };
+    }
+  }
+
+  /**
+   * The same summary by email.
+   *
+   * Never throws, for the same reason nothing else here does: the plan is
+   * already published. A recipient with no email address is skipped rather than
+   * counted as a failure - not everybody in a Teams tenant has one on file.
+   */
+  static async sendEmails(recipients, summary, { location, publishedByName, toast }) {
+    const enabled = await SystemSettings.get(EMAIL_SETTING);
+    // Absent means on: it is what was asked for, and a setting nobody has
+    // touched should behave the way it was built.
+    if (String(enabled ?? 'true').toLowerCase() === 'false') return 0;
+
+    const base = process.env.APP_BASE_URL || 'https://portal.etilog.com';
+    const html = buildEmail(summary, {
+      locationName: location.name,
+      locationCode: location.code,
+      publishedByName,
+      planUrl: `${base}/production/view#location=${encodeURIComponent(location.code)}`
+    });
+
+    let count = 0;
+    for (const recipient of recipients) {
+      if (!recipient.email) continue;
+      try {
+        const ok = await sendEmail({ to: recipient.email, subject: toast, html });
+        if (ok) count += 1;
+      } catch (error) {
+        logger.debug('Plan notification email failed', {
+          to: recipient.email, error: error.message
+        });
+      }
+    }
+    return count;
+  }
+
+  /** Whether the email copy is switched on. */
+  static async emailEnabled() {
+    const value = await SystemSettings.get(EMAIL_SETTING);
+    return String(value ?? 'true').toLowerCase() !== 'false';
+  }
+
+  static async setEmailEnabled(enabled) {
+    await SystemSettings.set(EMAIL_SETTING, enabled ? 'true' : 'false');
+    return PlanNotificationService.emailEnabled();
+  }
+
+  /**
+   * Open a one-to-one chat with somebody and put the card in it.
+   *
+   * `summary` is what Teams shows in the toast and the activity feed. Without
+   * it the notification reads "Karta sa odoslala" - Teams' own fallback for an
+   * attachment with no text - which tells nobody what arrived or from where.
+   */
+  static async sendCard(token, teamsUserId, card, summary) {
+    const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+    const conversation = await http.post(
+      `${SERVICE_URL}v3/conversations`,
+      {
+        bot: { id: process.env.MICROSOFT_APP_ID, name: BOT_NAME },
+        isGroup: false,
+        members: [{ id: teamsUserId }],
+        tenantId: process.env.TENANT_ID,
+        channelData: { tenant: { id: process.env.TENANT_ID } }
+      },
+      { headers }
+    );
+
+    const conversationId = conversation.data.id;
+
+    await http.post(
+      `${SERVICE_URL}v3/conversations/${conversationId}/activities`,
+      {
+        type: 'message',
+        from: { id: process.env.MICROSOFT_APP_ID, name: BOT_NAME },
+        conversation: { id: conversationId },
+        summary: summary || 'Production plan updated',
+        attachments: [{
+          contentType: 'application/vnd.microsoft.card.adaptive',
+          content: card
+        }]
+      },
+      { headers }
+    );
+  }
+}
+
+module.exports = PlanNotificationService;
+module.exports.buildCard = buildCard;
+module.exports.cardLine = cardLine;

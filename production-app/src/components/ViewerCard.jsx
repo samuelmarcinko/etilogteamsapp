@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { Check, Sparkles } from 'lucide-react';
+import { Check, PencilLine, Sparkles } from 'lucide-react';
 
 import { cardColor } from '../lib/colors';
 import { formatQuantity } from '../lib/weeks';
@@ -26,7 +26,35 @@ const SIZES = {
   compact: { pad: 'pl-2.5 pr-2 py-1.5',   title: 'text-[13px]', qty: 'text-[13px]', bar: 'w-1' }
 };
 
-export default function ViewerCard({ entry, updated, onOpen, density = 'roomy' }) {
+/**
+ * A card that is new to the floor and one that was altered are different news,
+ * and the badge says which in a word rather than calling both "recently
+ * updated" - which made a job nobody had accounted for read exactly like a
+ * quantity that moved by five.
+ *
+ * Both stay in the blue family: green already means done on this card, and a
+ * second green would be one meaning too many. They are told apart by the word
+ * and the icon, which survive being read sideways from across a room in a way
+ * two shades of anything do not.
+ */
+const CHANGE_BADGE = {
+  new: {
+    label: 'New',
+    icon: Sparkles,
+    title: 'Added to the plan in the latest publish',
+    className: 'bg-blue-700'
+  },
+  changed: {
+    label: 'Updated',
+    icon: PencilLine,
+    title: 'Changed in the latest publish - tap the card to see what',
+    className: 'bg-blue-500'
+  }
+};
+
+export default function ViewerCard({ entry, change, onOpen, density = 'roomy' }) {
+  const badge = CHANGE_BADGE[change] || null;
+  const BadgeIcon = badge?.icon;
   const size = SIZES[density] || SIZES.roomy;
   const showDescription = density === 'roomy' || density === 'normal';
   const showNotes = density === 'roomy';
@@ -44,7 +72,9 @@ export default function ViewerCard({ entry, updated, onOpen, density = 'roomy' }
       onClick={() => onOpen?.(entry)}
       aria-label={
         `${title}${quantity != null ? `, ${quantity} pieces` : ''}` +
-        `${isDone ? ', done' : ''}${updated ? ', changed recently' : ''}`
+        `${isDone ? ', done' : ''}` +
+        `${change === 'new' ? ', new in the latest publish'
+          : change === 'changed' ? ', changed in the latest publish' : ''}`
       }
       className={clsx(
         'relative flex w-full flex-col gap-1 overflow-hidden rounded-lg border-2',
@@ -95,12 +125,12 @@ export default function ViewerCard({ entry, updated, onOpen, density = 'roomy' }
           {/* At eight weeks a card is barely two lines tall, so the one thing
               the shift came to find out shrinks to its icon and joins the
               others up here. */}
-          {updated && iconOnly && (
+          {badge && iconOnly && (
             <span
-              title="Changed in the last 24 hours - tap the card to see what"
-              className="flex items-center rounded-full bg-blue-600 p-0.5 text-white"
+              title={badge.title}
+              className={clsx('flex items-center rounded-full p-0.5 text-white', badge.className)}
             >
-              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+              <BadgeIcon className="h-3.5 w-3.5" aria-hidden="true" />
             </span>
           )}
         </span>
@@ -108,13 +138,17 @@ export default function ViewerCard({ entry, updated, onOpen, density = 'roomy' }
 
       {/* Everywhere else it says so in words, on a line of its own: it is the
           longest label on the card, and the row above is the FG number's. */}
-      {updated && !iconOnly && (
+      {badge && !iconOnly && (
         <span
-          title="Changed in the last 24 hours - tap the card to see what"
-          className="flex w-fit items-center gap-1 rounded-full bg-blue-600 py-0.5 pl-1 pr-2 text-[11px] font-bold uppercase tracking-wide text-white"
+          title={badge.title}
+          className={clsx(
+            'flex w-fit items-center gap-1 rounded-full py-0.5 pl-1 pr-2',
+            'text-[11px] font-bold uppercase tracking-wide text-white',
+            badge.className
+          )}
         >
-          <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-          Recently updated
+          <BadgeIcon className="h-3.5 w-3.5" aria-hidden="true" />
+          {badge.label}
         </span>
       )}
 

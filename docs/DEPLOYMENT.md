@@ -1,6 +1,51 @@
 # Deployment Guide
 
-Production deployment guide for the Teams Approval App on Hetzner VPS.
+> **How production is deployed today (Infomaniak VPS, Docker + Traefik)**
+>
+> The rest of this file describes an older Hetzner + Nginx + PM2 setup and is
+> kept for reference. Production runs in Docker at `/srv/stacks/apps/teams-app`,
+> and a release is three commands:
+>
+> ```bash
+> cd /srv/stacks/apps/teams-app
+> git pull origin <branch>
+> docker compose -f docker-compose.infomaniak.yml build teams-app
+> docker compose -f docker-compose.infomaniak.yml up -d teams-app
+> ```
+>
+> **Always pass `-f docker-compose.infomaniak.yml`.** The bare
+> `docker-compose.yml` in the same directory carries no Traefik labels: running
+> `docker compose up -d teams-app` without `-f` recreates the container without
+> them, Traefik then has no router for `portal.etilog.com`, and the site answers
+> 404 while the container itself looks perfectly healthy. It also drops the
+> container off the `teams-app-internal` network, so the app cannot resolve
+> `teams-app-db` and the log fills with `getaddrinfo ENOTFOUND teams-app-db`.
+> Both happened on 2026-09-03 and cost about half an hour.
+>
+> The source directory is **not** mounted into the container - the code is baked
+> into the image - so `git pull` alone changes nothing that is running. Skipping
+> the `build` step leaves the previous code in place while every other sign says
+> the deployment worked. Verify a release by looking for the new code inside the
+> container, not by checking that the site loads:
+>
+> ```bash
+> docker exec teams-app grep -c "<something new>" /app/src/<changed file>
+> curl -s -o /dev/null -w '%{http_code}\n' https://portal.etilog.com/portal/
+> ```
+>
+> The database container is defined in the same file but does not need
+> recreating; naming the `teams-app` service keeps it out of the way.
+>
+> Migrations run themselves when the app starts, so a release that carries one
+> needs no extra step - only a check that it landed. The database user is
+> **`approval_user`**, not `postgres`; `postgres` does not exist in that
+> container and asking for it answers `FATAL: role "postgres" does not exist`,
+> which reads like a broken database rather than a wrong username:
+>
+> ```bash
+> docker exec teams-app-db psql -U approval_user -d teams_approval \
+>   -c "SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 5"
+> ```
 
 ## Overview
 

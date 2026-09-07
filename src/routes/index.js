@@ -9,6 +9,7 @@ const teamsSickNoteRoutes = require('./teamsSickNoteRoutes');
 const ticketTypeRoutes = require('./ticketTypeRoutes');
 const teamsDashboardRoutes = require('./teamsDashboardRoutes');
 const productionRoutes = require('./productionRoutes');
+const sapRoutes = require('./sapRoutes');
 const fleetRoutes = require('./fleetRoutes');
 const warehouseRoutes = require('./warehouseRoutes');
 
@@ -30,6 +31,9 @@ router.use('/sick-notes', sickNoteRoutes);
 router.use('/teams/sick-notes', teamsSickNoteRoutes);
 router.use('/ticket-types', ticketTypeRoutes);
 router.use('/teams/dashboard', teamsDashboardRoutes);
+// Before /production, so these paths are matched here rather than falling
+// through the production router first.
+router.use('/production/sap', sapRoutes);
 router.use('/production', productionRoutes);
 router.use('/fleet', fleetRoutes);
 router.use('/warehouse', warehouseRoutes);

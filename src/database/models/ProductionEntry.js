@@ -119,8 +119,9 @@ class ProductionEntry {
         `INSERT INTO production_plan_entries
            (location_id, production_date, shift_id, product_id, custom_product_name,
             planned_quantity, priority, color, status, notes,
-            due_date, sort_order, created_by, created_by_name, updated_by, updated_by_name)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$13,$14)
+            due_date, sap_order_entry, sort_order,
+            created_by, created_by_name, updated_by, updated_by_name)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$14,$15)
          RETURNING *`,
         [
           data.locationId,
@@ -134,6 +135,9 @@ class ProductionEntry {
           data.status || 'planned',
           data.notes || null,
           data.dueDate || null,
+          // Which SAP order this card is a slice of, when it came from one.
+          // Null keeps a card planned outside SAP behaving exactly as before.
+          data.sapOrderEntry || null,
           sortOrder,
           user?.id || null,
           user?.name || null
@@ -202,9 +206,10 @@ class ProductionEntry {
             status              = $7,
             notes               = $8,
             due_date            = $9,
+            sap_order_entry     = $10,
             version             = version + 1,
-            updated_by          = $10,
-            updated_by_name     = $11
+            updated_by          = $11,
+            updated_by_name     = $12
           WHERE id = $1
           RETURNING *`,
         [
@@ -217,6 +222,7 @@ class ProductionEntry {
           data.status || 'planned',
           data.notes ?? null,
           data.dueDate ?? null,
+          data.sapOrderEntry ?? null,
           user?.id || null,
           user?.name || null
         ]
@@ -599,7 +605,8 @@ class ProductionEntry {
     const { rows } = await pool.query(
       `SELECT e.id, e.location_id, e.product_id, p.fg_number, p.description AS product_description,
               e.custom_product_name, e.planned_quantity,
-              e.priority, e.color, e.status, e.notes, e.due_date, e.version, e.updated_at, e.updated_by_name
+              e.priority, e.color, e.status, e.notes, e.due_date, e.sap_order_entry,
+              e.version, e.updated_at, e.updated_by_name
          FROM production_plan_entries e
          LEFT JOIN products p ON p.id = e.product_id
         WHERE e.location_id = $1

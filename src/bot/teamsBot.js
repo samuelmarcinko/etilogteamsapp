@@ -19,7 +19,7 @@ class TeamsBot extends TeamsActivityHandler {
 
       // Greeting commands
       if (text === 'hello' || text === 'hi' || text === 'hey') {
-        await context.sendActivity('Hello! I am the ETILOG Approval Bot 🎫\n\nI help manage approval requests. Type "help" for more information.');
+        await context.sendActivity('Hello! I am the ETILOG Portal bot 🎫\n\nI help manage approval requests. Type "help" for more information.');
       }
       // Help commands
       else if (text === 'help') {
@@ -221,7 +221,7 @@ class TeamsBot extends TeamsActivityHandler {
       body: [
         {
           type: 'TextBlock',
-          text: '🎉 Hello! I\'m the ETILOG Approval Bot! 🎫',
+          text: '🎉 Hello! I\'m the ETILOG Portal bot! 🎫',
           weight: 'Bolder',
           size: 'Large',
           wrap: true
@@ -298,7 +298,7 @@ class TeamsBot extends TeamsActivityHandler {
    * Get welcome message (text fallback)
    */
   getWelcomeMessage() {
-    return `🎉 Hello! I'm the **ETILOG Approval Bot**! 🎫
+    return `🎉 Hello! I'm the **ETILOG Portal** bot! 🎫
 
 I'm here to help you manage approval requests and speed up the approval process for all ETILOG employees.
 
@@ -322,7 +322,7 @@ Have a productive day! 💼`;
    * Get help message
    */
   getHelpMessage() {
-    return `**📖 ETILOG Approval Bot - Help**
+    return `**📖 ETILOG Portal - Help**
 
 **🙋 For Requesters:**
 • Create requests via the app (time-off, purchases, expenses, HR)
@@ -350,7 +350,7 @@ Contact IT department: samuel.marcinko@etilog.com`;
    * Get about message
    */
   getAboutMessage() {
-    return `**ℹ️ About ETILOG Approval Center**
+    return `**ℹ️ About ETILOG Portal**
 
 **Version:** 1.0.0
 **Developer:** ETILOG IT Team

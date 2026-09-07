@@ -7,6 +7,8 @@ const { attachDbRole, requirePermission } = require('../middleware/portalAuth');
 const { asyncHandler } = require('../middleware/errorHandler');
 const ProductionRevision = require('../database/models/ProductionRevision');
 const ProductionRetentionService = require('../services/productionRetentionService');
+const PlanChangeSummary = require('../services/planChangeSummary');
+const PlanNotificationService = require('../services/planNotificationService');
 
 /**
  * Production Plan API.
@@ -101,6 +103,20 @@ function parseEntryPayload(body, { requireLocation }) {
   }
 
   value.notes = typeof body.notes === 'string' && body.notes.trim() ? body.notes.trim() : null;
+
+  // Which SAP production order this card is a slice of, when it came from one.
+  // Optional on purpose: planning ahead of SAP, or for work SAP knows nothing
+  // about, has to keep working exactly as it does today - such a card simply
+  // gets no material check.
+  if (body.sapOrderEntry == null || body.sapOrderEntry === '') {
+    value.sapOrderEntry = null;
+  } else {
+    const sapOrderEntry = Number(body.sapOrderEntry);
+    if (!Number.isInteger(sapOrderEntry) || sapOrderEntry <= 0) {
+      return { error: 'sapOrderEntry must be a SAP order number' };
+    }
+    value.sapOrderEntry = sapOrderEntry;
+  }
 
   return { value };
 }
@@ -201,12 +217,21 @@ router.get('/plan', viewAccess, asyncHandler(async (req, res) => {
   // reason revisions exist.
   if (req.query.published === '1') {
     const weeks = ProductionRevision.weeksBetween(from, to);
-    const current = await ProductionRevision.findCurrent(location.id, weeks);
+    const [current, previous] = await Promise.all([
+      ProductionRevision.findCurrent(location.id, weeks),
+      ProductionRevision.findPrevious(location.id, weeks)
+    ]);
 
     const entries = [];
     const dayFlags = [];
     const shiftNotes = [];
     const revisions = [];
+    // What the last publish brought, per card. The floor is told the plan
+    // changed; this is what lets the screen show WHERE, instead of leaving
+    // everyone to spot it. A first revision has nothing to compare against, so
+    // its cards are not marked new - a week published for the first time is all
+    // new, and flagging every card would say nothing.
+    const changes = { added: [], changed: [], removed: [] };
 
     for (const weekStart of weeks) {
       const published = current[weekStart];
@@ -222,6 +247,13 @@ router.get('/plan', viewAccess, asyncHandler(async (req, res) => {
       entries.push(...(snapshot.entries || []));
       dayFlags.push(...(snapshot.dayFlags || []));
       shiftNotes.push(...(snapshot.shiftNotes || []));
+
+      const before = previous[weekStart];
+      if (!before?.snapshot) continue;
+      const diff = ProductionRevision.diffEntries(before.snapshot, snapshot);
+      changes.added.push(...diff.added);
+      changes.changed.push(...diff.changed);
+      changes.removed.push(...diff.removed.map((row) => ({ ...row, weekStart })));
     }
 
     return res.json({
@@ -234,7 +266,8 @@ router.get('/plan', viewAccess, asyncHandler(async (req, res) => {
         dayFlags,
         shiftNotes,
         calendarExceptions: exceptions,
-        revisions
+        revisions,
+        changes
       }
     });
   }
@@ -286,6 +319,89 @@ router.get('/pending', viewAccess, asyncHandler(async (req, res) => {
   });
 }));
 
+/**
+ * The weeks a request names, checked to be Mondays.
+ *
+ * Publish and discard take the same argument and must reject the same things:
+ * two buttons side by side that disagree about what a week is would be a bug
+ * waiting for the day somebody presses the wrong one.
+ */
+function parseWeeks(body) {
+  const weeks = Array.isArray(body.weeks) ? body.weeks : [];
+  if (!weeks.length) return { error: 'weeks is required' };
+  if (weeks.length > 60) return { error: 'too many weeks in one request' };
+  for (const week of weeks) {
+    if (!ISO_DATE.test(week) || ProductionRevision.weekStartOf(week) !== week) {
+      return { error: `weeks must be Mondays formatted YYYY-MM-DD (got ${week})` };
+    }
+  }
+  return { weeks };
+}
+
+// GET /api/production/discard/preview?location&from&to
+//
+// What discarding would cost, so the dialog can say it before anyone agrees to
+// it. Read-only: nothing here changes a row.
+router.get('/discard/preview', manageAccess, asyncHandler(async (req, res) => {
+  const { location: code, from, to } = req.query;
+  if (!code) return res.status(400).json({ error: 'Bad Request', message: 'location is required' });
+
+  const rangeError = validateRange(from, to);
+  if (rangeError) return res.status(400).json({ error: 'Bad Request', message: rangeError });
+
+  const location = await ProductionPlan.findLocationByCode(code);
+  if (!location) return res.status(404).json({ error: 'Location not found' });
+
+  const weeks = await ProductionRevision.previewDiscard(
+    location.id, ProductionRevision.weeksBetween(from, to)
+  );
+  res.json({ data: { weeks } });
+}));
+
+// POST /api/production/discard  { location, weeks: ['2026-08-24', ...] }
+//
+// Throw away everything unpublished in these weeks and put the last published
+// plan back. The only operation here that can destroy work, so it answers with
+// the snapshot needed to take it back - the browser holds that for as long as
+// the toast is up.
+router.post('/discard', manageAccess, asyncHandler(async (req, res) => {
+  const location = await ProductionPlan.findLocationByCode(req.body.location);
+  if (!location) return res.status(404).json({ error: 'Location not found' });
+
+  const parsed = parseWeeks(req.body);
+  if (parsed.error) return res.status(400).json({ error: 'Bad Request', message: parsed.error });
+
+  const result = await ProductionRevision.discard(location.id, parsed.weeks, currentUser(req));
+
+  // Nobody is notified: nothing was published, so as far as the production view
+  // is concerned the plan it is reading has not moved at all.
+  res.json({
+    data: { deleted: result.deleted, reverted: result.reverted, missing: result.missing },
+    undo: { weeks: result.undo }
+  });
+}));
+
+// POST /api/production/discard/undo  { location, weeks: [{ weekStart, snapshot }] }
+//
+// Replays the snapshot a discard handed back. The same write path the discard
+// itself used, so it cannot put back less than was taken.
+router.post('/discard/undo', manageAccess, asyncHandler(async (req, res) => {
+  const location = await ProductionPlan.findLocationByCode(req.body.location);
+  if (!location) return res.status(404).json({ error: 'Location not found' });
+
+  const targets = Array.isArray(req.body.weeks) ? req.body.weeks : [];
+  if (!targets.length) {
+    return res.status(400).json({ error: 'Bad Request', message: 'weeks is required' });
+  }
+  const shapeError = parseWeeks({ weeks: targets.map((week) => week.weekStart) });
+  if (shapeError.error) return res.status(400).json({ error: 'Bad Request', message: shapeError.error });
+
+  const result = await ProductionRevision.restoreLive(
+    location.id, targets, currentUser(req), 'discard_undone'
+  );
+  res.json({ data: { restored: result.reverted, removed: result.deleted } });
+}));
+
 // POST /api/production/publish  { location, weeks: ['2026-08-24', ...] }
 //
 // One transaction for the whole set: a publish is one event, so the floor gets
@@ -295,27 +411,82 @@ router.post('/publish', manageAccess, asyncHandler(async (req, res) => {
   const location = await ProductionPlan.findLocationByCode(req.body.location);
   if (!location) return res.status(404).json({ error: 'Location not found' });
 
-  const weeks = Array.isArray(req.body.weeks) ? req.body.weeks : [];
-  if (!weeks.length) {
-    return res.status(400).json({ error: 'Bad Request', message: 'weeks is required' });
-  }
-  if (weeks.length > 60) {
-    return res.status(400).json({ error: 'Bad Request', message: 'too many weeks in one publish' });
-  }
-  for (const week of weeks) {
-    if (!ISO_DATE.test(week) || ProductionRevision.weekStartOf(week) !== week) {
-      return res.status(400).json({
-        error: 'Bad Request',
-        message: `weeks must be Mondays formatted YYYY-MM-DD (got ${week})`
-      });
-    }
+  const parsed = parseWeeks(req.body);
+  if (parsed.error) return res.status(400).json({ error: 'Bad Request', message: parsed.error });
+
+  const published = await ProductionRevision.publish(location.id, parsed.weeks, currentUser(req));
+
+  // After the commit, and never in front of it. The plan is published the
+  // moment the transaction lands; telling people is a separate job that must
+  // not be able to fail it. Not awaited, so a slow Teams API does not hold the
+  // planner's browser - the service logs its own outcome and never throws.
+  if (published.length) {
+    PlanNotificationService.notifyPublished({
+      location,
+      weeks: published.map((week) => ({
+        weekStart: week.weekStart,
+        before: week.before,
+        after: week.after
+      })),
+      publishedByName: currentUser(req).name
+    });
   }
 
-  const published = await ProductionRevision.publish(location.id, weeks, currentUser(req));
   res.json({
     data: {
-      published,
+      // Without the snapshots: they exist for the notification above, and a
+      // publish of several weeks would otherwise send the whole plan twice
+      // back to the browser that just sent it.
+      published: published.map(({ before, after, ...week }) => week),
       changes: published.reduce((total, week) => total + week.change_count, 0)
+    }
+  });
+}));
+
+/**
+ * GET /api/production/changes?location=PO1&from=&to=
+ *
+ * What the last publish of each week actually did, in sentences. The same
+ * structure the viewer renders and the same one a Teams message or an email
+ * will carry, so those can never disagree about what happened.
+ */
+router.get('/changes', viewAccess, asyncHandler(async (req, res) => {
+  const rangeError = validateRange(req.query.from, req.query.to);
+  if (rangeError) return res.status(400).json({ error: 'Bad Request', message: rangeError });
+
+  const location = await ProductionPlan.findLocationByCode(req.query.location);
+  if (!location) return res.status(404).json({ error: 'Location not found' });
+
+  const weeks = ProductionRevision.weeksBetween(req.query.from, req.query.to);
+  const [current, previous] = await Promise.all([
+    ProductionRevision.findCurrent(location.id, weeks),
+    ProductionRevision.findPrevious(location.id, weeks)
+  ]);
+
+  // A week published for the very first time is left out: every card in it
+  // would read as new, which is true and says nothing.
+  const pairs = weeks
+    .filter((weekStart) => current[weekStart]?.snapshot && previous[weekStart]?.snapshot)
+    .map((weekStart) => ({
+      weekStart,
+      before: previous[weekStart].snapshot,
+      after: current[weekStart].snapshot
+    }));
+
+  const summary = PlanChangeSummary.summarise(pairs);
+  const publishedAt = weeks
+    .map((weekStart) => current[weekStart]?.published_at)
+    .filter(Boolean)
+    .sort()
+    .pop() || null;
+
+  res.json({
+    data: {
+      ...summary,
+      publishedAt,
+      text: PlanChangeSummary.asText(summary, {
+        title: `Production plan updated — ${location.code}`
+      })
     }
   });
 }));
@@ -459,6 +630,22 @@ router.post('/entries/:id/marks', manageAccess, asyncHandler(async (req, res) =>
 
   const result = await ProductionEntry.setMarks(req.params.id, marks, currentUser(req));
   if (result.notFound) return res.status(404).json({ error: 'Entry not found' });
+
+  // Done goes live at once. It reports what the floor already did, so making it
+  // queue behind a publish would leave finished work looking outstanding to the
+  // people who finished it - and would mail everyone about a plan that has not
+  // changed. Written straight into the revision the floor is reading; priority
+  // and colour still wait for a publish, because those change what to do next.
+  if (marks.status !== undefined && result.entry?.status === marks.status) {
+    try {
+      await ProductionRevision.patchEntryStatus(result.entry.location_id, result.entry, marks.status);
+    } catch (error) {
+      // The card is saved either way. Worst case the floor sees the new status
+      // at the next publish, which is where it stood before this existed.
+      console.error('Could not publish the status straight away:', error.message);
+    }
+  }
+
   // No undo snapshot: the control that set this also unsets it, one click away.
   res.json({ data: result.entry });
 }));
@@ -743,6 +930,19 @@ router.put('/day-flags', manageAccess, asyncHandler(async (req, res) => {
   if (!location) return res.status(404).json({ error: 'Location not found' });
 
   const result = await ProductionEntry.setDayFlag(location.id, date, flag || null, note, currentUser(req));
+
+  // Live at once, like marking a card done. Free and Important say something
+  // about the day, not about what to build on it - so holding them behind a
+  // publish would leave the production view showing an ordinary day, and would
+  // notify everyone about a plan whose work never moved.
+  try {
+    await ProductionRevision.patchDayFlags(location.id, date);
+  } catch (error) {
+    // The flag is saved either way; worst case it reaches the production view
+    // at the next publish, which is where it stood before this existed.
+    console.error('Could not publish the day mark straight away:', error.message);
+  }
+
   res.json({ data: result.flag || null });
 }));
 

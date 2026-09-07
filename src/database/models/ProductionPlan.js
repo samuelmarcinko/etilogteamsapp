@@ -63,6 +63,9 @@ class ProductionPlan {
               e.color,
               e.status,
               e.notes,
+              -- So reopening a card shows the same material picture it was
+              -- planned against, instead of an empty panel.
+              e.sap_order_entry,
               e.sort_order,
               e.version,
               e.updated_at,

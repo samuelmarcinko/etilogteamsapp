@@ -102,9 +102,36 @@ export const api = {
     request(`/api/production/pending?location=${encodeURIComponent(location)}&from=${from}&to=${to}`)
       .then((r) => r.data),
 
+  /**
+   * What the last publish of each week actually did, in sentences.
+   *
+   * The same structure the notification will carry, so the screen and the
+   * message can never disagree about what happened.
+   */
+  changes: ({ location, from, to }) =>
+    request(`/api/production/changes?location=${encodeURIComponent(location)}&from=${from}&to=${to}`)
+      .then((r) => r.data),
+
   /** Publish the named weeks. One event, one transaction. */
   publish: ({ location, weeks }) =>
     request('/api/production/publish', json({ location, weeks })).then((r) => r.data),
+
+  /**
+   * Discard: back to the last published plan.
+   *
+   * Three calls rather than one, because this is the only thing here that can
+   * destroy work. `discardPreview` says what it would cost and writes nothing;
+   * `discard` hands back the snapshot `discardUndo` replays.
+   */
+  discardPreview: ({ location, from, to }) =>
+    request(`/api/production/discard/preview?location=${encodeURIComponent(location)}&from=${from}&to=${to}`)
+      .then((r) => r.data),
+
+  discard: ({ location, weeks }) =>
+    request('/api/production/discard', json({ location, weeks })),
+
+  discardUndo: ({ location, weeks }) =>
+    request('/api/production/discard/undo', json({ location, weeks })).then((r) => r.data),
 
   entry: (id) => request(`/api/production/entries/${id}`).then((r) => r.data),
 
@@ -116,6 +143,50 @@ export const api = {
 
   createProduct: (fgNumber, description) =>
     request('/api/production/products', json({ fgNumber, description })).then((r) => r.data),
+
+  // --------------------------------------------------------------------- SAP
+  // All four read our own mirror of SAP, never SAP itself, so they answer at
+  // local speed and keep answering when the VPN tunnel is down - the reply just
+  // carries an older syncedAt. Nothing here can block planning: the material
+  // picture is information the planner weighs, not a rule to satisfy.
+
+  /**
+   * Every open finished-good project, in one response.
+   *
+   * There are around 46, a few kilobytes altogether, so the picker filters them
+   * in the browser as fast as someone types instead of waiting on a request per
+   * keystroke.
+   */
+  sapProjects: () => request('/api/production/sap/projects').then((r) => r.data),
+
+  /**
+   * Constructions and bags for one batch.
+   *
+   * `qty` is the batch going on the day, not the order total - an order for 425
+   * with 122 done is fine for a batch of 50.
+   *
+   * `live` re-reads the project from SAP before answering, so the stock is
+   * today's. It takes a few seconds and it can fail; when it does, the answer
+   * still comes back from the mirror and `live.ok` says what happened.
+   */
+  sapAvailability: ({ order = null, item = null }, qty, { live = false } = {}) =>
+    request(
+      '/api/production/sap/availability?'
+      + (order ? `order=${encodeURIComponent(order)}` : `item=${encodeURIComponent(item)}`)
+      + `&qty=${encodeURIComponent(qty)}${live ? '&live=1' : ''}`
+    ).then((r) => r.data),
+
+  /**
+   * Record what a component really is.
+   *
+   * Stored against the item, so marking a StackMaxx lid a construction settles
+   * it for every project it appears in, and the sync never overwrites it.
+   */
+  setSapKind: (itemCode, kind) =>
+    request(`/api/production/sap/kinds/${encodeURIComponent(itemCode)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ kind })
+    }).then((r) => r.data),
 
   /** Correct an FG's description. It belongs to the FG, not to one card. */
   updateProduct: (id, description) =>

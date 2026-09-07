@@ -17,7 +17,10 @@ const PERMISSION_KEYS = [
   'warehouse.read',
   'warehouse.write',
   'production.view',
-  'production.manage'
+  'production.manage',
+  // Deliberately separate from production.view: plenty of people need to read
+  // the plan without wanting a message every time it moves.
+  'production.notify'
 ];
 
 // Granted to everyone, always. HR is the baseline every employee needs and the

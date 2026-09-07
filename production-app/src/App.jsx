@@ -20,12 +20,14 @@ import {
   indexDayFlags,
   indexShiftNotes,
   rangeForWeeks,
+  toISODate,
   weekStart
 } from './lib/weeks';
 
 import AppHeader from './components/AppHeader';
 import PlanLegend from './components/PlanLegend';
 import PublishBar from './components/PublishBar';
+import ConfirmDialog from './components/ConfirmDialog';
 import WeekBlock from './components/WeekBlock';
 import ProductionCard from './components/ProductionCard';
 import CardContextMenu from './components/CardContextMenu';
@@ -46,13 +48,26 @@ import { EmptyRangeNote, ErrorState, NoAccess, WeekSkeleton } from './components
  * can be linked to or reloaded without losing your place.
  */
 
+/**
+ * The week in the URL is a plain calendar date and has to stay one.
+ *
+ * Both halves below were once a timezone conversion, and together they walked
+ * the plan a week into the past on every reload. `new Date('2026-08-24')` reads
+ * a date-only string as UTC midnight, which east of Greenwich is the previous
+ * evening; writing it back with toISOString() converted local Monday 00:00 the
+ * other way and stored the Sunday. Read the Sunday, take the Monday of ITS
+ * week, and you are seven days earlier than you started - every refresh, for
+ * ever. parseISO and format both work in local time, so the date that goes into
+ * the URL is the one that comes back out.
+ */
 function readHash() {
   const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
   const span = Number(params.get('span'));
+  const week = params.get('week');
   return {
     location: params.get('location') || null,
     span: [1, 4, 8].includes(span) ? span : 4,
-    anchor: params.get('week') ? new Date(params.get('week')) : new Date()
+    anchor: week ? parseISO(week) : new Date()
   };
 }
 
@@ -60,7 +75,7 @@ function writeHash({ location, span, anchor }) {
   const params = new URLSearchParams();
   if (location) params.set('location', location);
   params.set('span', String(span));
-  params.set('week', weekStart(anchor).toISOString().slice(0, 10));
+  params.set('week', toISODate(weekStart(anchor)));
   window.history.replaceState(null, '', `#${params.toString()}`);
 }
 
@@ -108,6 +123,9 @@ export default function App() {
   const [bulk, setBulk] = useState(null);          // { kind, sourceDate }
   const [splitting, setSplitting] = useState(null); // card being split
   const [cardMenu, setCardMenu] = useState(null);   // { entry, x, y } - right-click
+  // The card a delete has been asked for but not yet confirmed. Deleting is the
+  // one action here with no undo, so it is the one that asks.
+  const [deleting, setDeleting] = useState(null);
 
   const profile = useQuery({ queryKey: ['me'], queryFn: api.me, staleTime: 5 * 60 * 1000 });
   const canView = profile.data?.permissions?.includes('production.view');
@@ -434,6 +452,75 @@ export default function App() {
     onError: (error) => toast.error(error.message)
   });
 
+  /**
+   * Discard: back to the last published plan.
+   *
+   * Only fetched when the dialog is opened, and never on a timer: this is a
+   * question about what would be lost, and asking it on a schedule would be
+   * both pointless and a standing invitation to act on a stale answer.
+   */
+  const [discardAsked, setDiscardAsked] = useState(false);
+  const discardPreview = useQuery({
+    queryKey: ['production', 'discard-preview', locationCode, range.from, range.to],
+    queryFn: () => api.discardPreview({ location: locationCode, from: range.from, to: range.to }),
+    enabled: Boolean(discardAsked && locationCode) && canManage,
+    gcTime: 0,
+    staleTime: 0
+  });
+
+  const discardMutation = useMutation({
+    mutationFn: (weeks) => api.discard({ location: locationCode, weeks }),
+    onSuccess: (result) => {
+      refresh();
+      // The one destructive thing here, so the way back is offered in the same
+      // breath rather than left to be looked up. The snapshot lives only in
+      // this toast - dismiss it and the discard stands.
+      const undo = result.undo?.weeks || [];
+      toast.success(
+        `Discarded — ${result.data.deleted} removed, ${result.data.reverted} put back`,
+        {
+          duration: 30000,
+          action: {
+            label: 'Undo',
+            onClick: async () => {
+              try {
+                await api.discardUndo({ location: locationCode, weeks: undo });
+                refresh();
+                toast.success('The changes are back');
+              } catch (error) {
+                toast.error(`Could not undo the discard: ${error.message}`);
+              }
+            }
+          }
+        }
+      );
+    },
+    onError: (error) => toast.error(error.message)
+  });
+
+  /**
+   * Warn before leaving with work the floor has not been told about.
+   *
+   * Nothing is at risk of being lost - every edit is written to the database as
+   * it is made, and closing the tab loses none of it. What is outstanding is
+   * that the floor is still reading the previously published plan, and someone
+   * walking away believing they had handed the week over would be wrong. Hence
+   * a reminder, not a rescue.
+   *
+   * The browser shows its own wording; the string only tells it to ask.
+   */
+  const pendingChanges = pending.data?.changes || 0;
+  useEffect(() => {
+    if (!pendingChanges) return undefined;
+    const warn = (event) => {
+      event.preventDefault();
+      event.returnValue = 'You have changes that have not been published yet. Publish them before leaving?';
+      return event.returnValue;
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [pendingChanges]);
+
   const shifts = plan.data?.shifts || [];
 
   if (profile.isLoading) {
@@ -526,6 +613,10 @@ export default function App() {
                   publishing={publishMutation.isPending}
                   onPublish={(weeks) => publishMutation.mutate(weeks)}
                   lastPublishedAt={plan.data?.revisions?.[0]?.publishedAt || pending.isFetched}
+                  onOpenDiscard={() => { setDiscardAsked(true); discardPreview.refetch(); }}
+                  discardPreview={discardPreview.isFetching ? null : (discardPreview.data?.weeks || null)}
+                  discarding={discardMutation.isPending}
+                  onDiscard={(weeks) => discardMutation.mutate(weeks)}
                 />
               )}
 
@@ -657,6 +748,22 @@ export default function App() {
           }}
           onDelete={(entry) => {
             setCardMenu(null);
+            setDeleting(entry);
+          }}
+        />
+
+        <ConfirmDialog
+          open={Boolean(deleting)}
+          onOpenChange={(open) => !open && setDeleting(null)}
+          title="Delete this card?"
+          detail={deleting ? `${cardLabel(deleting)}${deleting.planned_quantity ? ` — ${deleting.planned_quantity} pcs` : ''}` : null}
+          body="It will be removed from the plan. This cannot be undone."
+          confirmLabel="Delete card"
+          busy={deleteMutation.isPending}
+          onConfirm={() => {
+            const entry = deleting;
+            setDeleting(null);
+            setFormState(null);
             deleteMutation.mutate(entry);
           }}
         />
@@ -668,7 +775,7 @@ export default function App() {
           slot={formState?.slot || null}
           shifts={shifts}
           saving={saveMutation.isPending}
-          onDelete={(entry) => deleteMutation.mutate(entry)}
+          onDelete={(entry) => setDeleting(entry)}
           onSubmit={(payload) => {
             const entry = formState?.entry || null;
             const productionDate = entry

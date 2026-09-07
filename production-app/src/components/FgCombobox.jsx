@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Command } from 'cmdk';
 import { useQuery } from '@tanstack/react-query';
-import { Check, Package, Plus, Search } from 'lucide-react';
+import { Check, CloudDownload, Factory, Package, Plus, Search } from 'lucide-react';
 import clsx from 'clsx';
 
 import { api } from '../lib/api';
@@ -9,16 +9,28 @@ import { api } from '../lib/api';
 /**
  * FG picker.
  *
- * Two ways to name what is being produced, matching the data: an FG from the
- * master list, or free text like "TESLA ABD" or "Daimler B-Säule". Free text is
- * a first-class path, not a fallback - it is common in the sheets.
+ * Three ways to name what is being produced, matching the data: an open project
+ * from SAP, an FG from our own master list, or free text like "TESLA ABD".
+ * Free text is a first-class path, not a fallback - it is common in the sheets.
  *
- * Typing something that looks like an FG the master list does not have offers to
- * register it, so the number joins the master rather than becoming loose text.
+ * The SAP projects are fetched once and filtered here in the browser rather than
+ * searched on the server. There are around 46 open at a time, a few kilobytes
+ * altogether, so this filters as fast as someone types; going back to SAP per
+ * keystroke would put a quarter-second of tunnel latency between each letter and
+ * the list, which is slower, not fresher.
  */
+
+/**
+ * FG numbers are the key both sides share, so anything shaped like one is worth
+ * asking SAP about - whichever list it was picked from.
+ */
+const asSapCode = (fgNumber) =>
+  /^FG\d+$/i.test(String(fgNumber || '').trim()) ? String(fgNumber).trim().toUpperCase() : null;
+
 export default function FgCombobox({ value, onChange, autoFocus }) {
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
+  const [resolving, setResolving] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(query.trim()), 180);
@@ -31,7 +43,93 @@ export default function FgCombobox({ value, onChange, autoFocus }) {
     staleTime: 60 * 1000
   });
 
+  // One request for the whole list; the filtering below is local.
+  const sap = useQuery({
+    queryKey: ['sap', 'projects'],
+    queryFn: () => api.sapProjects(),
+    staleTime: 5 * 60 * 1000
+  });
+
+  const term = query.trim().toLowerCase();
+  // The whole list, always - a preview of the first few made it look as though
+  // SAP held only that many projects. The list scrolls; the count above it says
+  // how many there really are.
+  const sapMatches = useMemo(() => {
+    const all = sap.data?.projects || [];
+    if (!term) return all;
+    return all.filter((project) =>
+      project.itemCode.toLowerCase().includes(term)
+      || String(project.description || '').toLowerCase().includes(term)
+    );
+  }, [sap.data, term]);
+
+  /**
+   * Take an FG that SAP has, but has no open order for.
+   *
+   * Same card shape as any other: a row in our FG master, plus the FG number as
+   * the key the material panel reads. There is no order number to store, and
+   * none is needed - the FG number IS the item code in SAP.
+   */
+  const chooseLoadedProject = async (code) => {
+    setResolving(true);
+    try {
+      const known = await api.searchProducts(code);
+      const match = (known || []).find((p) => p.fg_number.toUpperCase() === code);
+      const product = match || await api.createProduct(code, '');
+
+      onChange({
+        productId: product.id,
+        fgNumber: product.fg_number,
+        customProductName: null,
+        description: product.description || '',
+        sapOrderEntry: null,
+        sapItemCode: code,
+        projectType: null,
+        sapRemainingQty: null
+      });
+    } finally {
+      setResolving(false);
+    }
+  };
+
+  /**
+   * Take an open SAP project as this card's product.
+   *
+   * The card keeps the shape it already has - it points at a row in our own FG
+   * master - and gains the SAP order number alongside. The FG number is the key
+   * both sides already agree on, so an FG we have never planned before is
+   * registered here rather than becoming loose text.
+   */
+  const chooseSapProject = async (project) => {
+    setResolving(true);
+    try {
+      const known = await api.searchProducts(project.itemCode);
+      const match = (known || []).find(
+        (p) => p.fg_number.toLowerCase() === project.itemCode.toLowerCase()
+      );
+      const product = match || await api.createProduct(project.itemCode, project.description || '');
+
+      onChange({
+        productId: product.id,
+        fgNumber: product.fg_number,
+        customProductName: null,
+        description: product.description || project.description || '',
+        sapOrderEntry: project.absoluteEntry,
+        projectType: project.projectType,
+        sapRemainingQty: project.remainingQty
+      });
+    } finally {
+      setResolving(false);
+    }
+  };
+
   const looksLikeFg = /^FG\d+/i.test(query.trim());
+  const typedCode = query.trim().toUpperCase();
+  // An FG that has no open order will never be in the list above, so the picker
+  // offers to fetch it. This is what makes a project planned ahead of its order
+  // - or picked up again long after it closed - checkable at all.
+  const offerLoad = looksLikeFg
+    && !sapMatches.some((project) => project.itemCode.toUpperCase() === typedCode);
   const results = products.data || [];
   const exactMatch = results.some((p) => p.fg_number.toLowerCase() === query.trim().toLowerCase());
 
@@ -43,7 +141,15 @@ export default function FgCombobox({ value, onChange, autoFocus }) {
     <div className="overflow-hidden rounded-md border border-gray-300">
       {selectedLabel && (
         <div className="flex items-center justify-between gap-2 border-b border-gray-200 bg-etilog-light px-3 py-2">
-          <span className="truncate text-[14px] font-semibold text-gray-900">{selectedLabel}</span>
+          <span className="flex min-w-0 items-baseline gap-2">
+            <span className="truncate text-[14px] font-semibold text-gray-900">{selectedLabel}</span>
+            {value?.sapOrderEntry && (
+              <span className="shrink-0 text-[11px] font-medium text-gray-500">
+                {value.projectType || 'SAP'}
+                {value.sapRemainingQty != null && ` · ${value.sapRemainingQty} left on the order`}
+              </span>
+            )}
+          </span>
           <button
             type="button"
             onClick={() => onChange(null)}
@@ -68,8 +174,52 @@ export default function FgCombobox({ value, onChange, autoFocus }) {
           </div>
 
           <Command.List className="h-52 overflow-y-auto p-1">
-            {products.isFetching && (
-              <div className="px-2 py-3 text-[13px] text-gray-400">Searching…</div>
+            {(products.isFetching || resolving) && (
+              <div className="px-2 py-3 text-[13px] text-gray-400">
+                {resolving ? 'Opening the project…' : 'Searching…'}
+              </div>
+            )}
+
+            {/* Open SAP production orders first: this is what the plan is
+                actually made of, and picking one brings the material check with
+                it.
+
+                Named for what it is. "Open projects in SAP" read as work we
+                hold customer orders for, which is not what this list is: it is
+                SAP production orders - Planned or Released, with something left
+                to make, on an item in the finished-goods group. A customer
+                order is neither required nor looked at anywhere in the sync. */}
+            {sapMatches.length > 0 && (
+              <>
+                <div className="px-2 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                  Open production orders in SAP ({sapMatches.length})
+                </div>
+                {sapMatches.map((project) => (
+                  <Command.Item
+                    key={`sap-${project.absoluteEntry}`}
+                    value={`sap-${project.absoluteEntry}`}
+                    onSelect={() => chooseSapProject(project)}
+                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[14px] data-[selected=true]:bg-gray-100"
+                  >
+                    <Factory className="h-3.5 w-3.5 shrink-0 text-etilog" aria-hidden="true" />
+                    <span className="font-medium text-gray-900">{project.itemCode}</span>
+                    {project.projectType && (
+                      <span className="shrink-0 rounded bg-gray-100 px-1 text-[10px] font-semibold text-gray-500">
+                        {project.projectType}
+                      </span>
+                    )}
+                    <span className="truncate text-[13px] text-gray-500">{project.description}</span>
+                    <span className="ml-auto shrink-0 text-[11px] tabular-nums text-gray-400">
+                      {project.remainingQty} left
+                    </span>
+                  </Command.Item>
+                ))}
+                {results.length > 0 && (
+                  <div className="px-2 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                    Our FG list (not open in SAP right now)
+                  </div>
+                )}
+              </>
             )}
 
             {results.map((product) => (
@@ -81,7 +231,12 @@ export default function FgCombobox({ value, onChange, autoFocus }) {
                     productId: product.id,
                     fgNumber: product.fg_number,
                     customProductName: null,
-                    description: product.description || ''
+                    description: product.description || '',
+                    // Our list is our own; it says nothing about whether SAP
+                    // knows the number. It usually does, so the panel asks -
+                    // and says so plainly when SAP has never heard of it.
+                    sapOrderEntry: null,
+                    sapItemCode: asSapCode(product.fg_number)
                   })
                 }
                 className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[14px] data-[selected=true]:bg-gray-100"
@@ -91,6 +246,29 @@ export default function FgCombobox({ value, onChange, autoFocus }) {
                 <span className="truncate text-[13px] text-gray-500">{product.description}</span>
               </Command.Item>
             ))}
+
+            {/* An FG SAP knows but has no open order for. Its own group, because
+                "no open order" is a fact about the project rather than a gap in
+                our data, and the planner should see which of the two they are
+                choosing. */}
+            {offerLoad && (
+              <>
+                <div className="px-2 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                  Loaded projects from SAP (no open order)
+                </div>
+                <Command.Item
+                  value="__load-sap"
+                  onSelect={() => chooseLoadedProject(typedCode)}
+                  className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[14px] data-[selected=true]:bg-gray-100"
+                >
+                  <CloudDownload className="h-3.5 w-3.5 shrink-0 text-etilog" aria-hidden="true" />
+                  <span className="text-gray-700">
+                    Load <span className="font-medium text-gray-900">{typedCode}</span> from SAP
+                  </span>
+                  <span className="ml-auto shrink-0 text-[11px] text-gray-400">reads its BOM and stock</span>
+                </Command.Item>
+              </>
+            )}
 
             {/* An FG the master list does not know yet */}
             {looksLikeFg && !exactMatch && !products.isFetching && (
@@ -102,7 +280,9 @@ export default function FgCombobox({ value, onChange, autoFocus }) {
                     productId: created.id,
                     fgNumber: created.fg_number,
                     customProductName: null,
-                    description: created.description || ''
+                    description: created.description || '',
+                    sapOrderEntry: null,
+                    sapItemCode: asSapCode(created.fg_number)
                   });
                 }}
                 className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[14px] data-[selected=true]:bg-gray-100"
@@ -132,7 +312,7 @@ export default function FgCombobox({ value, onChange, autoFocus }) {
               </Command.Item>
             )}
 
-            {!query.trim() && !results.length && !products.isFetching && (
+            {!query.trim() && !results.length && !sapMatches.length && !products.isFetching && (
               <div className={clsx('px-2 py-3 text-[13px] text-gray-400')}>
                 Start typing an FG number, or any product name.
               </div>

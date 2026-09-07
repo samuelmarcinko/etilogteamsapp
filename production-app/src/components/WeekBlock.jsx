@@ -7,7 +7,7 @@ import DayMenu from './DayMenu';
 import ShiftNote from './ShiftNote';
 import useMediaQuery from '../lib/useMediaQuery';
 import { shiftAccent } from '../lib/shifts';
-import { shiftNoteKey } from '../lib/weeks';
+import { freeDaySet, shiftNoteKey } from '../lib/weeks';
 import { DraggableCard, DroppableSlot, slotId } from './dnd';
 
 /**
@@ -37,9 +37,11 @@ function DayHeader({ day, flag, isFree, exception, compact, canManage, onSetFlag
         // classes: two bg-* utilities on one element are decided by their order
         // in the compiled stylesheet, not by the order they are written in.
         day.isToday
-          // Today is a red column head with a rule along the top, so the eye
-          // lands on it before it starts reading dates.
-          ? 'bg-red-50 shadow-[inset_0_2px_0_0_#D9000C]'
+          // Filled rather than tinted, and edged down both sides, so the eye
+          // lands on today before it starts reading dates - the same treatment
+          // the shop floor screen uses, because the two are read side by side
+          // and a planner should not have to translate between them.
+          ? 'bg-etilog text-white shadow-[inset_2px_0_0_0_#A00009,inset_-2px_0_0_0_#A00009]'
           : isFree
             ? 'bg-emerald-50'
             : flag && DAY_FLAG_STYLE[flag.flag]
@@ -53,7 +55,7 @@ function DayHeader({ day, flag, isFree, exception, compact, canManage, onSetFlag
         <span
           className={clsx(
             'text-[11px] font-semibold uppercase tracking-wider',
-            day.isToday ? 'text-etilog' : 'text-gray-600'
+            day.isToday ? 'text-white/85' : 'text-gray-600'
           )}
         >
           {day.weekday}
@@ -62,7 +64,7 @@ function DayHeader({ day, flag, isFree, exception, compact, canManage, onSetFlag
           className={clsx(
             'font-semibold tabular-nums',
             compact ? 'text-[13px]' : 'text-[14px]',
-            day.isToday ? 'text-etilog' : 'text-gray-900'
+            day.isToday ? 'text-white' : 'text-gray-900'
           )}
         >
           {day.dayOfMonth}
@@ -138,16 +140,10 @@ export default function WeekBlock({
   // "which of these is now" was a matter of reading dates.
   const isCurrentWeek = week.days.some((day) => day.isToday);
 
-  // A day counts as free only while nothing is planned on it. Saturdays are
-  // worked sometimes, and a green column labelled FREE over a card someone has
-  // to build is worse than no marking at all - so the moment production lands
-  // there the day looks like any other, and looks free again once it is moved
-  // off. The flag itself is left alone.
-  const freeDays = new Set(
-    week.days
-      .filter((day) => dayFlags[day.iso]?.flag === 'free' && emptyDays.has(day.iso))
-      .map((day) => day.iso)
-  );
+  // Weekends, plus whatever anyone has flagged free, minus anything with work
+  // on it. The rule lives in one place so the planner and the production view
+  // cannot end up showing different working weeks.
+  const freeDays = freeDaySet(week.days, dayFlags, (iso) => !emptyDays.has(iso));
 
   /**
    * What an empty slot says, if anything. Marked once per day, on the first
@@ -301,7 +297,14 @@ export default function WeekBlock({
                       className={clsx(
                         'week-cell group/slot relative flex flex-col gap-1 p-1',
                         slotMinHeight,
-                        day.isWeekend && !cards.length && !isFree && 'bg-gray-50/60',
+                        // The edges continue the column head all the way down.
+                        // A shadow rather than a background, so it never fights
+                        // the backgrounds below it for which one wins.
+                        day.isToday && 'shadow-[inset_2px_0_0_0_#D9000C,inset_-2px_0_0_0_#D9000C]',
+                        // Exactly one background, as above: mutually exclusive
+                        // conditions rather than layered classes.
+                        day.isToday && !isFree && 'bg-red-50/50',
+                        day.isWeekend && !cards.length && !isFree && !day.isToday && 'bg-gray-50/60',
                         isFree && 'bg-emerald-50'
                       )}
                     >

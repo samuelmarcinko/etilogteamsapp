@@ -44,6 +44,11 @@ const CHECKS = [
   ['/api/quotas/all', 401, 'quota routes load and are protected'],
   ['/api/sick-notes/all', 401, 'sick note routes load and are protected'],
   ['/api/production/locations', 401, 'production routes load and are protected'],
+  // Mounted before /production, so a 401 here also proves it is not being
+  // swallowed by the production router first.
+  ['/api/production/sap/projects', 401, 'SAP routes load and are protected'],
+  ['/api/production/changes', 401, 'the publish summary loads and is protected'],
+  ['/api/production/discard/preview', 401, 'the discard preview loads and is protected'],
   ['/production/', 200, 'production SPA shell']
 ];
 

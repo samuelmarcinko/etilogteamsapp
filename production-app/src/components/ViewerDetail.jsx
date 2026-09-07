@@ -132,7 +132,7 @@ function WhatChanged({ locationCode, entry, shifts }) {
   );
 }
 
-export default function ViewerDetail({ entry, updated, open, onOpenChange, locationCode, shifts }) {
+export default function ViewerDetail({ entry, change, open, onOpenChange, locationCode, shifts }) {
   if (!entry) return null;
 
   const quantity = formatQuantity(entry);
@@ -216,7 +216,23 @@ export default function ViewerDetail({ entry, updated, open, onOpenChange, locat
             )}
           </dl>
 
-          {updated && (
+          {/* A card that was just added has no before-and-after to show: the
+              whole card is what changed. Running the diff on it would find no
+              usable log line and report that the detail is no longer on record,
+              which reads like something was lost. */}
+          {change === 'new' && (
+            <div className="border-t border-blue-100 bg-blue-50 px-5 py-4">
+              <h3 className="mb-2 flex items-center gap-1.5 text-[13px] font-bold uppercase tracking-wide text-blue-900">
+                <Sparkles className="h-4 w-4" aria-hidden="true" />
+                New on the plan
+              </h3>
+              <p className="text-[13px] text-gray-600">
+                This job was added in the latest publish. It was not on the plan before.
+              </p>
+            </div>
+          )}
+
+          {change === 'changed' && (
             <div className="border-t border-blue-100 bg-blue-50 px-5 py-4">
               <h3 className="mb-2 flex items-center gap-1.5 text-[13px] font-bold uppercase tracking-wide text-blue-900">
                 <Sparkles className="h-4 w-4" aria-hidden="true" />

@@ -11,6 +11,7 @@ const ReminderService = require('./services/reminderService');
 const FleetNotificationService = require('./services/fleetNotificationService');
 const WarehouseBackupService = require('./services/warehouseBackupService');
 const ProductionRetentionService = require('./services/productionRetentionService');
+const SapSyncService = require('./services/sapSyncService');
 const logger = require('./utils/logger');
 
 // Initialize Express app
@@ -85,6 +86,14 @@ warehouseBackupService.start();
 // Keeps the production change log bounded - see the service for the sizing.
 const productionRetentionService = new ProductionRetentionService();
 productionRetentionService.start();
+
+// Mirrors the SAP data the production plan needs. Reads only, and does nothing
+// at all unless SAP_ENABLED=true and the connection is configured - so a
+// deployment without those settings behaves exactly as before.
+// The shared instance, so a live read from the planning dialog reuses this
+// service's SAP session rather than logging in again on every click.
+const sapSyncService = SapSyncService.shared();
+sapSyncService.start();
 
 // Idempotent schema top-up for material soft-delete (migration 023).
 // Numbered migrations are applied manually; these IF NOT EXISTS statements
@@ -209,6 +218,7 @@ process.on('SIGINT', () => {
   reminderService.stop();
   fleetNotificationService.stop();
   productionRetentionService.stop();
+  sapSyncService.stop();
   process.exit(0);
 });
 
@@ -217,6 +227,7 @@ process.on('SIGTERM', () => {
   reminderService.stop();
   fleetNotificationService.stop();
   productionRetentionService.stop();
+  sapSyncService.stop();
   process.exit(0);
 });
 

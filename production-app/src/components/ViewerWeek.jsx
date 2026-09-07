@@ -4,7 +4,7 @@ import { AlertTriangle, Leaf } from 'lucide-react';
 import ViewerCard from './ViewerCard';
 import useMediaQuery from '../lib/useMediaQuery';
 import { shiftAccent } from '../lib/shifts';
-import { shiftNoteKey } from '../lib/weeks';
+import { freeDaySet, shiftNoteKey } from '../lib/weeks';
 
 /**
  * One week, to be read and not touched.
@@ -34,29 +34,42 @@ function DayHeader({ day, flag, isFree, size }) {
         'week-cell day-sticky px-2 py-2 text-center',
         // Exactly one background, chosen here: two bg-* utilities on one element
         // are settled by the compiled stylesheet's order, not the source's.
+        // Today is filled, not tinted. A pale wash reads as "slightly
+        // different" from three metres away; a solid block reads as "here".
+        // The column edges below continue it down the whole day so the eye can
+        // follow it without counting across.
         day.isToday
-          ? 'bg-red-50 shadow-[inset_0_3px_0_0_#D9000C]'
+          ? 'bg-etilog text-white shadow-[inset_2px_0_0_0_#A00009,inset_-2px_0_0_0_#A00009]'
           : isFree
             ? 'bg-emerald-50'
             : flag
               ? 'bg-etilog-light'
-              : 'bg-gray-50'
+              : 'bg-gray-50',
+        day.isPast && !day.isToday && 'opacity-55'
       )}
     >
       <div className={clsx(
         'font-bold uppercase tracking-wider',
         size.weekday,
-        day.isToday ? 'text-etilog' : 'text-gray-500'
+        day.isToday ? 'text-white/85' : 'text-gray-500'
       )}>
         {day.weekday}
       </div>
       <div className={clsx(
         'font-extrabold leading-tight',
         size.dayNumber,
-        day.isToday ? 'text-etilog' : 'text-gray-900'
+        day.isToday ? 'text-white' : 'text-gray-900'
       )}>
         {day.dayOfMonth}
       </div>
+
+      {/* Said in words as well as in colour: colour alone is not a label, and
+          on a shop floor screen somebody is always looking at it sideways. */}
+      {day.isToday && (
+        <div className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-white/90">
+          Today
+        </div>
+      )}
 
       {flag && (
         <span className="mt-1 inline-flex items-center gap-1 rounded bg-etilog px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
@@ -91,21 +104,17 @@ function ShiftNoteBox({ note, compact }) {
 
 export default function ViewerWeek({
   week, shifts, entriesByDay, dayFlags, shiftNotes, exceptions,
-  isUpdated, onOpenEntry, density = 'roomy'
+  changeKind, onOpenEntry, density = 'roomy'
 }) {
   const isWide = useMediaQuery('(min-width: 768px)');
   const size = DENSITY[density] || DENSITY.roomy;
 
-  // A day marked free is only free while nothing is planned on it - Saturdays
-  // are worked sometimes, and the plan says so before the flag does.
-  const freeDays = new Set(
-    week.days
-      .filter((day) => {
-        const flag = dayFlags[day.iso];
-        if (flag?.flag !== 'free') return false;
-        return !Object.values(entriesByDay[day.iso] || {}).flat().length;
-      })
-      .map((day) => day.iso)
+  // Weekends and flagged days, minus anything with work on it - the same rule
+  // the planner's grid runs, from the same function, so the two screens can
+  // never show different working weeks.
+  const freeDays = freeDaySet(
+    week.days, dayFlags,
+    (iso) => Object.values(entriesByDay[iso] || {}).flat().length > 0
   );
 
   const flagFor = (iso) => {
@@ -126,7 +135,12 @@ export default function ViewerWeek({
           return (
             <section
               key={day.iso}
-              className={clsx('px-3 py-3', day.isToday && 'bg-red-50', isFree && 'bg-emerald-50')}
+              className={clsx(
+                'px-3 py-3',
+                day.isToday && 'bg-red-50/70 shadow-[inset_2px_0_0_0_#D9000C,inset_-2px_0_0_0_#D9000C]',
+                isFree && 'bg-emerald-50',
+                day.isPast && !day.isToday && 'opacity-60'
+              )}
             >
               <header className="mb-2 flex items-center gap-2">
                 <h3 className={clsx(
@@ -173,7 +187,7 @@ export default function ViewerWeek({
                           <ViewerCard
                             key={entry.id}
                             entry={entry}
-                            updated={isUpdated(entry)}
+                            change={changeKind(entry)}
                             onOpen={onOpenEntry}
                           />
                         ))}
@@ -238,14 +252,18 @@ export default function ViewerWeek({
                       'week-cell flex flex-col',
                       size.cell,
                       isFree && 'bg-emerald-50/60',
-                      day.isToday && 'bg-red-50/40'
+                      // The same two edges as the header, so the day reads as
+                      // one column from top to bottom instead of a coloured
+                      // hat over ordinary cells.
+                      day.isToday && 'bg-red-50/70 shadow-[inset_2px_0_0_0_#D9000C,inset_-2px_0_0_0_#D9000C]',
+                      day.isPast && !day.isToday && 'opacity-60'
                     )}
                   >
                     {cards.map((entry) => (
                       <ViewerCard
                         key={entry.id}
                         entry={entry}
-                        updated={isUpdated(entry)}
+                        change={changeKind(entry)}
                         onOpen={onOpenEntry}
                         density={density}
                       />

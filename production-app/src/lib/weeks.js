@@ -5,8 +5,10 @@ import {
   addDays,
   format,
   getISOWeek,
+  isBefore,
   isSameMonth,
   isToday,
+  startOfDay,
   parseISO
 } from 'date-fns';
 
@@ -35,6 +37,9 @@ export function weekStart(date) {
  */
 export function buildWeeks(anchor, spanWeeks) {
   const first = startOfISOWeek(anchor);
+  // Computed once for the whole grid rather than per cell: it is the same
+  // answer 56 times, and it must not change halfway down the page.
+  const today = startOfDay(new Date());
 
   return Array.from({ length: spanWeeks }, (_, i) => {
     const start = addWeeks(first, i);
@@ -47,7 +52,10 @@ export function buildWeeks(anchor, spanWeeks) {
         weekday: format(date, 'EEE').toUpperCase(),
         dayOfMonth: format(date, 'd'),
         isWeekend: d >= 5,
-        isToday: isToday(date)
+        isToday: isToday(date),
+        // Days already behind us. The shop floor screen dims them so the eye
+        // falls on the day being worked rather than searching for it.
+        isPast: isBefore(date, today)
       };
     });
 
@@ -104,6 +112,39 @@ export function indexDayFlags(dayFlags) {
     map[iso] = flag;
   }
   return map;
+}
+
+/**
+ * Which of these days read as free.
+ *
+ * Saturday and Sunday are free because that is the week the plant runs, not
+ * because somebody remembered to say so. It used to depend on a flag row per
+ * weekend day, which meant a hundred rows a year kept by hand and a calendar
+ * that quietly looked like a seven-day operation the moment they were missing.
+ * A weekday is free only when it is flagged: a holiday, a shutdown.
+ *
+ * Nothing is free while production sits on it. A green column labelled FREE
+ * over a card somebody has to build is worse than no marking at all, so the day
+ * reads as ordinary the moment work lands on it and free again once it moves
+ * off. The flag itself is never touched.
+ *
+ * An explicit flag beats the weekend default in both directions: a Saturday
+ * marked Important is a Saturday somebody means to work, and it says so.
+ *
+ * One function for the planner and the production view, because the two
+ * disagreeing about which days are worked is exactly the kind of drift nobody
+ * notices until a shift turns up.
+ */
+export function freeDaySet(days, dayFlags, hasWork) {
+  return new Set(
+    days
+      .filter((day) => {
+        if (hasWork(day.iso)) return false;
+        const flag = dayFlags[day.iso]?.flag;
+        return flag ? flag === 'free' : day.isWeekend;
+      })
+      .map((day) => day.iso)
+  );
 }
 
 /**

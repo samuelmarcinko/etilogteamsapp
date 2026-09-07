@@ -15,8 +15,8 @@
     "outline": "outline.png"
   },
   "name": {
-    "short": "Approval Bot",
-    "full": "Internal Ticket Approval App"
+    "short": "ETILOG Portal",
+    "full": "ETILOG Portal — approvals, production plan, fleet and warehouse"
   },
   "description": {
     "short": "Manage approval requests for HR and Accounting",
