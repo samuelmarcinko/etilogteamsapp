@@ -4382,7 +4382,7 @@ function whStockCell(m) {
     const number = state.sap != null ? `<span class="wh-stock-num">${state.sap}</span>` : '';
 
     return `<span class="wh-stock wh-stock-${state.key}" title="${escapeHtml(`${text} · ${when}`)}">`
-         + `<i class="wh-dot"></i>${number}</span>`;
+         + `<i class="wh-dot"></i>${number || pt('whStockDash')}</span>`;
 }
 
 /**
@@ -4713,6 +4713,51 @@ async function whLookupSapItem() {
     }
 }
 
+/**
+ * Čo SAP hovorí o už evidovanej položke - v dialógu, nie len v tabuľke.
+ *
+ * Rozdiel medzi rozpisom a SAPom sa rieši práve tu, pri úprave paliet. Nechať
+ * skladníka prepínať medzi tabuľkou a dialógom, aby si to číslo zapamätal,
+ * znamená nechať ho, aby sa pomýlil.
+ *
+ * Ťahá zo stĺpcov, ktoré uložila synchronizácia - nie zo SAPu. Preto sa vždy
+ * píše, kedy sa to ťahalo; číslo spred týždňa nesmie vyzerať ako dnešné.
+ */
+function whSapMirrorBox(mat) {
+    if (!mat || mat.kind === 'local') return '';
+
+    if (mat.sap_known === false) {
+        return `<div class="wh-sap-box wh-sap-bad">${pt('whStockUnknown')}</div>`;
+    }
+    if (mat.sap_known == null || mat.sap_quantity == null) {
+        return `<div class="wh-sap-box">${pt('whStockPending')}</div>`;
+    }
+
+    const sap = Number(mat.sap_quantity);
+    const here = Number(mat.quantity);
+    const diff = here - sap;
+    const stale = mat.sap_synced_at
+        && (Date.now() - new Date(mat.sap_synced_at).getTime()) / 3600000 > WH_STALE_HOURS;
+
+    const tone = diff === 0 ? 'wh-sap-ok' : 'wh-sap-warn';
+    const verdict = diff === 0
+        ? `✓ ${pt('whSplitMatch')}`
+        : `⚠ ${pt('whModalCheckSplit')}`;
+
+    return `<div class="wh-sap-box ${tone}">
+        <div class="wh-sap-line">
+            <strong>${sap}</strong> ${escapeHtml(mat.sap_uom || mat.unit || 'ks')}
+            ${pt('whModalInSap')} &nbsp;·&nbsp; ${pt('whModalOnPallets')}: <strong>${here}</strong>
+        </div>
+        <div class="wh-sap-note"><strong>${verdict}</strong></div>
+        <div class="wh-sap-note${stale ? ' wh-sap-stale' : ''}">
+            ${stale ? '⚠ ' : ''}${mat.sap_synced_at
+                ? `${pt('whStockSynced')}: ${whFormatDate(mat.sap_synced_at)}`
+                : pt('whStockNeverSynced')}
+        </div>
+    </div>`;
+}
+
 async function openMaterialModal(materialId = null, presetLocationId = null) {
     const isEdit = !!materialId;
     let mat = null;
@@ -4742,7 +4787,17 @@ async function openMaterialModal(materialId = null, presetLocationId = null) {
     // Existujúcemu riadku sa druh nemení - je to rozhodnutie o tom, čo tá vec
     // je, nie o tom, ako sa práve edituje.
     whMaterialKind = mat?.kind === 'local' ? 'local' : 'sap';
-    whSapItem = null;
+
+    // Pri úprave sa počet zo SAPu neťahá znova - synchronizácia ho už uložila.
+    // Bez neho by dialóg nemal proti čomu porovnávať práve tam, kde to najviac
+    // treba: pri tovare rozdelenom na viac paliet.
+    whSapItem = (mat && mat.kind !== 'local' && mat.sap_known)
+        ? {
+            code: mat.code, name: mat.sap_name || mat.name, uom: mat.sap_uom || mat.unit,
+            quantity: Number(mat.sap_quantity), warehouse: null,
+            syncedAt: mat.sap_synced_at, fromMirror: true
+        }
+        : null;
 
     document.getElementById('modal').classList.add('modal-xl');
     if (!isEdit) { whRenderKindChooser(); openModal(); return; }
@@ -4786,7 +4841,7 @@ function whRenderMaterialForm(mat, presetLocCode, startSplit, materialId) {
                 ${isEdit ? '' : `<button type="button" class="btn btn-secondary" onclick="whLookupSapItem()">${pt('whSapSearch')}</button>`}
             </div>
         </div>
-        <div id="whSapResult"></div>
+        <div id="whSapResult">${isEdit ? whSapMirrorBox(mat) : ''}</div>
         <div class="form-group"><label>${pt('whColName')}</label>
             <input type="text" id="matName" class="form-control" readonly
                    value="${mat ? escapeHtml(mat.name || '') : ''}"></div>
