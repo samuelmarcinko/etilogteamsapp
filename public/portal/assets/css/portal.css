@@ -2513,6 +2513,22 @@ body.hub-active .portal-lang-switcher {
   white-space: nowrap;
 }
 
+/* Projekt namiesto kódu.
+   Poznámka skladu žiadny kód nemá, tak v tom stĺpci stojí projekt, ku ktorému
+   patrí. Vyzerá zámerne inak než kód - obrys a nie tučné písmo - aby si nikto
+   nemyslel, že si to môže vyhľadať v SAPe. */
+.wh-project-tag {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  border: 1px dashed var(--gray-300);
+  border-radius: 4px;
+  font-size: 0.78rem;
+  color: var(--gray-600);
+  cursor: help;
+}
+
+.wh-muted { color: var(--gray-400); }
+
 /* Bulk action bar */
 .wh-bulk-bar {
   display: flex;

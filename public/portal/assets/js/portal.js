@@ -4336,6 +4336,24 @@ function whSortIndicator(col) {
     return whSortDir === 'asc' ? ' ▲' : ' ▼';
 }
 
+/**
+ * Čo stojí v stĺpci „Kód".
+ *
+ * Položka zo SAPu má kód, pod ktorým sa v SAPe dá nájsť. Poznámka skladu -
+ * tašky a police k projektu - žiadny nemá; vymyslieť jej ho by znamenalo dať
+ * sem reťazec, ktorý sa nedá vyhľadať nikde. Namiesto kódu preto ukazuje
+ * projekt, ku ktorému patrí, a hovorí to inak vyzerajúcim štítkom, nech si to
+ * nikto nepomýli s číslom položky.
+ */
+function whCodeCell(m) {
+    if (m.code) return `<strong>${escapeHtml(m.code)}</strong>`;
+    if (m.project_fg) {
+        return `<span class="wh-project-tag" title="${pt('whProjectNote')}">`
+             + `${escapeHtml(m.project_fg)}</span>`;
+    }
+    return '<span class="wh-muted">—</span>';
+}
+
 // Render location badge(s) for a material; shows qty per position when split
 function whLocationBadges(m) {
     const pl = Array.isArray(m.placements) ? m.placements : [];
@@ -4444,7 +4462,7 @@ function whRenderMaterialsTable() {
                 ${whMaterialsList.map(m => `
                     <tr data-id="${m.id}">
                         ${canEdit ? `<td class="td-check"><input type="checkbox" class="wh-row-check" value="${m.id}" onchange="whToggleRow(${m.id}, this.checked)" ${whSelectedIds.has(m.id) ? 'checked' : ''}></td>` : ''}
-                        <td><strong>${escapeHtml(m.code)}</strong></td>
+                        <td>${whCodeCell(m)}</td>
                         <td>${escapeHtml(m.name)}</td>
                         <td>${m.quantity} ${escapeHtml(m.unit || 'ks')}</td>
                         <td>${whLocationBadges(m)}</td>

@@ -45,6 +45,9 @@ class Material {
   // Case-insensitive code existence check (app-level duplicate guard).
   // Ignores soft-deleted materials so a freed code can be reused.
   static async existsByCode(code, excludeId = null) {
+    // Vlastné položky kód nemajú a nikdy nekolidujú - dve poznámky o policiach
+    // k tomu istému projektu môžu existovať vedľa seba.
+    if (!code) return false;
     const values = [code];
     let query = 'SELECT id FROM materials WHERE LOWER(code) = LOWER($1) AND deleted_at IS NULL';
     if (excludeId) { values.push(excludeId); query += ` AND id <> $${values.length}`; }
@@ -70,13 +73,18 @@ class Material {
       // dal odpojiť bez premenovania materiálu.
       const kind = data.kind === 'local' ? 'local' : 'sap';
 
+      // Poznámka skladu identifikátor nemá. Vymyslieť jej ho by znamenalo dať
+      // do stĺpca „Kód" reťazec, ktorý sa nedá nikde vyhľadať; ku ktorému
+      // projektu patrí povie `project_fg` a čo to je povie názov.
+      const code = kind === 'local' ? null : (data.code || null);
+
       const ins = await client.query(
         `INSERT INTO materials (code, name, description, quantity, unit, location_id,
                                 category_id, created_by, created_by_name,
                                 kind, project_fg, sap_item_code)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
         [
-          data.code,
+          code,
           data.name,
           data.description || null,
           total,
@@ -87,7 +95,7 @@ class Material {
           data.created_by_name || null,
           kind,
           kind === 'local' ? (data.project_fg || null) : null,
-          kind === 'local' ? null : data.code
+          code
         ]
       );
       const material = ins.rows[0];
@@ -115,7 +123,11 @@ class Material {
     if (filters.search) {
       values.push(`%${filters.search}%`);
       const i = values.length;
+      // project_fg je tu preto, že vlastné položky kód nemajú - hľadať tašky
+      // podľa FG čísla projektu musí fungovať aj potom, ako prestalo byť ich
+      // kódom. legacy_code kvôli tomu, kto si ten starý kód pamätá.
       where.push(`(m.code ILIKE $${i} OR m.name ILIKE $${i} OR m.description ILIKE $${i}
+                   OR m.project_fg ILIKE $${i} OR m.legacy_code ILIKE $${i}
                    OR EXISTS (SELECT 1 FROM material_placements mp2
                               JOIN pallet_locations pl2 ON pl2.id = mp2.location_id
                               WHERE mp2.material_id = m.id AND pl2.code ILIKE $${i}))`);

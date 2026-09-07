@@ -7,12 +7,15 @@
  * každá synchronizácia si ho vypýta zo SAPu, dostane nulu a bude hlásiť rozdiel
  * na tovare, ktorý žiadnym rozdielom nie je.
  *
- *     FG100875 / Tasky   →   TASKY-FG100875 / Tašky – FG100875
+ *     FG100875 / Tasky   →   (bez kódu) / Tašky – FG100875   · projekt FG100875
  *
- * Kód sa odvodí od názvu (Tašky → TASKY, Police → POLICE, inak POZN), aby
- * prestal vyzerať ako položka zo SAPu. Pôvodný kód aj názov sa odkladajú do
- * `legacy_code` a `legacy_name`, takže návrat je jeden UPDATE a nie obnova
- * celej databázy.
+ * Kód sa nenahrádza, ale ZAHADZUJE. Vymyslieť náhradu ako `TASKY-FG100875` by
+ * znamenalo dať poznámke identifikátor, ktorý neexistuje nikde - a prvý, kto ho
+ * uvidí v stĺpci „Kód", ho pôjde hľadať do SAPu. Poznámka nesie dve veci: ku
+ * ktorému projektu patrí a čo to je. Obe majú svoj stĺpec.
+ *
+ * Pôvodný kód aj názov sa odkladajú do `legacy_code` a `legacy_name`, takže
+ * návrat je jeden UPDATE a nie obnova celej databázy.
  *
  * Počty ani paletové pozície sa nemenia. Vôbec.
  *
@@ -83,7 +86,11 @@ async function main() {
                JOIN pallet_locations pl ON pl.id = mp.location_id
               WHERE mp.material_id = m.id) AS palety
        FROM materials m
-      WHERE m.deleted_at IS NULL AND m.kind = 'local' AND m.legacy_code IS NULL
+      -- Kód musí ešte existovať: poznámka založená už novým formulárom žiadny
+      -- nemá, takže na nej nie je čo premenovať. Bez tejto podmienky ju skript
+      -- zoberie a spadne pri prvom výpise.
+      WHERE m.deleted_at IS NULL AND m.kind = 'local'
+        AND m.code IS NOT NULL AND m.legacy_code IS NULL
       ORDER BY m.code`
   );
 
@@ -92,33 +99,19 @@ async function main() {
     return;
   }
 
-  // Kód musí zostať jedinečný. Dva riadky s rovnakým projektom aj rovnakým
-  // druhom poznámky by inak dostali ten istý kód a druhý zápis by spadol.
-  const taken = new Set(
-    (await pool.query('SELECT lower(code) AS code FROM materials WHERE deleted_at IS NULL')).rows
-      .map((row) => row.code)
-  );
-
-  const plan = [];
-  for (const row of rows) {
+  const plan = rows.map((row) => {
     const fg = (row.project_fg || row.code).toUpperCase();
-    const prefix = prefixFor(row.name);
-
-    let code = `${prefix}-${fg}`;
-    let n = 2;
-    while (taken.has(code.toLowerCase())) code = `${prefix}-${fg}-${n++}`;
-    taken.add(code.toLowerCase());
-
-    plan.push({ ...row, newCode: code, newName: nameFor(row.name, fg) });
-  }
+    return { ...row, projectFg: fg, newName: nameFor(row.name, fg) };
+  });
 
   console.log(`\n${apply ? 'Premenúvam' : 'Suchý beh - nič sa nemení'}: ${plan.length} riadkov\n`);
-  console.log('kód            → nový kód             názov          → nový názov          ks  palety');
-  console.log('─'.repeat(112));
+  console.log('kód       → kód   projekt     názov          → nový názov               ks  palety');
+  console.log('─'.repeat(104));
   for (const row of plan) {
     console.log(
-      `${row.code.padEnd(14)} → ${row.newCode.padEnd(21)} ${(row.name || '').slice(0, 14).padEnd(14)}`
-      + ` → ${row.newName.padEnd(20)} ${String(row.quantity).padStart(3)}  ${row.palety || '—'}`
+      `${row.code.padEnd(9)} →  —    ${row.projectFg.padEnd(11)}`
+      + ` ${(row.name || '').slice(0, 14).padEnd(14)} → ${row.newName.slice(0, 24).padEnd(24)}`
+      + ` ${String(row.quantity).padStart(3)}  ${row.palety || '—'}`
     );
   }
 
@@ -134,14 +127,15 @@ async function main() {
       await client.query(
         `UPDATE materials
             SET legacy_code = code, legacy_name = name,
-                code = $2, name = $3, project_fg = $4,
+                code = NULL, name = $2, project_fg = $3,
                 sap_item_code = NULL, updated_at = CURRENT_TIMESTAMP
           WHERE id = $1`,
-        [row.id, row.newCode, row.newName, (row.project_fg || row.code).toUpperCase()]
+        [row.id, row.newName, row.projectFg]
       );
     }
     await client.query('COMMIT');
-    console.log(`\nHotovo: ${plan.length} riadkov premenovaných. Počty ani palety sa nezmenili.`);
+    console.log(`\nHotovo: ${plan.length} riadkov. Kód zahodený, projekt a názov ho nahradili.`);
+    console.log('Počty ani palety sa nezmenili.');
     console.log('Návrat: UPDATE materials SET code = legacy_code, name = legacy_name'
       + ' WHERE legacy_code IS NOT NULL;');
   } catch (error) {
