@@ -94,7 +94,7 @@ class Material {
           data.created_by || null,
           data.created_by_name || null,
           kind,
-          kind === 'local' ? (data.project_fg || null) : null,
+          kind === 'local' && data.project_fg ? String(data.project_fg).toUpperCase() : null,
           code
         ]
       );
@@ -221,6 +221,9 @@ class Material {
            unit = COALESCE($5, unit),
            location_id = $6,
            category_id = $7,
+           -- Projekt sa mení len pri vlastnej položke a len keď ho formulár
+           -- poslal; pri položke zo SAPu nie je čo prepisovať.
+           project_fg = CASE WHEN kind = 'local' THEN $9 ELSE project_fg END,
            updated_at = CURRENT_TIMESTAMP
          WHERE id = $8 RETURNING *`,
         [
@@ -231,7 +234,8 @@ class Material {
           data.unit,
           primaryLocation,
           data.category_id || null,
-          id
+          id,
+          data.project_fg ? String(data.project_fg).toUpperCase() : null
         ]
       );
 

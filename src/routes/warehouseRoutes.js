@@ -170,8 +170,12 @@ router.get('/materials/:id', readAccess, asyncHandler(async (req, res) => {
 // POST /api/warehouse/materials
 router.post('/materials', writeAccess, asyncHandler(async (req, res) => {
   const { code, name } = req.body;
-  if (!code || !name) {
-    return res.status(400).json({ error: 'code and name are required' });
+
+  // Poznámka skladu kód nemá - nesie ju názov a projekt, ku ktorému patrí.
+  // Položka zo SAPu ho má vždy, inak by nebolo čo synchronizovať.
+  const isLocal = req.body.kind === 'local';
+  if (!name || (!isLocal && !code)) {
+    return res.status(400).json({ error: isLocal ? 'name is required' : 'code and name are required' });
   }
   // App-level duplicate guard (DB UNIQUE added later once legacy dupes cleaned)
   if (await Material.existsByCode(code)) {

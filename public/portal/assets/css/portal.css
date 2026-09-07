@@ -2562,6 +2562,74 @@ body.hub-active .portal-lang-switcher {
 .wh-stock-unknown   .wh-dot { background: #d1d5db; border: 1px solid var(--gray-400); }
 .wh-stock-pending   .wh-dot { background: transparent; border: 1px dashed var(--gray-400); }
 
+/* Výber druhu položky pri zakladaní.
+   Dve karty vedľa seba namiesto rozbaľovacieho zoznamu: je to rozhodnutie,
+   ktoré treba urobiť vedome, nie predvoľba, ktorú niekto preklikne. */
+.wh-kind-lead { margin: 0 0 0.9rem; color: var(--gray-600); }
+
+.wh-kind-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+@media (max-width: 560px) { .wh-kind-grid { grid-template-columns: 1fr; } }
+
+.wh-kind-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem;
+  text-align: left;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+}
+
+.wh-kind-card:hover {
+  border-color: var(--etilog-red, #D9000C);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, .07);
+}
+
+.wh-kind-title { font-weight: 700; font-size: 0.95rem; color: var(--gray-800); }
+.wh-kind-desc { font-size: 0.82rem; color: var(--gray-500); line-height: 1.35; }
+
+/* Odpoveď SAPu pod vyhľadávacím poľom. */
+.wh-sap-box {
+  margin: -0.4rem 0 0.9rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  border: 1px solid var(--gray-200);
+  background: var(--gray-50);
+}
+
+.wh-sap-ok   { border-color: #bbf7d0; background: #f0fdf4; }
+.wh-sap-warn { border-color: #fcd34d; background: #fffbeb; }
+.wh-sap-bad  { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
+.wh-sap-loading { color: var(--gray-500); }
+
+.wh-sap-name { font-weight: 600; color: var(--gray-800); }
+.wh-sap-line { margin-top: 0.15rem; }
+.wh-sap-note { margin-top: 0.3rem; font-size: 0.8rem; color: var(--gray-600); }
+
+/* Rozpor so SAPom je upozornenie, nie chyba - uloženie prejde. Preto oranžová,
+   tá istá ako bodka v evidencii, a nie červená, ktorá hovorí „oprav to". */
+.wh-split-indicator.warn {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
+/* Súčet rozpisu bez porovnania - vlastná položka nemá s čím nesúhlasiť. */
+.wh-split-indicator.neutral {
+  background: var(--gray-50);
+  border-color: var(--gray-200);
+  color: var(--gray-700);
+}
+
 /* Riadok nad tabuľkou: koľko sedí, koľko treba prejsť, kedy sa ťahalo. */
 .wh-sync-bar {
   display: flex;

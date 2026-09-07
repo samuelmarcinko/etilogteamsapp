@@ -4607,6 +4607,112 @@ function whRenderMaterialsTable() {
 // --- Material modal (create / edit) ---
 let whPlacements = [];   // split rows: [{ location_id, location_code, quantity }]
 
+/**
+ * Zakladá sa položka zo SAPu, alebo poznámka skladu?
+ *
+ * Rozhodnutie, ktoré doteraz nemal kto urobiť - tlačidlo „Pridať" bolo jedno a
+ * nebolo ako povedať „toto nie je zo SAPu". Tak vzniklo 39 riadkov s FG číslom
+ * projektu, ktoré synchronizácia zhodí na nulu. Upratať dáta a nechať formulár
+ * tak, ako bol, by znamenalo urobiť si to o rok znova.
+ */
+let whMaterialKind = 'sap';
+let whSapItem = null;      // vyhľadaná položka zo SAPu, alebo null
+
+/** Výber druhu. Ukazuje sa len pri zakladaní - existujúcemu riadku sa druh nemení. */
+function whRenderKindChooser() {
+    document.getElementById('modalTitle').textContent = pt('whAddMaterial');
+    document.getElementById('modalBody').innerHTML = `
+        <p class="wh-kind-lead">${pt('whKindQuestion')}</p>
+        <div class="wh-kind-grid">
+            <button type="button" class="wh-kind-card" onclick="whChooseKind('sap')">
+                <span class="wh-kind-title">${pt('whKindSap')}</span>
+                <span class="wh-kind-desc">${pt('whKindSapDesc')}</span>
+            </button>
+            <button type="button" class="wh-kind-card" onclick="whChooseKind('local')">
+                <span class="wh-kind-title">${pt('whKindLocal')}</span>
+                <span class="wh-kind-desc">${pt('whKindLocalDesc')}</span>
+            </button>
+        </div>`;
+    document.getElementById('modalFooter').innerHTML =
+        `<button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>`;
+}
+
+function whChooseKind(kind) {
+    whMaterialKind = kind;
+    whSapItem = null;
+    whPlacements = [];
+    whRenderMaterialForm(null, '', false, null);
+}
+
+/**
+ * Vyhľadanie položky v SAPe.
+ *
+ * Kód sa nepíše, ale hľadá - preklep, ktorý v SAPe neexistuje, sa do evidencie
+ * nedostane. Presne takto tam pribudlo FG00875 s chýbajúcou nulou.
+ */
+async function whLookupSapItem() {
+    const input = document.getElementById('matCode');
+    const box = document.getElementById('whSapResult');
+    const code = (input?.value || '').trim();
+    if (code.length < 3) { showToast(pt('whSapCodeTooShort'), 'error'); return; }
+
+    box.innerHTML = `<div class="wh-sap-box wh-sap-loading">${pt('whSapSearching')}</div>`;
+    try {
+        const res = await apiCall(`/api/warehouse/sap/item/${encodeURIComponent(code)}`);
+        const body = await res.json();
+
+        if (res.status === 404) {
+            whSapItem = null;
+            box.innerHTML = `<div class="wh-sap-box wh-sap-bad">${pt('whSapNotFound')}</div>`;
+            whUpdateSplitIndicator();
+            return;
+        }
+        if (!res.ok) throw new Error(body.message || pt('pageLoadError'));
+
+        whSapItem = body.data;
+        const item = whSapItem;
+
+        // Kód, ktorý v evidencii už je, nie je chyba - je to otázka, či nechce
+        // otvoriť ten existujúci.
+        if (item.existing) {
+            box.innerHTML = `<div class="wh-sap-box wh-sap-warn">
+                ${pt('whSapAlreadyHere').replace('{code}', escapeHtml(item.code))}
+                <button type="button" class="btn btn-secondary btn-sm"
+                        onclick="closeModal(); openMaterialModal(${item.existing.id})">
+                    ${pt('whSapOpenExisting')}
+                </button></div>`;
+            return;
+        }
+
+        const elsewhere = (item.elsewhere || [])
+            .map(w => `${escapeHtml(w.warehouse)}: ${w.inStock}`).join(', ');
+
+        // Nula v tomto sklade nie je dobrá správa ani chyba - je to vec, ktorú si
+        // treba všimnúť. Zelený rámček nad textom „tovar možno nie je prijatý"
+        // by si sám so sebou protirečil.
+        const tone = item.quantity === 0 ? 'wh-sap-warn' : 'wh-sap-ok';
+        box.innerHTML = `<div class="wh-sap-box ${tone}">
+            <div class="wh-sap-name">${escapeHtml(item.name || '')}</div>
+            <div class="wh-sap-line">
+                <strong>${item.quantity}</strong> ${escapeHtml(item.uom || 'ks')}
+                · ${pt('whSapStore')} ${escapeHtml(item.warehouse)}
+            </div>
+            ${item.quantity === 0
+                ? `<div class="wh-sap-note">${pt('whSapZeroHere')}</div>` : ''}
+            ${elsewhere ? `<div class="wh-sap-note">${pt('whSapElsewhere')}: ${elsewhere}</div>` : ''}
+        </div>`;
+
+        document.getElementById('matName').value = item.name || '';
+        document.getElementById('matUnit').value = item.uom || 'ks';
+        whUpdateSplitIndicator();
+    } catch (e) {
+        whSapItem = null;
+        // Nedostupný SAP sa povie a nezamlčí. Ticho prepnúť na ručné zadanie by
+        // vyrobilo presne ten riadok, ktorý sa touto zmenou upratuje.
+        box.innerHTML = `<div class="wh-sap-box wh-sap-bad">${escapeHtml(e.message)}</div>`;
+    }
+}
+
 async function openMaterialModal(materialId = null, presetLocationId = null) {
     const isEdit = !!materialId;
     let mat = null;
@@ -4633,15 +4739,64 @@ async function openMaterialModal(materialId = null, presetLocationId = null) {
     const startSplit = existing.length > 1;
     whPlacements = existing.map(p => ({ location_id: p.location_id, location_code: p.location_code, quantity: p.quantity }));
 
+    // Existujúcemu riadku sa druh nemení - je to rozhodnutie o tom, čo tá vec
+    // je, nie o tom, ako sa práve edituje.
+    whMaterialKind = mat?.kind === 'local' ? 'local' : 'sap';
+    whSapItem = null;
+
     document.getElementById('modal').classList.add('modal-xl');
-    document.getElementById('modalTitle').textContent = isEdit ? pt('whEditMaterial') : pt('whAddMaterial');
-    document.getElementById('modalBody').innerHTML = `
-        <div class="form-group"><label>${pt('whColCode')} *</label><input type="text" id="matCode" class="form-control" value="${mat ? escapeHtml(mat.code) : ''}" required></div>
-        <div class="form-group"><label>${pt('whColName')} *</label><input type="text" id="matName" class="form-control" value="${mat ? escapeHtml(mat.name) : ''}"></div>
-        <div class="form-row">
-            <div class="form-group"><label>${pt('whTotalQuantity')}</label><input type="number" id="matQty" class="form-control" min="0" value="${mat ? mat.quantity : 1}" oninput="whUpdateSplitIndicator()"></div>
-            <div class="form-group"><label>${pt('whUnit')}</label><input type="text" id="matUnit" class="form-control" value="${mat ? escapeHtml(mat.unit || 'ks') : 'ks'}"></div>
+    if (!isEdit) { whRenderKindChooser(); openModal(); return; }
+
+    whRenderMaterialForm(mat, presetLocCode, startSplit, materialId);
+    openModal();
+}
+
+/**
+ * Telo dialógu, podľa druhu.
+ *
+ * Množstvo sa nikde nepíše. Je to súčet rozpisu po paletách - jediné číslo,
+ * ktoré sklad naozaj vie. Pole „Množstvo (celkom)" kedysi kontrolovalo samo
+ * seba: napísal si 374 a o tri polia nižšie potvrdil, že si rozdelil 374.
+ */
+function whRenderMaterialForm(mat, presetLocCode, startSplit, materialId) {
+    const isEdit = !!materialId;
+    const local = whMaterialKind === 'local';
+
+    document.getElementById('modalTitle').textContent = isEdit
+        ? pt('whEditMaterial')
+        : `${pt('whAddMaterial')} · ${local ? pt('whKindLocal') : pt('whKindSap')}`;
+
+    const identity = local ? `
+        <div class="form-group">
+            <label>${pt('whProjectFg')}</label>
+            <input type="text" id="matProjectFg" class="form-control" placeholder="${pt('whProjectFgHint')}"
+                   value="${mat ? escapeHtml(mat.project_fg || '') : ''}">
         </div>
+        <div class="form-group"><label>${pt('whColName')} *</label>
+            <input type="text" id="matName" class="form-control" placeholder="${pt('whLocalNameHint')}"
+                   value="${mat ? escapeHtml(mat.name || '') : ''}"></div>
+        <input type="hidden" id="matCode" value="">
+    ` : `
+        <div class="form-group">
+            <label>${pt('whSapCode')} *</label>
+            <div class="wh-loc-picker">
+                <input type="text" id="matCode" class="form-control" placeholder="${pt('whSapCodeHint')}"
+                       value="${mat ? escapeHtml(mat.code || '') : ''}" ${isEdit ? 'readonly' : ''}
+                       onkeydown="if(event.key==='Enter'){event.preventDefault();whLookupSapItem();}">
+                ${isEdit ? '' : `<button type="button" class="btn btn-secondary" onclick="whLookupSapItem()">${pt('whSapSearch')}</button>`}
+            </div>
+        </div>
+        <div id="whSapResult"></div>
+        <div class="form-group"><label>${pt('whColName')}</label>
+            <input type="text" id="matName" class="form-control" readonly
+                   value="${mat ? escapeHtml(mat.name || '') : ''}"></div>
+    `;
+
+    document.getElementById('modalBody').innerHTML = `
+        ${identity}
+        <div class="form-group" style="max-width:9rem"><label>${pt('whUnit')}</label>
+            <input type="text" id="matUnit" class="form-control"
+                   value="${mat ? escapeHtml(mat.unit || 'ks') : 'ks'}" ${local ? '' : 'readonly'}></div>
 
         <div class="wh-split-toggle">
             <label class="wh-checkbox">
@@ -4657,21 +4812,27 @@ async function openMaterialModal(materialId = null, presetLocationId = null) {
                 <input type="text" id="matLocDisplay" class="form-control" readonly placeholder="${pt('whClickMap')}" value="${escapeHtml(presetLocCode)}">
                 <button type="button" class="btn btn-secondary" onclick="openMaterialLocPicker()">&#128506; ${pt('whPickLocation')}</button>
             </div>
+            <div class="form-group" style="max-width:9rem;margin-top:0.6rem">
+                <label>${pt('whColQty')}</label>
+                <input type="number" id="matQty" class="form-control" min="0"
+                       value="${mat ? mat.quantity : 0}" oninput="whUpdateSplitIndicator()">
+            </div>
         </div>
 
         <!-- Split into multiple locations -->
         <div id="whSplitLoc" style="${startSplit ? '' : 'display:none;'}">
             <div id="whPlacementRows"></div>
             <button type="button" class="btn btn-secondary btn-sm wh-add-pos" onclick="whAddPlacementRow()">+ ${pt('whSplitAddPosition')}</button>
-            <div id="whSplitIndicator" class="wh-split-indicator"></div>
         </div>
+        <div id="whSplitIndicator" class="wh-split-indicator"></div>
     `;
     document.getElementById('modalFooter').innerHTML = `
+        ${isEdit ? '' : `<button class="btn btn-secondary" onclick="whRenderKindChooser()">${pt('back')}</button>`}
         <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
         <button class="btn btn-primary" id="whSaveBtn" onclick="saveMaterial(${materialId || 'null'})">${pt('save')}</button>
     `;
     if (startSplit) whRenderPlacements();
-    openModal();
+    whUpdateSplitIndicator();
 }
 
 // Open fullscreen picker for the material modal single-location field
@@ -4716,10 +4877,18 @@ function whToggleSplit(checked) {
     }
 }
 
+/**
+ * Koľko ešte zostáva rozdeliť.
+ *
+ * Odpočítava sa od toho, čo hovorí SAP - to je jediné číslo, ktoré tu vie celok
+ * dopredu. Pri vlastnej položke žiadny celok neexistuje, takže nová pozícia
+ * začína na nule; predvyplniť ju odhadom by bolo číslo, ktoré nikto nezadal.
+ */
 function whRemainingQty(excludeIdx = -1) {
-    const total = parseInt(document.getElementById('matQty')?.value, 10) || 0;
+    const sap = whSapItem ? Number(whSapItem.quantity) : null;
+    if (sap == null) return 0;
     const allocated = whPlacements.reduce((s, p, i) => i === excludeIdx ? s : s + (parseInt(p.quantity, 10) || 0), 0);
-    return total - allocated;
+    return sap - allocated;
 }
 
 function whAddPlacementRow() {
@@ -4772,31 +4941,48 @@ function whRenderPlacements() {
     whUpdateSplitIndicator();
 }
 
+/**
+ * Koľko je rozdelené a čo na to hovorí SAP.
+ *
+ * Toto pole kedysi porovnávalo číslo s číslom, ktoré ten istý človek napísal o
+ * tri polia vyššie - kruh, ktorý nepotvrdzoval nič. Teraz je súčet rozpisu
+ * jediný celok, aký existuje, a porovnáva sa proti tomu, čo hovorí SAP.
+ *
+ * Nezhoda uloženie NEBLOKUJE. Skladník môže mať pravdu a SAP môže byť pozadu o
+ * príjemku - tovar na palete je fakt, zaúčtovanie je len záznam o ňom.
+ */
 function whUpdateSplitIndicator() {
     const ind = document.getElementById('whSplitIndicator');
-    const split = document.getElementById('matSplit')?.checked;
     const saveBtn = document.getElementById('whSaveBtn');
-    if (!ind || !split) { if (saveBtn) saveBtn.disabled = false; return; }
+    if (saveBtn) saveBtn.disabled = false;
+    if (!ind) return;
 
-    const total = parseInt(document.getElementById('matQty')?.value, 10) || 0;
-    const allocated = whPlacements.reduce((s, p) => s + (parseInt(p.quantity, 10) || 0), 0);
+    const allocated = whAllocatedQty();
     const unit = document.getElementById('matUnit')?.value || 'ks';
-    const diff = total - allocated;
+    const sap = whSapItem ? Number(whSapItem.quantity) : null;
 
-    let cls, msg;
-    if (diff === 0) {
-        cls = 'ok';
-        msg = `${pt('whSplitAllocated')}: ${allocated} / ${total} ${escapeHtml(unit)} &nbsp; ✓ ${pt('whSplitMatch')}`;
-    } else if (diff > 0) {
-        cls = 'under';
-        msg = `${pt('whSplitAllocated')}: ${allocated} / ${total} ${escapeHtml(unit)} &nbsp; ✗ ${pt('whSplitUnder').replace('{n}', diff)}`;
-    } else {
-        cls = 'over';
-        msg = `${pt('whSplitAllocated')}: ${allocated} / ${total} ${escapeHtml(unit)} &nbsp; ✗ ${pt('whSplitOver').replace('{n}', -diff)}`;
+    if (sap == null) {
+        // Vlastná položka, alebo položka zo SAPu, ktorú ešte nikto nevyhľadal.
+        ind.className = 'wh-split-indicator neutral';
+        ind.innerHTML = `${pt('whSplitAllocated')}: <strong>${allocated}</strong> ${escapeHtml(unit)}`;
+        return;
     }
-    ind.className = 'wh-split-indicator ' + cls;
-    ind.innerHTML = msg;
-    if (saveBtn) saveBtn.disabled = (diff !== 0);
+
+    const diff = allocated - sap;
+    // Nie 'over' (červená): to hovorí „chyba, oprav to". Toto je upozornenie -
+    // uloženie prejde a rozpor sa objaví v evidencii ako oranžová bodka.
+    ind.className = 'wh-split-indicator ' + (diff === 0 ? 'ok' : 'warn');
+    ind.innerHTML = diff === 0
+        ? `${pt('whSplitAllocated')}: <strong>${allocated}</strong> / ${sap} ${escapeHtml(unit)} &nbsp; \u2713 ${pt('whSplitMatch')}`
+        : `${pt('whSplitAllocated')}: <strong>${allocated}</strong> / ${sap} ${escapeHtml(unit)}`
+          + ` &nbsp; \u26a0 ${pt('whSplitVsSap').replace('{n}', (diff > 0 ? '+' : '') + diff)}`;
+}
+
+/** Súčet rozpisu - alebo množstvo pri jednej pozícii. */
+function whAllocatedQty() {
+    const split = document.getElementById('matSplit')?.checked;
+    if (!split) return parseInt(document.getElementById('matQty')?.value, 10) || 0;
+    return whPlacements.reduce((s, p) => s + (parseInt(p.quantity, 10) || 0), 0);
 }
 
 // ===== Reusable fullscreen map picker =====
@@ -4861,14 +5047,22 @@ async function openMapPickerFS({ title, selectedId = null, onSelect, excludeIds 
 }
 
 async function saveMaterial(materialId) {
+    const local = whMaterialKind === 'local';
     const code = document.getElementById('matCode')?.value.trim();
     const name = document.getElementById('matName')?.value.trim();
-    if (!code || !name) { showToast(pt('whRequiredFields'), 'error'); return; }
+
+    // Poznámka skladu kód nemá - nesie ju názov. Položka zo SAPu ho má vždy,
+    // lebo bez neho by nebolo čo synchronizovať.
+    if (!name || (!local && !code)) { showToast(pt('whRequiredFields'), 'error'); return; }
+
     const total = parseInt(document.getElementById('matQty')?.value, 10) || 0;
     const split = document.getElementById('matSplit')?.checked;
 
     const body = {
-        code, name,
+        code: local ? null : code,
+        name,
+        kind: whMaterialKind,
+        project_fg: local ? (document.getElementById('matProjectFg')?.value.trim() || null) : null,
         quantity: total,
         unit: document.getElementById('matUnit')?.value || 'ks'
     };
@@ -4879,9 +5073,9 @@ async function saveMaterial(materialId) {
         // Duplicate position guard
         const ids = rows.map(p => p.location_id);
         if (new Set(ids).size !== ids.length) { showToast(pt('whSplitDuplicateLoc'), 'error'); return; }
-        // Sum must equal total
-        const sum = rows.reduce((s, p) => s + (parseInt(p.quantity, 10) || 0), 0);
-        if (sum !== total) { showToast(pt('whSplitMismatch'), 'error'); return; }
+        // Rozpor so SAPom sa TU nezastavuje. Súčet rozpisu je celok - nie je s
+        // čím ho porovnávať okrem SAPu, a ten môže byť pozadu o príjemku.
+        // Semafor v evidencii to ukáže a niekto sa na to pôjde pozrieť.
         body.placements = rows.map(p => ({ location_id: p.location_id, quantity: p.quantity }));
     } else {
         body.location_id = whSelectedLocationId;
