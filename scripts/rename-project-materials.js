@@ -23,30 +23,54 @@
  */
 const pool = require('../src/database/config');
 
+/** Kategórie, ktoré skladníci naozaj písali. */
+const CATEGORIES = [
+  { prefix: 'TASKY', label: 'Tašky', match: /tašk|tasky|taška/i },
+  { prefix: 'POLICE', label: 'Police', match: /polic/i },
+  { prefix: 'BOCNICE', label: 'Bočnice', match: /bocnic|bočnic/i },
+  { prefix: 'DOKUMENTY', label: 'Dokumentovky', match: /dokumentov/i }
+];
+
 /**
  * Z čoho sa skladá nový kód.
  *
- * Podľa toho, čo skladníci naozaj písali: Tasky, TASKY, Police, Police Tasky,
- * Bocnice, Dokumentovky. Čokoľvek iné dostane neutrálne POZN - hádať ďalšie
- * skratky z troch výskytov by bolo vymýšľanie pravidiel na dátach, ktoré ich
- * neunesú.
+ * Podľa slova, ktoré je v názve PRVÉ, nie podľa poradia v tomto zozname.
+ * „Police Tasky" je predovšetkým police; keby sa hľadalo najprv „tašky",
+ * dostal by riadok kód TASKY a názov o policiach, čo by si protirečilo.
  */
-function prefixFor(name) {
-  const text = (name || '').toLowerCase();
-  if (text.includes('tašk') || text.includes('tasky')) return 'TASKY';
-  if (text.includes('polic')) return 'POLICE';
-  if (text.includes('bocnic') || text.includes('bočnic')) return 'BOCNICE';
-  if (text.includes('dokumentov')) return 'DOKUMENTY';
-  return 'POZN';
+function categoryFor(name) {
+  const text = String(name || '');
+  let best = null;
+  for (const category of CATEGORIES) {
+    const at = text.search(category.match);
+    if (at >= 0 && (best === null || at < best.at)) best = { ...category, at };
+  }
+  return best;
 }
 
-/** „Tašky – FG100875“. Pomlčka je dlhá, lebo spája dve veci, nie slová. */
-function nameFor(prefix, fg) {
-  const label = {
-    TASKY: 'Tašky', POLICE: 'Police', BOCNICE: 'Bočnice',
-    DOKUMENTY: 'Dokumentovky', POZN: 'Poznámka'
-  }[prefix];
-  return `${label} – ${fg}`;
+function prefixFor(name) {
+  return categoryFor(name)?.prefix || 'POZN';
+}
+
+/**
+ * Nový názov: „Tašky – FG100875".
+ *
+ * Ak je pôvodný názov holá kategória („Tasky", „TASKY", „Police"), nahradí sa -
+ * nenesie nič, čo by sa dalo stratiť. Ak nesie čokoľvek navyše, ZOSTÁVA a
+ * pripojí sa mu len projekt: „Police HKP" je police pre HKP a „Police Tasky"
+ * sú na dvoch pozíciách police aj tašky. Prepísať ich na holé „Police" by
+ * zahodilo presne to, kvôli čomu si skladník ten riadok zakladal.
+ *
+ * Pomlčka je dlhá, lebo spája dve veci, nie slová.
+ */
+function nameFor(name, fg) {
+  const category = categoryFor(name);
+  const bare = String(name || '').trim().toLowerCase();
+  const isJustCategory = category
+    && bare.replace(/[^a-zá-ž]/gi, '').length <= category.label.length + 1;
+
+  const label = isJustCategory ? category.label : String(name || '').trim();
+  return `${label || 'Poznámka'} – ${fg}`;
 }
 
 async function main() {
@@ -85,7 +109,7 @@ async function main() {
     while (taken.has(code.toLowerCase())) code = `${prefix}-${fg}-${n++}`;
     taken.add(code.toLowerCase());
 
-    plan.push({ ...row, newCode: code, newName: nameFor(prefix, fg) });
+    plan.push({ ...row, newCode: code, newName: nameFor(row.name, fg) });
   }
 
   console.log(`\n${apply ? 'Premenúvam' : 'Suchý beh - nič sa nemení'}: ${plan.length} riadkov\n`);
