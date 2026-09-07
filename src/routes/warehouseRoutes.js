@@ -280,6 +280,35 @@ router.get('/sync', readAccess, asyncHandler(async (req, res) => {
   });
 }));
 
+// GET /api/warehouse/sap/item/:code - jedna položka zo SAPu, pre formulár
+//
+// Zámerne presné vyhľadanie kódu, nie vyhľadávanie podľa názvu: skladník kód
+// odpisuje z etikety a chce vedieť, či existuje. Fulltext cez celý číselník
+// SAPu by bol iný nástroj na inú otázku.
+router.get('/sap/item/:code', writeAccess, asyncHandler(async (req, res) => {
+  let item;
+  try {
+    item = await WarehouseSyncService.shared().lookup(req.params.code);
+  } catch (error) {
+    // Nedostupný SAP sa povie a nezamlčí. Ticho prepnúť na ručné zadanie by
+    // vyrobilo presne ten typ riadku, ktorý sa touto zmenou upratuje.
+    return res.status(502).json({
+      error: 'Bad Gateway',
+      message: `SAP neodpovedal: ${error.message}`
+    });
+  }
+
+  if (!item) {
+    return res.status(404).json({ error: 'Not Found', message: 'SAP taký kód nepozná' });
+  }
+
+  // Kód, ktorý v evidencii už je, nie je chyba - je to otázka „nechceš otvoriť
+  // ten existujúci?". Odpoveď na ňu patrí do dialógu, nie do chybovej hlášky.
+  const existing = await Material.findByCode(item.code);
+
+  res.json({ data: { ...item, existing: existing || null } });
+}));
+
 // POST /api/warehouse/sync - spustiť teraz
 router.post('/sync', writeAccess, asyncHandler(async (req, res) => {
   const result = await WarehouseSyncService.shared()

@@ -64,9 +64,17 @@ class Material {
         : (data.quantity != null ? parseInt(data.quantity, 10) || 0 : 0);
       const primaryLocation = placements.length ? placements[0].location_id : (data.location_id || null);
 
+      // 'local' je poznámka skladu - tašky a police k projektu - a so SAPom sa
+      // neporovnáva. 'sap' je skladová položka; `sap_item_code` je kód, pod
+      // ktorým sa v SAPe pýta, a drží sa oddelene od `code` práve preto, aby sa
+      // dal odpojiť bez premenovania materiálu.
+      const kind = data.kind === 'local' ? 'local' : 'sap';
+
       const ins = await client.query(
-        `INSERT INTO materials (code, name, description, quantity, unit, location_id, category_id, created_by, created_by_name)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+        `INSERT INTO materials (code, name, description, quantity, unit, location_id,
+                                category_id, created_by, created_by_name,
+                                kind, project_fg, sap_item_code)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
         [
           data.code,
           data.name,
@@ -76,7 +84,10 @@ class Material {
           primaryLocation,
           data.category_id || null,
           data.created_by || null,
-          data.created_by_name || null
+          data.created_by_name || null,
+          kind,
+          kind === 'local' ? (data.project_fg || null) : null,
+          kind === 'local' ? null : data.code
         ]
       );
       const material = ins.rows[0];
@@ -129,6 +140,20 @@ class Material {
 
     const result = await pool.query(query, values);
     return result.rows;
+  }
+
+  /**
+   * Materiál podľa kódu, bez ohľadu na veľkosť písmen.
+   *
+   * Pre formulár, ktorý po vyhľadaní v SAPe potrebuje vedieť, či ten kód už
+   * niekto v evidencii má - aby ponúkol otvoriť ho namiesto hlásenia chyby.
+   */
+  static async findByCode(code) {
+    const result = await pool.query(
+      `${BASE_SELECT} WHERE LOWER(m.code) = LOWER($1) AND m.deleted_at IS NULL LIMIT 1`,
+      [code]
+    );
+    return result.rows[0] || null;
   }
 
   static async findById(id) {

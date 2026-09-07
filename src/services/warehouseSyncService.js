@@ -73,6 +73,44 @@ class WarehouseSyncService {
     return enabled;
   }
 
+  /**
+   * Jedna položka zo SAPu, pre formulár „pridať materiál".
+   *
+   * Skladník kód nepíše, ale vyhľadá - takže preklep, ktorý sa v SAPe nenájde,
+   * sa do evidencie nedostane. Presne takto tam pribudlo `FG00875` s chýbajúcou
+   * nulou.
+   *
+   * Vracia sa aj položka, na ktorej má SAP v 02-03 nulu: na palete môže ležať
+   * tovar, ktorý ešte nie je prijatý. Že je to nula, sa povie - nezamlčí.
+   */
+  async lookup(code) {
+    const wanted = String(code || '').trim().toUpperCase();
+    if (wanted.length < 3) return null;
+
+    const found = await this.client.itemsByCode([wanted], FIELDS);
+    const item = found.get(wanted);
+    if (!item) return null;
+
+    const perWarehouse = (item.ItemWarehouseInfoCollection || [])
+      .filter((w) => num(w.InStock) !== 0)
+      .map((w) => ({ warehouse: w.WarehouseCode, inStock: num(w.InStock) }))
+      .sort((a, b) => b.inStock - a.inStock);
+
+    const here = (item.ItemWarehouseInfoCollection || [])
+      .find((w) => w.WarehouseCode === WAREHOUSE);
+
+    return {
+      code: item.ItemCode,
+      name: item.ItemName || null,
+      uom: item.InventoryUOM || 'ks',
+      warehouse: WAREHOUSE,
+      quantity: num(here?.InStock),
+      // Kde inde tá položka leží. Keď je v 02-03 nula a inde nie, je to prvá
+      // otázka, ktorú si skladník položí - tak nech ju má rovno pred sebou.
+      elsewhere: perWarehouse.filter((w) => w.warehouse !== WAREHOUSE)
+    };
+  }
+
   /** Posledný beh, pre stavový riadok a pre otázku „kedy naposledy?". */
   static async lastRun() {
     const { rows } = await pool.query(
