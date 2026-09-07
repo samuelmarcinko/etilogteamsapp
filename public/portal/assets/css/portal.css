@@ -2529,6 +2529,64 @@ body.hub-active .portal-lang-switcher {
 
 .wh-muted { color: var(--gray-400); }
 
+/* Semafor sklad vs. SAP.
+   Bodka nesie farbu, číslo vedľa nej nesie fakt. Vysvetlenie je v titulku pri
+   nabehnutí myšou - v tabuľke so 140 riadkami nie je miesto na vetu pri každom. */
+.wh-stock {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+  cursor: help;
+}
+
+.wh-stock .wh-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--gray-300);
+}
+
+.wh-stock-num {
+  font-size: 0.82rem;
+  color: var(--gray-700);
+  font-variant-numeric: tabular-nums;
+}
+
+.wh-stock-ok        .wh-dot { background: #16a34a; }
+.wh-stock-diff      .wh-dot { background: #f59e0b; }
+/* Rovnaká farba ako „nesedí": obe znamenajú „pozri sa na to". Iná farba pre
+   každý dôvod by bola paleta, ktorú si nikto nezapamätá - dôvod povie titulok. */
+.wh-stock-notbooked .wh-dot { background: #f59e0b; }
+.wh-stock-unknown   .wh-dot { background: #d1d5db; border: 1px solid var(--gray-400); }
+.wh-stock-pending   .wh-dot { background: transparent; border: 1px dashed var(--gray-400); }
+
+/* Riadok nad tabuľkou: koľko sedí, koľko treba prejsť, kedy sa ťahalo. */
+.wh-sync-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.55rem 0.75rem;
+  margin-bottom: 0.75rem;
+  border: 1px solid var(--gray-200);
+  border-radius: 6px;
+  background: var(--gray-50);
+  font-size: 0.85rem;
+}
+
+.wh-sync-counts { display: inline-flex; align-items: center; gap: 0.2rem; }
+.wh-sync-when { margin-left: auto; color: var(--gray-500); }
+
+/* Stará synchronizácia sa nesmie tváriť ako čerstvá - zelená bodka spred
+   týždňa tvrdí niečo, čo už neplatí. */
+.wh-sync-stale {
+  border-color: #fcd34d;
+  background: #fffbeb;
+}
+.wh-sync-stale .wh-sync-when { color: #92400e; font-weight: 600; }
+
 /* Bulk action bar */
 .wh-bulk-bar {
   display: flex;

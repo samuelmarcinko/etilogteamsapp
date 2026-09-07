@@ -4271,6 +4271,7 @@ async function renderWarehouseMaterials(container) {
             </div>` : ''}
             <div class="portal-card">
                 <div class="card-body">
+                    <div id="whSyncBar"></div>
                     <div id="whMaterialsTable"><div class="empty-state"><div class="spinner"></div></div></div>
                 </div>
             </div>
@@ -4334,6 +4335,54 @@ function whSortAndRender() {
 function whSortIndicator(col) {
     if (whSortCol !== col) return '';
     return whSortDir === 'asc' ? ' ▲' : ' ▼';
+}
+
+/**
+ * Semafor: sedí sklad v appke so SAPom?
+ *
+ * Štyri stavy, nie viac - vo výrobnom pláne sa ukázalo, že piata farba je
+ * farba, ktorú sa nikto nenaučí. Oranžová má dva dôvody a text ich rozlíši,
+ * lebo vedú k inej práci: prepočítať palety, alebo počkať na príjemku.
+ *
+ * Vlastné položky semafor nedostanú vôbec - neporovnávajú sa s ničím. Šedá
+ * bodka pri tridsiatich deviatich riadkoch by sa čítala ako tridsať deväť
+ * problémov, a pritom to problém nie je.
+ */
+function whStockState(m) {
+    if (m.kind === 'local') return { key: 'local' };
+    if (m.sap_known === false) return { key: 'unknown' };
+    if (m.sap_known == null || m.sap_quantity == null) return { key: 'pending' };
+
+    const sap = Number(m.sap_quantity);
+    const here = Number(m.quantity);
+    if (sap === here) return { key: 'ok', sap };
+    // SAP nula pri tovare na palete nie je nezhoda v počte, ale položka, ktorá
+    // ešte nie je prijatá - iná otázka a iná odpoveď.
+    return { key: sap === 0 ? 'notbooked' : 'diff', sap, diff: here - sap };
+}
+
+function whStockCell(m) {
+    const state = whStockState(m);
+    if (state.key === 'local') {
+        return `<span class="wh-muted" title="${pt('whStockLocalHint')}">${pt('whStockLocal')}</span>`;
+    }
+
+    const when = m.sap_synced_at
+        ? `${pt('whStockSynced')}: ${whFormatDate(m.sap_synced_at)}`
+        : pt('whStockNeverSynced');
+
+    const text = {
+        ok: pt('whStockOk'),
+        diff: `${pt('whStockDiff')} ${state.diff > 0 ? '+' : ''}${state.diff}`,
+        notbooked: pt('whStockNotBooked'),
+        unknown: pt('whStockUnknown'),
+        pending: pt('whStockPending')
+    }[state.key];
+
+    const number = state.sap != null ? `<span class="wh-stock-num">${state.sap}</span>` : '';
+
+    return `<span class="wh-stock wh-stock-${state.key}" title="${escapeHtml(`${text} · ${when}`)}">`
+         + `<i class="wh-dot"></i>${number}</span>`;
 }
 
 /**
@@ -4438,9 +4487,79 @@ async function loadMaterialsTable() {
     }
 }
 
+/**
+ * Zhrnutie nad tabuľkou a stav synchronizácie.
+ *
+ * Zoznam práce na deň: koľko sedí, koľko treba prejsť. A hlavne - kedy sa
+ * naposledy ťahalo zo SAPu. Zelená bodka spred týždňa je horšia než žiadna,
+ * lebo tvrdí niečo, čo už dávno neplatí, tak to stránka po dvadsiatich štyroch
+ * hodinách povie nahlas.
+ */
+const WH_STALE_HOURS = 24;
+
+async function whRenderSyncBar() {
+    const bar = document.getElementById('whSyncBar');
+    if (!bar) return;
+
+    let info = null;
+    try {
+        const res = await apiCall('/api/warehouse/sync');
+        info = (await res.json()).data;
+    } catch (e) {
+        bar.innerHTML = '';
+        return;
+    }
+
+    const counts = { ok: 0, diff: 0, notbooked: 0, unknown: 0, pending: 0, local: 0 };
+    for (const m of whMaterialsList) counts[whStockState(m).key] += 1;
+    const toCheck = counts.diff + counts.notbooked;
+
+    const last = info?.lastRun?.finished_at || null;
+    const ageHours = last ? (Date.now() - new Date(last).getTime()) / 3600000 : null;
+    const stale = ageHours == null || ageHours > WH_STALE_HOURS;
+
+    bar.innerHTML = `
+        <div class="wh-sync-bar${stale ? ' wh-sync-stale' : ''}">
+            <span class="wh-sync-counts">
+                <span class="wh-stock wh-stock-ok"><i class="wh-dot"></i></span> ${counts.ok} ${pt('whStockOk')}
+                &nbsp;·&nbsp;
+                <span class="wh-stock wh-stock-diff"><i class="wh-dot"></i></span> ${toCheck} ${pt('whStockToCheck')}
+                ${counts.unknown ? `&nbsp;·&nbsp; ${counts.unknown} ${pt('whStockNoCodeShort')}` : ''}
+                ${counts.local ? `&nbsp;·&nbsp; ${counts.local} ${pt('whStockLocalShort')}` : ''}
+            </span>
+            <span class="wh-sync-when">
+                ${stale ? '⚠ ' : ''}${last ? `${pt('whStockSynced')}: ${whFormatDate(last)}` : pt('whStockNeverSynced')}
+                ${info?.warehouse ? ` · ${pt('whSapStore')} ${escapeHtml(info.warehouse)}` : ''}
+            </span>
+            ${canEditWarehouse()
+                ? `<button class="btn btn-secondary btn-sm" onclick="whRunSync(this)">${pt('whSyncNow')}</button>`
+                : ''}
+        </div>`;
+}
+
+/** Ručné spustenie. Tlačidlo sa zamkne, kým beží - SAP nemá rád dvakrát naraz. */
+async function whRunSync(button) {
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = pt('whSyncRunning');
+    try {
+        const res = await apiCall('/api/warehouse/sync', { method: 'POST' });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.message || pt('pageLoadError'));
+        showToast(`${pt('whSyncDone')}: ${body.data.matched}/${body.data.codes}`, 'success');
+        await loadMaterialsTable();
+    } catch (e) {
+        showToast(e.message, 'error');
+    } finally {
+        button.disabled = false;
+        button.textContent = original;
+    }
+}
+
 function whRenderMaterialsTable() {
     const tableEl = document.getElementById('whMaterialsTable');
     if (!tableEl) return;
+    whRenderSyncBar();
     if (whMaterialsList.length === 0) {
         tableEl.innerHTML = `<div class="empty-state"><div class="empty-icon">&#128230;</div><div class="empty-text">${pt('whMaterialsEmpty')}</div></div>`;
         return;
@@ -4453,6 +4572,7 @@ function whRenderMaterialsTable() {
                 <th class="sortable" onclick="whHeaderSort('code')">${pt('whColCode')}${whSortIndicator('code')}</th>
                 <th class="sortable" onclick="whHeaderSort('name')">${pt('whColName')}${whSortIndicator('name')}</th>
                 <th class="sortable" onclick="whHeaderSort('quantity')">${pt('whColQty')}${whSortIndicator('quantity')}</th>
+                <th>${pt('whColSap')}</th>
                 <th class="sortable" onclick="whHeaderSort('location')">${pt('whColLocation')}${whSortIndicator('location')}</th>
                 <th class="sortable" onclick="whHeaderSort('created_at')">${pt('whColCreated')}${whSortIndicator('created_at')}</th>
                 <th class="sortable" onclick="whHeaderSort('updated_at')">${pt('whColUpdated')}${whSortIndicator('updated_at')}</th>
@@ -4465,6 +4585,7 @@ function whRenderMaterialsTable() {
                         <td>${whCodeCell(m)}</td>
                         <td>${escapeHtml(m.name)}</td>
                         <td>${m.quantity} ${escapeHtml(m.unit || 'ks')}</td>
+                        <td>${whStockCell(m)}</td>
                         <td>${whLocationBadges(m)}</td>
                         <td class="wh-date-cell">${whFormatDate(m.created_at)}</td>
                         <td class="wh-date-cell">${whFormatDate(m.updated_at)}</td>
