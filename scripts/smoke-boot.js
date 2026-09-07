@@ -40,6 +40,7 @@ const CHECKS = [
   ['/api/auth/config', 200, 'MSAL config the login page fetches'],
   ['/api/admin/me', 401, 'protected route rejects an unauthenticated caller'],
   ['/api/warehouse/stats', 401, 'warehouse routes load and are protected'],
+  ['/api/warehouse/sync', 401, 'the warehouse SAP sync status loads and is protected'],
   ['/api/fleet', 401, 'fleet routes load and are protected'],
   ['/api/quotas/all', 401, 'quota routes load and are protected'],
   ['/api/sick-notes/all', 401, 'sick note routes load and are protected'],

@@ -6,6 +6,7 @@ const PalletLocation = require('../database/models/PalletLocation');
 const WarehouseAudit = require('../database/models/WarehouseAudit');
 const WarehouseBackupService = require('../services/warehouseBackupService');
 const warehouseBackup = new WarehouseBackupService();
+const WarehouseSyncService = require('../services/warehouseSyncService');
 const { verifyToken } = require('../middleware/auth');
 const { attachDbRole, requirePermission } = require('../middleware/portalAuth');
 const { asyncHandler } = require('../middleware/errorHandler');
@@ -251,6 +252,69 @@ router.post('/materials/:id/restore', writeAccess, asyncHandler(async (req, res)
     placements: placementSnapshot(full)   // positions brought back
   });
   res.json({ data: material });
+}));
+
+// =========================================================
+// Synchronizácia so SAPom (sklad 02-03)
+// =========================================================
+
+// GET /api/warehouse/sync - stav: kedy naposledy, ako dopadla, či prepisuje
+//
+// Čítacie právo stačí: skladník, ktorý sa pozerá na počet, má rovnaké právo
+// vedieť, či je z dneška alebo spred týždňa.
+router.get('/sync', readAccess, asyncHandler(async (req, res) => {
+  const [last, apply] = await Promise.all([
+    WarehouseSyncService.lastRun(),
+    WarehouseSyncService.applyEnabled()
+  ]);
+
+  res.json({
+    data: {
+      warehouse: WarehouseSyncService.WAREHOUSE,
+      schedule: WarehouseSyncService.SCHEDULE,
+      // Zapisuje sa už aj do počtov, alebo sa zatiaľ len zaznamenáva, čo SAP
+      // hovorí? Kým je to false, na obrazovke sa nič nemení.
+      applyingQuantities: apply,
+      lastRun: last
+    }
+  });
+}));
+
+// POST /api/warehouse/sync - spustiť teraz
+router.post('/sync', writeAccess, asyncHandler(async (req, res) => {
+  const result = await WarehouseSyncService.shared()
+    .runOnce({ triggeredBy: currentUser(req).name });
+
+  if (result.skipped) {
+    return res.status(409).json({ error: 'Conflict', message: `Synchronizácia ${result.skipped}` });
+  }
+  res.json({ data: result });
+}));
+
+// POST /api/warehouse/sync/apply - zapnúť/vypnúť prepisovanie počtov
+//
+// Admin, nie sklad: je to rozhodnutie o tom, kto vlastní číslo, nie denná
+// práca so skladom.
+router.post('/sync/apply', writeAccess, requireAdmin, asyncHandler(async (req, res) => {
+  if (typeof req.body.enabled !== 'boolean') {
+    return res.status(400).json({ error: 'Bad Request', message: 'enabled must be true or false' });
+  }
+  const enabled = await WarehouseSyncService.setApplyEnabled(req.body.enabled);
+  await WarehouseAudit.log(currentUser(req), 'updated', 'sync', null, {
+    setting: 'warehouse.sync.apply', enabled
+  });
+  res.json({ data: { applyingQuantities: enabled } });
+}));
+
+// POST /api/warehouse/sync/:id/revert - vrátiť počty, ktoré jeden beh prepísal
+router.post('/sync/:id/revert', writeAccess, requireAdmin, asyncHandler(async (req, res) => {
+  const result = await WarehouseSyncService.revert(Number(req.params.id));
+  if (result.notFound) return res.status(404).json({ error: 'Sync run not found' });
+
+  await WarehouseAudit.log(currentUser(req), 'restored', 'sync', Number(req.params.id), {
+    restored: result.restored, reason: result.reason || null
+  });
+  res.json({ data: result });
 }));
 
 module.exports = router;
