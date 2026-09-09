@@ -31,6 +31,12 @@ const scrypt = promisify(crypto.scrypt);
 const ISSUER = 'etilog-portal';
 const TOKEN_TTL = process.env.LOCAL_AUTH_TTL || '12h';
 
+// Tablet na stene v sklade sa nemá odhlásiť uprostred smeny - majster tam
+// nepríde zadávať heslo, príde si po materiál. Bezpečné je to preto, že sa účet
+// overuje v databáze pri každej požiadavke: vypnutý účet prestane platiť
+// okamžite, nie o rok. Namiesto hesla stráži obrazovku PIN.
+const KIOSK_TOKEN_TTL = process.env.LOCAL_AUTH_KIOSK_TTL || '365d';
+
 // Päť pokusov a štvrťhodina. Dosť na to, aby človek s prepnutou klávesnicou
 // nezostal vonku do rána, a málo na to, aby sa heslo dalo hádať.
 const MAX_FAILED = 5;
@@ -114,7 +120,7 @@ function issueToken(user) {
       typ: 'local'
     },
     secret(),
-    { algorithm: 'HS256', issuer: ISSUER, expiresIn: TOKEN_TTL }
+    { algorithm: 'HS256', issuer: ISSUER, expiresIn: user.is_kiosk ? KIOSK_TOKEN_TTL : TOKEN_TTL }
   );
 }
 
@@ -140,7 +146,8 @@ async function verifyLocalToken(token) {
   if (payload.typ !== 'local') return null;
 
   const { rows } = await pool.query(
-    `SELECT user_id, email, display_name, first_name, last_name, role, is_active
+    `SELECT user_id, email, display_name, first_name, last_name, role, is_active,
+            is_kiosk, pin_hash IS NOT NULL AS has_pin
        FROM users WHERE user_id = $1 AND auth_provider = 'local'`,
     [payload.sub]
   );
@@ -152,7 +159,11 @@ async function verifyLocalToken(token) {
     email: user.email,
     name: user.display_name || `${user.first_name || ''} ${user.last_name || ''}`.trim(),
     roles: [],
-    authProvider: 'local'
+    authProvider: 'local',
+    // Účet tabletu na stene. Obrazovku vyskladnenia mu stráži PIN - u človeka,
+    // ktorý sa práve prihlásil heslom, by bol PIN len prekážkou navyše.
+    isKiosk: Boolean(user.is_kiosk),
+    hasPin: Boolean(user.has_pin)
   };
 }
 
@@ -170,7 +181,8 @@ async function signIn(email, password) {
 
   const { rows } = await pool.query(
     `SELECT id, user_id, email, display_name, first_name, last_name, role,
-            password_hash, is_active, must_change_password, failed_logins, locked_until
+            password_hash, is_active, must_change_password, failed_logins, locked_until,
+            is_kiosk
        FROM users
       WHERE lower(email) = lower($1) AND auth_provider = 'local'`,
     [String(email).trim()]
@@ -277,6 +289,116 @@ function suggestPassword() {
 /** Identifikátor lokálneho účtu. Prefix, aby sa nedal zameniť s Azure oid. */
 const newUserId = () => `local:${uuidv4()}`;
 
+// ------------------------------------------------------------------- PIN
+//
+// PIN nie je prihlásenie. Prihlásený je tablet, a to natrvalo; PIN je zámok na
+// obrazovke vyskladnenia, aby na ňu neklikol ktokoľvek, kto ide okolo skladu.
+//
+// Štyri číslice sa dajú vyskúšať všetky, tak sa počítajú pokusy - ale zámok je
+// krátky, lebo tu pri tablete stojí človek a čaká, nie útočník niekde na sieti.
+// Ukladá sa rovnakým scryptom ako heslo, takže sa PIN nedá prečítať ani z
+// databázy, ani v admine - dá sa len prepísať novým.
+
+const PIN_LENGTH = 4;
+const PIN_MAX_FAILED = 5;
+const PIN_LOCK_SECONDS = 60;
+
+// Odomknutie platí o niečo dlhšie, než sa obrazovka sama zamkne (10 minút),
+// takže platný token nikdy nevyprší skôr, než sa človeka spýtame na PIN.
+const UNLOCK_TTL = '15m';
+
+function pinProblem(pin) {
+  if (!/^\d+$/.test(String(pin || ''))) return 'pin_digits';
+  if (String(pin).length !== PIN_LENGTH) return 'pin_length';
+  return null;
+}
+
+/** Nastavenie alebo zmena PINu. Vracia problém, ak PIN nemá správny tvar. */
+async function setPin(userId, pin) {
+  const problem = pinProblem(pin);
+  if (problem) return { error: problem };
+
+  const hash = await hashPassword(String(pin));
+  const { rowCount } = await pool.query(
+    `UPDATE users
+        SET pin_hash = $2, pin_set_at = CURRENT_TIMESTAMP,
+            failed_pins = 0, pin_locked_until = NULL
+      WHERE user_id = $1 AND auth_provider = 'local'`,
+    [userId, hash]
+  );
+  if (!rowCount) return { error: 'not_found' };
+  return { ok: true };
+}
+
+async function clearPin(userId) {
+  await pool.query(
+    `UPDATE users SET pin_hash = NULL, pin_set_at = NULL, failed_pins = 0, pin_locked_until = NULL
+      WHERE user_id = $1 AND auth_provider = 'local'`,
+    [userId]
+  );
+  return { ok: true };
+}
+
+/**
+ * Overenie PINu. Pri úspechu vracia token, ktorým sa preukazuje vyskladnenie -
+ * server tak nezáleží na tom, či obrazovka na tablete tvrdí, že je odomknutá.
+ */
+async function verifyPin(userId, pin) {
+  const { rows } = await pool.query(
+    `SELECT id, user_id, pin_hash, failed_pins, pin_locked_until
+       FROM users WHERE user_id = $1`,
+    [userId]
+  );
+  const user = rows[0];
+  if (!user || !user.pin_hash) return { error: 'no_pin' };
+
+  if (user.pin_locked_until && new Date(user.pin_locked_until) > new Date()) {
+    return { error: 'locked', until: user.pin_locked_until };
+  }
+
+  if (!(await verifyPassword(String(pin || ''), user.pin_hash))) {
+    const failed = (user.failed_pins || 0) + 1;
+    const lock = failed >= PIN_MAX_FAILED;
+    await pool.query(
+      `UPDATE users
+          SET failed_pins = $2,
+              pin_locked_until = CASE WHEN $3
+                THEN CURRENT_TIMESTAMP + ($4 || ' seconds')::interval ELSE pin_locked_until END
+        WHERE id = $1`,
+      [user.id, lock ? 0 : failed, lock, String(PIN_LOCK_SECONDS)]
+    );
+    return lock ? { error: 'locked' } : { error: 'bad_pin', left: PIN_MAX_FAILED - failed };
+  }
+
+  await pool.query(
+    'UPDATE users SET failed_pins = 0, pin_locked_until = NULL WHERE id = $1',
+    [user.id]
+  );
+
+  return { unlockToken: issueUnlockToken(user.user_id) };
+}
+
+/** Token pre odomknutú obrazovku. Vlastný `typ`, aby neprešiel ako prihlásenie. */
+function issueUnlockToken(userId) {
+  if (!enabled()) throw new Error('Local sign-in is not configured');
+  return jwt.sign(
+    { sub: userId, typ: 'pin' },
+    secret(),
+    { algorithm: 'HS256', issuer: ISSUER, expiresIn: UNLOCK_TTL }
+  );
+}
+
+/** Patrí tento odomykací token tomuto účtu a platí ešte? */
+function verifyUnlockToken(token, userId) {
+  if (!enabled() || !token) return false;
+  try {
+    const payload = jwt.verify(token, secret(), { algorithms: ['HS256'], issuer: ISSUER });
+    return payload.typ === 'pin' && payload.sub === userId;
+  } catch (error) {
+    return false;
+  }
+}
+
 module.exports = {
   enabled,
   hashPassword,
@@ -288,7 +410,14 @@ module.exports = {
   passwordProblem,
   suggestPassword,
   newUserId,
+  setPin,
+  clearPin,
+  verifyPin,
+  pinProblem,
+  issueUnlockToken,
+  verifyUnlockToken,
   ISSUER,
   MAX_FAILED,
-  LOCK_MINUTES
+  LOCK_MINUTES,
+  PIN_LENGTH
 };

@@ -24,7 +24,7 @@ function legacyPermissions(roleName) {
     granted.push('hr.manage');
   }
   if (roleName === 'sklad') {
-    granted.push('warehouse.read', 'warehouse.write');
+    granted.push('warehouse.read', 'warehouse.write', 'warehouse.withdraw');
   }
   if (roleName === 'sklad_read') {
     granted.push('warehouse.read');

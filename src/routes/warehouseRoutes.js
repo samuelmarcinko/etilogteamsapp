@@ -7,6 +7,8 @@ const WarehouseAudit = require('../database/models/WarehouseAudit');
 const WarehouseBackupService = require('../services/warehouseBackupService');
 const warehouseBackup = new WarehouseBackupService();
 const WarehouseSyncService = require('../services/warehouseSyncService');
+const WarehouseWithdrawal = require('../database/models/WarehouseWithdrawal');
+const localAuth = require('../services/localAuthService');
 const { verifyToken } = require('../middleware/auth');
 const { attachDbRole, requirePermission } = require('../middleware/portalAuth');
 const { asyncHandler } = require('../middleware/errorHandler');
@@ -16,6 +18,11 @@ const readAccess = [verifyToken, attachDbRole,
   requirePermission('warehouse.read', { legacyRoles: ['admin', 'sklad', 'sklad_read'] })];
 const writeAccess = [verifyToken, attachDbRole,
   requirePermission('warehouse.write', { legacyRoles: ['admin', 'sklad'] })];
+
+// Majster výroby si vyskladní materiál, ale do evidencie mu nič nepatrí -
+// preto vlastné právo, nie `warehouse.write`.
+const withdrawAccess = [verifyToken, attachDbRole,
+  requirePermission('warehouse.withdraw', { legacyRoles: ['admin', 'sklad'] })];
 
 // Admin-only gate (for audit log)
 function requireAdmin(req, res, next) {
@@ -348,6 +355,140 @@ router.post('/sync/:id/revert', writeAccess, requireAdmin, asyncHandler(async (r
     restored: result.restored, reason: result.reason || null
   });
   res.json({ data: result });
+}));
+
+// =========================================================
+// Vyskladnenie (tablet v sklade)
+// =========================================================
+
+/**
+ * Odomknutá obrazovka.
+ *
+ * PIN sa vyžaduje len od účtu tabletu. Ten visí na stene prihlásený natrvalo,
+ * takže jediné, čo medzi náhodným okoloidúcim a skladom stojí, je práve PIN.
+ * Od skladníka, ktorý sa pred chvíľou prihlásil heslom, by to bola prekážka
+ * navyše bez toho, aby čokoľvek chránila.
+ */
+function requireUnlocked(req, res, next) {
+  if (!req.user.isKiosk) return next();
+
+  const token = req.headers['x-unlock-token'] || req.body?.unlockToken || null;
+  if (!localAuth.verifyUnlockToken(token, req.user.id)) {
+    return res.status(423).json({ error: 'Locked', message: 'Obrazovka je zamknutá, zadajte PIN' });
+  }
+  next();
+}
+
+// GET /api/warehouse/withdrawals/session - čo má obrazovka ukázať ako prvé
+router.get('/withdrawals/session', withdrawAccess, asyncHandler(async (req, res) => {
+  res.json({
+    data: {
+      name: req.user.name,
+      // Účet tabletu bez nastaveného PINu je chyba v nastavení, nie dôvod
+      // pustiť kohokoľvek dnu - obrazovka to povie a nepokračuje.
+      kiosk: Boolean(req.user.isKiosk),
+      hasPin: Boolean(req.user.hasPin),
+      pinLength: localAuth.PIN_LENGTH
+    }
+  });
+}));
+
+// POST /api/warehouse/withdrawals/unlock - odomknutie PINom
+router.post('/withdrawals/unlock', withdrawAccess, asyncHandler(async (req, res) => {
+  const result = await localAuth.verifyPin(req.user.id, req.body.pin);
+
+  if (result.error === 'locked') {
+    return res.status(429).json({ error: 'locked', message: 'Priveľa pokusov, skúste o chvíľu' });
+  }
+  if (result.error) {
+    return res.status(401).json({ error: result.error, left: result.left ?? null });
+  }
+  res.json({ data: { unlockToken: result.unlockToken } });
+}));
+
+// GET /api/warehouse/withdrawals/search?q= - hľadanie v evidencii
+//
+// Len v evidencii. Do SAPu sa odtiaľto nechodí: vyskladniť sa dá to, čo má v
+// sklade svoje miesto, nie to, čo o sebe tvrdí SAP.
+router.get('/withdrawals/search', withdrawAccess, asyncHandler(async (req, res) => {
+  const matches = await WarehouseWithdrawal.search(req.query.q);
+  res.json({ data: matches });
+}));
+
+// POST /api/warehouse/withdrawals - zápis výdaja
+router.post('/withdrawals', withdrawAccess, requireUnlocked, asyncHandler(async (req, res) => {
+  const { materialId, locationId, quantity } = req.body;
+  if (!materialId || !locationId) {
+    return res.status(400).json({ error: 'Bad Request', message: 'materialId a locationId sú povinné' });
+  }
+
+  const result = await WarehouseWithdrawal.create({
+    materialId, locationId, quantity, user: currentUser(req)
+  });
+
+  if (result.error === 'not_enough') {
+    return res.status(409).json({
+      error: 'not_enough',
+      message: `Na pozícii je ${result.available} ks`,
+      available: result.available
+    });
+  }
+  if (result.error) return res.status(400).json({ error: result.error });
+
+  res.status(201).json({ data: result.withdrawal });
+}));
+
+// GET /api/warehouse/withdrawals - história
+router.get('/withdrawals', readAccess, asyncHandler(async (req, res) => {
+  const list = await WarehouseWithdrawal.findAll({
+    search: req.query.search || null,
+    status: req.query.status || null,
+    from: req.query.from || null,
+    to: req.query.to || null
+  });
+  res.json({ data: list });
+}));
+
+// GET /api/warehouse/withdrawals/new - čo pribudlo od poslednej návštevy
+router.get('/withdrawals/new', readAccess, asyncHandler(async (req, res) => {
+  res.json({ data: await WarehouseWithdrawal.newSince(req.user.id) });
+}));
+
+// POST /api/warehouse/withdrawals/seen - lišta odkliknutá
+router.post('/withdrawals/seen', readAccess, asyncHandler(async (req, res) => {
+  await WarehouseWithdrawal.markSeen(req.user.id);
+  res.json({ data: { ok: true } });
+}));
+
+// POST /api/warehouse/withdrawals/:id/void - storno
+//
+// Skladník, nie majster: opraviť sa dá to, čo sa už stalo, a to patrí tomu, kto
+// sklad vedie.
+router.post('/withdrawals/:id/void', writeAccess, asyncHandler(async (req, res) => {
+  const result = await WarehouseWithdrawal.void(
+    Number(req.params.id), currentUser(req), req.body.reason
+  );
+
+  if (result.error === 'not_found') return res.status(404).json({ error: 'Nenašlo sa' });
+  if (result.error === 'already_voided') {
+    return res.status(409).json({ error: 'already_voided', message: 'Toto vyskladnenie je už stornované' });
+  }
+  if (result.error === 'placement_gone') {
+    return res.status(409).json({
+      error: 'placement_gone',
+      message: 'Pôvodná pozícia už neexistuje - počet vráťte ručne v evidencii'
+    });
+  }
+
+  await WarehouseAudit.log(currentUser(req), 'restored', 'withdrawal', Number(req.params.id), {
+    code: result.withdrawal.material_code,
+    name: result.withdrawal.material_name,
+    quantity: result.withdrawal.quantity,
+    location_code: result.withdrawal.location_code,
+    reason: req.body.reason || null
+  });
+
+  res.json({ data: result.withdrawal });
 }));
 
 module.exports = router;

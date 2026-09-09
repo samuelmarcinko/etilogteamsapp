@@ -2837,6 +2837,7 @@ const PERMISSION_LABELS = {
     'fleet.access':     { title: 'Vozový park',        note: 'evidencia vozidiel' },
     'warehouse.read':   { title: 'Sklad – čítanie',    note: 'materiál a pohyby' },
     'warehouse.write':  { title: 'Sklad – úpravy',     note: 'príjem, výdaj, presuny' },
+    'warehouse.withdraw': { title: 'Sklad – vyskladnenie', note: 'obrazovka na tablete pre majstrov' },
     'production.view':  { title: 'Výrobný plán',       note: 'čítanie plánu' },
     'production.manage':{ title: 'Výrobný plán – úpravy', note: 'plánovanie, presuny, poznámky' },
     // Held apart from čítanie on purpose: mnohí plán čítajú, ale správu pri

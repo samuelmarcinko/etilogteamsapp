@@ -16,6 +16,9 @@ const PERMISSION_KEYS = [
   'fleet.access',
   'warehouse.read',
   'warehouse.write',
+  // Zámerne oddelené od úprav skladu: majster výroby si na poobednej smene
+  // vyskladní materiál, ale do evidencie mu nič nepatrí.
+  'warehouse.withdraw',
   'production.view',
   'production.manage',
   // Deliberately separate from production.view: plenty of people need to read
