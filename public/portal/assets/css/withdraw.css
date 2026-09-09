@@ -84,12 +84,14 @@ body:not(.wd-active) .wd-shell { min-height: 70vh; border-radius: 14px; overflow
   width: 100%;
 }
 
-/* Mapa vľavo, ovládanie vpravo. Pod 900 px sa mapa presunie nad ovládanie -
-   na výšku by dva stĺpce nechali na obe polovice príliš málo. */
+/* Mapa vľavo, ovládanie vpravo, zhruba tri ku jednej.
+   Mapa je to, čo majster potrebuje prečítať cez pol haly; klávesnica je len
+   nástroj a stačí jej toľko, aby sa do nej dalo trafiť palcom. Pod 900 px sa
+   mapa presunie nad ovládanie - na výšku by dva stĺpce nechali obom málo. */
 .wd-split {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr);
-  gap: 1.5rem;
+  grid-template-columns: minmax(0, 3fr) minmax(270px, 1fr);
+  gap: 1.25rem;
   align-items: start;
 }
 
@@ -163,8 +165,8 @@ body:not(.wd-active) .wd-shell { min-height: 70vh; border-radius: 14px; overflow
   cursor: pointer;
 }
 
-.wd-place strong { font-size: 1.9rem; font-weight: 700; letter-spacing: -.02em; }
-.wd-place span { font-size: 1.1rem; color: var(--gray-500); }
+.wd-place strong { font-size: 1.7rem; font-weight: 700; letter-spacing: -.02em; }
+.wd-place span { font-size: 1rem; color: var(--gray-500); }
 .wd-place:active { border-color: var(--etilog-red); background: #fff5f5; }
 
 /* ------------------------------------------------------------- 3. počet */
@@ -174,54 +176,54 @@ body:not(.wd-active) .wd-shell { min-height: 70vh; border-radius: 14px; overflow
   align-items: baseline;
   justify-content: center;
   gap: .5rem;
-  padding: .8rem 1rem;
+  padding: .7rem 1rem;
   border: 2px solid var(--gray-200);
   border-radius: 14px;
   background: var(--white);
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
-  font-size: 3.2rem;
+  font-size: 2.6rem;
   font-weight: 700;
   line-height: 1;
   color: var(--gray-900);
 }
 
-.wd-qty small { font-size: 1.1rem; font-weight: 500; color: var(--gray-500); }
+.wd-qty small { font-size: 1rem; font-weight: 500; color: var(--gray-500); }
 
 .wd-note {
   margin: 0;
-  padding: .8rem 1rem;
+  padding: .7rem .9rem;
   border-radius: 12px;
   background: var(--white);
   border: 1px solid var(--gray-200);
   color: var(--gray-600);
-  font-size: 1rem;
+  font-size: .92rem;
   line-height: 1.45;
 }
 
-.wd-qty-actions { display: flex; gap: .75rem; }
-.wd-qty-actions > * { flex: 1; }
+/* Pod sebou, nie vedľa seba: v štvrtinovom stĺpci by sa dve tlačidlá vedľa
+   seba zúžili na text, ktorý sa zalamuje. */
+.wd-qty-actions { display: flex; flex-direction: column; gap: .6rem; }
 
 /* -------------------------------------------------------------- 4. súhrn */
 
 .wd-summary {
   margin: 0;
-  padding: 1.2rem 1.4rem;
+  padding: 1rem 1.1rem;
   border-radius: 14px;
   background: var(--white);
   border: 1px solid var(--gray-200);
 }
 
+/* V úzkom stĺpci sa popis a hodnota nezmestia vedľa seba, tak sú pod sebou -
+   hodnota tak môže zostať veľká a nemusí sa zalamovať. */
 .wd-summary > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: .7rem 0;
+  padding: .55rem 0;
   border-bottom: 1px solid var(--gray-100);
 }
 
 .wd-summary > div:last-child { border-bottom: 0; padding-bottom: 0; }
-.wd-summary dt { color: var(--gray-500); font-size: 1rem; }
-.wd-summary dd { margin: 0; text-align: right; font-size: 1.1rem; color: var(--gray-900); }
+.wd-summary dt { color: var(--gray-500); font-size: .82rem; text-transform: uppercase; letter-spacing: .04em; }
+.wd-summary dd { margin: .15rem 0 0; font-size: 1.05rem; color: var(--gray-900); }
 .wd-summary .wd-strong { font-size: 1.5rem; font-weight: 700; letter-spacing: -.02em; }
 .wd-dim { color: var(--gray-400); font-size: .95rem; }
 
@@ -229,7 +231,7 @@ body:not(.wd-active) .wd-shell { min-height: 70vh; border-radius: 14px; overflow
 
 .wd-primary, .wd-secondary {
   min-height: 72px;
-  padding: 0 1.5rem;
+  padding: 0 1.2rem;
   border: 0;
   border-radius: 14px;
   font-family: inherit;
@@ -237,6 +239,12 @@ body:not(.wd-active) .wd-shell { min-height: 70vh; border-radius: 14px; overflow
   font-weight: 700;
   cursor: pointer;
 }
+
+.wd-col-side .wd-primary, .wd-col-side .wd-secondary { min-height: 64px; font-size: 1.1rem; }
+
+/* Posledné potvrdenie zostáva najväčším terčom na obrazovke aj v užšom
+   stĺpci - je to jediný krok, ktorý naozaj mení stav skladu. */
+.wd-col-side .wd-big { min-height: 84px; font-size: 1.35rem; }
 
 .wd-primary { background: var(--etilog-red); color: #fff; }
 .wd-primary:active:not(:disabled) { background: #b80009; }
@@ -265,6 +273,12 @@ body:not(.wd-active) .wd-shell { min-height: 70vh; border-radius: 14px; overflow
   color: var(--gray-800);
   cursor: pointer;
 }
+
+/* V užšom stĺpci vedľa mapy je klávesnica nižšia. Kláves má stále cez 60 px,
+   čo je viac než dosť na palec v rukavici - vysoká len preto, aby vyplnila
+   stĺpec, by brala miesto mape. */
+.wd-col-side .wd-key { min-height: 62px; font-size: 1.5rem; }
+.wd-col-side .wd-pad { gap: .5rem; }
 
 .wd-key:active { background: var(--gray-100); border-color: var(--gray-300); }
 
