@@ -14,6 +14,11 @@
    načítať aj na tablete v hale cez pomalú wifi.
    ============================================ */
 
+/* `hidden` musí schovať aj to, čomu sme nižšie nastavili display.
+   Bez tohto zostane tlačidlo Microsoftu na obrazovke aj počas vynútenej zmeny
+   hesla - `display: flex` z triedy prebije `display: none` z prehliadača. */
+[hidden] { display: none !important; }
+
 .auth-body {
   min-height: 100vh;
   min-height: 100dvh;
@@ -123,11 +128,48 @@
 /* --------------------------------------------------------- formulárová strana */
 
 .auth-panel {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 2.5rem 2rem;
   overflow-y: auto;
+}
+
+/* Prepínač jazyka v rohu, mimo formulára.
+   Kto ho potrebuje, hľadá ho práve tam; kto nie, ten ho neprelistuje cestou k
+   heslu. Dva krátke kódy, nie rozbaľovací zoznam - pri dvoch jazykoch je
+   zoznam o kliknutie navyše a o nič viac. */
+.auth-lang {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.75rem;
+  display: inline-flex;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--white);
+}
+
+.auth-lang-btn {
+  padding: .35rem .7rem;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--gray-500);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+
+.auth-lang-btn + .auth-lang-btn { border-left: 1px solid var(--gray-200); }
+.auth-lang-btn:hover { background: var(--gray-50); color: var(--gray-700); }
+
+.auth-lang-btn.active {
+  background: var(--etilog-red);
+  color: #fff;
 }
 
 .auth-form { width: 100%; max-width: 23rem; }
@@ -295,7 +337,9 @@
   .auth-brand-claim { font-size: 1.15rem; margin-bottom: 0; }
   .auth-brand-sub { display: none; }
 
-  .auth-panel { padding: 2rem 1.25rem 3rem; align-items: flex-start; }
+  .auth-panel { padding: 3.25rem 1.25rem 3rem; align-items: flex-start; }
+  /* Nad formulárom, nie nad ním prekrytý - inak by prepínač sedel na nadpise. */
+  .auth-lang { top: 1rem; right: 1.25rem; }
 }
 
 /* Na úzkych telefónoch ide značka preč úplne a nesie ju malé logo hore. */

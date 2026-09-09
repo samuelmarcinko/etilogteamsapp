@@ -38,6 +38,7 @@ const CHECKS = [
   ['/portal/', 200, 'portal SPA shell'],
   ['/api/health', 200, 'API health'],
   ['/api/auth/config', 200, 'MSAL config the login page fetches'],
+  ['/api/auth/methods', 200, 'the login page asks this whether to show the password form'],
   ['/api/admin/me', 401, 'protected route rejects an unauthenticated caller'],
   ['/api/warehouse/stats', 401, 'warehouse routes load and are protected'],
   ['/api/warehouse/sync', 401, 'the warehouse SAP sync status loads and is protected'],

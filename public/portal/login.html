@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="sk">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ETILOG Portal – Prihlásenie</title>
+    <title>ETILOG Portal – Sign in</title>
     <link rel="stylesheet" href="/portal/assets/css/portal.css">
     <link rel="stylesheet" href="/portal/assets/css/login.css">
 </head>
@@ -16,18 +16,25 @@
         <div class="auth-brand-inner">
             <img src="/assets/images/logo.png" alt="" class="auth-brand-logo">
             <!-- Nie „packaging & beyond" - to už stojí v logu nad tým. -->
-            <p class="auth-brand-claim">Interný portál</p>
-            <p class="auth-brand-sub">Výroba, sklad, vozový park a žiadosti na jednom mieste.</p>
+            <p class="auth-brand-claim" data-i18n="loginBrandTitle">Internal portal</p>
+            <p class="auth-brand-sub" data-i18n="loginBrandSub">Production, warehouse, fleet and requests in one place.</p>
         </div>
     </aside>
 
     <main class="auth-panel">
+        <!-- Prepínač jazyka hore vpravo, mimo formulára. Kto ho potrebuje,
+             hľadá ho v rohu; kto nie, ten ho neprelistuje cestou k heslu. -->
+        <div class="auth-lang" role="group" aria-label="Language">
+            <button type="button" class="auth-lang-btn" data-lang="en" onclick="authSetLang('en')">EN</button>
+            <button type="button" class="auth-lang-btn" data-lang="sk" onclick="authSetLang('sk')">SK</button>
+        </div>
+
         <div class="auth-form">
 
             <header class="auth-head">
                 <img src="/assets/images/logo.png" alt="ETILOG" class="auth-logo-small">
-                <h1>Prihlásenie</h1>
-                <p id="authLead">Pokračujte pracovným účtom Microsoft.</p>
+                <h1 data-i18n="loginTitle">Sign in</h1>
+                <p id="authLead" data-i18n="loginLeadMs">Continue with your Microsoft work account.</p>
             </header>
 
             <div id="authError" class="auth-alert" hidden></div>
@@ -41,29 +48,30 @@
                     <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
                     <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
                 </svg>
-                Prihlásiť sa cez Microsoft
+                <span data-i18n="loginMsButton">Sign in with Microsoft</span>
             </button>
 
             <!-- Heslom sa prihlasujú dodávatelia zvonku. Formulár je vidieť
                  rovno, neschovaný za odkazom - kto ho potrebuje, nemá ho
                  hľadať. -->
             <div id="authPasswordBlock" hidden>
-                <div class="auth-or"><span>alebo heslom</span></div>
+                <div class="auth-or"><span data-i18n="loginOrPassword">or with a password</span></div>
 
                 <form id="authForm" autocomplete="on">
-                    <label class="auth-label" for="authEmail">E-mail</label>
+                    <label class="auth-label" for="authEmail" data-i18n="loginEmail">E-mail</label>
                     <input class="auth-input" type="email" id="authEmail" name="email"
-                           autocomplete="username" required placeholder="meno@firma.sk">
+                           autocomplete="username" required data-i18n-placeholder="loginEmailHint">
 
-                    <label class="auth-label" for="authPass">Heslo</label>
+                    <label class="auth-label" for="authPass" data-i18n="loginPassword">Password</label>
                     <div class="auth-pass">
                         <input class="auth-input" type="password" id="authPass" name="password"
                                autocomplete="current-password" required>
                         <button type="button" class="auth-eye" id="authEye"
-                                aria-label="Zobraziť heslo" onclick="authTogglePassword()">👁</button>
+                                data-i18n-label="loginShowPassword" onclick="authTogglePassword()">👁</button>
                     </div>
 
-                    <button type="submit" class="auth-btn-primary" id="authSubmit">Prihlásiť sa</button>
+                    <button type="submit" class="auth-btn-primary" id="authSubmit"
+                            data-i18n="loginSubmit">Sign in</button>
                 </form>
             </div>
 
@@ -71,28 +79,30 @@
                  Ten tak nikdy nepozná heslo, ktorým sa človek reálne
                  prihlasuje. -->
             <div id="authChangeBlock" hidden>
-                <div class="auth-or"><span>zmeňte si heslo</span></div>
-                <p class="auth-note">Heslo vám nastavil správca. Než budete pokračovať, zvoľte si vlastné.</p>
+                <div class="auth-or"><span data-i18n="loginChangeTitle">choose your password</span></div>
+                <p class="auth-note" data-i18n="loginChangeNote">An administrator set this password for you.</p>
                 <form id="authChangeForm">
-                    <label class="auth-label" for="authNewPass">Nové heslo</label>
+                    <label class="auth-label" for="authNewPass" data-i18n="loginNewPassword">New password</label>
                     <input class="auth-input" type="password" id="authNewPass"
                            autocomplete="new-password" minlength="10" required>
-                    <label class="auth-label" for="authNewPass2">Nové heslo znova</label>
+                    <label class="auth-label" for="authNewPass2" data-i18n="loginNewPasswordAgain">Repeat new password</label>
                     <input class="auth-input" type="password" id="authNewPass2"
                            autocomplete="new-password" minlength="10" required>
-                    <button type="submit" class="auth-btn-primary">Uložiť a pokračovať</button>
+                    <button type="submit" class="auth-btn-primary"
+                            data-i18n="loginChangeSubmit">Save and continue</button>
                 </form>
             </div>
 
             <div id="authBusy" class="auth-busy" hidden>
                 <div class="auth-spinner"></div>
-                <p>Prihlasovanie…</p>
+                <p data-i18n="loginBusy">Signing in…</p>
             </div>
 
-            <footer class="auth-foot">ETILOG s.r.o. &bull; Interné použitie</footer>
+            <footer class="auth-foot" data-i18n="loginFooter">ETILOG s.r.o. &bull; Internal use</footer>
         </div>
     </main>
 
+    <script src="/portal/assets/js/portalI18n.js"></script>
     <script src="/portal/assets/js/msal-browser.min.js"></script>
     <script src="/portal/assets/js/authConfig.js"></script>
     <script src="/portal/assets/js/auth.js"></script>
