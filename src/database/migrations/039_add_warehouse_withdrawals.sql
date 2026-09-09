@@ -78,6 +78,25 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS pin_locked_until TIMESTAMP;
 -- overuje v databáze - vypnutý účet prestane platiť okamžite, nie o rok.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_kiosk BOOLEAN NOT NULL DEFAULT FALSE;
 
+-- Nové právo musí prejsť aj cez zoznam v databáze, nielen cez ten v kóde.
+-- Bez tohto sa `warehouse.withdraw` nedá v admine prideliť žiadnej role -
+-- zápis padne na CHECK a majstri sa na tablet nedostanú. Žiadny existujúci
+-- riadok sa nemení, len sa rozširuje zoznam prípustných hodnôt.
+ALTER TABLE role_permissions DROP CONSTRAINT IF EXISTS chk_permission_key;
+
+ALTER TABLE role_permissions
+    ADD CONSTRAINT chk_permission_key CHECK (permission_key IN (
+        'hr.access',
+        'hr.manage',
+        'fleet.access',
+        'warehouse.read',
+        'warehouse.write',
+        'warehouse.withdraw',
+        'production.view',
+        'production.manage',
+        'production.notify'
+    ));
+
 -- Lišta pre skladníkov hovorí "toto pribudlo od tvojej poslednej návštevy",
 -- takže si každý nesie vlastnú značku. Kompletná história je v Vyskladneniach
 -- a čo treba vybaviť, vidno na semafore.
