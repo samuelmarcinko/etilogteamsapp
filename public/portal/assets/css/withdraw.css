@@ -27,16 +27,29 @@ body.wd-active .portal-lang-switcher { display: none !important; }
    inak odsadzuje o jeho šírku a na tablete by vľavo zostal prázdny pás. */
 body.wd-active .main-content { margin-left: 0; padding: 0; max-width: none; }
 
+/* `--wd-vh` je výška, ktorú prehliadač hlási ako viditeľnú - teda bez toho, čo
+   prekrýva klávesnica. Android ju totiž nevykreslí "do stránky", len ju
+   prekryje, a `100dvh` by nechalo spodnú polovicu obsahu pod ňou. Nastavuje sa
+   z warehouseWithdraw.js; kým ju nikto nenastaví, platí celá výška okna.
+
+   `max-height` je tu rovnako dôležitá ako `min-height`: keď je stránka presne
+   taká vysoká ako viditeľná plocha, nie je kam rolovať - a prehliadač teda
+   nemá ako odsunúť hlavičku nad horný okraj, keď sa aktivuje pole. */
 .wd-shell {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
-  min-height: 100dvh;
+  min-height: var(--wd-vh, 100dvh);
+  max-height: var(--wd-vh, 100dvh);
   background: var(--gray-50);
   color: var(--gray-900);
+  overflow: hidden;
 }
 
-body:not(.wd-active) .wd-shell { min-height: 70vh; border-radius: 14px; overflow: hidden; }
+body:not(.wd-active) .wd-shell {
+  min-height: 70vh;
+  max-height: none;
+  border-radius: 14px;
+}
 
 /* ------------------------------------------------------------- hlavička */
 
@@ -98,6 +111,21 @@ body:not(.wd-active) .wd-shell { min-height: 70vh; border-radius: 14px; overflow
 @media (max-width: 900px) {
   .wd-split { grid-template-columns: 1fr; }
   .wd-col-map { max-height: 38vh; overflow: hidden; }
+}
+
+/* Vysunutá klávesnica nechá z obrazovky pruh. Vtedy ustúpi všetko, čo nie je
+   nutné - podnadpis a nápoveda - aby zostalo miesto na pole a na výsledky.
+   Hlavička zostáva: nesie Späť a Zrušiť. */
+@media (max-height: 520px) {
+  .wd-head { padding: .55rem 1rem; }
+  .wd-head h1 { font-size: 1.15rem; }
+  .wd-head p { display: none; }
+  .wd-back, .wd-cancel { min-height: 46px; }
+  .wd-body { padding: .75rem 1rem; }
+  .wd-tip { display: none; }
+  .wd-input { padding: .8rem 1rem; font-size: 1.5rem; }
+  .wd-hit { min-height: 62px; }
+  .wd-col-map { display: none; }
 }
 
 .wd-col-side { display: flex; flex-direction: column; gap: 1rem; }

@@ -67,7 +67,10 @@ async function renderWarehouseWithdraw(container) {
 
     // Celoobrazovkový režim len pre tablet. Skladníkovi za počítačom netreba
     // brať menu - on sa po portáli pohybuje ďalej.
-    if (session.kiosk) document.body.classList.add('wd-active');
+    if (session.kiosk) {
+        document.body.classList.add('wd-active');
+        wdTrackViewport();
+    }
 
     if (!wdMapSvg) {
         wdMapSvg = await fetch('/portal/assets/images/warehouse-map.svg')
@@ -81,9 +84,52 @@ async function renderWarehouseWithdraw(container) {
 /** Odchod z obrazovky. Bez tohto by tablet zostal v celoobrazovkovom režime. */
 function wdLeave() {
     document.body.classList.remove('wd-active');
+    wdUntrackViewport();
     clearTimeout(wdIdleTimer);
     clearTimeout(wdLockTimer);
     wdState = null;
+}
+
+// ------------------------------------------------------------ obrazovka
+
+/** Prst, nie myš. Rozhoduje o tom, či sa pole aktivuje samo. */
+function wdTouchDevice() {
+    return window.matchMedia?.('(pointer: coarse)').matches
+        || Boolean(wdState?.session?.kiosk);
+}
+
+/**
+ * Koľko z obrazovky je naozaj vidieť.
+ *
+ * Android klávesnicu nevykreslí "do stránky" - prekryje ju. Stránka o tom nevie,
+ * `100dvh` zostáva výška celého displeja a spodná polovica obsahu skončí pod
+ * klávesnicou. Preto sa výška berie z toho, čo prehliadač hlási ako viditeľné,
+ * a obsah sa doň zmestí aj s hlavičkou.
+ */
+let wdApplyViewport = null;
+
+function wdTrackViewport() {
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    wdApplyViewport = () => {
+        document.documentElement.style.setProperty('--wd-vh', `${Math.round(vv.height)}px`);
+        // Keď je stránka presne taká vysoká ako viditeľná plocha, nie je kam
+        // rolovať - a prehliadač teda nemá ako odsunúť hlavičku nad okraj.
+        window.scrollTo(0, 0);
+    };
+
+    vv.addEventListener('resize', wdApplyViewport);
+    vv.addEventListener('scroll', wdApplyViewport);
+    wdApplyViewport();
+}
+
+function wdUntrackViewport() {
+    if (!wdApplyViewport || !window.visualViewport) return;
+    window.visualViewport.removeEventListener('resize', wdApplyViewport);
+    window.visualViewport.removeEventListener('scroll', wdApplyViewport);
+    document.documentElement.style.removeProperty('--wd-vh');
+    wdApplyViewport = null;
 }
 
 // --------------------------------------------------------------- časovače
@@ -193,7 +239,11 @@ function wdRender() {
     // o návrat na krok s už napísaným dotazom.
     if (wdState.step === 'code') {
         wdPaintHits();
-        setTimeout(() => document.getElementById('wdQuery')?.focus(), 60);
+        // Na dotykovom zariadení sa pole neaktivuje samo. Klávesnica by vyskočila
+        // hneď po príchode, prekryla polovicu obrazovky a prehliadač by k poľu
+        // odroloval - hlavička aj nápoveda by zmizli skôr, než by ich niekto
+        // stihol prečítať. Majster klepne, keď bude chcieť písať.
+        if (!wdTouchDevice()) setTimeout(() => document.getElementById('wdQuery')?.focus(), 60);
     }
     wdTouch();
 }

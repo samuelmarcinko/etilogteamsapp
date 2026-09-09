@@ -144,7 +144,26 @@ async function main() {
   await page.waitForTimeout(300);
   check('po PINe pýta číslo materiálu', await page.isVisible('#wdQuery'), true);
 
-  console.log('\n2. Písanie kódu');
+  console.log('\n2. Klávesnica na tablete');
+  check('pole sa neaktivuje samo', await page.evaluate(() => document.activeElement?.id !== 'wdQuery'), true);
+
+  // Vysunutá klávesnica z 12-palcového displeja nechá pruh vysoký asi 360 bodov.
+  // Hlavička s tlačidlom Zrušiť aj samotné pole musia zostať vidieť.
+  await page.setViewportSize({ width: 1340, height: 360 });
+  await page.waitForTimeout(200);
+  check('hlavička zostala na obrazovke', await page.isVisible('.wd-head'), true);
+  check('tlačidlo Zrušiť je dosiahnuteľné', await page.isVisible('.wd-cancel'), true);
+  check('pole je vidieť', await page.isVisible('#wdQuery'), true);
+  check('stránka sa nikam neodroluje', await page.evaluate(
+    () => document.documentElement.scrollHeight <= window.innerHeight + 1), true);
+
+  const box = await page.locator('#wdQuery').boundingBox();
+  check('pole sedí vo viditeľnej časti', box.y >= 0 && box.y + box.height <= 360, true);
+
+  await page.setViewportSize({ width: 1340, height: 800 });
+  await page.waitForTimeout(200);
+
+  console.log('\n3. Písanie kódu');
   const type = async (text, delay) => {
     await page.evaluate(() => { document.getElementById('wdQuery').value = ''; wdSearch(''); });
     await page.click('#wdQuery');
@@ -162,7 +181,7 @@ async function main() {
   check('kurzor zostal v poli', await page.evaluate(() => document.activeElement?.id), 'wdQuery');
   check('vlastnú položku nájde názov', (await type('tašky', 30)) === 'tašky', true);
 
-  console.log('\n3. Celá cesta výdaja');
+  console.log("\n4. Celá cesta výdaja");
   await type('RM102750', 30);
   await page.click('.wd-hit');
   await page.waitForTimeout(200);
@@ -180,7 +199,7 @@ async function main() {
         await page.evaluate(() => window.__sent[0]), { materialId: 1, locationId: 11, quantity: 20 });
   check('a obrazovka to potvrdila', await page.isVisible('.wd-done'), true);
 
-  console.log('\n4. Vlastná položka');
+  console.log("\n5. Vlastná položka");
   await page.evaluate(() => wdReset());
   await type('tašky', 30);
   await page.click('.wd-hit');
@@ -193,7 +212,7 @@ async function main() {
   await page.waitForTimeout(200);
   check('výdaj nad zapísaný počet prejde', await page.evaluate(() => wdState.step), 'confirm');
 
-  console.log('\n5. Nad stav pri položke zo SAPu');
+  console.log("\n6. Nad stav pri položke zo SAPu");
   await page.evaluate(() => wdReset());
   await type('RM102750', 30);
   await page.click('.wd-hit');
