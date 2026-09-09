@@ -12,6 +12,7 @@ const productionRoutes = require('./productionRoutes');
 const sapRoutes = require('./sapRoutes');
 const fleetRoutes = require('./fleetRoutes');
 const warehouseRoutes = require('./warehouseRoutes');
+const localAuthRoutes = require('./localAuthRoutes');
 
 // Health check endpoint
 router.get('/health', (req, res) => {
@@ -37,5 +38,8 @@ router.use('/production/sap', sapRoutes);
 router.use('/production', productionRoutes);
 router.use('/fleet', fleetRoutes);
 router.use('/warehouse', warehouseRoutes);
+// Prihlásenie heslom a správa takých účtov. Mountnuté pod /auth, vedľa
+// verejného /api/auth/config, ktoré rieši MSAL konfiguráciu.
+router.use('/auth', localAuthRoutes);
 
 module.exports = router;
