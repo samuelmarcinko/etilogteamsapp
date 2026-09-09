@@ -136,6 +136,29 @@ async function main() {
   check('do evidencie materiálu nesmie', (await call('GET', '/api/warehouse/materials', { token })).status, 403);
   check('do histórie vyskladnení nesmie', (await call('GET', '/api/warehouse/withdrawals', { token })).status, 403);
 
+  // HR dostáva každá rola automaticky (`hr.access`), takže tablet sa musí
+  // zastaviť skôr, než sa na to právo vôbec niekto spýta. Visí na stene v hale
+  // a kto naň dosiahne, dosiahne aj na jeho token.
+  check('na žiadosti nesmie', (await call('GET', '/api/tickets/my/tickets', { token })).status, 403);
+  check('na kvóty nesmie', (await call('GET', '/api/quotas/my', { token })).status, 403);
+  check('na vozový park nesmie', (await call('GET', '/api/fleet', { token })).status, 403);
+  check('na zoznam zamestnancov nesmie', (await call('GET', '/api/users', { token })).status, 403);
+
+  // Vlastný profil áno - bez neho by sa portál nemal ako vykresliť. Ale
+  // s jediným právom, nie s tým, čo mu dáva rola.
+  //
+  // Na databáze bez HR tabuliek (tie v produkcii vznikli ručne pred migračným
+  // behom) odpovie táto adresa 500 z vlastných dôvodov. Podstatné je, že ju
+  // zámok tabletu nezastaví; obsah sa overí, keď odpoveď príde.
+  const me = await call('GET', '/api/admin/me', { token });
+  check('vlastný profil mu zámok nezakáže', me.status !== 403, true);
+  if (me.status === 200) {
+    check('a má v ňom jediné právo', me.body.data.permissions, ['warehouse.withdraw']);
+    check('portál vie, že je to tablet', me.body.data.isKiosk, true);
+  } else {
+    console.log(`  --   obsah profilu tu neoverím (${me.status}: ${me.body.message || ''})`);
+  }
+
   console.log('\n3. Zámok');
   const noPin = await call('POST', '/api/warehouse/withdrawals', {
     token, body: { materialId: mrows[0].id, locationId: b1, quantity: 5 } });

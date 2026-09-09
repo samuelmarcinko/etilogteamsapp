@@ -44,7 +44,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateSidebarLanguage();
     initSidebarCollapse();
     setupNavigation();
-    navigateToPage(window.location.hash.slice(1) || 'hub');
+
+    // Tablet na stene v sklade nemá po portáli čo hľadať. Nechodí sem nikto,
+    // kto by si vyberal z dlaždíc - príde majster po materiál, a to je jediné,
+    // čo tá obrazovka vie. Preto rovno tam, bez rozcestníka.
+    navigateToPage(portalUser.isKiosk
+        ? 'warehouse-withdraw'
+        : (window.location.hash.slice(1) || 'hub'));
 });
 
 async function loadUserProfile() {
@@ -143,6 +149,10 @@ function applyModulePreset(module) {
 
 function navigateToPage(page) {
     if (!page) page = 'hub';
+
+    // Účet tabletu sa nikam inam nedostane, ani keby niekto prepísal adresu.
+    // Je to jednoúčelové zariadenie na stene, nie prehliadač.
+    if (portalUser?.isKiosk) page = 'warehouse-withdraw';
 
     // Pages accessible to spravca role
     const spravcaPages = ['admin-employees', 'admin-quotas', 'admin-sick-notes', 'admin-tickets'];

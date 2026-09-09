@@ -45,6 +45,30 @@ function isLocalToken(token) {
 }
 
 /**
+ * Kam smie tablet zo skladu.
+ *
+ * Visí na stene v hale, prihlásený natrvalo, a kto naň dosiahne, dosiahne aj
+ * na jeho token. Preto sa mu neobmedzujú len práva v matici - obmedzuje sa mu
+ * rovno to, na ktoré adresy sa vôbec dostane. HR by inak mal, lebo `hr.access`
+ * dostáva každá rola automaticky.
+ *
+ * Zoznam je krátky zámerne: vyskladnenie, vlastný profil (bez neho by sa
+ * portál nemal ako vykresliť) a prihlásenie. Nič iné.
+ */
+const KIOSK_PATHS = [
+  '/api/warehouse/withdrawals',
+  '/api/admin/me',
+  '/api/auth/'
+];
+
+function kioskMayReach(req) {
+  // `originalUrl`, nie `path`: to druhé je vo vnútri routera orezané o miesto,
+  // kde je router pripojený, a zoznam by porovnával polovicu adresy.
+  const path = (req.originalUrl || '').split('?')[0];
+  return KIOSK_PATHS.some((allowed) => path.startsWith(allowed));
+}
+
+/**
  * Middleware to verify Azure AD / Teams token, or a local sign-in token
  */
 async function verifyToken(req, res, next) {
@@ -70,6 +94,12 @@ async function verifyToken(req, res, next) {
         return res.status(401).json({ error: 'Unauthorized', message: 'Invalid or expired session' });
       }
       req.user = localUser;
+      if (localUser.isKiosk && !kioskMayReach(req)) {
+        return res.status(403).json({
+          error: 'Forbidden',
+          message: 'Účet tabletu smie len vyskladnenie'
+        });
+      }
       return next();
     }
 
@@ -163,6 +193,15 @@ async function optionalAuth(req, res, next) {
     if (isLocalToken(token)) {
       const localUser = await localAuth.verifyLocalToken(token);
       if (localUser) req.user = localUser;
+      // Zámok tabletu platí aj tu. Časť modulu HR stojí na `optionalAuth` a
+      // bez tohto by sa tablet na tie adresy dostal - a práve tam by mu to
+      // `hr.access`, ktoré má automaticky každá rola, aj povolilo.
+      if (localUser?.isKiosk && !kioskMayReach(req)) {
+        return res.status(403).json({
+          error: 'Forbidden',
+          message: 'Účet tabletu smie len vyskladnenie'
+        });
+      }
       return next();
     }
 

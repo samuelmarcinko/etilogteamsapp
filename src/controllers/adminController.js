@@ -230,7 +230,13 @@ class AdminController {
       // synchronously while the hub renders. accessControlMode tells the portal
       // which of the two it should actually obey, so both sides always follow
       // the same rules.
-      const permissions = await getUserPermissions(dbUser.role);
+      // Tablet na stene v sklade smie jedinú vec a nič iné - ani HR, ktoré inak
+      // dostáva každá rola. Je to vlastnosť účtu, nie roly: tú istú rolu môže
+      // mať aj človek, ktorý si vyskladní materiál a potom si podá dovolenku.
+      const kiosk = Boolean(req.user.isKiosk);
+      const permissions = kiosk
+        ? ['warehouse.withdraw']
+        : await getUserPermissions(dbUser.role);
       const accessControlMode = getAccessControlMode();
 
       res.json({
@@ -241,6 +247,7 @@ class AdminController {
           name: req.user.name,
           role: dbUser.role,
           permissions,
+          isKiosk: kiosk,
           accessControlMode,
           quota: quota ? {
             year,
