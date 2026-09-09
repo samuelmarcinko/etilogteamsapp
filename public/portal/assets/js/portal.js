@@ -105,7 +105,8 @@ const PAGE_MODULE = {
     'admin-system': 'hr', 'admin-roles': 'hr', 'admin-local-users': 'hr',
     'admin-fleet': 'fleet',
     'warehouse-dashboard': 'warehouse', 'warehouse-materials': 'warehouse',
-    'warehouse-movements': 'warehouse'
+    'warehouse-movements': 'warehouse', 'warehouse-withdrawals': 'warehouse',
+    'warehouse-withdraw': 'warehouse'
 };
 
 /**
@@ -130,6 +131,13 @@ function applyModulePreset(module) {
         document.getElementById('fleetNav').style.display = 'block';
     } else if (module === 'warehouse') {
         document.getElementById('warehouseNav').style.display = 'block';
+        // Vyskladnenie je samostatné právo: kto sklad len číta, nemá si tú
+        // položku hľadať v menu a zisťovať, že ho tam nepustí.
+        const withdraw = document.querySelector('[data-page="warehouse-withdraw"]');
+        if (withdraw) {
+            withdraw.style.display =
+                (hasPermission('warehouse.withdraw') || portalUser?.role === 'admin') ? '' : 'none';
+        }
     }
 }
 
@@ -139,8 +147,16 @@ function navigateToPage(page) {
     // Pages accessible to spravca role
     const spravcaPages = ['admin-employees', 'admin-quotas', 'admin-sick-notes', 'admin-tickets'];
 
-    // Warehouse pages require warehouse module access (admin or sklad)
-    if (page.startsWith('warehouse-') && !hasModuleAccess('warehouse')) {
+    // Obrazovka vyskladnenia stojí mimo modulu: majster na ňu právo má, do
+    // zvyšku skladu nie. Rozhoduje o nej matica, lebo `warehouse.withdraw`
+    // pred ňou neexistovalo a staré role o ňom nemajú čo povedať.
+    if (page === 'warehouse-withdraw') {
+        if (!hasPermission('warehouse.withdraw') && portalUser?.role !== 'admin') {
+            showToast(pt('accessDenied'), 'error');
+            return;
+        }
+    } else if (page.startsWith('warehouse-') && !hasModuleAccess('warehouse')) {
+        // Warehouse pages require warehouse module access (admin or sklad)
         showToast(pt('accessDenied'), 'error');
         return;
     }
@@ -222,6 +238,10 @@ async function renderPage(page) {
     const content = document.getElementById('pageContent');
     const loading = document.getElementById('pageLoading');
 
+    // Obrazovka vyskladnenia si drží časovače a celoobrazovkový režim; odchod z
+    // nej ich musí zhasnúť, inak by tablet zamkol stránku, na ktorej už nie je.
+    if (page !== 'warehouse-withdraw' && typeof wdLeave === 'function') wdLeave();
+
     loading.style.display = 'flex';
     content.innerHTML = '';
 
@@ -246,6 +266,8 @@ async function renderPage(page) {
             case 'warehouse-dashboard': await renderWarehouseDashboard(content); break;
             case 'warehouse-materials': await renderWarehouseMaterials(content); break;
             case 'warehouse-movements': await renderWarehouseMovements(content); break;
+            case 'warehouse-withdrawals': await renderWarehouseWithdrawals(content); break;
+            case 'warehouse-withdraw': await renderWarehouseWithdraw(content); break;
             default: content.innerHTML = `<div class="page-body"><div class="empty-state"><div class="empty-icon">&#128533;</div><div class="empty-text">${pt('pageNotFound')}</div></div></div>`;
         }
     } catch (error) {
@@ -363,7 +385,12 @@ function enterModule(module) {
     // Navigate to module's default page
     if (module === 'hr') navigateToPage('dashboard');
     if (module === 'fleet') navigateToPage('admin-fleet');
-    if (module === 'warehouse') navigateToPage('warehouse-dashboard');
+    if (module === 'warehouse') {
+        navigateToPage('warehouse-dashboard');
+        // Pri vstupe do skladu, nie na každej stránke: lišta má povedať "toto
+        // pribudlo", nie sprevádzať človeka celým modulom.
+        if (typeof wdCheckNew === 'function') wdCheckNew();
+    }
 }
 
 // Modern "access denied" modal with an animated cross icon
@@ -2917,6 +2944,7 @@ async function renderAdminLocalUsers(container) {
                                 <td><div class="table-actions">
                                     <button class="btn-icon" onclick="openLocalUserModal(${u.id})" title="Upraviť">&#9998;</button>
                                     <button class="btn-icon" onclick="resetLocalPassword(${u.id}, '${escapeHtml(u.email)}')" title="Nastaviť nové heslo">&#128273;</button>
+                                    ${u.is_kiosk ? `<button class="btn-icon" onclick="openPinModal(${u.id}, '${escapeHtml(u.email)}')" title="${u.has_pin ? 'Zmeniť PIN k tabletu' : 'Nastaviť PIN k tabletu'}">&#128290;</button>` : ''}
                                     <button class="btn-icon" onclick="toggleLocalUser(${u.id}, ${u.is_active})" title="${u.is_active ? 'Vypnúť účet' : 'Zapnúť účet'}">${u.is_active ? '&#128683;' : '&#128065;'}</button>
                                 </div></td>
                             </tr>`).join('')}
@@ -2934,6 +2962,12 @@ async function renderAdminLocalUsers(container) {
 /** Stav účtu jedným štítkom. Zamknutý je iné než vypnutý a musí sa to rozoznať. */
 function whLocalUserState(u) {
     if (!u.is_active) return '<span class="badge badge-hidden">vypnutý</span>';
+    // Tablet bez PINu sa na obrazovku vyskladnenia nedostane, takže to nie je
+    // detail nastavenia - to je nefunkčný tablet a musí to byť vidieť.
+    if (u.is_kiosk && !u.has_pin) {
+        return '<span class="badge" style="background:#fef2f2;color:#991b1b" title="Bez PINu sa obrazovka vyskladnenia neodomkne">chýba PIN</span>';
+    }
+    if (u.is_kiosk) return '<span class="badge" style="background:#f0fdf4;color:#166534">tablet</span>';
     if (u.locked_until && new Date(u.locked_until) > new Date()) {
         return '<span class="badge" style="background:#fffbeb;color:#92400e" title="Po piatich neúspešných pokusoch">zamknutý</span>';
     }
@@ -2967,6 +3001,14 @@ async function openLocalUserModal(userId = null) {
             </select>
             <small style="color:var(--gray-500)">Rola rozhoduje, čo tento človek uvidí. Pre dodávateľa
             zvoľte takú, ktorá vidí len výrobný plán.</small>
+        </div>
+        <div class="form-group">
+            <label style="display:flex;align-items:center;gap:.6rem;cursor:pointer">
+                <input type="checkbox" id="luKiosk"${user?.is_kiosk ? ' checked' : ''} style="width:auto;margin:0">
+                <span>Účet tabletu v sklade</span>
+            </label>
+            <small style="color:var(--gray-500)">Tablet na stene sa neodhlasuje — prihlásenie platí rok.
+            Obrazovku vyskladnenia namiesto hesla stráži PIN, ktorý mu nastavíte v zozname.</small>
         </div>`;
     document.getElementById('modalFooter').innerHTML = `
         <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
@@ -2979,7 +3021,8 @@ async function saveLocalUser(userId) {
         email: document.getElementById('luEmail').value.trim(),
         firstName: document.getElementById('luFirst').value.trim(),
         lastName: document.getElementById('luLast').value.trim(),
-        role: document.getElementById('luRole').value
+        role: document.getElementById('luRole').value,
+        isKiosk: document.getElementById('luKiosk').checked
     };
 
     if (!body.lastName) { showToast('Priezvisko je povinné', 'error'); return; }
@@ -3019,6 +3062,52 @@ async function resetLocalPassword(userId, email) {
         showGeneratedPassword(email, data.data.password);
         navigateToPage('admin-local-users');
     } catch (e) { showToast('Nepodarilo sa', 'error'); }
+}
+
+/**
+ * PIN k tabletu.
+ *
+ * Zadáva ho administrátor a odovzdá majstrom. Späť sa prečítať nedá - v
+ * databáze je len odtlačok - takže jediná cesta pri zabudnutí je nastaviť nový.
+ */
+function openPinModal(userId, email) {
+    document.getElementById('modalTitle').textContent = 'PIN k tabletu';
+    document.getElementById('modalBody').innerHTML = `
+        <p style="margin:0 0 1rem;color:var(--gray-600)">
+            Štyri číslice, ktorými sa na tablete odomkne obrazovka vyskladnenia.
+            Účet <strong>${escapeHtml(email)}</strong>.
+        </p>
+        <div class="form-group">
+            <label>Nový PIN</label>
+            <input type="text" id="luPin" class="form-control" inputmode="numeric"
+                   maxlength="4" autocomplete="off"
+                   style="font-family:ui-monospace,monospace;font-size:1.6rem;letter-spacing:.5em;text-align:center">
+        </div>
+        <p style="margin:0;padding:.7rem .85rem;background:#fffbeb;border:1px solid #fcd34d;
+                  border-radius:8px;color:#92400e;font-size:.87rem">
+            PIN sa nikde nezobrazí ani nedá prečítať — ukladá sa len jeho odtlačok.
+            Ak sa zabudne, dá sa už len nastaviť nový.
+        </p>`;
+    document.getElementById('modalFooter').innerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
+        <button class="btn btn-primary" onclick="saveLocalPin(${userId})">${pt('save')}</button>`;
+    openModal();
+    setTimeout(() => document.getElementById('luPin')?.focus(), 50);
+}
+
+async function saveLocalPin(userId) {
+    const pin = document.getElementById('luPin').value.trim();
+    if (!/^\d{4}$/.test(pin)) { showToast('PIN musí mať presne štyri číslice', 'error'); return; }
+
+    try {
+        const res = await apiCall(`/api/auth/local-users/${userId}/pin`, {
+            method: 'POST', body: JSON.stringify({ pin })
+        });
+        if (!res.ok) { showToast('Nepodarilo sa nastaviť PIN', 'error'); return; }
+        closeModal();
+        showToast('PIN nastavený', 'success');
+        navigateToPage('admin-local-users');
+    } catch (e) { showToast('Nepodarilo sa nastaviť PIN', 'error'); }
 }
 
 async function toggleLocalUser(userId, isActive) {

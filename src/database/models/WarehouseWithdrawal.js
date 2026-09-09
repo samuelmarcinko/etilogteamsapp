@@ -43,6 +43,10 @@ class WarehouseWithdrawal {
                 SELECT json_agg(json_build_object(
                   'location_id', mp.location_id,
                   'location_code', pl.code,
+                  -- Zóna a číslo sú kľúč do mapy skladu: podľa nich sa na nej
+                  -- rozsvieti práve tá paleta, ku ktorej má majster ísť.
+                  'zone', pl.zone,
+                  'position', pl.position,
                   'quantity', mp.quantity
                 ) ORDER BY pl.code)
                 FROM material_placements mp

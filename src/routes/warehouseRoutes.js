@@ -21,8 +21,12 @@ const writeAccess = [verifyToken, attachDbRole,
 
 // Majster výroby si vyskladní materiál, ale do evidencie mu nič nepatrí -
 // preto vlastné právo, nie `warehouse.write`.
+//
+// `matrixOnly`, lebo toto právo pred maticou neexistovalo: keby o ňom v režime
+// `shadow` rozhodovali staré role, rola vytvorená pre majstrov by nefungovala a
+// tablet by sa musel prihlasovať účtom, ktorý smie prepisovať celú evidenciu.
 const withdrawAccess = [verifyToken, attachDbRole,
-  requirePermission('warehouse.withdraw', { legacyRoles: ['admin', 'sklad'] })];
+  requirePermission('warehouse.withdraw', { matrixOnly: true, legacyRoles: ['admin', 'sklad'] })];
 
 // Admin-only gate (for audit log)
 function requireAdmin(req, res, next) {

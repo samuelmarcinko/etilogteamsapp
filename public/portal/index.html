@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ETILOG Portal</title>
     <link rel="stylesheet" href="/portal/assets/css/portal.css">
+    <link rel="stylesheet" href="/portal/assets/css/withdraw.css">
 </head>
 <body>
     <button class="mobile-toggle" onclick="toggleSidebar()">&#9776;</button>
@@ -110,6 +111,13 @@
                     <a href="#warehouse-movements" class="sidebar-link" data-page="warehouse-movements">
                         <span class="nav-icon">&#128257;</span> Pohyby
                     </a>
+                    <a href="#warehouse-withdrawals" class="sidebar-link" data-page="warehouse-withdrawals">
+                        <span class="nav-icon">&#128722;</span> Vyskladnenia
+                        <span class="nav-count" id="whWithdrawCount" hidden></span>
+                    </a>
+                    <a href="#warehouse-withdraw" class="sidebar-link" data-page="warehouse-withdraw">
+                        <span class="nav-icon">&#128241;</span> Vyskladniť tovar
+                    </a>
                 </div>
             </nav>
 
@@ -153,5 +161,6 @@
     <script src="/portal/assets/js/auth.js"></script>
     <script src="/portal/assets/js/portalI18n.js"></script>
     <script src="/portal/assets/js/portal.js"></script>
+    <script src="/portal/assets/js/warehouseWithdraw.js"></script>
 </body>
 </html>

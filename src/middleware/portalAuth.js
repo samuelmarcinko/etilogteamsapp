@@ -113,9 +113,17 @@ function forbidden(res) {
  * matrix against the real gate on the real route, not against a transcription
  * of it written somewhere else. Once enforce has run for a while these can be
  * dropped.
+ *
+ *   requirePermission('warehouse.withdraw', { matrixOnly: true, legacyRoles: [...] })
+ *
+ * matrixOnly je pre práva, ktoré pred maticou neexistovali. Nie je čo
+ * zachovávať a nie je čo porovnávať: keby o nich v režime `shadow` rozhodovali
+ * role, nový prístup by sa nedal prideliť nikomu okrem admina - a rola, ktorú
+ * si niekto na to vytvorí, by nefungovala. Existujúcich brán sa to nedotýka.
  */
 function requirePermission(permissionKey, options = {}) {
   const legacyRoles = options.legacyRoles || [];
+  const matrixOnly = Boolean(options.matrixOnly);
 
   return async (req, res, next) => {
     try {
@@ -137,12 +145,17 @@ function requirePermission(permissionKey, options = {}) {
       const legacyAllowed = legacyRoles.includes(role);
       const mode = getAccessControlMode();
 
-      if (mode === 'legacy') {
+      if (mode === 'legacy' && !matrixOnly) {
         return legacyAllowed ? next() : forbidden(res);
       }
 
       const permissions = await getUserPermissions(role);
       const matrixAllowed = permissions.includes(permissionKey);
+
+      // Právo bez historickej obdoby - rozhoduje matica v každom režime.
+      if (matrixOnly) {
+        return matrixAllowed ? next() : forbidden(res);
+      }
 
       if (mode === 'shadow') {
         if (matrixAllowed !== legacyAllowed) {

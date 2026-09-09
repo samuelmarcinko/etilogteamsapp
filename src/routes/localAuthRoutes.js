@@ -75,7 +75,8 @@ router.post('/change-password', verifyToken, asyncHandler(async (req, res) => {
 router.get('/local-users', adminOnly, asyncHandler(async (req, res) => {
   const { rows } = await pool.query(
     `SELECT id, user_id, email, display_name, first_name, last_name, role,
-            is_active, must_change_password, last_login_at, locked_until, created_at
+            is_active, must_change_password, last_login_at, locked_until, created_at,
+            is_kiosk, pin_hash IS NOT NULL AS has_pin, pin_set_at
        FROM users WHERE auth_provider = 'local'
       ORDER BY lower(coalesce(last_name, display_name, email))`
   );
@@ -111,16 +112,20 @@ router.post('/local-users', adminOnly, asyncHandler(async (req, res) => {
 
   const { rows } = await pool.query(
     `INSERT INTO users (user_id, email, display_name, first_name, last_name, role,
-                        auth_provider, password_hash, must_change_password)
-     VALUES ($1, $2, $3, $4, $5, $6, 'local', $7, TRUE)
-     RETURNING id, user_id, email, display_name, first_name, last_name, role, is_active`,
+                        auth_provider, password_hash, must_change_password, is_kiosk)
+     VALUES ($1, $2, $3, $4, $5, $6, 'local', $7, $8, $9)
+     RETURNING id, user_id, email, display_name, first_name, last_name, role, is_active, is_kiosk`,
     [
       localAuth.newUserId(), address,
       fullName(firstName, lastName, address),
       String(firstName || '').trim() || null,
       String(lastName || '').trim(),
       role || 'user',
-      await localAuth.hashPassword(password)
+      await localAuth.hashPassword(password),
+      // Tablet na stene si heslo nemení - k jeho obrazovke nikto samostatný
+      // účet nemá a vynútená zmena by ho len zamkla pri prvom prihlásení.
+      !req.body.isKiosk,
+      Boolean(req.body.isKiosk)
     ]
   );
 
@@ -133,7 +138,7 @@ router.post('/local-users', adminOnly, asyncHandler(async (req, res) => {
 
 // PATCH /api/auth/local-users/:id  { firstName?, lastName?, role?, isActive? }
 router.patch('/local-users/:id', adminOnly, asyncHandler(async (req, res) => {
-  const { firstName, lastName, role, isActive } = req.body || {};
+  const { firstName, lastName, role, isActive, isKiosk } = req.body || {};
 
   const { rows } = await pool.query(
     `UPDATE users
@@ -141,16 +146,18 @@ router.patch('/local-users/:id', adminOnly, asyncHandler(async (req, res) => {
             last_name  = COALESCE($3, last_name),
             role       = COALESCE($4, role),
             is_active  = COALESCE($5, is_active),
+            is_kiosk   = COALESCE($6, is_kiosk),
             display_name = COALESCE($2, first_name) || ' ' || COALESCE($3, last_name),
             updated_at = CURRENT_TIMESTAMP
       WHERE id = $1 AND auth_provider = 'local'
-      RETURNING id, user_id, email, display_name, first_name, last_name, role, is_active`,
+      RETURNING id, user_id, email, display_name, first_name, last_name, role, is_active, is_kiosk`,
     [
       req.params.id,
       firstName !== undefined ? String(firstName).trim() || null : null,
       lastName !== undefined ? String(lastName).trim() || null : null,
       role !== undefined ? role : null,
-      isActive !== undefined ? Boolean(isActive) : null
+      isActive !== undefined ? Boolean(isActive) : null,
+      isKiosk !== undefined ? Boolean(isKiosk) : null
     ]
   );
 
@@ -180,6 +187,41 @@ router.post('/local-users/:id/password', adminOnly, asyncHandler(async (req, res
   if (!rows[0]) return res.status(404).json({ error: 'not_found' });
   logger.info('Local password reset', { email: rows[0].email, by: req.user.email });
   res.json({ data: { password } });
+}));
+
+// POST /api/auth/local-users/:id/pin  { pin }  - nastaviť PIN k tabletu
+//
+// PIN zadáva administrátor a odovzdá ho majstrom. Späť sa prečítať nedá - v
+// databáze je len scrypt odtlačok, rovnako ako pri hesle. Zmeniť sa dá kedykoľvek
+// na nový; to je jediná cesta, ak sa zabudne.
+router.post('/local-users/:id/pin', adminOnly, asyncHandler(async (req, res) => {
+  const { rows } = await pool.query(
+    "SELECT user_id, email FROM users WHERE id = $1 AND auth_provider = 'local'",
+    [req.params.id]
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'not_found' });
+
+  const result = await localAuth.setPin(rows[0].user_id, req.body?.pin);
+  if (result.error) return res.status(400).json({ error: result.error });
+
+  logger.info('Tablet PIN set', { email: rows[0].email, by: req.user.email });
+  res.json({ data: { ok: true } });
+}));
+
+// DELETE /api/auth/local-users/:id/pin - zrušiť PIN
+//
+// Účet tabletu bez PINu sa na obrazovku vyskladnenia nedostane. To je zámer:
+// zrušený PIN znamená zamknutý tablet, nie otvorený.
+router.delete('/local-users/:id/pin', adminOnly, asyncHandler(async (req, res) => {
+  const { rows } = await pool.query(
+    "SELECT user_id, email FROM users WHERE id = $1 AND auth_provider = 'local'",
+    [req.params.id]
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'not_found' });
+
+  await localAuth.clearPin(rows[0].user_id);
+  logger.info('Tablet PIN cleared', { email: rows[0].email, by: req.user.email });
+  res.json({ data: { ok: true } });
 }));
 
 module.exports = router;
