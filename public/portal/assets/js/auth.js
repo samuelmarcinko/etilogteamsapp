@@ -59,15 +59,23 @@ function initializeMsal() {
  * Sign in with Microsoft
  */
 async function signIn() {
-    const loginBtn = document.getElementById('loginBtn');
-    const loginContent = document.getElementById('loginContent');
-    const loginLoading = document.getElementById('loginLoading');
-    const loginError = document.getElementById('loginError');
+    // Priebeh a chyby ukazuje prihlasovacia stránka vlastnými prvkami. Ak by
+    // niektorý chýbal, prihlásenie sa aj tak musí pokúsiť prebehnúť - stav na
+    // obrazovke nie je dôvod nepustiť človeka dnu.
+    const busy = document.getElementById('authBusy');
+    const msBtn = document.getElementById('msBtn');
+    const passwordBlock = document.getElementById('authPasswordBlock');
+    const hadPasswordForm = passwordBlock && !passwordBlock.hidden;
+
+    const showProgress = (on) => {
+        if (busy) busy.hidden = !on;
+        if (msBtn) msBtn.hidden = on;
+        if (hadPasswordForm) passwordBlock.hidden = on;
+    };
 
     try {
-        loginContent.style.display = 'none';
-        loginLoading.style.display = 'block';
-        loginError.style.display = 'none';
+        if (typeof authClearError === 'function') authClearError();
+        showProgress(true);
 
         if (!msalInstance) {
             await initializeMsal();
@@ -80,10 +88,11 @@ async function signIn() {
         await msalInstance.loginRedirect(loginRequest);
     } catch (error) {
         console.error('Login error:', error);
-        loginContent.style.display = 'block';
-        loginLoading.style.display = 'none';
-        loginError.style.display = 'block';
-        loginError.textContent = 'Prihlasenie zlyhalo: ' + (error.message || 'Neznama chyba');
+        showProgress(false);
+        // Hláška ide cez tie isté preložené kľúče ako prihlásenie heslom;
+        // technickú správu z MSAL-u si prečíta vývojár v konzole, nie človek,
+        // ktorý sa chce dostať do portálu.
+        if (typeof authShowError === 'function') authShowError('microsoft');
     }
 }
 
