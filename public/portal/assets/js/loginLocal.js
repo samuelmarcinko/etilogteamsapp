@@ -14,7 +14,8 @@ const AUTH_ERROR_KEYS = {
   not_configured: 'loginErrNotConfigured',
   too_short: 'loginErrTooShort',
   mismatch: 'loginErrMismatch',
-  network: 'loginErrNetwork'
+  network: 'loginErrNetwork',
+  microsoft: 'loginErrMicrosoft'
 };
 
 let authPendingToken = null;   // token držaný, kým si človek nezmení heslo

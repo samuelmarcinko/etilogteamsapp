@@ -18,6 +18,8 @@
  */
 
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 
 // Dummy config so the bot adapter constructs. Set before requiring the app.
 process.env.MICROSOFT_APP_ID ||= '00000000-0000-0000-0000-000000000000';
@@ -54,6 +56,55 @@ const CHECKS = [
   ['/production/', 200, 'production SPA shell']
 ];
 
+/**
+ * Prihlasovacia stránka a jej skripty si musia rozumieť.
+ *
+ * Toto tu je preto, že prerobená prihlasovacia stránka premenovala svoje prvky,
+ * ale `signIn()` sa ďalej pýtal na tie staré. Prvý riadok padol na `null`,
+ * MSAL sa nikdy nezavolal a tlačidlo Microsoftu nerobilo nič - stránka pritom
+ * vyzerala úplne v poriadku a server odpovedal 200 na všetko.
+ *
+ * Server takú chybu nikdy neuvidí, tak sa pozrieme priamo do súborov.
+ */
+function checkLoginPageWiring() {
+  const portal = path.join(__dirname, '..', 'public', 'portal');
+  const read = (p) => fs.readFileSync(path.join(portal, p), 'utf8');
+
+  const html = read('login.html');
+  const authJs = read('assets/js/auth.js');
+  const loginJs = read('assets/js/loginLocal.js');
+
+  const problems = [];
+  const ids = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]));
+  const idsUsedIn = (source) => [...source.matchAll(/getElementById\('([^']+)'\)/g)].map((m) => m[1]);
+
+  // Zo `auth.js` sa prihlasovacej stránky týka len `signIn()`; zvyšok súboru
+  // beží aj v portáli, kde sú na obrazovke celkom iné prvky.
+  const start = authJs.indexOf('async function signIn()');
+  if (start === -1) {
+    problems.push('auth.js: signIn() sa nenašiel');
+  } else {
+    const body = authJs.slice(start, authJs.indexOf('\n}', start));
+    for (const id of idsUsedIn(body)) {
+      if (!ids.has(id)) problems.push(`auth.js signIn() hľadá #${id}, login.html ho nemá`);
+    }
+  }
+
+  for (const id of idsUsedIn(loginJs)) {
+    if (!ids.has(id)) problems.push(`loginLocal.js hľadá #${id}, login.html ho nemá`);
+  }
+
+  // Tlačidlo, ktoré volá funkciu, čo neexistuje, je rovnako tiché zlyhanie.
+  const loaded = authJs + loginJs + read('assets/js/portalI18n.js') + read('assets/js/authConfig.js');
+  for (const m of html.matchAll(/on(?:click|submit)="(\w+)\(/g)) {
+    if (!new RegExp(`function ${m[1]}\\s*\\(`).test(loaded)) {
+      problems.push(`login.html volá ${m[1]}(), taká funkcia sa nikde nenačítava`);
+    }
+  }
+
+  return problems;
+}
+
 function get(port, path) {
   return new Promise((resolve, reject) => {
     const req = http.get({ host: '127.0.0.1', port, path, timeout: 8000 }, (res) => {
@@ -86,6 +137,15 @@ async function main() {
 
   let failures = 0;
   console.log('');
+
+  const wiring = checkLoginPageWiring();
+  if (wiring.length === 0) {
+    console.log(`  ${GREEN}OK${OFF}        ${'login.html + skripty'.padEnd(24)} ${DIM}stránka a jej skripty hľadajú tie isté prvky${OFF}`);
+  } else {
+    for (const problem of wiring) console.log(`  ${RED}FAIL${OFF} ${problem}`);
+    failures += wiring.length;
+  }
+
   for (const [path, expected, why] of CHECKS) {
     let status;
     try {
