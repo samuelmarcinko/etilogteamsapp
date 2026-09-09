@@ -2513,6 +2513,166 @@ body.hub-active .portal-lang-switcher {
   white-space: nowrap;
 }
 
+/* Projekt namiesto kódu.
+   Poznámka skladu žiadny kód nemá, tak v tom stĺpci stojí projekt, ku ktorému
+   patrí. Vyzerá zámerne inak než kód - obrys a nie tučné písmo - aby si nikto
+   nemyslel, že si to môže vyhľadať v SAPe. */
+.wh-project-tag {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  border: 1px dashed var(--gray-300);
+  border-radius: 4px;
+  font-size: 0.78rem;
+  color: var(--gray-600);
+  cursor: help;
+}
+
+.wh-muted { color: var(--gray-400); }
+
+/* Semafor sklad vs. SAP.
+   Bodka nesie farbu, číslo vedľa nej nesie fakt. Vysvetlenie je v titulku pri
+   nabehnutí myšou - v tabuľke so 140 riadkami nie je miesto na vetu pri každom. */
+/* Nie holá bodka, ale štítok s podfarbením.
+   Bodka samotná sa v tabuľke so 140 riadkami stratí - a toto je jediný stĺpec,
+   kvôli ktorému sa tam skladník ide pozrieť. Podfarbenie je jemné, aby sto
+   oranžových riadkov nebolo stena farby, ale výraznejšie než 9px bodka. */
+.wh-stock {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.15rem 0.5rem 0.15rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  cursor: help;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.wh-stock .wh-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--gray-300);
+}
+
+.wh-stock-num { font-weight: 600; }
+
+.wh-stock-ok        { background:#f0fdf4; border-color:#bbf7d0; color:#15803d; }
+.wh-stock-ok        .wh-dot { background:#16a34a; }
+
+/* Rovnaká farba ako „nesedí": obe znamenajú „pozri sa na to". Iná farba pre
+   každý dôvod by bola paleta, ktorú si nikto nezapamätá - dôvod povie titulok. */
+.wh-stock-diff,
+.wh-stock-notbooked { background:#fffbeb; border-color:#fcd34d; color:#92400e; }
+.wh-stock-diff      .wh-dot,
+.wh-stock-notbooked .wh-dot { background:#f59e0b; }
+
+.wh-stock-unknown   { background:var(--gray-50); border-color:var(--gray-200); color:var(--gray-500); }
+.wh-stock-unknown   .wh-dot { background:#d1d5db; border:1px solid var(--gray-400); }
+
+.wh-stock-pending   { color:var(--gray-400); }
+.wh-stock-pending   .wh-dot { background:transparent; border:1px dashed var(--gray-400); }
+
+/* V zhrnutí nad tabuľkou nesie farbu len bodka - tam štítok nemá čo ohraničiť. */
+.wh-sync-counts .wh-stock { padding:0; border:0; background:none; }
+
+.wh-sap-stale { color:#92400e; font-weight:600; }
+
+/* Výber druhu položky pri zakladaní.
+   Dve karty vedľa seba namiesto rozbaľovacieho zoznamu: je to rozhodnutie,
+   ktoré treba urobiť vedome, nie predvoľba, ktorú niekto preklikne. */
+.wh-kind-lead { margin: 0 0 0.9rem; color: var(--gray-600); }
+
+.wh-kind-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+@media (max-width: 560px) { .wh-kind-grid { grid-template-columns: 1fr; } }
+
+.wh-kind-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem;
+  text-align: left;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+}
+
+.wh-kind-card:hover {
+  border-color: var(--etilog-red, #D9000C);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, .07);
+}
+
+.wh-kind-title { font-weight: 700; font-size: 0.95rem; color: var(--gray-800); }
+.wh-kind-desc { font-size: 0.82rem; color: var(--gray-500); line-height: 1.35; }
+
+/* Odpoveď SAPu pod vyhľadávacím poľom. */
+.wh-sap-box {
+  margin: -0.4rem 0 0.9rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  border: 1px solid var(--gray-200);
+  background: var(--gray-50);
+}
+
+.wh-sap-ok   { border-color: #bbf7d0; background: #f0fdf4; }
+.wh-sap-warn { border-color: #fcd34d; background: #fffbeb; }
+.wh-sap-bad  { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
+.wh-sap-loading { color: var(--gray-500); }
+
+.wh-sap-name { font-weight: 600; color: var(--gray-800); }
+.wh-sap-line { margin-top: 0.15rem; }
+.wh-sap-note { margin-top: 0.3rem; font-size: 0.8rem; color: var(--gray-600); }
+
+/* Rozpor so SAPom je upozornenie, nie chyba - uloženie prejde. Preto oranžová,
+   tá istá ako bodka v evidencii, a nie červená, ktorá hovorí „oprav to". */
+.wh-split-indicator.warn {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
+/* Súčet rozpisu bez porovnania - vlastná položka nemá s čím nesúhlasiť. */
+.wh-split-indicator.neutral {
+  background: var(--gray-50);
+  border-color: var(--gray-200);
+  color: var(--gray-700);
+}
+
+/* Riadok nad tabuľkou: koľko sedí, koľko treba prejsť, kedy sa ťahalo. */
+.wh-sync-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.55rem 0.75rem;
+  margin-bottom: 0.75rem;
+  border: 1px solid var(--gray-200);
+  border-radius: 6px;
+  background: var(--gray-50);
+  font-size: 0.85rem;
+}
+
+.wh-sync-counts { display: inline-flex; align-items: center; gap: 0.2rem; }
+.wh-sync-when { margin-left: auto; color: var(--gray-500); }
+
+/* Stará synchronizácia sa nesmie tváriť ako čerstvá - zelená bodka spred
+   týždňa tvrdí niečo, čo už neplatí. */
+.wh-sync-stale {
+  border-color: #fcd34d;
+  background: #fffbeb;
+}
+.wh-sync-stale .wh-sync-when { color: #92400e; font-weight: 600; }
+
 /* Bulk action bar */
 .wh-bulk-bar {
   display: flex;

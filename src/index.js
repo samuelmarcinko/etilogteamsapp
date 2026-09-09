@@ -95,6 +95,13 @@ productionRetentionService.start();
 const sapSyncService = SapSyncService.shared();
 sapSyncService.start();
 
+// Pulls warehouse 02-03 stock into the warehouse module, twice a day. Shares
+// the SAP session above rather than opening a second one, and does nothing
+// unless SAP is configured. Until warehouse.sync.apply is switched on it only
+// records what SAP says - no quantity anyone entered by hand is touched.
+const WarehouseSyncService = require('./services/warehouseSyncService');
+WarehouseSyncService.shared().start();
+
 // Idempotent schema top-up for material soft-delete (migration 023).
 // Numbered migrations are applied manually; these IF NOT EXISTS statements
 // make the soft-delete columns available even if the SQL wasn't run yet.

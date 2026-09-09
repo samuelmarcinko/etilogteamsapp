@@ -45,6 +45,9 @@ class Material {
   // Case-insensitive code existence check (app-level duplicate guard).
   // Ignores soft-deleted materials so a freed code can be reused.
   static async existsByCode(code, excludeId = null) {
+    // Vlastné položky kód nemajú a nikdy nekolidujú - dve poznámky o policiach
+    // k tomu istému projektu môžu existovať vedľa seba.
+    if (!code) return false;
     const values = [code];
     let query = 'SELECT id FROM materials WHERE LOWER(code) = LOWER($1) AND deleted_at IS NULL';
     if (excludeId) { values.push(excludeId); query += ` AND id <> $${values.length}`; }
@@ -64,11 +67,24 @@ class Material {
         : (data.quantity != null ? parseInt(data.quantity, 10) || 0 : 0);
       const primaryLocation = placements.length ? placements[0].location_id : (data.location_id || null);
 
+      // 'local' je poznámka skladu - tašky a police k projektu - a so SAPom sa
+      // neporovnáva. 'sap' je skladová položka; `sap_item_code` je kód, pod
+      // ktorým sa v SAPe pýta, a drží sa oddelene od `code` práve preto, aby sa
+      // dal odpojiť bez premenovania materiálu.
+      const kind = data.kind === 'local' ? 'local' : 'sap';
+
+      // Poznámka skladu identifikátor nemá. Vymyslieť jej ho by znamenalo dať
+      // do stĺpca „Kód" reťazec, ktorý sa nedá nikde vyhľadať; ku ktorému
+      // projektu patrí povie `project_fg` a čo to je povie názov.
+      const code = kind === 'local' ? null : (data.code || null);
+
       const ins = await client.query(
-        `INSERT INTO materials (code, name, description, quantity, unit, location_id, category_id, created_by, created_by_name)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+        `INSERT INTO materials (code, name, description, quantity, unit, location_id,
+                                category_id, created_by, created_by_name,
+                                kind, project_fg, sap_item_code)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
         [
-          data.code,
+          code,
           data.name,
           data.description || null,
           total,
@@ -76,7 +92,10 @@ class Material {
           primaryLocation,
           data.category_id || null,
           data.created_by || null,
-          data.created_by_name || null
+          data.created_by_name || null,
+          kind,
+          kind === 'local' && data.project_fg ? String(data.project_fg).toUpperCase() : null,
+          code
         ]
       );
       const material = ins.rows[0];
@@ -104,7 +123,11 @@ class Material {
     if (filters.search) {
       values.push(`%${filters.search}%`);
       const i = values.length;
+      // project_fg je tu preto, že vlastné položky kód nemajú - hľadať tašky
+      // podľa FG čísla projektu musí fungovať aj potom, ako prestalo byť ich
+      // kódom. legacy_code kvôli tomu, kto si ten starý kód pamätá.
       where.push(`(m.code ILIKE $${i} OR m.name ILIKE $${i} OR m.description ILIKE $${i}
+                   OR m.project_fg ILIKE $${i} OR m.legacy_code ILIKE $${i}
                    OR EXISTS (SELECT 1 FROM material_placements mp2
                               JOIN pallet_locations pl2 ON pl2.id = mp2.location_id
                               WHERE mp2.material_id = m.id AND pl2.code ILIKE $${i}))`);
@@ -129,6 +152,20 @@ class Material {
 
     const result = await pool.query(query, values);
     return result.rows;
+  }
+
+  /**
+   * Materiál podľa kódu, bez ohľadu na veľkosť písmen.
+   *
+   * Pre formulár, ktorý po vyhľadaní v SAPe potrebuje vedieť, či ten kód už
+   * niekto v evidencii má - aby ponúkol otvoriť ho namiesto hlásenia chyby.
+   */
+  static async findByCode(code) {
+    const result = await pool.query(
+      `${BASE_SELECT} WHERE LOWER(m.code) = LOWER($1) AND m.deleted_at IS NULL LIMIT 1`,
+      [code]
+    );
+    return result.rows[0] || null;
   }
 
   static async findById(id) {
@@ -184,6 +221,9 @@ class Material {
            unit = COALESCE($5, unit),
            location_id = $6,
            category_id = $7,
+           -- Projekt sa mení len pri vlastnej položke a len keď ho formulár
+           -- poslal; pri položke zo SAPu nie je čo prepisovať.
+           project_fg = CASE WHEN kind = 'local' THEN $9 ELSE project_fg END,
            updated_at = CURRENT_TIMESTAMP
          WHERE id = $8 RETURNING *`,
         [
@@ -194,7 +234,8 @@ class Material {
           data.unit,
           primaryLocation,
           data.category_id || null,
-          id
+          id,
+          data.project_fg ? String(data.project_fg).toUpperCase() : null
         ]
       );
 
