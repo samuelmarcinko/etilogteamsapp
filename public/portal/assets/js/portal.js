@@ -102,7 +102,7 @@ const PAGE_MODULE = {
     'my-requests': 'hr', 'my-approvals': 'hr',
     'admin-employees': 'hr', 'admin-quotas': 'hr', 'admin-sick-notes': 'hr',
     'admin-tickets': 'hr', 'admin-dashboard': 'hr', 'admin-ticket-types': 'hr',
-    'admin-system': 'hr', 'admin-roles': 'hr',
+    'admin-system': 'hr', 'admin-roles': 'hr', 'admin-local-users': 'hr',
     'admin-fleet': 'fleet',
     'warehouse-dashboard': 'warehouse', 'warehouse-materials': 'warehouse',
     'warehouse-movements': 'warehouse'
@@ -241,6 +241,7 @@ async function renderPage(page) {
             case 'admin-ticket-types': await renderAdminTicketTypes(content); break;
             case 'admin-system': await renderAdminSystem(content); break;
             case 'admin-roles': await renderAdminRoles(content); break;
+            case 'admin-local-users': await renderAdminLocalUsers(content); break;
             case 'admin-fleet': await renderAdminFleet(content); break;
             case 'warehouse-dashboard': await renderWarehouseDashboard(content); break;
             case 'warehouse-materials': await renderWarehouseMaterials(content); break;
@@ -2845,6 +2846,221 @@ const PERMISSION_LABELS = {
 
 // Roles whose checkboxes changed since the page was rendered.
 let rolesDirty = {};
+
+/* ============================================================
+   EXTERNÍ POUŽÍVATELIA (prihlásenie heslom)
+   ============================================================
+
+   Dodávatelia, ktorých voláme do výrobného plánu, firemné M365 nemajú. Toto je
+   jediné miesto, kde sa im dá založiť účet - je to rozdávanie prístupu do
+   portálu, nie správa jedného modulu, tak to smie len administrátor.
+   ============================================================ */
+
+let whLocalUsers = [];
+
+async function renderAdminLocalUsers(container) {
+    const [usersRes, methodsRes, rolesRes] = await Promise.all([
+        apiCall('/api/auth/local-users'),
+        fetch('/api/auth/methods'),
+        apiCall('/api/admin/roles')
+    ]);
+
+    if (!usersRes.ok) {
+        container.innerHTML = `<div class="page-body"><div class="empty-state">
+            <div class="empty-icon">&#128273;</div>
+            <div class="empty-text">Túto stránku vidí len administrátor.</div>
+        </div></div>`;
+        return;
+    }
+
+    whLocalUsers = (await usersRes.json()).data || [];
+    const enabled = (await methodsRes.json()).data?.password;
+    const roles = rolesRes.ok ? ((await rolesRes.json()).data.roles || []) : [];
+    window.whLocalRoles = roles.map(r => r.name || r);
+
+    container.innerHTML = `
+        <div class="page-header">
+            <div>
+                <h1>Externí používatelia</h1>
+                <p>Účty s vlastným heslom — pre ľudí bez firemného konta Microsoft.</p>
+            </div>
+            ${enabled ? '<button class="btn btn-primary" onclick="openLocalUserModal()">+ Pridať používateľa</button>' : ''}
+        </div>
+        <div class="page-body">
+            ${enabled ? '' : `
+            <div class="portal-card" style="border-left:4px solid var(--warning);margin-bottom:1.25rem">
+                <div class="card-body">
+                    <strong>Prihlásenie heslom nie je zapnuté.</strong>
+                    <p style="margin:.4rem 0 0;color:var(--gray-600);font-size:.9rem">
+                        Na serveri chýba <code>LOCAL_AUTH_SECRET</code>. Kým tam nie je, účty sa nedajú
+                        zakladať a nikto sa heslom neprihlási.
+                    </p>
+                </div>
+            </div>`}
+
+            <div class="portal-card">
+                <div class="card-body" style="overflow-x:auto">
+                    ${whLocalUsers.length ? `
+                    <table class="data-table">
+                        <thead><tr>
+                            <th>Meno</th><th>E-mail</th><th>Rola</th><th>Stav</th>
+                            <th>Posledné prihlásenie</th><th>Akcie</th>
+                        </tr></thead>
+                        <tbody>${whLocalUsers.map(u => `
+                            <tr${u.is_active ? '' : ' style="opacity:.55"'}>
+                                <td><strong>${escapeHtml([u.first_name, u.last_name].filter(Boolean).join(' ') || u.display_name || '—')}</strong></td>
+                                <td>${escapeHtml(u.email)}</td>
+                                <td><span class="badge badge-${escapeHtml(u.role)}">${escapeHtml(u.role)}</span></td>
+                                <td>${whLocalUserState(u)}</td>
+                                <td class="wh-date-cell">${u.last_login_at ? whFormatDate(u.last_login_at) : '<span class="wh-muted">nikdy</span>'}</td>
+                                <td><div class="table-actions">
+                                    <button class="btn-icon" onclick="openLocalUserModal(${u.id})" title="Upraviť">&#9998;</button>
+                                    <button class="btn-icon" onclick="resetLocalPassword(${u.id}, '${escapeHtml(u.email)}')" title="Nastaviť nové heslo">&#128273;</button>
+                                    <button class="btn-icon" onclick="toggleLocalUser(${u.id}, ${u.is_active})" title="${u.is_active ? 'Vypnúť účet' : 'Zapnúť účet'}">${u.is_active ? '&#128683;' : '&#128065;'}</button>
+                                </div></td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>` : `
+                    <div class="empty-state">
+                        <div class="empty-icon">&#128100;</div>
+                        <div class="empty-text">Zatiaľ tu nie je žiadny externý používateľ.</div>
+                    </div>`}
+                </div>
+            </div>
+        </div>`;
+}
+
+/** Stav účtu jedným štítkom. Zamknutý je iné než vypnutý a musí sa to rozoznať. */
+function whLocalUserState(u) {
+    if (!u.is_active) return '<span class="badge badge-hidden">vypnutý</span>';
+    if (u.locked_until && new Date(u.locked_until) > new Date()) {
+        return '<span class="badge" style="background:#fffbeb;color:#92400e" title="Po piatich neúspešných pokusoch">zamknutý</span>';
+    }
+    if (u.must_change_password) {
+        return '<span class="badge" style="background:#eff6ff;color:#1d4ed8" title="Pri najbližšom prihlásení si musí zvoliť vlastné heslo">nové heslo</span>';
+    }
+    return '<span class="badge badge-visible">aktívny</span>';
+}
+
+async function openLocalUserModal(userId = null) {
+    const user = userId ? whLocalUsers.find(u => u.id === userId) : null;
+    const roles = window.whLocalRoles || ['user'];
+
+    document.getElementById('modalTitle').textContent =
+        user ? 'Upraviť používateľa' : 'Nový externý používateľ';
+    document.getElementById('modalBody').innerHTML = `
+        <div class="form-group"><label>E-mail *</label>
+            <input type="email" id="luEmail" class="form-control" ${user ? 'readonly' : ''}
+                   value="${user ? escapeHtml(user.email) : ''}" placeholder="meno@dodavatel.sk">
+            ${user ? '' : '<small style="color:var(--gray-500)">Zároveň prihlasovacie meno. Neskôr sa nedá zmeniť.</small>'}
+        </div>
+        <div class="form-row">
+            <div class="form-group"><label>Meno</label>
+                <input type="text" id="luFirst" class="form-control" value="${user ? escapeHtml(user.first_name || '') : ''}"></div>
+            <div class="form-group"><label>Priezvisko *</label>
+                <input type="text" id="luLast" class="form-control" value="${user ? escapeHtml(user.last_name || '') : ''}"></div>
+        </div>
+        <div class="form-group"><label>Rola *</label>
+            <select id="luRole" class="form-control">
+                ${roles.map(r => `<option value="${escapeHtml(r)}"${user?.role === r ? ' selected' : ''}>${escapeHtml(r)}</option>`).join('')}
+            </select>
+            <small style="color:var(--gray-500)">Rola rozhoduje, čo tento človek uvidí. Pre dodávateľa
+            zvoľte takú, ktorá vidí len výrobný plán.</small>
+        </div>`;
+    document.getElementById('modalFooter').innerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">${pt('cancel')}</button>
+        <button class="btn btn-primary" onclick="saveLocalUser(${userId || 'null'})">${pt('save')}</button>`;
+    openModal();
+}
+
+async function saveLocalUser(userId) {
+    const body = {
+        email: document.getElementById('luEmail').value.trim(),
+        firstName: document.getElementById('luFirst').value.trim(),
+        lastName: document.getElementById('luLast').value.trim(),
+        role: document.getElementById('luRole').value
+    };
+
+    if (!body.lastName) { showToast('Priezvisko je povinné', 'error'); return; }
+
+    try {
+        const res = await apiCall(
+            userId ? `/api/auth/local-users/${userId}` : '/api/auth/local-users',
+            { method: userId ? 'PATCH' : 'POST', body: JSON.stringify(body) }
+        );
+        const data = await res.json();
+        if (!res.ok) {
+            showToast({
+                email_exists: 'Účet s týmto e-mailom už existuje.',
+                bad_email: 'Neplatný e-mail.',
+                not_configured: 'Prihlásenie heslom nie je zapnuté.'
+            }[data.error] || 'Nepodarilo sa uložiť', 'error');
+            return;
+        }
+
+        closeModal();
+        // Heslo sa ukazuje jediný raz. Nikde sa neukladá čitateľne, takže ak sa
+        // teraz stratí, jediná cesta späť je nastaviť nové.
+        if (data.data.password) showGeneratedPassword(body.email, data.data.password);
+        else showToast('Uložené', 'success');
+        navigateToPage('admin-local-users');
+    } catch (e) {
+        showToast('Nepodarilo sa uložiť', 'error');
+    }
+}
+
+async function resetLocalPassword(userId, email) {
+    if (!confirm(`Nastaviť nové heslo pre ${email}?\n\nStaré prestane platiť okamžite.`)) return;
+    try {
+        const res = await apiCall(`/api/auth/local-users/${userId}/password`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) { showToast('Nepodarilo sa', 'error'); return; }
+        showGeneratedPassword(email, data.data.password);
+        navigateToPage('admin-local-users');
+    } catch (e) { showToast('Nepodarilo sa', 'error'); }
+}
+
+async function toggleLocalUser(userId, isActive) {
+    try {
+        const res = await apiCall(`/api/auth/local-users/${userId}`, {
+            method: 'PATCH', body: JSON.stringify({ isActive: !isActive })
+        });
+        if (!res.ok) { showToast('Nepodarilo sa', 'error'); return; }
+        showToast(isActive ? 'Účet vypnutý' : 'Účet zapnutý', 'success');
+        navigateToPage('admin-local-users');
+    } catch (e) { showToast('Nepodarilo sa', 'error'); }
+}
+
+/**
+ * Vygenerované heslo, jediný raz.
+ *
+ * Ukladá sa len jeho odtlačok, takže sa nedá nikde dohľadať. Buď ho admin
+ * odovzdá teraz, alebo bude musieť nastaviť nové - a to je správne: heslo,
+ * ktoré sa dá spätne prečítať, nie je heslo.
+ */
+function showGeneratedPassword(email, password) {
+    document.getElementById('modalTitle').textContent = 'Heslo pre nového používateľa';
+    document.getElementById('modalBody').innerHTML = `
+        <p style="margin:0 0 1rem;color:var(--gray-600)">
+            Odovzdajte tieto údaje používateľovi <strong>${escapeHtml(email)}</strong>.
+            Pri prvom prihlásení si bude musieť zvoliť vlastné heslo.
+        </p>
+        <div style="display:flex;gap:.5rem;align-items:center">
+            <input class="form-control" id="luGenerated" readonly value="${escapeHtml(password)}"
+                   style="font-family:ui-monospace,monospace;font-size:1.05rem;letter-spacing:.02em">
+            <button class="btn btn-secondary" onclick="
+                navigator.clipboard.writeText(document.getElementById('luGenerated').value);
+                showToast('Skopírované', 'success');">Kopírovať</button>
+        </div>
+        <p style="margin:1rem 0 0;padding:.7rem .85rem;background:#fffbeb;border:1px solid #fcd34d;
+                  border-radius:8px;color:#92400e;font-size:.87rem">
+            Toto heslo sa už nikde nezobrazí — ukladá sa len jeho odtlačok.
+            Ak sa stratí, dá sa už len nastaviť nové.
+        </p>`;
+    document.getElementById('modalFooter').innerHTML =
+        `<button class="btn btn-primary" onclick="closeModal()">Mám ho</button>`;
+    openModal();
+}
 
 async function renderAdminRoles(container) {
     const res = await apiCall('/api/admin/roles');
