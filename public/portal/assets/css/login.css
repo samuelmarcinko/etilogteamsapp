@@ -1,0 +1,312 @@
+/* ============================================
+   PRIHLASOVACIA STRÁNKA
+   ============================================
+
+   Dve polovice: značka a formulár. Značková polovica je tmavá a nesie pomalú
+   svetelnú animáciu v ETILOG červenej - dosť na to, aby stránka nevyzerala ako
+   holý formulár, a dosť pomalá na to, aby pri nej nikto neztratil trpezlivosť
+   pri treťom prihlásení za deň.
+
+   Na mobile sa značka scvrkne na pruh: na 360 pixeloch je miesto na prihlásenie,
+   nie na atmosféru.
+
+   Celé to je CSS. Žiadna knižnica, žiadne video - prihlasovacia stránka sa musí
+   načítať aj na tablete v hale cez pomalú wifi.
+   ============================================ */
+
+.auth-body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  margin: 0;
+  background: var(--white);
+  overflow: hidden;
+}
+
+/* ---------------------------------------------------------- značková polovica */
+
+.auth-brand {
+  position: relative;
+  overflow: hidden;
+  background: #140708;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+}
+
+/* Jemná mriežka pod svetlami - dáva ploche mierku, aby nevyzerala ako
+   rozmazaná fotka. */
+.auth-brand::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, .045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, .045) 1px, transparent 1px);
+  background-size: 46px 46px;
+  mask-image: radial-gradient(ellipse at 50% 45%, #000 25%, transparent 72%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 45%, #000 25%, transparent 72%);
+}
+
+/* Tri pomaly plávajúce svetlá. Rôzne trvanie, aby sa ich dráhy neopakovali v
+   rozpoznateľnom cykle - to je to, čo z animácie robí gif. */
+.auth-aurora { position: absolute; inset: -25%; filter: blur(90px); }
+
+.auth-aurora i {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+  opacity: .55;
+  will-change: transform;
+}
+
+.auth-aurora i:nth-child(1) {
+  width: 46%; height: 46%; top: 6%; left: 4%;
+  background: radial-gradient(circle, #D9000C 0%, transparent 68%);
+  animation: auth-drift-a 26s ease-in-out infinite;
+}
+
+.auth-aurora i:nth-child(2) {
+  width: 40%; height: 40%; top: 44%; left: 42%;
+  background: radial-gradient(circle, #ff4d3d 0%, transparent 66%);
+  animation: auth-drift-b 34s ease-in-out infinite;
+  opacity: .4;
+}
+
+.auth-aurora i:nth-child(3) {
+  width: 52%; height: 52%; top: 28%; left: -8%;
+  background: radial-gradient(circle, #7a0007 0%, transparent 70%);
+  animation: auth-drift-c 42s ease-in-out infinite;
+  opacity: .65;
+}
+
+@keyframes auth-drift-a {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(18%, 12%, 0) scale(1.18); }
+}
+@keyframes auth-drift-b {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.1); }
+  50%      { transform: translate3d(-22%, -14%, 0) scale(.9); }
+}
+@keyframes auth-drift-c {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(14%, -18%, 0) scale(1.22); }
+}
+
+.auth-brand-inner { position: relative; z-index: 2; max-width: 26rem; }
+
+.auth-brand-logo {
+  height: 46px;
+  margin-bottom: 1.75rem;
+  /* Logo je tmavé na priesvitnom pozadí; na čiernej ploche ho treba obrátiť. */
+  filter: brightness(0) invert(1);
+}
+
+.auth-brand-claim {
+  margin: 0 0 .75rem;
+  font-size: 1.9rem;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -.02em;
+  color: #fff;
+}
+
+.auth-brand-sub {
+  margin: 0;
+  font-size: .95rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, .62);
+}
+
+/* --------------------------------------------------------- formulárová strana */
+
+.auth-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 2rem;
+  overflow-y: auto;
+}
+
+.auth-form { width: 100%; max-width: 23rem; }
+
+.auth-head { margin-bottom: 1.75rem; }
+
+/* Malé logo je len pre mobil - na desktope ho nesie ľavá polovica a dvakrát
+   by bolo dvakrát. */
+.auth-logo-small { display: none; height: 34px; margin-bottom: 1rem; }
+
+.auth-head h1 {
+  margin: 0 0 .35rem;
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: var(--black);
+}
+
+.auth-head p { margin: 0; color: var(--gray-500); font-size: .9rem; }
+
+.auth-btn-ms {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 13px 20px;
+  background: var(--white);
+  border: 1.5px solid var(--gray-300);
+  border-radius: 10px;
+  font-size: .95rem;
+  font-weight: 600;
+  color: var(--gray-800);
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s, transform .15s;
+}
+
+.auth-btn-ms:hover {
+  border-color: var(--etilog-red);
+  box-shadow: 0 2px 10px rgba(217, 0, 12, .1);
+  transform: translateY(-1px);
+}
+
+.auth-or {
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+  margin: 1.5rem 0 1.25rem;
+  color: var(--gray-400);
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.auth-or::before, .auth-or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--gray-200);
+}
+
+.auth-label {
+  display: block;
+  margin-bottom: .3rem;
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+.auth-input {
+  width: 100%;
+  padding: 11px 13px;
+  margin-bottom: 1rem;
+  border: 1.5px solid var(--gray-300);
+  border-radius: 9px;
+  font-size: .95rem;
+  font-family: inherit;
+  color: var(--gray-900);
+  background: var(--white);
+  transition: border-color .15s, box-shadow .15s;
+}
+
+.auth-input:focus {
+  outline: none;
+  border-color: var(--etilog-red);
+  box-shadow: 0 0 0 3px rgba(217, 0, 12, .12);
+}
+
+.auth-pass { position: relative; }
+
+.auth-eye {
+  position: absolute;
+  top: 9px;
+  right: 8px;
+  padding: 4px 6px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  opacity: .45;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.auth-eye:hover { opacity: .8; }
+
+.auth-btn-primary {
+  width: 100%;
+  padding: 13px 20px;
+  margin-top: .25rem;
+  border: 0;
+  border-radius: 10px;
+  background: var(--etilog-red);
+  color: #fff;
+  font-size: .95rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background .15s, transform .15s;
+}
+
+.auth-btn-primary:hover:not(:disabled) { background: #b80009; transform: translateY(-1px); }
+.auth-btn-primary:disabled { opacity: .6; cursor: default; }
+
+.auth-alert {
+  margin-bottom: 1.1rem;
+  padding: .75rem .9rem;
+  border: 1px solid #fecaca;
+  border-radius: 9px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: .87rem;
+  line-height: 1.45;
+}
+
+.auth-note {
+  margin: 0 0 1rem;
+  font-size: .87rem;
+  line-height: 1.5;
+  color: var(--gray-600);
+}
+
+.auth-busy { text-align: center; padding: 1.5rem 0; color: var(--gray-500); font-size: .9rem; }
+
+.auth-spinner {
+  width: 30px; height: 30px;
+  margin: 0 auto .8rem;
+  border: 3px solid var(--gray-200);
+  border-top-color: var(--etilog-red);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+
+.auth-foot { margin-top: 2rem; color: var(--gray-400); font-size: .78rem; }
+
+/* -------------------------------------------------------------------- mobil */
+
+@media (max-width: 860px) {
+  .auth-body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; overflow: auto; }
+
+  /* Značka zostáva, ale ako pruh - kus atmosféry bez toho, aby odtlačila
+     formulár pod okraj obrazovky. */
+  .auth-brand { min-height: 148px; padding: 1.5rem; }
+  .auth-brand-inner { text-align: center; }
+  .auth-brand-logo { height: 34px; margin-bottom: .8rem; }
+  .auth-brand-claim { font-size: 1.15rem; margin-bottom: 0; }
+  .auth-brand-sub { display: none; }
+
+  .auth-panel { padding: 2rem 1.25rem 3rem; align-items: flex-start; }
+}
+
+/* Na úzkych telefónoch ide značka preč úplne a nesie ju malé logo hore. */
+@media (max-width: 460px) {
+  .auth-brand { display: none; }
+  .auth-logo-small { display: block; }
+  .auth-panel { padding-top: 2.5rem; }
+}
+
+/* Kto si vypol animácie, ten ich nechce ani tu. Svetlá zostanú, len stoja. */
+@media (prefers-reduced-motion: reduce) {
+  .auth-aurora i { animation: none; }
+  .auth-btn-ms:hover, .auth-btn-primary:hover { transform: none; }
+}

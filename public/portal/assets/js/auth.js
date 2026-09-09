@@ -110,9 +110,19 @@ function handleLoginSuccess(response) {
  * Sign out
  */
 async function signOut() {
+    // Kto sa prihlásil heslom, nemá u Microsoftu čo odhlasovať - a volanie
+    // logoutPopup by mu otvorilo okno Microsoftu, ktoré nikdy nevidel.
+    const wasLocal = localStorage.getItem('etilog_auth') === 'local';
+
     localStorage.removeItem('etilog_token');
     localStorage.removeItem('etilog_account');
     localStorage.removeItem('etilog_user');
+    localStorage.removeItem('etilog_auth');
+
+    if (wasLocal) {
+        window.location.href = '/login';
+        return;
+    }
 
     if (msalInstance) {
         try {
@@ -147,6 +157,15 @@ async function getAccessToken() {
             // Invalid token format
             localStorage.removeItem('etilog_token');
         }
+    }
+
+    // Prihlásený heslom a token vypršal: u Microsoftu preň nič nie je, tak
+    // rovno späť na prihlásenie. Bez tohto by sa MSAL pokúšal obnoviť reláciu,
+    // ktorá nikdy neexistovala.
+    if (localStorage.getItem('etilog_auth') === 'local') {
+        localStorage.removeItem('etilog_auth');
+        window.location.href = '/login';
+        return null;
     }
 
     // Try to reinitialize MSAL if needed
