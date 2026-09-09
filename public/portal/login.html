@@ -3,47 +3,99 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ETILOG - Prihlásenie</title>
+    <title>ETILOG Portal – Prihlásenie</title>
     <link rel="stylesheet" href="/portal/assets/css/portal.css">
+    <link rel="stylesheet" href="/portal/assets/css/login.css">
 </head>
-<body class="login-body">
-    <div class="login-container">
-        <div class="login-card">
-            <div class="login-header">
-                <img src="/assets/images/logo.png" alt="ETILOG" class="login-logo">
-                <h1>ETILOG Portal</h1>
-                <p>Prihláste sa svojím pracovným účtom Microsoft</p>
-            </div>
+<body class="auth-body">
 
-            <div id="loginContent">
-                <button id="loginBtn" class="btn-microsoft" onclick="signIn()">
-                    <svg width="20" height="20" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
-                        <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
-                        <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
-                        <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
-                        <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
-                    </svg>
-                    Prihlásiť sa cez Microsoft
-                </button>
-            </div>
-
-            <div id="loginLoading" style="display: none;">
-                <div class="login-spinner"></div>
-                <p>Prihlasovanie...</p>
-
-            </div>
-
-            <div id="loginError" class="login-error" style="display: none;"></div>
-
-            <div class="login-footer">
-                <p>ETILOG Teams App &bull; Interné použitie</p>
-            </div>
+    <!-- Značková polovica. Na mobile sa zmenší na pruh nad formulárom: na
+         360 pixeloch je miesto na prihlásenie, nie na atmosféru. -->
+    <aside class="auth-brand" aria-hidden="true">
+        <div class="auth-aurora"><i></i><i></i><i></i></div>
+        <div class="auth-brand-inner">
+            <img src="/assets/images/logo.png" alt="" class="auth-brand-logo">
+            <!-- Nie „packaging & beyond" - to už stojí v logu nad tým. -->
+            <p class="auth-brand-claim">Interný portál</p>
+            <p class="auth-brand-sub">Výroba, sklad, vozový park a žiadosti na jednom mieste.</p>
         </div>
-    </div>
+    </aside>
 
-    <!-- MSAL.js 2.0 Browser - local copy -->
+    <main class="auth-panel">
+        <div class="auth-form">
+
+            <header class="auth-head">
+                <img src="/assets/images/logo.png" alt="ETILOG" class="auth-logo-small">
+                <h1>Prihlásenie</h1>
+                <p id="authLead">Pokračujte pracovným účtom Microsoft.</p>
+            </header>
+
+            <div id="authError" class="auth-alert" hidden></div>
+
+            <!-- Firemné prihlásenie je prvé: takto sa prihlasuje drvivá
+                 väčšina ľudí a nemá pre ňu zmysel čítať formulár nižšie. -->
+            <button id="msBtn" class="auth-btn-ms" onclick="signIn()">
+                <svg width="18" height="18" viewBox="0 0 21 21" aria-hidden="true">
+                    <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+                    <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+                    <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+                    <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+                </svg>
+                Prihlásiť sa cez Microsoft
+            </button>
+
+            <!-- Heslom sa prihlasujú dodávatelia zvonku. Formulár je vidieť
+                 rovno, neschovaný za odkazom - kto ho potrebuje, nemá ho
+                 hľadať. -->
+            <div id="authPasswordBlock" hidden>
+                <div class="auth-or"><span>alebo heslom</span></div>
+
+                <form id="authForm" autocomplete="on">
+                    <label class="auth-label" for="authEmail">E-mail</label>
+                    <input class="auth-input" type="email" id="authEmail" name="email"
+                           autocomplete="username" required placeholder="meno@firma.sk">
+
+                    <label class="auth-label" for="authPass">Heslo</label>
+                    <div class="auth-pass">
+                        <input class="auth-input" type="password" id="authPass" name="password"
+                               autocomplete="current-password" required>
+                        <button type="button" class="auth-eye" id="authEye"
+                                aria-label="Zobraziť heslo" onclick="authTogglePassword()">👁</button>
+                    </div>
+
+                    <button type="submit" class="auth-btn-primary" id="authSubmit">Prihlásiť sa</button>
+                </form>
+            </div>
+
+            <!-- Vynútená zmena hesla po tom, čo ho nastavil administrátor.
+                 Ten tak nikdy nepozná heslo, ktorým sa človek reálne
+                 prihlasuje. -->
+            <div id="authChangeBlock" hidden>
+                <div class="auth-or"><span>zmeňte si heslo</span></div>
+                <p class="auth-note">Heslo vám nastavil správca. Než budete pokračovať, zvoľte si vlastné.</p>
+                <form id="authChangeForm">
+                    <label class="auth-label" for="authNewPass">Nové heslo</label>
+                    <input class="auth-input" type="password" id="authNewPass"
+                           autocomplete="new-password" minlength="10" required>
+                    <label class="auth-label" for="authNewPass2">Nové heslo znova</label>
+                    <input class="auth-input" type="password" id="authNewPass2"
+                           autocomplete="new-password" minlength="10" required>
+                    <button type="submit" class="auth-btn-primary">Uložiť a pokračovať</button>
+                </form>
+            </div>
+
+            <div id="authBusy" class="auth-busy" hidden>
+                <div class="auth-spinner"></div>
+                <p>Prihlasovanie…</p>
+            </div>
+
+            <footer class="auth-foot">ETILOG s.r.o. &bull; Interné použitie</footer>
+        </div>
+    </main>
+
     <script src="/portal/assets/js/msal-browser.min.js"></script>
     <script src="/portal/assets/js/authConfig.js"></script>
     <script src="/portal/assets/js/auth.js"></script>
+    <script src="/portal/assets/js/loginLocal.js"></script>
 </body>
 </html>
