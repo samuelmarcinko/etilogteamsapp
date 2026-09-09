@@ -6,26 +6,87 @@
  * serveri naozaj zapnuté - inak by tam stálo pole, do ktorého sa nedá prihlásiť.
  */
 
-const AUTH_MESSAGES = {
-  bad_credentials: 'Nesprávny e-mail alebo heslo.',
-  locked: 'Účet je po viacerých neúspešných pokusoch dočasne zamknutý. Skúste o 15 minút.',
-  disabled: 'Tento účet je vypnutý. Ozvite sa správcovi.',
-  not_configured: 'Prihlásenie heslom nie je na tomto portáli zapnuté.',
-  too_short: 'Heslo musí mať aspoň 10 znakov.',
-  mismatch: 'Heslá sa nezhodujú.',
-  network: 'Server neodpovedal. Skúste to znova.'
+/** Chyby zo servera na hlášky, ktoré niečo hovoria. */
+const AUTH_ERROR_KEYS = {
+  bad_credentials: 'loginErrBadCredentials',
+  locked: 'loginErrLocked',
+  disabled: 'loginErrDisabled',
+  not_configured: 'loginErrNotConfigured',
+  too_short: 'loginErrTooShort',
+  mismatch: 'loginErrMismatch',
+  network: 'loginErrNetwork'
 };
 
 let authPendingToken = null;   // token držaný, kým si človek nezmení heslo
+let authHasPassword = false;   // ponúka server prihlásenie heslom?
+
+/* ------------------------------------------------------------------ jazyk */
+
+/**
+ * Prihlasovacia stránka začína v angličtine.
+ *
+ * Chodia sem aj ľudia zvonku, ktorí po slovensky nevedia - a rozdiel oproti
+ * portálu je zámerný: kto si jazyk raz zvolí, ten sa uloží a portál ho preberie.
+ * Kým si nezvolí nič, portál zostáva po slovensky, lebo ho používajú naši ľudia.
+ * Prepnúť predvolený jazyk celého portálu je iné rozhodnutie než toto.
+ */
+function authInitLang() {
+  if (!localStorage.getItem('etilog_portal_lang')) portalLang = 'en';
+  authApplyLang();
+}
+
+function authSetLang(lang) {
+  portalLang = lang;
+  localStorage.setItem('etilog_portal_lang', lang);
+  authApplyLang();
+}
+
+/**
+ * Preloží stránku na mieste.
+ *
+ * Cez `data-i18n` atribúty, nie prestavaním HTML: rozpísané heslo a e-mail
+ * musia prepnutie jazyka prežiť. Nikto nechce písať prihlasovacie údaje
+ * druhýkrát preto, že si to prepol do slovenčiny.
+ */
+function authApplyLang() {
+  document.documentElement.lang = portalLang;
+  document.title = 'ETILOG Portal – ' + pt('loginTitle');
+
+  document.querySelectorAll('[data-i18n]').forEach((el) => {
+    el.textContent = pt(el.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+    el.placeholder = pt(el.dataset.i18nPlaceholder);
+  });
+  document.querySelectorAll('[data-i18n-label]').forEach((el) => {
+    el.setAttribute('aria-label', pt(el.dataset.i18nLabel));
+  });
+
+  // Úvodná veta závisí od toho, či je heslom prihlásenie vôbec zapnuté.
+  document.getElementById('authLead').textContent =
+    pt(authHasPassword ? 'loginLeadBoth' : 'loginLeadMs');
+
+  document.querySelectorAll('.auth-lang-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.lang === portalLang);
+  });
+
+  // Chybová hláška na obrazovke sa musí preložiť tiež - inak by po prepnutí
+  // zostala visieť v jazyku, ktorý už nikto nečíta.
+  const box = document.getElementById('authError');
+  if (!box.hidden && box.dataset.errorKey) authShowError(box.dataset.errorKey);
+}
 
 function authShowError(key) {
   const box = document.getElementById('authError');
-  box.textContent = AUTH_MESSAGES[key] || AUTH_MESSAGES.bad_credentials;
+  box.dataset.errorKey = key;
+  box.textContent = pt(AUTH_ERROR_KEYS[key] || AUTH_ERROR_KEYS.bad_credentials);
   box.hidden = false;
 }
 
 function authClearError() {
-  document.getElementById('authError').hidden = true;
+  const box = document.getElementById('authError');
+  box.hidden = true;
+  delete box.dataset.errorKey;
 }
 
 function authBusy(on) {
@@ -38,7 +99,7 @@ function authTogglePassword() {
   const shown = input.type === 'text';
   input.type = shown ? 'password' : 'text';
   document.getElementById('authEye').setAttribute(
-    'aria-label', shown ? 'Zobraziť heslo' : 'Skryť heslo'
+    'aria-label', pt(shown ? 'loginShowPassword' : 'loginHidePassword')
   );
 }
 
@@ -53,9 +114,9 @@ async function authLoadMethods() {
     const res = await fetch('/api/auth/methods');
     const { data } = await res.json();
     if (data?.password) {
+      authHasPassword = true;
       document.getElementById('authPasswordBlock').hidden = false;
-      document.getElementById('authLead').textContent =
-        'Pokračujte pracovným účtom Microsoft, alebo sa prihláste heslom.';
+      document.getElementById('authLead').textContent = pt('loginLeadBoth');
     }
   } catch (e) {
     // Nedostupný server neznamená schovať Microsoft - ten funguje bez nás.
@@ -92,6 +153,9 @@ async function authSignIn(event) {
     authBusy(false);
     document.getElementById('authPasswordBlock').hidden = true;
     document.getElementById('msBtn').hidden = true;
+    // Úvodná veta ponúka dve cesty dnu; v tomto kroku už žiadna z nich neplatí,
+    // vysvetlenie nesie poznámka nad formulárom.
+    document.getElementById('authLead').hidden = true;
     document.getElementById('authChangeBlock').hidden = false;
     document.getElementById('authNewPass').focus();
     return;
@@ -141,6 +205,7 @@ async function authChangePassword(event) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  authInitLang();
   authLoadMethods();
   document.getElementById('authForm')?.addEventListener('submit', authSignIn);
   document.getElementById('authChangeForm')?.addEventListener('submit', authChangePassword);
