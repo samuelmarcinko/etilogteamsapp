@@ -189,7 +189,12 @@ function wdRender() {
     };
     el.innerHTML = `<div class="wd-shell">${screens[wdState.step]()}</div>`;
 
-    if (wdState.step === 'code') setTimeout(() => document.getElementById('wdQuery')?.focus(), 60);
+    // Výsledky sa dopĺňajú zvlášť, lebo pri písaní sa prekresľujú samy - tu ide
+    // o návrat na krok s už napísaným dotazom.
+    if (wdState.step === 'code') {
+        wdPaintHits();
+        setTimeout(() => document.getElementById('wdQuery')?.focus(), 60);
+    }
     wdTouch();
 }
 
@@ -270,8 +275,37 @@ async function wdPin(key) {
 
 // -------------------------------------------------------- 1. číslo materiálu
 
+/**
+ * Políčko na číslo materiálu.
+ *
+ * Vykreslí sa raz, pri príchode na krok, a potom sa ho už nikto nedotkne.
+ * Prekresľuje sa len to pod ním - výsledky a hláška.
+ *
+ * Je to dôležitejšie, než to vyzerá: keby sa pri každom písmene prekreslila
+ * celá obrazovka, políčko by sa zahodilo a vyrobilo nanovo, a písmená napísané
+ * medzitým by padli do starého alebo skončili v inom poradí. Kto píše RM102750
+ * rýchlo, dostal MR102750.
+ */
 function wdCodeScreen() {
-    const list = wdState.matches.map(m => `
+    return `${wdHead('Vyskladnenie tovaru', 'Zadajte číslo materiálu')}
+        <div class="wd-body wd-body-narrow">
+            <input class="wd-input" id="wdQuery" autocomplete="off" inputmode="text"
+                   autocapitalize="characters" autocorrect="off" spellcheck="false"
+                   placeholder="napr. RM102750" value="${escapeHtml(wdState.query)}"
+                   oninput="wdSearch(this.value)">
+            <div id="wdCodeError"></div>
+            <div class="wd-hits" id="wdHits"></div>
+            <p class="wd-tip" id="wdTip">Vyskladniť sa dá len materiál, ktorý je v Evidencii.
+                Vlastné položky sa hľadajú názvom — napríklad <em>tašky</em>.</p>
+        </div>`;
+}
+
+/** Prekreslí výsledky a hlášku. Políčka sa nedotýka. */
+function wdPaintHits() {
+    const hits = document.getElementById('wdHits');
+    if (!hits) return;
+
+    hits.innerHTML = wdState.matches.map(m => `
         <button class="wd-hit" onclick="wdPick(${m.id})">
             <span class="wd-hit-main">
                 <strong>${escapeHtml(m.name)}</strong>
@@ -280,16 +314,8 @@ function wdCodeScreen() {
             <span class="wd-hit-side">${m.placements.length} ${wdPlural(m.placements.length, 'pozícia', 'pozície', 'pozícií')}</span>
         </button>`).join('');
 
-    return `${wdHead('Vyskladnenie tovaru', 'Zadajte číslo materiálu')}
-        <div class="wd-body wd-body-narrow">
-            <input class="wd-input" id="wdQuery" autocomplete="off" inputmode="text"
-                   placeholder="napr. RM102750" value="${escapeHtml(wdState.query)}"
-                   oninput="wdSearch(this.value)">
-            ${wdErrorBox()}
-            <div class="wd-hits">${list}</div>
-            ${!wdState.query ? `<p class="wd-tip">Vyskladniť sa dá len materiál, ktorý je v Evidencii.
-                Vlastné položky sa hľadajú názvom — napríklad <em>tašky</em>.</p>` : ''}
-        </div>`;
+    document.getElementById('wdCodeError').innerHTML = wdErrorBox();
+    document.getElementById('wdTip').hidden = Boolean(wdState.query);
 }
 
 let wdSearchTimer = null;
@@ -299,21 +325,24 @@ function wdSearch(value) {
     wdState.error = null;
     clearTimeout(wdSearchTimer);
 
-    if (value.trim().length < 2) { wdState.matches = []; return wdRender(); }
+    if (value.trim().length < 2) { wdState.matches = []; return wdPaintHits(); }
 
     wdSearchTimer = setTimeout(async () => {
         try {
             const res = await apiCall(`/api/warehouse/withdrawals/search?q=${encodeURIComponent(value.trim())}`);
             const found = res.ok ? ((await res.json()).data || []) : [];
-            if (wdState.query !== value) return;   // medzitým doťukal ďalšie písmeno
+            // Medzitým doťukal ďalšie písmeno - odpoveď patrí k staršiemu
+            // dotazu a prepísať ňou výsledky by ukázalo niečo iné, než má
+            // človek napísané.
+            if (wdState.query !== value) return;
 
             wdState.matches = found;
             wdState.error = found.length ? null : 'Taký materiál v Evidencii nie je.';
-            wdRender();
-            document.getElementById('wdQuery')?.focus();
+            wdPaintHits();
         } catch (e) {
+            if (wdState.query !== value) return;
             wdState.error = 'Server neodpovedal.';
-            wdRender();
+            wdPaintHits();
         }
     }, 300);
 }
