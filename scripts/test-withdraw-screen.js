@@ -76,7 +76,14 @@ const MATERIALS = [
       { location_id: 14, location_code: 'B4', zone: 'B', position: 4, quantity: 34 }
     ] },
   { id: 2, code: null, name: 'Tašky HKP', kind: 'local', unit: 'ks', quantity: 1, project_fg: 'FG100875',
-    placements: [{ location_id: 21, location_code: 'A2', zone: 'A', position: 2, quantity: 1 }] }
+    placements: [{ location_id: 21, location_code: 'A2', zone: 'A', position: 2, quantity: 1 }] },
+  // Ďalšie kódy začínajúce na RM, aby zoznam výsledkov presiahol obrazovku -
+  // presne vtedy sa ukáže, či sa pole udrží na mieste.
+  ...Array.from({ length: 7 }, (_, i) => ({
+    id: 10 + i, code: 'RM10' + (2800 + i), name: 'Kartón typ ' + (i + 1),
+    kind: 'sap', unit: 'ks', quantity: 50,
+    placements: [{ location_id: 30 + i, location_code: 'C' + (i + 1), zone: 'C', position: i + 1, quantity: 50 }]
+  }))
 ];
 
 window.__sent = [];
@@ -160,6 +167,50 @@ async function main() {
   const box = await page.locator('#wdQuery').boundingBox();
   check('pole sedí vo viditeľnej časti', box.y >= 0 && box.y + box.height <= 360, true);
 
+  // Toto je ten prípad, ktorý sa pokazil: prišli výsledky, obsah prerástol
+  // obrazovku a pole sa vysunulo hore pod hlavičku. Rolovať sa má zoznam, nie
+  // celá obrazovka.
+  await page.click('#wdQuery');
+  await page.type('#wdQuery', 'RM10', { delay: 40 });
+  await page.waitForTimeout(700);
+
+  const many = await page.evaluate(() => wdState.matches.length);
+  check('výsledkov je viac, než sa zmestí', many >= 6, true);
+
+  const after = await page.locator('#wdQuery').boundingBox();
+  const head = await page.locator('.wd-head').boundingBox();
+  check('pole sa nikam nepohlo', Math.round(after.y), Math.round(box.y));
+  check('a nezaliezlo pod hlavičku', after.y >= head.y + head.height - 1, true);
+  check('stránka stále nemá kam rolovať', await page.evaluate(
+    () => document.documentElement.scrollHeight <= window.innerHeight + 1), true);
+  check('roluje sa zoznam výsledkov', await page.evaluate(() => {
+    const el = document.getElementById('wdHits');
+    return el.scrollHeight > el.clientHeight;
+  }), true);
+  check('prvý výsledok je hneď pod poľom', await page.evaluate(() => {
+    const hit = document.querySelector('.wd-hit').getBoundingClientRect();
+    return hit.top > 0 && hit.top < window.innerHeight;
+  }), true);
+
+  // Posuvník si kreslíme sami práve preto, že ten prehliadačový sa na
+  // dotykovom zariadení nevykreslí - a nikto by nevedel, že zoznam pokračuje.
+  check('posuvník je vidieť', await page.isVisible('.wd-scroll'), true);
+  const thumb = await page.locator('#wdScrollThumb').boundingBox();
+  check('a má bežec primeranej výšky', thumb.height >= 40 && thumb.height < 181, true);
+
+  const before = thumb.y;
+  await page.evaluate(() => { document.getElementById('wdHits').scrollTop = 400; });
+  await page.waitForTimeout(150);
+  check('bežec sa pri rolovaní posunie',
+        (await page.locator('#wdScrollThumb').boundingBox()).y > before, true);
+
+  // Keď sa zoznam zmestí celý, posuvník nemá čo ukazovať.
+  await page.fill('#wdQuery', '');
+  await page.type('#wdQuery', 'tašky', { delay: 40 });
+  await page.waitForTimeout(700);
+  check('pri jednom výsledku je posuvník preč', await page.isVisible('.wd-scroll'), false);
+
+  await page.evaluate(() => { document.getElementById('wdQuery').value = ''; wdSearch(''); });
   await page.setViewportSize({ width: 1340, height: 800 });
   await page.waitForTimeout(200);
 

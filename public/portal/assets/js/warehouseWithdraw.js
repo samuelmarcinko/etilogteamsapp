@@ -117,6 +117,9 @@ function wdTrackViewport() {
         // Keď je stránka presne taká vysoká ako viditeľná plocha, nie je kam
         // rolovať - a prehliadač teda nemá ako odsunúť hlavičku nad okraj.
         window.scrollTo(0, 0);
+        // Zoznam výsledkov sa vysunutím klávesnice zmenšil, takže bežec
+        // posuvníka už neplatí.
+        wdSyncScroll();
     };
 
     vv.addEventListener('resize', wdApplyViewport);
@@ -338,13 +341,16 @@ async function wdPin(key) {
  */
 function wdCodeScreen() {
     return `${wdHead('Vyskladnenie tovaru', 'Zadajte číslo materiálu')}
-        <div class="wd-body wd-body-narrow">
+        <div class="wd-body wd-body-narrow wd-body-code">
             <input class="wd-input" id="wdQuery" autocomplete="off" inputmode="text"
                    autocapitalize="characters" autocorrect="off" spellcheck="false"
                    placeholder="napr. RM102750" value="${escapeHtml(wdState.query)}"
                    oninput="wdSearch(this.value)">
             <div id="wdCodeError"></div>
-            <div class="wd-hits" id="wdHits"></div>
+            <div class="wd-hits-wrap" id="wdHitsWrap">
+                <div class="wd-hits" id="wdHits" onscroll="wdSyncScroll()"></div>
+                <div class="wd-scroll"><i id="wdScrollThumb"></i></div>
+            </div>
             <p class="wd-tip" id="wdTip">Vyskladniť sa dá len materiál, ktorý je v Evidencii.
                 Vlastné položky sa hľadajú názvom — napríklad <em>tašky</em>.</p>
         </div>`;
@@ -366,6 +372,31 @@ function wdPaintHits() {
 
     document.getElementById('wdCodeError').innerHTML = wdErrorBox();
     document.getElementById('wdTip').hidden = Boolean(wdState.query);
+    wdSyncScroll();
+}
+
+/**
+ * Posuvník zoznamu výsledkov.
+ *
+ * Kreslíme ho sami - prehliadač ho na dotykovom zariadení ukáže až pri
+ * rolovaní a hneď schová, takže by nikto nevedel, že zoznam pokračuje. Toto je
+ * vidieť stále, kým je čo rolovať.
+ */
+function wdSyncScroll() {
+    const wrap = document.getElementById('wdHitsWrap');
+    const list = document.getElementById('wdHits');
+    const thumb = document.getElementById('wdScrollThumb');
+    if (!wrap || !list || !thumb) return;
+
+    const hidden = list.scrollHeight - list.clientHeight;
+    wrap.classList.toggle('is-scrollable', hidden > 1);
+    if (hidden <= 1) return;
+
+    // Bežec nikdy nie je menší než palec, aj keby bol zoznam veľmi dlhý.
+    const height = Math.max(40, Math.round(list.clientHeight * list.clientHeight / list.scrollHeight));
+    const travel = list.clientHeight - height;
+    thumb.style.height = `${height}px`;
+    thumb.style.top = `${Math.round((list.scrollTop / hidden) * travel)}px`;
 }
 
 let wdSearchTimer = null;

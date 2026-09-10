@@ -150,7 +150,69 @@ body:not(.wd-active) .wd-shell {
   box-shadow: 0 0 0 4px rgba(217, 0, 12, .12);
 }
 
-.wd-hits { display: flex; flex-direction: column; gap: .6rem; margin-top: 1rem; }
+/* Krok s číslom materiálu.
+   Pole je ukotvené a neposúva sa. Rolujú sa len výsledky pod ním - inak by
+   sa pri treťom nájdenom riadku vysunulo hore pod hlavičku a človek by nevidel,
+   čo vlastne napísal. Na tablete je to zásadné: klávesnica zaberie polovicu
+   displeja a na obsah zostane pruh. */
+.wd-body-code {
+  justify-content: flex-start;
+  padding-top: clamp(1rem, 6vh, 3rem);
+  overflow: hidden;
+}
+
+.wd-body-code .wd-input { flex: 0 0 auto; }
+
+/* `min-height: 0` je to, čo dovolí flexovej položke zmenšiť sa pod svoj obsah.
+   Bez neho by sa nezmenšila a rolovanie by prebralo celá obrazovka - aj s
+   poľom, ktoré má zostať na mieste. */
+.wd-hits-wrap {
+  position: relative;
+  display: flex;
+  flex: 0 1 auto;
+  min-height: 0;
+  margin-top: 1rem;
+}
+
+.wd-hits {
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 18px;
+}
+
+/* Posuvník je nakreslený, nie prehliadačový.
+   Prehliadač ho na dotykovom zariadení kreslí ako prekryv: objaví sa až pri
+   rolovaní a hneď zmizne, takže nikto nevie, že zoznam pokračuje. Vlastné
+   štýlovanie (`::-webkit-scrollbar`) sa v niektorých verziách ignoruje a
+   zostane po ňom len prázdna medzera. Toto je vidieť vždy a všade. */
+.wd-scroll {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 10px;
+  border-radius: 5px;
+  background: var(--gray-200);
+  pointer-events: none;
+}
+
+.wd-scroll i {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-radius: 5px;
+  background: var(--gray-500);
+}
+
+/* Keď sa zoznam zmestí celý, posuvník nemá čo ukazovať a miesto po ňom
+   pripadne výsledkom. */
+.wd-hits-wrap:not(.is-scrollable) .wd-scroll { display: none; }
+.wd-hits-wrap:not(.is-scrollable) .wd-hits { padding-right: 0; }
 
 .wd-hit {
   display: flex;
@@ -525,4 +587,11 @@ body:not(.wd-active) .wd-shell {
 
 @media (prefers-reduced-motion: reduce) {
   .wd-bar { animation: none; }
+}
+
+/* Pri vysunutej klávesnici sa aj odsadenie nad poľom zmenší. Toto pravidlo
+   musí stáť až tu: `.wd-body-code` je definované nižšie než blok pre nízke
+   obrazovky a inak by ho prebilo. */
+@media (max-height: 520px) {
+  .wd-body-code { padding-top: .75rem; }
 }
