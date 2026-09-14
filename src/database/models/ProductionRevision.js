@@ -181,9 +181,42 @@ class ProductionRevision {
    * to what the master data happens to say later.
    */
   static async buildSnapshot(locationId, weekStart, client = pool) {
-    const weekEnd = new Date(`${weekStart}T00:00:00Z`);
-    weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
-    const to = weekEnd.toISOString().slice(0, 10);
+    const byWeek = await ProductionRevision.buildSnapshots(locationId, [weekStart], client);
+    return byWeek[weekStart];
+  }
+
+  /**
+   * Viac týždňov naraz, v troch dopytoch namiesto troch na týždeň.
+   *
+   * Lišta "nezverejnené zmeny" sa pýta na celý plán, nie na to, čo je práve na
+   * obrazovke - a týždňov môže byť za rok aj sto. Po jednom by to bolo tristo
+   * dopytov pri každom obnovení.
+   *
+   * Cez tú istú cestu ide aj `buildSnapshot`, aby sa obe nemohli rozísť: dva
+   * mierne odlišné tvary snímky by znamenali, že sa týždeň javí zmenený len
+   * preto, že ho čítal iný kód.
+   */
+  static async buildSnapshots(locationId, weekStarts, client = pool) {
+    const empty = { entries: [], dayFlags: [], shiftNotes: [] };
+    const byWeek = {};
+    for (const weekStart of weekStarts) byWeek[weekStart] = { ...empty, entries: [], dayFlags: [], shiftNotes: [] };
+    if (!weekStarts.length) return byWeek;
+
+    const sorted = [...weekStarts].sort();
+    const from = sorted[0];
+    const lastWeek = new Date(`${sorted[sorted.length - 1]}T00:00:00Z`);
+    lastWeek.setUTCDate(lastWeek.getUTCDate() + 6);
+    const to = lastWeek.toISOString().slice(0, 10);
+
+    // Riadky sa rozdelia do týždňov až tu. V SQL by to znamenalo stĺpec navyše
+    // v snímke - a snímka je to, čo sa porovnáva, takže nesmie obsahovať nič,
+    // čo tam nepatrí.
+    const collect = (rows, key) => {
+      for (const row of rows) {
+        const week = weekStartOf(row.production_date);
+        if (byWeek[week]) byWeek[week][key].push(row);
+      }
+    };
 
     // Sequential, not Promise.all: inside publish() this runs on a transaction
     // client, and a single pg client cannot have two queries in flight. Three
@@ -204,30 +237,29 @@ class ProductionRevision {
             AND e.production_date BETWEEN $2 AND $3
             AND e.deleted_at IS NULL
           ORDER BY e.production_date, s.sort_order NULLS LAST, e.sort_order, e.id`,
-      [locationId, weekStart, to]
+      [locationId, from, to]
     );
+    collect(entries.rows, 'entries');
 
     const dayFlags = await client.query(
       `SELECT id, to_char(production_date, 'YYYY-MM-DD') AS production_date, flag, note
          FROM production_day_flags
         WHERE location_id = $1 AND production_date BETWEEN $2 AND $3
         ORDER BY production_date`,
-      [locationId, weekStart, to]
+      [locationId, from, to]
     );
+    collect(dayFlags.rows, 'dayFlags');
 
     const shiftNotes = await client.query(
       `SELECT id, to_char(production_date, 'YYYY-MM-DD') AS production_date, shift_id, note
          FROM production_shift_notes
         WHERE location_id = $1 AND production_date BETWEEN $2 AND $3
         ORDER BY production_date, shift_id`,
-      [locationId, weekStart, to]
+      [locationId, from, to]
     );
+    collect(shiftNotes.rows, 'shiftNotes');
 
-    return {
-      entries: entries.rows,
-      dayFlags: dayFlags.rows,
-      shiftNotes: shiftNotes.rows
-    };
+    return byWeek;
   }
 
   /**
@@ -291,13 +323,59 @@ class ProductionRevision {
    * much. Weeks that match, and weeks that are empty and never were published,
    * are simply absent.
    */
-  static async findPending(locationId, fromDate, toDate) {
-    const weeks = weeksBetween(fromDate, toDate);
-    const published = await ProductionRevision.findCurrent(locationId, weeks);
+  /**
+   * Týždne, ktoré vôbec môžu byť nezverejnené.
+   *
+   * Zmena sa môže skrývať len tam, kde je nejaký obsah, alebo kde už raz niečo
+   * zverejnené bolo - týždeň bez oboch nemá s čím nesúhlasiť. Karty sa mažú
+   * mäkko, takže zmazanie poslednej karty tu zostáva vidieť; práve to sa inak
+   * stratí a plánovač by mal nezverejnenú zmenu, o ktorej sa nikde nedozvie.
+   */
+  static async pendingCandidates(locationId) {
+    const { rows } = await pool.query(
+      `SELECT DISTINCT to_char(week_start, 'YYYY-MM-DD') AS week_start
+         FROM (
+           SELECT date_trunc('week', production_date)::date AS week_start
+             FROM production_plan_entries WHERE location_id = $1
+           UNION
+           SELECT date_trunc('week', production_date)::date
+             FROM production_day_flags WHERE location_id = $1
+           UNION
+           SELECT date_trunc('week', production_date)::date
+             FROM production_shift_notes WHERE location_id = $1
+           UNION
+           SELECT week_start FROM production_plan_revisions WHERE location_id = $1
+         ) weeks
+        ORDER BY 1`,
+      [locationId]
+    );
+    return rows.map((row) => row.week_start);
+  }
+
+  /**
+   * Which weeks differ from what was last published, and by how much. Weeks
+   * that match, and weeks that are empty and never were published, are simply
+   * absent.
+   *
+   * Bez rozsahu prejde celý plán. Lišta o nezverejnených zmenách totiž nesmie
+   * závisieť od toho, na ktorý týždeň sa človek práve pozerá - zmena urobená v
+   * jednom týždni sa neprestane počítať tým, že listne o mesiac ďalej.
+   */
+  static async findPending(locationId, fromDate = null, toDate = null) {
+    const weeks = fromDate && toDate
+      ? weeksBetween(fromDate, toDate)
+      : await ProductionRevision.pendingCandidates(locationId);
+
+    if (!weeks.length) return [];
+
+    const [published, snapshots] = await Promise.all([
+      ProductionRevision.findCurrent(locationId, weeks),
+      ProductionRevision.buildSnapshots(locationId, weeks)
+    ]);
 
     const pending = [];
     for (const weekStart of weeks) {
-      const current = await ProductionRevision.buildSnapshot(locationId, weekStart);
+      const current = snapshots[weekStart];
       const previous = published[weekStart];
 
       // Never published and nothing in it: not a pending change, just an empty

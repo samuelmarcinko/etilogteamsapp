@@ -304,13 +304,17 @@ router.get('/pending', viewAccess, asyncHandler(async (req, res) => {
   const { location: code, from, to } = req.query;
   if (!code) return res.status(400).json({ error: 'Bad Request', message: 'location is required' });
 
-  const rangeError = validateRange(from, to);
-  if (rangeError) return res.status(400).json({ error: 'Bad Request', message: rangeError });
+  // Rozsah je nepovinný. Bez neho sa prejde celý plán - lišta o nezverejnených
+  // zmenách nesmie závisieť od toho, na ktorý týždeň sa človek práve pozerá.
+  if (from || to) {
+    const rangeError = validateRange(from, to);
+    if (rangeError) return res.status(400).json({ error: 'Bad Request', message: rangeError });
+  }
 
   const location = await ProductionPlan.findLocationByCode(code);
   if (!location) return res.status(404).json({ error: 'Location not found' });
 
-  const pending = await ProductionRevision.findPending(location.id, from, to);
+  const pending = await ProductionRevision.findPending(location.id, from || null, to || null);
   res.json({
     data: {
       weeks: pending,
@@ -346,16 +350,22 @@ router.get('/discard/preview', manageAccess, asyncHandler(async (req, res) => {
   const { location: code, from, to } = req.query;
   if (!code) return res.status(400).json({ error: 'Bad Request', message: 'location is required' });
 
-  const rangeError = validateRange(from, to);
-  if (rangeError) return res.status(400).json({ error: 'Bad Request', message: rangeError });
+  if (from || to) {
+    const rangeError = validateRange(from, to);
+    if (rangeError) return res.status(400).json({ error: 'Bad Request', message: rangeError });
+  }
 
   const location = await ProductionPlan.findLocationByCode(code);
   if (!location) return res.status(404).json({ error: 'Location not found' });
 
-  const weeks = await ProductionRevision.previewDiscard(
-    location.id, ProductionRevision.weeksBetween(from, to)
-  );
-  res.json({ data: { weeks } });
+  // Bez rozsahu sa pýtame na to isté, čo ukazuje lišta - teda na celý plán.
+  // Dialóg musí vypísať presne tie týždne, ktoré tlačidlo zahodí; keby sa
+  // pýtal na užší výsek, zahodilo by viac, než čo si človek prečítal.
+  const weeks = from && to
+    ? ProductionRevision.weeksBetween(from, to)
+    : (await ProductionRevision.findPending(location.id)).map((week) => week.weekStart);
+
+  res.json({ data: { weeks: await ProductionRevision.previewDiscard(location.id, weeks) } });
 }));
 
 // POST /api/production/discard  { location, weeks: ['2026-08-24', ...] }

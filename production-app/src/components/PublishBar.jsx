@@ -116,8 +116,13 @@ export default function PublishBar({
             {changes} unpublished {changes === 1 ? 'change' : 'changes'}
           </span>
           {' · '}
+          {/* Týždne sa vypisujú len po tretí. Lišta sa pýta na celý plán, takže
+              ich môže byť aj desať - a riadok, ktorý sa zalomí cez pol
+              obrazovky, prestane byť upozornením a stane sa z neho zoznam.
+              Úplný súpis je v potvrdzovacom dialógu. */}
           <span className="text-amber-800">
-            {weeks.map((week) => weekLabel(week.weekStart)).join(' · ')}
+            {weeks.slice(0, 3).map((week) => weekLabel(week.weekStart)).join(' · ')}
+            {weeks.length > 3 && ` · +${weeks.length - 3} more`}
           </span>
         </p>
 

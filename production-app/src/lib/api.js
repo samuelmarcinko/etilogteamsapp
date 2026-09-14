@@ -97,9 +97,15 @@ export const api = {
       (published ? '&published=1' : '')
     ).then((r) => r.data),
 
-  /** Which weeks differ from what the floor was last told, and by how much. */
-  pending: ({ location, from, to }) =>
-    request(`/api/production/pending?location=${encodeURIComponent(location)}&from=${from}&to=${to}`)
+  /**
+   * Which weeks differ from what the floor was last told, and by how much.
+   *
+   * Zámerne bez rozsahu: pýtame sa na celý plán. Lišta o nezverejnených
+   * zmenách musí byť vidieť z každého pohľadu - zmena urobená v jednom týždni
+   * sa neprestane počítať tým, že si plánovač listne o mesiac ďalej.
+   */
+  pending: ({ location }) =>
+    request(`/api/production/pending?location=${encodeURIComponent(location)}`)
       .then((r) => r.data),
 
   /**
@@ -123,8 +129,9 @@ export const api = {
    * destroy work. `discardPreview` says what it would cost and writes nothing;
    * `discard` hands back the snapshot `discardUndo` replays.
    */
-  discardPreview: ({ location, from, to }) =>
-    request(`/api/production/discard/preview?location=${encodeURIComponent(location)}&from=${from}&to=${to}`)
+  /** Rovnaký rozsah ako lišta - teda celý plán, nie len zobrazené týždne. */
+  discardPreview: ({ location }) =>
+    request(`/api/production/discard/preview?location=${encodeURIComponent(location)}`)
       .then((r) => r.data),
 
   discard: ({ location, weeks }) =>

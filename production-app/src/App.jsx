@@ -432,8 +432,11 @@ export default function App() {
    * it is simply re-asked whenever the plan changes.
    */
   const pending = useQuery({
-    queryKey: ['production', 'pending', locationCode, range.from, range.to],
-    queryFn: () => api.pending({ location: locationCode, from: range.from, to: range.to }),
+    // Bez rozsahu v kľúči: je to otázka o celom pláne, nie o zobrazených
+    // týždňoch. Keby tam rozsah bol, listnutie o mesiac ďalej by si vypýtalo
+    // novú odpoveď a lišta by medzitým zmizla - presne to sa dialo.
+    queryKey: ['production', 'pending', locationCode],
+    queryFn: () => api.pending({ location: locationCode }),
     enabled: Boolean(locationCode) && canManage,
     staleTime: 5 * 1000
   });
@@ -461,8 +464,8 @@ export default function App() {
    */
   const [discardAsked, setDiscardAsked] = useState(false);
   const discardPreview = useQuery({
-    queryKey: ['production', 'discard-preview', locationCode, range.from, range.to],
-    queryFn: () => api.discardPreview({ location: locationCode, from: range.from, to: range.to }),
+    queryKey: ['production', 'discard-preview', locationCode],
+    queryFn: () => api.discardPreview({ location: locationCode }),
     enabled: Boolean(discardAsked && locationCode) && canManage,
     gcTime: 0,
     staleTime: 0
