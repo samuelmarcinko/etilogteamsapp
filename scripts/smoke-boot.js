@@ -36,6 +36,9 @@ const OFF = '\x1b[0m';
 // path, expected status, why it matters
 const CHECKS = [
   ['/health', 200, 'container healthcheck - Traefik drops the route without it'],
+  // Bez nastaveného kľúča sa tá adresa musí tváriť, že neexistuje - a zároveň
+  // to dokazuje, že je vôbec zapojená.
+  ['/health/status', 404, 'the status endpoint is wired and invisible without a key'],
   ['/login', 200, 'portal login page'],
   ['/portal/', 200, 'portal SPA shell'],
   ['/api/health', 200, 'API health'],

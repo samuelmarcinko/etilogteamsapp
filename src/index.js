@@ -12,7 +12,21 @@ const FleetNotificationService = require('./services/fleetNotificationService');
 const WarehouseBackupService = require('./services/warehouseBackupService');
 const ProductionRetentionService = require('./services/productionRetentionService');
 const SapSyncService = require('./services/sapSyncService');
+const healthService = require('./services/healthService');
 const logger = require('./utils/logger');
+
+/**
+ * Kontrola stavu nesmie skončiť chybou 500 ani vtedy, keď sa jej niečo
+ * nepodarí - dohľad by potom hlásil „server nedostupný" namiesto toho, čo je
+ * naozaj zle. Preto sa aj padnutá kontrola zabalí do odpovede 503 s dôvodom.
+ */
+const asyncHealth = (handler) => (req, res) =>
+  Promise.resolve(handler(req, res)).catch((error) => {
+    logger.error('Health status endpoint failed', { error: error.message });
+    if (!res.headersSent) {
+      res.status(503).json({ status: 'fail', summary: `Kontrola stavu zlyhala: ${error.message}` });
+    }
+  });
 
 // Initialize Express app
 const app = express();
@@ -179,6 +193,32 @@ app.get('/health', (req, res) => {
     uptime: process.uptime()
   });
 });
+
+/**
+ * Stav systému pre externý dohľad.
+ *
+ * Zámerne oddelené od `/health` nad týmto riadkom. Tú sleduje Traefik a
+ * Docker a pýta sa len „beží proces?"; keby začala padať kvôli nedostupnému
+ * SAPu, zhodili by celý portál kvôli problému so skladovými číslami.
+ *
+ * Táto adresa odpovedá na inú otázku - „je systém zdravý?" - a vracia 503,
+ * keď nie je. Sleduje ju služba mimo tohto servera, lebo nič, čo beží tu,
+ * nedokáže povedať, že tento server je mŕtvy.
+ *
+ * Kľúč v adrese preto, že odpoveď hovorí o voľnom mieste a o stave
+ * synchronizácie. Nie je to tajomstvo, ale ani to nepatrí na verejnú adresu.
+ * Bez kľúča sa adresa tvári, že neexistuje - 401 by prezradila, že existuje.
+ */
+app.get('/health/status', asyncHealth(async (req, res) => {
+  if (!healthService.enabled() || !healthService.keyMatches(req.query.key)) {
+    return res.status(404).json({ error: 'Not Found' });
+  }
+
+  const report = await healthService.check();
+  // Dohľad sa rozhoduje podľa návratového kódu; telo je pre človeka, ktorý
+  // potom číta upozornenie v e-maile.
+  res.status(report.status === 'ok' ? 200 : 503).json(report);
+}));
 
 // Root endpoint - redirect to portal login (browser users).
 // Note: the Teams app loads /pages/*.html directly via manifest contentUrl,

@@ -31,6 +31,11 @@ services:
       # Host mount for persistent file storage - accessible directly on VPS
       - /srv/stacks/apps/teams-app/uploads:/app/uploads
       - /srv/stacks/apps/teams-app/backups:/app/backups
+      # Prázdny priečinok z dátového disku, pripojený len na meranie voľného
+      # miesta: `statfs` vráti údaje o celom zväzku, takže sa disk s Dockerom
+      # a databázou dá sledovať bez toho, aby appka videla čokoľvek z jeho
+      # obsahu. Bez tejto prípojky sa meria len koreňový disk.
+      - /mnt/data/.health:/host-data:ro
     # Logy kontajnera nemajú v predvolenom nastavení žiadny strop - Docker ich
     # píše, kým je na disku miesto. Za mesiace prevádzky to bývajú gigabajty a
     # nikto ich nemaže. Tri súbory po 20 MB je dosť na to, aby sa dalo pozrieť
