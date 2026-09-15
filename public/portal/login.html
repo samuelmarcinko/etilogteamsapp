@@ -39,40 +39,59 @@
 
             <div id="authError" class="auth-alert" hidden></div>
 
-            <!-- Firemné prihlásenie je prvé: takto sa prihlasuje drvivá
-                 väčšina ľudí a nemá pre ňu zmysel čítať formulár nižšie. -->
-            <button id="msBtn" class="auth-btn-ms" onclick="signIn()">
-                <svg width="18" height="18" viewBox="0 0 21 21" aria-hidden="true">
-                    <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
-                    <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
-                    <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
-                    <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
-                </svg>
-                <span data-i18n="loginMsButton">Sign in with Microsoft</span>
-            </button>
+            <!-- Dve cesty dnu, každá pomenovaná tým, pre koho je.
+                 Predtým tu stálo len tlačidlo a pod ním formulár, a nič
+                 nepovedalo, ktorý z nich je ten môj. Dodávateľ skúšal
+                 Microsoft, zamestnanec hľadal heslo, ktoré nikdy nedostal. -->
+            <section class="auth-method auth-method-primary">
+                <div class="auth-method-head">
+                    <span class="auth-method-who" data-i18n="loginWhoStaff">ETILOG employees</span>
+                </div>
+                <p class="auth-method-hint" data-i18n="loginWhoStaffHint">
+                    Use your company Microsoft 365 account — the same one you use for Outlook and Teams.
+                </p>
+                <button id="msBtn" class="auth-btn-ms" onclick="signIn()">
+                    <svg width="18" height="18" viewBox="0 0 21 21" aria-hidden="true">
+                        <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+                        <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+                        <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+                        <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+                    </svg>
+                    <span data-i18n="loginMsButton">Sign in with Microsoft</span>
+                </button>
+            </section>
 
-            <!-- Heslom sa prihlasujú dodávatelia zvonku. Formulár je vidieť
-                 rovno, neschovaný za odkazom - kto ho potrebuje, nemá ho
-                 hľadať. -->
+            <!-- Heslom sa prihlasujú ľudia zvonku. Formulár je vidieť rovno,
+                 neschovaný za odkazom - kto ho potrebuje, nemá ho hľadať. -->
             <div id="authPasswordBlock" hidden>
-                <div class="auth-or"><span data-i18n="loginOrPassword">or with a password</span></div>
+                <div class="auth-or"><span data-i18n="loginOr">or</span></div>
 
-                <form id="authForm" autocomplete="on">
-                    <label class="auth-label" for="authEmail" data-i18n="loginEmail">E-mail</label>
-                    <input class="auth-input" type="email" id="authEmail" name="email"
-                           autocomplete="username" required data-i18n-placeholder="loginEmailHint">
-
-                    <label class="auth-label" for="authPass" data-i18n="loginPassword">Password</label>
-                    <div class="auth-pass">
-                        <input class="auth-input" type="password" id="authPass" name="password"
-                               autocomplete="current-password" required>
-                        <button type="button" class="auth-eye" id="authEye"
-                                data-i18n-label="loginShowPassword" onclick="authTogglePassword()">👁</button>
+                <section class="auth-method">
+                    <div class="auth-method-head">
+                        <span class="auth-method-who" data-i18n="loginWhoExternal">External workers</span>
                     </div>
+                    <p class="auth-method-hint" data-i18n="loginWhoExternalHint">
+                        Suppliers and partners without an ETILOG company account sign in with the
+                        e-mail and password we issued them.
+                    </p>
 
-                    <button type="submit" class="auth-btn-primary" id="authSubmit"
-                            data-i18n="loginSubmit">Sign in</button>
-                </form>
+                    <form id="authForm" autocomplete="on">
+                        <label class="auth-label" for="authEmail" data-i18n="loginEmail">E-mail</label>
+                        <input class="auth-input" type="email" id="authEmail" name="email"
+                               autocomplete="username" required data-i18n-placeholder="loginEmailHint">
+
+                        <label class="auth-label" for="authPass" data-i18n="loginPassword">Password</label>
+                        <div class="auth-pass">
+                            <input class="auth-input" type="password" id="authPass" name="password"
+                                   autocomplete="current-password" required>
+                            <button type="button" class="auth-eye" id="authEye"
+                                    data-i18n-label="loginShowPassword" onclick="authTogglePassword()">👁</button>
+                        </div>
+
+                        <button type="submit" class="auth-btn-primary" id="authSubmit"
+                                data-i18n="loginSubmit">Sign in</button>
+                    </form>
+                </section>
             </div>
 
             <!-- Vynútená zmena hesla po tom, čo ho nastavil administrátor.

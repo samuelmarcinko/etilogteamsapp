@@ -444,96 +444,100 @@ function showAccessDeniedModal() {
     requestAnimationFrame(() => overlay.classList.add('active'));
 }
 
-async function renderHub(container) {
-    const role = portalUser?.role || 'user';
-    const hrAccess = hasModuleAccess('hr');
-    const fleetAccess = hasModuleAccess('fleet');
+/**
+ * Rozcestník modulov.
+ *
+ * Nie je to obsah, je to rozhodnutie - človek sem príde, vyberie a odíde.
+ * Preto sú dlaždice dve na dve a nie tri v rade s jednou osamotenou pod nimi,
+ * text je zarovnaný doľava (oko ho číta zhora nadol, nie do stredu každého
+ * riadku) a modul, do ktorého sa človek nedostane, to hovorí rovno - namiesto
+ * toho, aby na každej dlaždici stálo „Dostupné", čo pri štyroch rovnakých
+ * štítkoch nehovorí nič.
+ */
 
-    // Determine badge for each module
-    const warehouseAccess = hasModuleAccess('warehouse');
-    const productionAccess = hasModuleAccess('production');
-    const hrBadge = hrAccess ? 'available' : 'locked';
-    const fleetBadge = fleetAccess ? 'available' : 'locked';
-    const warehouseBadge = warehouseAccess ? 'available' : 'locked';
-    const productionBadge = productionAccess ? 'available' : 'locked';
+const HUB_MODULES = [
+  {
+    key: 'hr',
+    title: 'hubModuleHR',
+    desc: 'hubModuleHRDesc',
+    icon: `<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+           <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>`
+  },
+  {
+    key: 'production',
+    title: 'hubModuleProduction',
+    desc: 'hubModuleProductionDesc',
+    icon: `<path d="M3 21h18"/><path d="M4 21V9l6 4V9l6 4V6l4-3v18"/>
+           <path d="M7 21v-3"/><path d="M13 21v-3"/>`
+  },
+  {
+    key: 'warehouse',
+    title: 'hubModuleWarehouse',
+    desc: 'hubModuleWarehouseDesc',
+    icon: `<path d="M3 21h18"/><path d="M3 7v14"/><path d="M21 7v14"/><path d="M3 7l9-4 9 4"/>
+           <path d="M8 14h8"/><path d="M8 10h8"/><path d="M8 18h8"/>`
+  },
+  {
+    key: 'fleet',
+    title: 'hubModuleFleet',
+    desc: 'hubModuleFleetDesc',
+    icon: `<path d="M5 17h14M5 17a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 1.5L19 10h-3v4h3l1 3a1 1 0 0 1-1 1h-1"/>
+           <circle cx="7.5" cy="17" r="2"/><circle cx="16.5" cy="17" r="2"/>`
+  }
+];
+
+function hubCard(module) {
+    const open = hasModuleAccess(module.key);
+
+    return `
+        <button type="button" class="hub-card ${module.key}${open ? '' : ' locked'}"
+                onclick="enterModule('${module.key}')"
+                ${open ? '' : `aria-describedby="hubLocked-${module.key}"`}>
+            <span class="hub-card-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    ${module.icon}
+                </svg>
+            </span>
+
+            <span class="hub-card-body">
+                <span class="hub-card-title">${pt(module.title)}</span>
+                <span class="hub-card-desc">${pt(module.desc)}</span>
+            </span>
+
+            ${open
+                ? `<span class="hub-card-go">${pt('hubOpen')}<span aria-hidden="true">→</span></span>`
+                : `<span class="hub-card-go locked" id="hubLocked-${module.key}">
+                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                          stroke-width="2.4" stroke-linecap="round" aria-hidden="true">
+                       <rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+                     </svg>
+                     ${pt('hubNoAccess')}
+                   </span>`}
+        </button>`;
+}
+
+async function renderHub(container) {
+    // Krstné meno, nie celé. Je to pozdrav, nie menovka.
+    const firstName = (portalUser.name || '').trim().split(/\s+/)[0] || '';
 
     container.innerHTML = `
         <div class="hub-layout">
-            <div class="hub-header">
+            <header class="hub-header">
                 <img src="/assets/images/logo.png" alt="ETILOG" class="hub-logo">
-                <h1 class="hub-title">${pt('hubTitle')}</h1>
+                <h1 class="hub-title">${firstName ? pt('hubGreeting').replace('{name}', escapeHtml(firstName)) : pt('hubTitle')}</h1>
                 <p class="hub-subtitle">${pt('hubSubtitle')}</p>
-            </div>
+            </header>
 
             <div class="hub-grid">
-                <!-- HR Module -->
-                <div class="hub-card hr" onclick="enterModule('hr')">
-                    <div class="hub-card-icon">
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                            <circle cx="9" cy="7" r="4"/>
-                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                        </svg>
-                    </div>
-                    <h3 class="hub-card-title">${pt('hubModuleHR')}</h3>
-                    <p class="hub-card-desc">${pt('hubModuleHRDesc')}</p>
-                    <span class="hub-card-badge ${hrBadge}">${pt('hubBadge' + hrBadge.charAt(0).toUpperCase() + hrBadge.slice(1).replace('-s', 'S'))}</span>
-                </div>
-
-                <!-- Fleet Module -->
-                <div class="hub-card fleet" onclick="enterModule('fleet')">
-                    <div class="hub-card-icon">
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M5 17h14M5 17a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 1.5L19 10h-3v4h3l1 3a1 1 0 0 1-1 1h-1"/>
-                            <circle cx="7.5" cy="17" r="2"/>
-                            <circle cx="16.5" cy="17" r="2"/>
-                        </svg>
-                    </div>
-                    <h3 class="hub-card-title">${pt('hubModuleFleet')}</h3>
-                    <p class="hub-card-desc">${pt('hubModuleFleetDesc')}</p>
-                    <span class="hub-card-badge ${fleetBadge}">${pt('hubBadge' + fleetBadge.charAt(0).toUpperCase() + fleetBadge.slice(1).replace('-s', 'S'))}</span>
-                </div>
-
-                <!-- Warehouse Module -->
-                <div class="hub-card warehouse" onclick="enterModule('warehouse')">
-                    <div class="hub-card-icon">
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M3 21h18"/>
-                            <path d="M3 7v14"/>
-                            <path d="M21 7v14"/>
-                            <path d="M3 7l9-4 9 4"/>
-                            <path d="M8 14h8"/>
-                            <path d="M8 10h8"/>
-                            <path d="M8 18h8"/>
-                        </svg>
-                    </div>
-                    <h3 class="hub-card-title">${pt('hubModuleWarehouse')}</h3>
-                    <p class="hub-card-desc">${pt('hubModuleWarehouseDesc')}</p>
-                    <span class="hub-card-badge ${warehouseBadge}">${pt('hubBadge' + warehouseBadge.charAt(0).toUpperCase() + warehouseBadge.slice(1))}</span>
-                </div>
-
-                <!-- Production Plan Module -->
-                <div class="hub-card production" onclick="enterModule('production')">
-                    <div class="hub-card-icon">
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#D9000C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M3 21h18"/>
-                            <path d="M4 21V9l6 4V9l6 4V6l4-3v18"/>
-                            <path d="M7 21v-3"/>
-                            <path d="M13 21v-3"/>
-                        </svg>
-                    </div>
-                    <h3 class="hub-card-title">${pt('hubModuleProduction')}</h3>
-                    <p class="hub-card-desc">${pt('hubModuleProductionDesc')}</p>
-                    <span class="hub-card-badge ${productionBadge}">${pt('hubBadge' + productionBadge.charAt(0).toUpperCase() + productionBadge.slice(1))}</span>
-                </div>
+                ${HUB_MODULES.map(hubCard).join('')}
             </div>
 
             <div class="hub-user-footer">
                 <div class="hub-user-avatar">${getInitials(portalUser.name || portalUser.email)}</div>
                 <div class="hub-user-info">
                     <div class="hub-user-name">${escapeHtml(portalUser.name || portalUser.email)}</div>
-                    <div class="hub-user-role">${portalUser.role}</div>
+                    <div class="hub-user-role">${escapeHtml(portalUser.role)}</div>
                 </div>
                 <button class="hub-logout-btn" onclick="handleLogout()">${pt('btnLogout')}</button>
             </div>

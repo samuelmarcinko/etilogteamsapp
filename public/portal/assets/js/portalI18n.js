@@ -21,7 +21,10 @@ const portalTranslations = {
 
     // Module Hub
     hubTitle: 'ETILOG Portal',
-    hubSubtitle: 'Vyberte modul pre pokračovanie',
+    hubGreeting: 'Dobrý deň, {name}',
+    hubSubtitle: 'Vyberte modul, v ktorom chcete pracovať.',
+    hubOpen: 'Otvoriť',
+    hubNoAccess: 'Bez prístupu',
     hubModuleHR: 'HR Modul',
     hubModuleHRDesc: 'Dovolenky, žiadosti, schválenia, kvóty a správa zamestnancov',
     hubModuleFleet: 'Vozový park',
@@ -483,7 +486,12 @@ const portalTranslations = {
     // --- Prihlasovacia stránka ---
     loginTitle: 'Prihlásenie',
     loginLeadMs: 'Pokračujte pracovným účtom Microsoft.',
-    loginLeadBoth: 'Pokračujte pracovným účtom Microsoft, alebo sa prihláste heslom.',
+    loginLeadBoth: 'Vyberte spôsob prihlásenia.',
+    loginOr: 'alebo',
+    loginWhoStaff: 'Zamestnanci ETILOG',
+    loginWhoStaffHint: 'Prihláste sa firemným účtom Microsoft 365 — tým istým, ktorý používate v Outlooku a v Teams. Heslo sem nezadávate.',
+    loginWhoExternal: 'Externí pracovníci',
+    loginWhoExternalHint: 'Dodávatelia a partneri bez firemného konta ETILOG sa prihlasujú e-mailom a heslom, ktoré od nás dostali.',
     loginMsButton: 'Prihlásiť sa cez Microsoft',
     loginOrPassword: 'alebo heslom',
     loginEmail: 'E-mail',
@@ -749,7 +757,10 @@ const portalTranslations = {
 
     // Module Hub
     hubTitle: 'ETILOG Portal',
-    hubSubtitle: 'Select a module to continue',
+    hubGreeting: 'Hello, {name}',
+    hubSubtitle: 'Choose the module you want to work in.',
+    hubOpen: 'Open',
+    hubNoAccess: 'No access',
     hubModuleHR: 'HR Module',
     hubModuleHRDesc: 'Vacations, requests, approvals, quotas and employee management',
     hubModuleFleet: 'Fleet Management',
@@ -1211,7 +1222,12 @@ const portalTranslations = {
     // --- Sign-in page ---
     loginTitle: 'Sign in',
     loginLeadMs: 'Continue with your Microsoft work account.',
-    loginLeadBoth: 'Continue with your Microsoft work account, or sign in with a password.',
+    loginLeadBoth: 'Choose how you sign in.',
+    loginOr: 'or',
+    loginWhoStaff: 'ETILOG employees',
+    loginWhoStaffHint: 'Sign in with your company Microsoft 365 account — the same one you use for Outlook and Teams. No password is typed here.',
+    loginWhoExternal: 'External workers',
+    loginWhoExternalHint: 'Suppliers and partners without an ETILOG company account sign in with the e-mail and password we issued them.',
     loginMsButton: 'Sign in with Microsoft',
     loginOrPassword: 'or with a password',
     loginEmail: 'E-mail',
