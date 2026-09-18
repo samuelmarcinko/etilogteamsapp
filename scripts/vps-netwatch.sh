@@ -71,6 +71,20 @@ PROBE_NAME="${NETWATCH_PROBE_NAME:-portal.etilog.com}"
 
 RETAIN_DAYS="${NETWATCH_RETAIN_DAYS:-30}"
 
+# Koľko miesta si to smie vziať.
+#
+# Riadok má okolo 105 bajtov a píšu sa štyri za minútu, teda asi 0,6 MB za deň
+# a 18 MB za mesiac - menej, než na ten istý disk denne sype `ufw`. To platí,
+# kým je pokoj. Keby sa stav siete rozkmital, odfotí sa pri každej zmene aj
+# stav adries a spojení, a to je už rádovo inak.
+#
+# Preto tieto dve poistky. Strážca, ktorý zaplní disk, je horší než žiadny
+# strážca: zhodil by presne to, čo má chrániť. Keď sa prekročí jedno z týchto
+# čísel, prestanú sa písať podrobnosti a zostane len jednoriadkový tep - ten
+# stojí za to udržať vždy, lebo práve z neho sa spätne číta, kedy to padlo.
+MAX_DAY_MB="${NETWATCH_MAX_DAY_MB:-50}"
+MIN_FREE_MB="${NETWATCH_MIN_FREE_MB:-500}"
+
 # Pri koľkých percentách obsadenej pamäte sa zapíše zoznam procesov, a ako
 # často najviac. Osemdesiat je zámerne skoro: stroj vtedy ešte funguje a `ps`
 # dobehne. Keby sa čakalo na deväťdesiatpäť, už sa nemusí podariť nič spustiť -
@@ -122,6 +136,21 @@ check_app() {
 # alebo či pakety odchádzajú a nikto neodpovedá. Píše sa len pri zmene stavu,
 # nie každých pätnásť sekúnd - inak by sa to v zázname stratilo.
 # -----------------------------------------------------------------------------
+free_mb() {
+  df -Pm "$LOG_DIR" 2>/dev/null | awk 'NR == 2 { print $4 + 0 }'
+}
+
+# Smie sa teraz zapísať niečo objemné? Dve podmienky: dnešný súbor ešte nie je
+# prerastený a na disku je miesto. Miesto sa nezisťuje pri každom kole - `df`
+# štyrikrát za minútu je zbytočná práca, stav disku sa za desať minút nezmení.
+detail_allowed() {
+  local bytes
+  bytes=$(stat -c %s "$1" 2>/dev/null || echo 0)
+  [ "$bytes" -lt $((MAX_DAY_MB * 1024 * 1024)) ] || return 1
+  [ "${free_space:-999999}" -ge "$MIN_FREE_MB" ] || return 1
+  return 0
+}
+
 mem_used_percent() {
   # Počíta sa z MemAvailable, nie z `free`: to je jediné číslo, ktoré hovorí,
   # koľko sa naozaj dá ešte rozdať. Vyrovnávacia pamäť sa uvoľní sama a do
@@ -157,7 +186,9 @@ snapshot() {
 
 run() {
   mkdir -p "$LOG_DIR"
-  local last_state="" iterations=0 last_dump=0
+  local last_state="" iterations=0 last_dump=0 warned_full=0
+  local free_space
+  free_space=$(free_mb)
 
   while :; do
     local day file gw net dns app load mem pct now state
@@ -179,19 +210,32 @@ run() {
     # z toho, ako tie čísla medzi zápismi rastú, je vidieť, ktorý proces sa
     # nafukuje, a to je rozdiel medzi „server mal plnú pamäť" a menom vinníka.
     now=$(date +%s)
-    if [ "${pct:-0}" -ge "$MEM_ALERT" ] && [ $((now - last_dump)) -ge "$MEM_DUMP_EVERY" ]; then
+    if [ "${pct:-0}" -ge "$MEM_ALERT" ] && [ $((now - last_dump)) -ge "$MEM_DUMP_EVERY" ] \
+       && detail_allowed "$file"; then
       dump_memory_hogs "$file" "$pct"
       last_dump=$now
     fi
 
     state="$gw/$net/$dns/$app"
     if [ "$state" != "$last_state" ]; then
-      [ -n "$last_state" ] && snapshot "$last_state -> $state" "$file"
+      [ -n "$last_state" ] && detail_allowed "$file" && snapshot "$last_state -> $state" "$file"
       last_state="$state"
     fi
 
     # Upratovanie raz za čas, nie pri každom kole.
     iterations=$((iterations + 1))
+    if [ $((iterations % 40)) -eq 0 ]; then
+      free_space=$(free_mb)
+      # Povie sa to raz. Opakovať do súboru, že v ňom už nie je miesto, by bolo
+      # to isté, čo sa práve snažíme neurobiť.
+      if [ "${free_space:-999999}" -lt "$MIN_FREE_MB" ] && [ "$warned_full" -eq 0 ]; then
+        printf '%s POZOR: na disku zostava %s MB, podrobne zaznamy sa vypinaju\n' \
+          "$(date -u '+%F %T')" "$free_space" >> "$file"
+        warned_full=1
+      elif [ "${free_space:-0}" -ge "$MIN_FREE_MB" ]; then
+        warned_full=0
+      fi
+    fi
     if [ $((iterations % 240)) -eq 0 ]; then
       find "$LOG_DIR" -name '*.log' -mtime "+$RETAIN_DAYS" -delete 2>/dev/null
     fi
