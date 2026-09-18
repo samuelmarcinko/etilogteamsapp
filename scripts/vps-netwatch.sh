@@ -58,7 +58,19 @@ set -u
 
 LOG_DIR="${NETWATCH_LOG_DIR:-/var/log/etilog-netwatch}"
 INTERVAL="${NETWATCH_INTERVAL:-15}"
-APP_PORT="${NETWATCH_APP_PORT:-3978}"
+
+# Ako sa pýtame portálu, či žije.
+#
+# Nie priamo na port kontajnera - ten sa na hostiteľa nevystavuje, chodí sa naň
+# cez Traefik, takže priame spojenie by hlásilo poruchu vždy. Ide sa teda tou
+# istou cestou ako skutočný návštevník, ale po `127.0.0.1`: overí to aj Traefik,
+# aj appku, a neopustí to stroj. To je podstatné - keď je výpadok, von sa
+# nedostaneme, a práve vtedy chceme vedieť, či portál vnútri ešte odpovedá.
+#
+# `-k` preto, že certifikát je vystavený na `portal.etilog.com`, nie na
+# `127.0.0.1`; čo sa tu overuje, je appka, nie platnosť certifikátu.
+APP_URL="${NETWATCH_APP_URL:-https://127.0.0.1/health}"
+APP_HOST="${NETWATCH_APP_HOST:-portal.etilog.com}"
 
 # Adresa mimo poskytovateľa, na ktorej sa overuje, či sa dá von. Dve, aby výpadok
 # jednej neznamenal falošný poplach - riadok hlásí problém, až keď mlčia obe.
@@ -126,7 +138,16 @@ check_dns() {
 }
 
 check_app() {
-  if tcp_open 127.0.0.1 "$APP_PORT" 4; then echo "OK"; else echo "FAIL"; fi
+  local code
+  code=$(curl -s -k -m 5 -o /dev/null -w '%{http_code}' -H "Host: $APP_HOST" "$APP_URL" 2>/dev/null)
+  # Zapisuje sa aj samotný návratový kód: „appka=502" hovorí o poruche niečo
+  # celkom iné než „appka=000" (nespojilo sa vôbec), a spätne je ten rozdiel
+  # presne to, čo človek potrebuje vedieť.
+  case "$code" in
+    200) echo "OK" ;;
+    ''|000) echo "FAIL" ;;
+    *) echo "$code" ;;
+  esac
 }
 
 # -----------------------------------------------------------------------------
