@@ -6,7 +6,9 @@
 # Deploy location: /srv/stacks/apps/teams-app/
 # Usage: docker compose -f docker-compose.infomaniak.yml up -d
 
-version: "3.9"
+# Bez `version:`. Compose v2 ten údaj ignoruje a pri každom nasadení naň
+# upozorňuje; nechať ho tam znamená len dva riadky varovania medzi výstupom,
+# ktorý má človek pri nasadzovaní naozaj čítať.
 
 services:
   # ==========================================
