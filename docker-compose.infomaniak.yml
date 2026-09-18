@@ -19,6 +19,24 @@ services:
     image: etilog/teams-approval-app:latest
     container_name: teams-app
     restart: unless-stopped
+    # Strop pamäte a poradie pri jej nedostatku.
+    #
+    # Toto tu je preto, že 17. septembra WordPress na tom istom stroji vypustil
+    # 162 procesov Apache a zjedol desať gigabajtov. Portál si vtedy bral 134 MB
+    # a aj tak spadol - štyri a pol hodiny bol nedostupný sklad, HR aj výrobný
+    # plán kvôli webu, s ktorým nemajú nič spoločné. Kontajnery nemali žiadne
+    # stropy, takže medzi nimi neboli žiadne steny.
+    #
+    # `mem_limit` je strop pre nás: keby niekedy tiekla pamäť tu, zastaví sa to
+    # na tomto čísle a nezoberie to so sebou celý server. Je zámerne veľkorysý -
+    # v prevádzke berie appka okolo 140 MB, takže sa jej nikdy nemá dotknúť.
+    #
+    # `oom_score_adj` je poradie: keď sa pamäť minie, jadro si vyberá obeť podľa
+    # spotreby a tento portál je z celého stroja ten najmenej hladný a zároveň
+    # ten najdôležitejší. Záporné číslo znamená „na tohto siahni ako na
+    # posledného". Databáza má ešte nižšie - jej strata zhodí aj appku.
+    mem_limit: 1536m
+    oom_score_adj: -500
     env_file:
       - .env
     environment:
@@ -83,6 +101,12 @@ services:
     image: postgres:15-alpine
     container_name: teams-app-db
     restart: unless-stopped
+    # Pozri poznámku pri `teams-app`. Databáza má ešte nižšie číslo než appka:
+    # 17. septembra sa OOM trafil presne do databázy druhého stacku a zhodil s
+    # ňou všetko, čo na nej viselo. Toto je posledná vec na stroji, ktorej sa
+    # má jadro dotknúť. V prevádzke berie okolo 50 MB.
+    mem_limit: 1024m
+    oom_score_adj: -700
     environment:
       POSTGRES_DB: ${DB_NAME:-teams_approval}
       POSTGRES_USER: ${DB_USER:-approval_user}
