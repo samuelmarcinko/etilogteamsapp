@@ -1,0 +1,211 @@
+#!/bin/bash
+# =============================================================================
+# Čierna skrinka pre sieť VPS
+# =============================================================================
+#
+# Toto tu je preto, že sa portál opakovane stráca zo sveta a spätne sa nedá
+# povedať, čo presne sa stalo. Zvonku vidíme len „Connection Timeout" - a ten
+# vyzerá úplne rovnako, či server zamrzol, či mu niekto odrezal sieť, alebo či
+# ho poskytovateľ odstavil. Sú to tri celkom iné príčiny a tri celkom iné
+# opravy, ale rozoznať sa dajú jedine zvnútra stroja, v okamihu, keď to padne.
+#
+# Preto tento skript beží stále a každých pár sekúnd zapíše jeden riadok:
+#
+#   čas | brána | internet | DNS | appka | load | voľná pamäť
+#
+# Ako sa ten záznam po výpadku číta:
+#
+#   riadky sa počas výpadku prestali písať
+#       -> stroj bol mŕtvy alebo zamrznutý (toto sa stalo 15. 9.)
+#
+#   riadky bežia ďalej, brána aj internet OK
+#       -> stroj žil a von sa dostal; zvonku sa k nemu nedalo
+#          -> filtrovanie na vstupe: poskytovateľ, alebo firewall na stroji
+#
+#   riadky bežia ďalej, brána OK, internet zlyháva
+#       -> linka k smerovaču poskytovateľa žije, ale ďalej sa nejde
+#          -> problém je na sieti poskytovateľa (typicky odstavená IP adresa)
+#
+#   riadky bežia ďalej, zlyháva už brána
+#       -> stroju odrezali sieť úplne (vypnutý port, odobratá adresa)
+#
+#   všetko OK, len appka neodpovedá na 127.0.0.1
+#       -> sieť je v poriadku a problém je v kontajneri; nič z toho vyššie
+#
+# Zámerne to nepotrebuje nič, čo nie je v každom Debiane: bash, ping, awk.
+# Žiadny balík navyše, nič, čo by sa dalo pokaziť aktualizáciou.
+#
+# Inštalácia na VPS (raz):
+#
+#   sudo install -m 755 vps-netwatch.sh /usr/local/bin/etilog-netwatch
+#   sudo /usr/local/bin/etilog-netwatch install
+#
+# Čítanie po výpadku:
+#
+#   /usr/local/bin/etilog-netwatch show "2026-09-17 19:00" "2026-09-18 00:30"
+#
+# =============================================================================
+
+set -u
+
+LOG_DIR="${NETWATCH_LOG_DIR:-/var/log/etilog-netwatch}"
+INTERVAL="${NETWATCH_INTERVAL:-15}"
+APP_PORT="${NETWATCH_APP_PORT:-3978}"
+
+# Adresa mimo poskytovateľa, na ktorej sa overuje, či sa dá von. Dve, aby výpadok
+# jednej neznamenal falošný poplach - riadok hlásí problém, až keď mlčia obe.
+PROBE_HOSTS="${NETWATCH_PROBE_HOSTS:-1.1.1.1 8.8.8.8}"
+PROBE_PORT=443
+
+# Meno, ktoré sa skúša preložiť. Pokazené DNS vyzerá zvonku identicky ako
+# mŕtva sieť, hoci je to celkom iná porucha - stojí za to ich rozlíšiť.
+PROBE_NAME="${NETWATCH_PROBE_NAME:-portal.etilog.com}"
+
+RETAIN_DAYS="${NETWATCH_RETAIN_DAYS:-30}"
+
+# -----------------------------------------------------------------------------
+# Jednotlivé skúšky. Každá vráti OK / FAIL a nikdy sa nezasekne - časový strop
+# je tu podstatnejší než presnosť: zaseknutá skúška by prestala zapisovať a
+# záznam by vyzeral presne ako mŕtvy stroj, teda ako to, čo máme rozlíšiť.
+# -----------------------------------------------------------------------------
+
+tcp_open() {          # tcp_open <host> <port> <sekundy>
+  timeout "$3" bash -c "exec 3<>/dev/tcp/$1/$2" 2>/dev/null && return 0
+  return 1
+}
+
+check_gateway() {
+  local gw
+  gw=$(ip route show default 2>/dev/null | awk '/default/ {print $3; exit}')
+  if [ -z "$gw" ]; then
+    echo "NOGW"                       # stroj už ani nevie, kadiaľ von
+    return
+  fi
+  if ping -c1 -W2 -n "$gw" >/dev/null 2>&1; then echo "OK"; else echo "FAIL"; fi
+}
+
+check_internet() {
+  local host
+  for host in $PROBE_HOSTS; do
+    if tcp_open "$host" "$PROBE_PORT" 4; then echo "OK"; return; fi
+  done
+  echo "FAIL"
+}
+
+check_dns() {
+  if timeout 4 getent hosts "$PROBE_NAME" >/dev/null 2>&1; then echo "OK"; else echo "FAIL"; fi
+}
+
+check_app() {
+  if tcp_open 127.0.0.1 "$APP_PORT" 4; then echo "OK"; else echo "FAIL"; fi
+}
+
+# -----------------------------------------------------------------------------
+# Keď sa niečo pokazí, jedenkrát sa odfotí stav siete.
+#
+# Práve toto spätne rozhodne, či adresa zmizla, či prestal odpovedať smerovač,
+# alebo či pakety odchádzajú a nikto neodpovedá. Píše sa len pri zmene stavu,
+# nie každých pätnásť sekúnd - inak by sa to v zázname stratilo.
+# -----------------------------------------------------------------------------
+snapshot() {
+  local why="$1" out="$2"
+  {
+    echo "--- $(date -u '+%F %T') UTC  zmena stavu: $why"
+    echo "  adresy:"; ip -brief address show 2>&1 | sed 's/^/    /'
+    echo "  cesty:";  ip route show 2>&1 | sed 's/^/    /'
+    echo "  susedia:"; ip neigh show 2>&1 | sed 's/^/    /'
+    echo "  sokety:"; ss -s 2>&1 | sed 's/^/    /'
+    echo "---"
+  } >> "$out"
+}
+
+run() {
+  mkdir -p "$LOG_DIR"
+  local last_state="" iterations=0
+
+  while :; do
+    local day file gw net dns app load mem state
+    day=$(date -u '+%F')
+    file="$LOG_DIR/$day.log"
+
+    gw=$(check_gateway)
+    net=$(check_internet)
+    dns=$(check_dns)
+    app=$(check_app)
+    load=$(awk '{print $1}' /proc/loadavg 2>/dev/null)
+    mem=$(awk '/MemAvailable/ {printf "%dMB", $2/1024}' /proc/meminfo 2>/dev/null)
+
+    printf '%s brana=%s internet=%s dns=%s appka=%s load=%s volna_pamat=%s\n' \
+      "$(date -u '+%F %T')" "$gw" "$net" "$dns" "$app" "$load" "$mem" >> "$file"
+
+    state="$gw/$net/$dns/$app"
+    if [ "$state" != "$last_state" ]; then
+      [ -n "$last_state" ] && snapshot "$last_state -> $state" "$file"
+      last_state="$state"
+    fi
+
+    # Upratovanie raz za čas, nie pri každom kole.
+    iterations=$((iterations + 1))
+    if [ $((iterations % 240)) -eq 0 ]; then
+      find "$LOG_DIR" -name '*.log' -mtime "+$RETAIN_DAYS" -delete 2>/dev/null
+    fi
+
+    sleep "$INTERVAL"
+  done
+}
+
+# -----------------------------------------------------------------------------
+# Inštalácia ako služba.
+#
+# Vedome nezávisí na ničom okrem siete: píše na koreňový disk, nie na /mnt/data,
+# a štartuje čo najskôr. Služba, ktorá čaká na prípojku, ktorá sa nepripojí, by
+# o výpadku nezapísala ani riadok - a presne o tom výpadku ide.
+# -----------------------------------------------------------------------------
+install_service() {
+  cat > /etc/systemd/system/etilog-netwatch.service <<'UNIT'
+[Unit]
+Description=ETILOG - zaznamenava stav siete VPS (cierna skrinka pre vypadky)
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/etilog-netwatch run
+Restart=always
+RestartSec=5
+Nice=10
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+  systemctl daemon-reload
+  systemctl enable --now etilog-netwatch.service
+  echo "Hotovo. Zaznam: $LOG_DIR/<datum>.log"
+  echo "Stav sluzby:   systemctl status etilog-netwatch --no-pager"
+}
+
+# `show` zámerne vypisuje len riadky, kde nie je všetko OK, plus okolie zmien -
+# za štyri hodiny výpadku je tých riadkov okolo tisícky a čítať sa to inak nedá.
+show_window() {
+  local from="$1" to="$2"
+  local day
+  for day in $(ls "$LOG_DIR"/*.log 2>/dev/null); do
+    awk -v from="$from" -v to="$to" '
+      { stamp = $1 " " $2 }
+      stamp >= from && stamp <= to {
+        if (/brana=OK internet=OK dns=OK appka=OK/) { ok++; next }
+        if (ok) { printf "  ... %d riadkov, ked bolo vsetko v poriadku\n", ok; ok = 0 }
+        print
+      }
+      END { if (ok) printf "  ... %d riadkov, ked bolo vsetko v poriadku\n", ok }
+    ' "$day"
+  done
+}
+
+case "${1:-run}" in
+  run)     run ;;
+  install) install_service ;;
+  show)    show_window "${2:?od kedy, napr. \"2026-09-17 19:00\"}" "${3:?do kedy}" ;;
+  *)       echo "pouzitie: $0 [run|install|show <od> <do>]" >&2; exit 2 ;;
+esac
