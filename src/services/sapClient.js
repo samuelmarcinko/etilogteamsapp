@@ -46,6 +46,9 @@ const LOGIN = `${BASE}/Login`;
 const LOGOUT = `${BASE}/Logout`;
 const SESSION_PATHS = new Set([LOGIN, LOGOUT]);
 
+/** Značka na sockete: toto spojenie už má odtlačok overený. Pozri `#call`. */
+const PIN_CHECKED = Symbol('sapPinChecked');
+
 // The server drops a session after 30 minutes idle; renew a few minutes early
 // rather than discover it mid-pass.
 const SESSION_TTL_MS = 25 * 60 * 1000;
@@ -174,9 +177,22 @@ class SapClient {
         }
       );
 
+      // Odtlačok sa overuje raz na spojenie, nie raz na požiadavku.
+      //
+      // `keepAlive` vyššie znamená, že celá synchronizácia ide po jednom
+      // sockete, a `secureConnect` sa na ňom spustí raz - pri nadviazaní.
+      // Pridávať poslucháča pri každej požiadavke teda robilo dve veci naraz:
+      // kopilo ich to na tom istom sockete (to je `MaxListenersExceededWarning`
+      // v logu) a žiadny z nich sa už nemal ako spustiť, lebo handshake bol
+      // dávno za nami. Na bezpečnosti to nič nemení - spojenie bolo overené,
+      // keď vzniklo, a všetko ďalšie ide po ňom - ale poslucháčov po sebe
+      // netreba nechávať.
       if (!VERIFY_TLS) {
         request.on('socket', (socket) => {
-          socket.on('secureConnect', () => {
+          if (socket[PIN_CHECKED]) return;
+          socket[PIN_CHECKED] = true;
+
+          socket.once('secureConnect', () => {
             const actual = String(socket.getPeerCertificate().fingerprint256 || '').toUpperCase();
             // Empty means the session was resumed and no certificate was sent.
             // maxCachedSessions: 0 should prevent that; if it happens anyway,
@@ -185,6 +201,11 @@ class SapClient {
               request.destroy(new SapError(
                 `SAP certificate does not match the pin (got ${actual || 'nothing'})`
               ));
+              // Spojenie, ktoré neprešlo kontrolou, sa nesmie vrátiť do zásoby:
+              // ďalšia požiadavka by na ňom videla značku vyššie a kontrolu by
+              // preskočila. `request.destroy()` socket zhodí aj samo, ale to je
+              // vnútornosť agenta - toto tu drží to pravidlo na očiach.
+              socket.destroy();
             }
           });
         });
