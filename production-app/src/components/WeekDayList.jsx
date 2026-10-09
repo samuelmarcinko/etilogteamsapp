@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import ProductionCard from './ProductionCard';
-import { shiftAccent } from '../lib/shifts';
+import { isSingleShift, shiftAccent } from '../lib/shifts';
 import { freeDaySet, shiftNoteKey } from '../lib/weeks';
 
 /**
@@ -28,6 +28,8 @@ export default function WeekDayList({
     week.days, dayFlags,
     (iso) => Object.values(entriesByDay[iso] || {}).flat().length > 0
   );
+
+  const singleShift = isSingleShift(shifts);
 
   return (
     <div className="divide-y divide-gray-200">
@@ -100,10 +102,15 @@ export default function WeekDayList({
 
                   return (
                     <div key={shift.id} className="flex flex-col gap-1">
-                      <span className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-                        <ShiftIcon className={clsx('h-3 w-3', accent.text)} aria-hidden="true" />
-                        {shift.name}
-                      </span>
+                      {/* On a one-shift sheet the heading would name the only
+                          thing there is, under a day heading that already said
+                          it. The day's work goes straight under the date. */}
+                      {!singleShift && (
+                        <span className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                          <ShiftIcon className={clsx('h-3 w-3', accent.text)} aria-hidden="true" />
+                          {shift.name}
+                        </span>
+                      )}
                       {cards.map((entry) => (
                         <ProductionCard
                           key={entry.id}

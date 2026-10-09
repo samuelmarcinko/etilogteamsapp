@@ -6,7 +6,7 @@ import WeekDayList from './WeekDayList';
 import DayMenu from './DayMenu';
 import ShiftNote from './ShiftNote';
 import useMediaQuery from '../lib/useMediaQuery';
-import { shiftAccent } from '../lib/shifts';
+import { isSingleShift, shiftAccent } from '../lib/shifts';
 import { freeDaySet, shiftNoteKey } from '../lib/weeks';
 import { DraggableCard, DroppableSlot, slotId } from './dnd';
 
@@ -114,6 +114,10 @@ export default function WeekBlock({
 }) {
   const isWide = useMediaQuery('(min-width: 768px)');
   const compact = density === 'compact';
+
+  // A one-shift sheet is one field per day: no label column, no shift name, no
+  // icon. See isSingleShift for why that is counted rather than configured.
+  const singleShift = isSingleShift(shifts);
 
   // One week on screen has room to breathe, and cells that hold three cards
   // without growing are easier to plan into than cells that resize under the
@@ -255,11 +259,14 @@ export default function WeekBlock({
         />
       ) : (
         <div className="print-spread">
-          <div className="week-grid">
-            {/* corner + day headers */}
-            <div className="row-label corner-sticky bg-gray-50 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-              Day / Shift
-            </div>
+          <div className={clsx('week-grid', singleShift && 'week-grid-single')}>
+            {/* corner + day headers. The corner names the label column, so on a
+                one-shift sheet there is neither. */}
+            {!singleShift && (
+              <div className="row-label corner-sticky bg-gray-50 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                Day / Shift
+              </div>
+            )}
             {week.days.map((day) => (
               <DayHeader
                 key={day.iso}
@@ -279,8 +286,8 @@ export default function WeekBlock({
             {shifts.map((shift, shiftIndex) => (
               <Row
                 key={shift.id}
-                label={shift.name}
-                accent={shiftAccent(shiftIndex)}
+                label={singleShift ? null : shift.name}
+                accent={singleShift ? null : shiftAccent(shiftIndex)}
                 divide={shiftIndex > 0}
                 compact={compact}
               >
@@ -420,6 +427,10 @@ export default function WeekBlock({
  * the label, and an icon on the shift row itself. Two rows of white cells stack
  * into one undifferentiated block otherwise, and at 8-week density it stops
  * being obvious which row is the morning.
+ *
+ * A null `label` means a one-shift sheet: no label cell at all, because the
+ * grid has dropped the column it would sit in. Rendering an empty one would
+ * push every day cell one column to the right.
  */
 function Row({ label, children, muted = false, accent = null, divide = false, compact = false }) {
   const Icon = accent?.icon;
@@ -431,18 +442,20 @@ function Row({ label, children, muted = false, accent = null, divide = false, co
           more line in a grid made of lines separated nothing. */}
       {divide && <div aria-hidden="true" className={clsx('week-gutter', compact && 'week-gutter-sm')} />}
 
-      <div
-        className={clsx(
-          'row-label relative flex items-center gap-1.5',
-          muted && 'text-[11px] font-normal normal-case text-gray-500'
-        )}
-      >
-        {accent && (
-          <span aria-hidden="true" className={clsx('absolute inset-y-0 left-0 w-[3px]', accent.bar)} />
-        )}
-        {Icon && !muted && <Icon className={clsx('h-3.5 w-3.5 shrink-0', accent.text)} aria-hidden="true" />}
-        <span className="truncate">{label}</span>
-      </div>
+      {label !== null && (
+        <div
+          className={clsx(
+            'row-label relative flex items-center gap-1.5',
+            muted && 'text-[11px] font-normal normal-case text-gray-500'
+          )}
+        >
+          {accent && (
+            <span aria-hidden="true" className={clsx('absolute inset-y-0 left-0 w-[3px]', accent.bar)} />
+          )}
+          {Icon && !muted && <Icon className={clsx('h-3.5 w-3.5 shrink-0', accent.text)} aria-hidden="true" />}
+          <span className="truncate">{label}</span>
+        </div>
+      )}
       {children}
     </>
   );

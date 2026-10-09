@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const ProductionPlan = require('../database/models/ProductionPlan');
 const ProductionEntry = require('../database/models/ProductionEntry');
+const ProductionSheet = require('../database/models/ProductionSheet');
 const { verifyToken } = require('../middleware/auth');
 const { attachDbRole, requirePermission } = require('../middleware/portalAuth');
 const { asyncHandler } = require('../middleware/errorHandler');
@@ -9,6 +10,7 @@ const ProductionRevision = require('../database/models/ProductionRevision');
 const ProductionRetentionService = require('../services/productionRetentionService');
 const PlanChangeSummary = require('../services/planChangeSummary');
 const PlanNotificationService = require('../services/planNotificationService');
+const logger = require('../utils/logger');
 
 /**
  * Production Plan API.
@@ -180,6 +182,157 @@ router.get('/locations/:code/shifts', viewAccess, asyncHandler(async (req, res) 
 
   const shifts = await ProductionPlan.findShifts(location.id);
   res.json({ data: shifts });
+}));
+
+// =========================================================
+// Sheet administration
+// =========================================================
+// The tabs across the top of the plan are these rows. Everything below changes
+// them, so it all sits behind production.manage.
+//
+// A sheet is one shift or two, and that is the whole setting - see the note at
+// the top of ProductionSheet for why it is not a column.
+
+/** Resolve :code to a sheet, or answer 404 and stop. */
+const findSheet = async (req, res) => {
+  const location = await ProductionPlan.findLocationByCode(req.params.code);
+  if (!location) {
+    res.status(404).json({ error: 'Not Found', message: 'Sheet not found' });
+    return null;
+  }
+  return location;
+};
+
+const SHIFT_MODES = [ProductionSheet.SINGLE, ProductionSheet.DOUBLE];
+
+// GET /api/production/sheets - every sheet, active or not, with its shift mode
+router.get('/sheets', manageAccess, asyncHandler(async (req, res) => {
+  res.json({ data: await ProductionSheet.list() });
+}));
+
+// GET /api/production/sheets/:code/contents - what deleting it would destroy
+router.get('/sheets/:code/contents', manageAccess, asyncHandler(async (req, res) => {
+  const location = await findSheet(req, res);
+  if (!location) return;
+
+  res.json({ data: await ProductionSheet.contents(location.id) });
+}));
+
+// POST /api/production/sheets
+router.post('/sheets', manageAccess, asyncHandler(async (req, res) => {
+  const code = String(req.body.code || '').trim().toUpperCase();
+  const name = String(req.body.name || '').trim();
+  const shiftMode = req.body.shiftMode || ProductionSheet.DOUBLE;
+
+  const codeError = ProductionSheet.validateCode(code);
+  if (codeError) return res.status(400).json({ error: 'Bad Request', message: codeError });
+  if (!name) return res.status(400).json({ error: 'Bad Request', message: 'name is required' });
+  if (name.length > 100) {
+    return res.status(400).json({ error: 'Bad Request', message: 'name must be 100 characters or fewer' });
+  }
+  if (!SHIFT_MODES.includes(shiftMode)) {
+    return res.status(400).json({ error: 'Bad Request', message: 'shiftMode must be single or double' });
+  }
+
+  const existing = await ProductionPlan.findLocationByCode(code);
+  if (existing) {
+    // 409, not 400: the request is well formed, the name is simply taken - and
+    // the dialog says which sheet has it rather than just refusing.
+    return res.status(409).json({
+      error: 'Conflict',
+      message: `Code ${code} is already used by "${existing.name}"`
+    });
+  }
+
+  const sheet = await ProductionSheet.create({
+    code, name, isInternal: req.body.isInternal !== false, shiftMode
+  });
+  res.status(201).json({ data: sheet });
+}));
+
+// PATCH /api/production/sheets/:code - name, internal/external, visibility
+router.patch('/sheets/:code', manageAccess, asyncHandler(async (req, res) => {
+  const location = await findSheet(req, res);
+  if (!location) return;
+
+  const patch = {};
+  if (req.body.name !== undefined) {
+    const name = String(req.body.name).trim();
+    if (!name) return res.status(400).json({ error: 'Bad Request', message: 'name must not be empty' });
+    if (name.length > 100) {
+      return res.status(400).json({ error: 'Bad Request', message: 'name must be 100 characters or fewer' });
+    }
+    patch.name = name;
+  }
+  if (req.body.isInternal !== undefined) patch.isInternal = Boolean(req.body.isInternal);
+  if (req.body.isActive !== undefined) patch.isActive = Boolean(req.body.isActive);
+
+  if (!Object.keys(patch).length) {
+    return res.status(400).json({ error: 'Bad Request', message: 'nothing to change' });
+  }
+
+  res.json({ data: await ProductionSheet.update(location.id, patch) });
+}));
+
+// PUT /api/production/sheets/:code/shift-mode
+//
+// Answers with how much it moved, so the planner can be told "14 cards are now
+// on one shift" rather than being left to notice.
+router.put('/sheets/:code/shift-mode', manageAccess, asyncHandler(async (req, res) => {
+  const location = await findSheet(req, res);
+  if (!location) return;
+
+  const mode = req.body.shiftMode;
+  if (!SHIFT_MODES.includes(mode)) {
+    return res.status(400).json({ error: 'Bad Request', message: 'shiftMode must be single or double' });
+  }
+
+  const result = await ProductionSheet.setShiftMode(location.id, mode);
+  if (result.error) return res.status(400).json({ error: 'Bad Request', message: result.error });
+  res.json({ data: result });
+}));
+
+// POST /api/production/sheets/:code/move  { direction: 'up' | 'down' }
+router.post('/sheets/:code/move', manageAccess, asyncHandler(async (req, res) => {
+  const location = await findSheet(req, res);
+  if (!location) return;
+
+  const direction = req.body.direction;
+  if (direction !== 'up' && direction !== 'down') {
+    return res.status(400).json({ error: 'Bad Request', message: 'direction must be up or down' });
+  }
+
+  const result = await ProductionSheet.move(location.id, direction);
+  if (result.error === 'not_found') {
+    return res.status(404).json({ error: 'Not Found', message: 'Sheet not found' });
+  }
+  res.json({ data: result });
+}));
+
+// DELETE /api/production/sheets/:code?confirm=<name>
+//
+// The sheet's own name has to come back in the query string. Everything on the
+// sheet goes with it - cards, notes, day flags, published revisions, the change
+// log - and there is no undo, so a mis-aimed click is not enough to do it.
+router.delete('/sheets/:code', manageAccess, asyncHandler(async (req, res) => {
+  const location = await findSheet(req, res);
+  if (!location) return;
+
+  if (String(req.query.confirm || '') !== location.name) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: `To delete this sheet, confirm must be exactly "${location.name}"`
+    });
+  }
+
+  const contents = await ProductionSheet.contents(location.id);
+  const deleted = await ProductionSheet.remove(location.id);
+  if (!deleted) return res.status(404).json({ error: 'Not Found', message: 'Sheet not found' });
+
+  logger.warn('Production sheet deleted', {
+    code: location.code, name: location.name, contents, by: req.user.id
+  });
+  res.json({ data: { deleted: true, code: location.code, contents } });
 }));
 
 // =========================================================

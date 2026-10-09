@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import clsx from 'clsx';
 import { format } from 'date-fns';
-import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Eye, History, Inbox, Printer } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Eye, History, Inbox, Printer, Settings } from 'lucide-react';
 import { WEEK_SPANS } from '../lib/weeks';
 
 /**
@@ -11,9 +11,9 @@ import { WEEK_SPANS } from '../lib/weeks';
  * do not push the grid down the page on a tablet.
  */
 
-function LocationTabs({ locations, activeCode, onSelect }) {
+function LocationTabs({ locations, activeCode, onSelect, onManage }) {
   return (
-    <div className="no-print -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+    <div className="no-print -mx-4 flex items-center gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
       <div role="tablist" aria-label="Production locations" className="flex min-w-max gap-1 pb-0.5">
         {locations.map((location) => {
           const active = location.code === activeCode;
@@ -40,6 +40,22 @@ function LocationTabs({ locations, activeCode, onSelect }) {
           );
         })}
       </div>
+
+      {/* Sits at the end of the strip rather than in the toolbar: it is what
+          the tabs themselves are managed from, and the tabs are what it
+          changes. Scrolls away with them on a narrow screen for the same
+          reason - it belongs to that row. */}
+      {onManage && (
+        <button
+          type="button"
+          onClick={onManage}
+          aria-label="Manage sheets"
+          title="Manage sheets"
+          className="shrink-0 rounded-md p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+        >
+          <Settings className="h-4 w-4" />
+        </button>
+      )}
     </div>
   );
 }
@@ -57,7 +73,8 @@ export default function AppHeader({
   readOnly,
   unscheduledCount,
   onToggleUnscheduled,
-  onToggleHistory
+  onToggleHistory,
+  onManageSheets
 }) {
   const first = weeks[0];
   const last = weeks[weeks.length - 1];
@@ -172,7 +189,12 @@ export default function AppHeader({
           </div>
         </div>
 
-        <LocationTabs locations={locations} activeCode={activeCode} onSelect={onSelectLocation} />
+        <LocationTabs
+          locations={locations}
+          activeCode={activeCode}
+          onSelect={onSelectLocation}
+          onManage={onManageSheets}
+        />
 
         {/* week navigation */}
         <div className="flex flex-wrap items-center justify-between gap-2">
