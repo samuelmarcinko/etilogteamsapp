@@ -28,6 +28,7 @@ import AppHeader from './components/AppHeader';
 import PlanLegend from './components/PlanLegend';
 import PublishBar from './components/PublishBar';
 import ConfirmDialog from './components/ConfirmDialog';
+import SheetManagerDialog from './components/SheetManagerDialog';
 import WeekBlock from './components/WeekBlock';
 import ProductionCard from './components/ProductionCard';
 import CardContextMenu from './components/CardContextMenu';
@@ -119,6 +120,7 @@ export default function App() {
   const [conflict, setConflict] = useState(null);        // occupied-slot decision
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [sheetsOpen, setSheetsOpen] = useState(false);
   const [restoringId, setRestoringId] = useState(null);
   const [bulk, setBulk] = useState(null);          // { kind, sourceDate }
   const [splitting, setSplitting] = useState(null); // card being split
@@ -590,6 +592,7 @@ export default function App() {
               setDrawerOpen(false);
               setHistoryOpen((v) => !v);
             }}
+            onManageSheets={canManage ? () => setSheetsOpen(true) : null}
           />
         )}
 
@@ -827,6 +830,21 @@ export default function App() {
             const pending = conflict;
             setConflict(null);
             moveMutation.mutate({ ...pending, mode });
+          }}
+        />
+
+        <SheetManagerDialog
+          open={sheetsOpen}
+          onOpenChange={setSheetsOpen}
+          // The open sheet can be renamed, hidden or deleted from in there, so
+          // the tab that is selected may no longer exist. Falling back to the
+          // first one that does beats a grid asking for a location the server
+          // has never heard of.
+          onSheetsChanged={() => {
+            const live = queryClient.getQueryData(['production', 'locations']);
+            if (live?.length && !live.some((l) => l.code === locationCode)) {
+              setLocationCode(live[0].code);
+            }
           }}
         />
       </div>

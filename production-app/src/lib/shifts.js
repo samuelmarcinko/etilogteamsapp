@@ -20,3 +20,21 @@ const ACCENTS = [
 export function shiftAccent(index) {
   return ACCENTS[index % ACCENTS.length];
 }
+
+/**
+ * Is this sheet a one-shift operation?
+ *
+ * A sheet is one shift or two - the admin sets it per sheet - and the shift
+ * rows are what say which, so this counts them rather than reading a flag.
+ *
+ * On a one-shift sheet the day is a single field and nothing on screen names
+ * the shift: the label column, the icon and the colour bar all exist to tell
+ * two rows apart, and with one row they are decoration that says nothing. The
+ * grid drops the label column entirely and the day cells take the width back.
+ *
+ * Lives here next to the accents so there is one answer to the question, and
+ * the four places that draw shifts cannot drift apart over it.
+ */
+export function isSingleShift(shifts) {
+  return (shifts?.length ?? 0) <= 1;
+}

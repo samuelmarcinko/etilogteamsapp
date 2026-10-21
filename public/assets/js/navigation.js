@@ -14,7 +14,7 @@ const NAV_ITEMS = {
     { id: 'my-requests', icon: '📋', label: 'Moje žiadosti', url: '/pages/my-requests.html' },
     { id: 'upcoming-time-off', icon: '📅', label: 'Teamový kalendár', url: '/pages/upcoming-time-off.html' },
     { id: 'approvals', icon: '✅', label: 'Schvaľovanie žiadostí', url: '/pages/approvals.html' },
-    { id: 'sick-notes', icon: '🏥', label: 'Paragrafy & OČR', url: '/pages/sick-notes.html' }
+    { id: 'sick-notes', icon: '🏥', label: 'Paragrafy', url: '/pages/sick-notes.html' }
   ]
 };
 

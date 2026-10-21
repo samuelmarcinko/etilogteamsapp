@@ -63,8 +63,8 @@ const translations = {
     // Request types
     typeVacation: 'Vacation',
     typeSickLeave: 'Sick Leave',
-    typeParagraph: 'Paragraph Leave',
-    typeOcr: 'Family Member Care',
+    typeParagraph: "Doctor's Appointment",
+    typeOcr: 'Family Member Escort',
     typePurchase: 'Purchase',
     typeExpense: 'Expense',
     typeHr: 'HR Matters',
@@ -197,12 +197,12 @@ const translations = {
 
     // Sick Notes page (Paragraphs & FMC)
     sickNotesTitle: 'Paragraphs & FMC',
-    sickNotesSubtitle: 'Upload and manage your paragraph and FMC documents',
+    sickNotesSubtitle: 'Upload and manage your paragraph documents',
     sickNotesUploadTitle: 'Upload New Document',
     sickNotesListTitle: 'My Documents',
     sickNotesLabelDocType: 'Document Type',
-    sickNotesDocTypeParagraph: 'Paragraph',
-    sickNotesDocTypeOcr: 'Family Member Care',
+    sickNotesDocTypeParagraph: "Doctor's Appointment",
+    sickNotesDocTypeOcr: 'Family Member Escort',
     sickNotesLabelTitle: 'Title',
     sickNotesPlaceholderTitle: 'e.g. Paragraph - flu',
     sickNotesLabelDoctor: 'Doctor',
@@ -280,8 +280,8 @@ const translations = {
 
     // Dashboard overview
     dashVacationRemaining: 'Zostatok dovolenky',
-    dashParagraphRemaining: 'Zostatok paragrafov',
-    dashOcrRemaining: 'Zostatok OČR',
+    dashParagraphRemaining: 'Zostatok paragrafov - lekár',
+    dashOcrRemaining: 'Zostatok paragrafov - sprievod',
     dashSickRemaining: 'Zostatok zdravotného voľna',
     dashNextHoliday: 'Najbližší sviatok',
     dashYourTickets: 'Vaše tikety',
@@ -324,8 +324,8 @@ const translations = {
     // Request types
     typeVacation: 'Dovolenka',
     typeSickLeave: 'PN-ka',
-    typeParagraph: 'Paragraf',
-    typeOcr: 'OČR',
+    typeParagraph: 'Paragraf - lekár',
+    typeOcr: 'Paragraf - sprievod',
     typePurchase: 'Nákup',
     typeExpense: 'Výdavky',
     typeHr: 'HR záležitosti',
@@ -369,8 +369,8 @@ const translations = {
     quotaInfoHours: 'hodín',
     quotaInfoVacation: 'Zostatok dovolenky',
     quotaInfoSick: 'Zostatok sick days',
-    quotaInfoParagraph: 'Zostatok paragrafov',
-    quotaInfoOcr: 'Zostatok OČR',
+    quotaInfoParagraph: 'Zostatok paragrafov - lekár',
+    quotaInfoOcr: 'Zostatok paragrafov - sprievod',
     quotaInfoNotSet: 'Kvóta nenastavená',
 
     // Approvals page
@@ -456,14 +456,14 @@ const translations = {
     calendarQuickWeek: 'Tento týždeň',
     calendarQuickMonth: 'Tento mesiac',
 
-    // Sick Notes page (Paragrafy & OČR)
-    sickNotesTitle: 'Paragrafy & OČR',
-    sickNotesSubtitle: 'Nahrajte a spravujte vaše doklady paragrafov a OČR',
+    // Sick Notes page (Paragrafy)
+    sickNotesTitle: 'Paragrafy',
+    sickNotesSubtitle: 'Nahrajte a spravujte vaše doklady k paragrafom',
     sickNotesUploadTitle: 'Nahrať nový doklad',
     sickNotesListTitle: 'Moje doklady',
     sickNotesLabelDocType: 'Typ dokladu',
-    sickNotesDocTypeParagraph: 'Paragraf',
-    sickNotesDocTypeOcr: 'OČR',
+    sickNotesDocTypeParagraph: 'Paragraf - lekár',
+    sickNotesDocTypeOcr: 'Paragraf - sprievod',
     sickNotesLabelTitle: 'Názov',
     sickNotesPlaceholderTitle: 'Napr. Paragraf - chrípka',
     sickNotesLabelDoctor: 'Lekár',
@@ -519,8 +519,8 @@ const translations = {
     dashOooNobody: 'Dnes sú všetci v kancelárii!',
     dashOooVacation: 'Dovolenka',
     dashOooSickLeave: 'PN',
-    dashOooParagraph: 'Paragraf',
-    dashOooOcr: 'OČR'
+    dashOooParagraph: 'Paragraf - lekár',
+    dashOooOcr: 'Paragraf - sprievod'
   }
 };
 

@@ -3,7 +3,7 @@ import { AlertTriangle, Leaf } from 'lucide-react';
 
 import ViewerCard from './ViewerCard';
 import useMediaQuery from '../lib/useMediaQuery';
-import { shiftAccent } from '../lib/shifts';
+import { isSingleShift, shiftAccent } from '../lib/shifts';
 import { freeDaySet, shiftNoteKey } from '../lib/weeks';
 
 /**
@@ -18,12 +18,18 @@ import { freeDaySet, shiftNoteKey } from '../lib/weeks';
  * to compare Tuesday with Thursday is not reading.
  */
 
+// `gridSingle` is the same grid without its label column, for a one-shift
+// sheet - the two densities that borrow the planner's grid borrow its variant
+// too, so the columns stay the same width on both screens.
 const DENSITY = {
-  roomy:   { grid: 'viewer-grid', spread: 'viewer-spread', cell: 'min-h-[110px] gap-2 p-2',
+  roomy:   { grid: 'viewer-grid', gridSingle: 'viewer-grid-single',
+             spread: 'viewer-spread', cell: 'min-h-[110px] gap-2 p-2',
              weekday: 'text-[13px]', dayNumber: 'text-[20px]', label: 'text-[14px]' },
-  normal:  { grid: 'week-grid',   spread: '',               cell: 'min-h-[64px] gap-1.5 p-1.5',
+  normal:  { grid: 'week-grid',   gridSingle: 'week-grid-single',
+             spread: '',               cell: 'min-h-[64px] gap-1.5 p-1.5',
              weekday: 'text-[11px]', dayNumber: 'text-[16px]', label: 'text-[13px]' },
-  compact: { grid: 'week-grid',   spread: '',               cell: 'min-h-[46px] gap-1 p-1',
+  compact: { grid: 'week-grid',   gridSingle: 'week-grid-single',
+             spread: '',               cell: 'min-h-[46px] gap-1 p-1',
              weekday: 'text-[10px]', dayNumber: 'text-[14px]', label: 'text-[12px]' }
 };
 
@@ -108,6 +114,7 @@ export default function ViewerWeek({
 }) {
   const isWide = useMediaQuery('(min-width: 768px)');
   const size = DENSITY[density] || DENSITY.roomy;
+  const singleShift = isSingleShift(shifts);
 
   // Weekends and flagged days, minus anything with work on it - the same rule
   // the planner's grid runs, from the same function, so the two screens can
@@ -179,10 +186,14 @@ export default function ViewerWeek({
 
                     return (
                       <div key={shift.id} className="flex flex-col gap-1.5">
-                        <span className="flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-wider text-gray-500">
-                          <Icon className={clsx('h-4 w-4', accent.text)} aria-hidden="true" />
-                          {shift.name}
-                        </span>
+                        {/* One shift, one field: naming it under the day
+                            heading would repeat what the sheet already is. */}
+                        {!singleShift && (
+                          <span className="flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-wider text-gray-500">
+                            <Icon className={clsx('h-4 w-4', accent.text)} aria-hidden="true" />
+                            {shift.name}
+                          </span>
+                        )}
                         {cards.map((entry) => (
                           <ViewerCard
                             key={entry.id}
@@ -206,8 +217,10 @@ export default function ViewerWeek({
 
   return (
     <div className={clsx('print-spread', size.spread)}>
-      <div className={size.grid}>
-        <div className="row-label corner-sticky text-[11px] text-gray-400">Day / Shift</div>
+      <div className={clsx(size.grid, singleShift && size.gridSingle)}>
+        {!singleShift && (
+          <div className="row-label corner-sticky text-[11px] text-gray-400">Day / Shift</div>
+        )}
         {week.days.map((day) => (
           <DayHeader
             key={day.iso}
@@ -231,14 +244,19 @@ export default function ViewerWeek({
                      className={clsx('week-gutter', density === 'compact' && 'week-gutter-sm')} />
               )}
 
-              <div className={clsx(
-                'row-label flex items-center gap-2',
-                size.label
-              )}>
-                <span aria-hidden="true" className={clsx('h-7 w-1 rounded-sm', accent.bar)} />
-                <Icon className={clsx('h-4 w-4', accent.text)} aria-hidden="true" />
-                {shift.name}
-              </div>
+              {/* One shift needs no name, and the grid has dropped the column
+                  this would sit in - rendering it would push every day cell
+                  one place to the right. */}
+              {!singleShift && (
+                <div className={clsx(
+                  'row-label flex items-center gap-2',
+                  size.label
+                )}>
+                  <span aria-hidden="true" className={clsx('h-7 w-1 rounded-sm', accent.bar)} />
+                  <Icon className={clsx('h-4 w-4', accent.text)} aria-hidden="true" />
+                  {shift.name}
+                </div>
+              )}
 
               {week.days.map((day) => {
                 const cards = (entriesByDay[day.iso] || {})[shift.id] || [];

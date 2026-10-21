@@ -33,6 +33,15 @@
     min-width: 1178px;
   }
 
+  /* A one-shift sheet has no label column.
+     Nothing goes in it - the row it would name is the only row there is - and
+     an empty 128px gutter down the left of every week is 128px the day cells
+     could have had. Seven columns, 7x150 = 1050px natural width. */
+  .week-grid-single {
+    grid-template-columns: repeat(7, minmax(150px, 1fr));
+    min-width: 1050px;
+  }
+
   /* The viewer's week. Same shape as the planner's - a supervisor reads both
      and should not have to re-learn the layout - but wider, because everything
      inside it is set larger for a screen someone is standing in front of
@@ -42,6 +51,12 @@
     display: grid;
     grid-template-columns: 168px repeat(7, minmax(196px, 1fr));
     min-width: 1540px;
+  }
+
+  /* 7x196 = 1372px once the label column goes - see .week-grid-single. */
+  .viewer-grid-single {
+    grid-template-columns: repeat(7, minmax(196px, 1fr));
+    min-width: 1372px;
   }
 
   @media (min-width: 1600px) {
@@ -190,6 +205,11 @@
   .week-grid {
     /* No sideways scrolling on paper: the columns share the page width. */
     grid-template-columns: 128px repeat(7, 1fr);
+    min-width: 0;
+  }
+
+  .week-grid-single {
+    grid-template-columns: repeat(7, 1fr);
     min-width: 0;
   }
 

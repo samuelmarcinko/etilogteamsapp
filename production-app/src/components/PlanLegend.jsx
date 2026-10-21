@@ -1,4 +1,4 @@
-import { shiftAccent } from '../lib/shifts';
+import { isSingleShift, shiftAccent } from '../lib/shifts';
 import { CARD_COLORS } from '../lib/colors';
 
 /**
@@ -22,11 +22,15 @@ function Divider() {
 }
 
 export default function PlanLegend({ shifts }) {
+  // A one-shift sheet draws no shift marks, so naming them here would explain
+  // a code the grid does not use. The rest of the legend still applies.
+  const showShifts = !isSingleShift(shifts);
+
   return (
     <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 px-1 text-[12px] text-gray-600">
       <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Legend</span>
 
-      {shifts.map((shift, index) => {
+      {showShifts && shifts.map((shift, index) => {
         const accent = shiftAccent(index);
         const Icon = accent.icon;
         return (
@@ -37,7 +41,7 @@ export default function PlanLegend({ shifts }) {
         );
       })}
 
-      <Divider />
+      {showShifts && <Divider />}
 
       {MARKS.map((mark) => (
         <span key={mark.key} className="flex items-center gap-1">

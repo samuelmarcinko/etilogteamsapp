@@ -277,5 +277,48 @@ export const api = {
     request('/api/production/day-flags', {
       method: 'PUT',
       body: JSON.stringify({ location, date, flag, note })
-    }).then((r) => r.data)
+    }).then((r) => r.data),
+
+  // ----------------------------------------------------------------- sheets
+  // The tabs across the top. Admin only, and separate from `locations` above:
+  // that one feeds the tab strip and returns what everybody may see, this one
+  // returns every sheet including the hidden ones, with its shift mode.
+
+  sheets: () => request('/api/production/sheets').then((r) => r.data),
+
+  /** What deleting a sheet would destroy. Asked before the confirmation. */
+  sheetContents: (code) =>
+    request(`/api/production/sheets/${encodeURIComponent(code)}/contents`).then((r) => r.data),
+
+  createSheet: ({ code, name, isInternal, shiftMode }) =>
+    request('/api/production/sheets', json({ code, name, isInternal, shiftMode })).then((r) => r.data),
+
+  updateSheet: ({ code, ...patch }) =>
+    request(`/api/production/sheets/${encodeURIComponent(code)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch)
+    }).then((r) => r.data),
+
+  /** One shift or two. Answers with how many cards it had to move. */
+  setSheetShiftMode: ({ code, shiftMode }) =>
+    request(`/api/production/sheets/${encodeURIComponent(code)}/shift-mode`, {
+      method: 'PUT',
+      body: JSON.stringify({ shiftMode })
+    }).then((r) => r.data),
+
+  moveSheet: ({ code, direction }) =>
+    request(`/api/production/sheets/${encodeURIComponent(code)}/move`, json({ direction }))
+      .then((r) => r.data),
+
+  /**
+   * Delete a sheet and everything on it.
+   *
+   * `confirm` is the sheet's own name and the server checks it, so a client
+   * that forgot to ask cannot delete anything by accident.
+   */
+  deleteSheet: ({ code, confirm }) =>
+    request(
+      `/api/production/sheets/${encodeURIComponent(code)}?confirm=${encodeURIComponent(confirm)}`,
+      { method: 'DELETE' }
+    ).then((r) => r.data)
 };
