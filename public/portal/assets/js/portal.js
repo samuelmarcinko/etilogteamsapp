@@ -608,7 +608,7 @@ async function renderDashboard(container) {
                     </div>
                     <div class="quota-bar-container">
                         <div class="quota-bar-label">
-                            <span>${pt('sickNoteDocTypeParagraph') || 'Paragraf'}</span>
+                            <span>${pt('sickNoteDocTypeParagraph') || 'Paragraf - lekár'}</span>
                             <span>${quota ? parseFloat(quota.paragraph_days_used || 0).toFixed(2) : '0.00'} / ${quota ? (quota.paragraph_days_total || 7) : 7} ${pt('hours')}</span>
                         </div>
                         <div class="quota-bar">
@@ -617,7 +617,7 @@ async function renderDashboard(container) {
                     </div>
                     <div class="quota-bar-container">
                         <div class="quota-bar-label">
-                            <span>${pt('sickNoteDocTypeOcr') || 'OČR'}</span>
+                            <span>${pt('sickNoteDocTypeOcr') || 'Paragraf - sprievod'}</span>
                             <span>${quota ? parseFloat(quota.ocr_days_used || 0).toFixed(2) : '0.00'} / ${quota ? (quota.ocr_days_total || 7) : 7} ${pt('hours')}</span>
                         </div>
                         <div class="quota-bar">
@@ -691,7 +691,7 @@ async function renderMyQuotas(container) {
             <div class="quota-card">
                 <div class="quota-icon" style="font-size:1.5rem;">&#167;</div>
                 <div class="quota-details">
-                    <div class="quota-type">${pt('sickNoteDocTypeParagraph') || 'Paragraf'}</div>
+                    <div class="quota-type">${pt('sickNoteDocTypeParagraph') || 'Paragraf - lekár'}</div>
                     <div class="quota-numbers">
                         <span>${pt('quotaTotal')}: <strong>${quota ? (quota.paragraph_days_total || 7) : '-'} ${pt('hours')}</strong></span>
                         <span>${pt('quotaUsed')}: <strong>${quota ? parseFloat(quota.paragraph_days_used || 0).toFixed(2) : '0.00'} ${pt('hours')}</strong></span>
@@ -706,7 +706,7 @@ async function renderMyQuotas(container) {
             <div class="quota-card">
                 <div class="quota-icon">&#128106;</div>
                 <div class="quota-details">
-                    <div class="quota-type">${pt('sickNoteDocTypeOcr') || 'OČR'}</div>
+                    <div class="quota-type">${pt('sickNoteDocTypeOcr') || 'Paragraf - sprievod'}</div>
                     <div class="quota-numbers">
                         <span>${pt('quotaTotal')}: <strong>${quota ? (quota.ocr_days_total || 7) : '-'} ${pt('hours')}</strong></span>
                         <span>${pt('quotaUsed')}: <strong>${quota ? parseFloat(quota.ocr_days_used || 0).toFixed(2) : '0.00'} ${pt('hours')}</strong></span>
@@ -767,7 +767,7 @@ async function renderMySickNotes(container) {
                             </thead>
                             <tbody>
                                 ${notes.map(n => {
-                                    const docLabel = n.document_type === 'ocr' ? (pt('sickNoteDocTypeOcr') || 'OČR') : (pt('sickNoteDocTypeParagraph') || 'Paragraf');
+                                    const docLabel = n.document_type === 'ocr' ? (pt('sickNoteDocTypeOcr') || 'Paragraf - sprievod') : (pt('sickNoteDocTypeParagraph') || 'Paragraf - lekár');
                                     const docBadge = n.document_type === 'ocr' ? 'badge-sick' : 'badge-paragraph';
                                     return `
                                     <tr>
@@ -1119,16 +1119,19 @@ async function openNewRequestModal() {
                     <input type="date" class="form-input" name="end_date" onchange="updateWorkingDaysInfo()">
                 </div>
             </div>
-            <div id="vacationQuotaInfoBox" class="quota-info-box" style="display:none; background: #d1fae5; border: 1px solid #10b981; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;">
+            <div id="requestQuotaInfoBox" class="quota-info-box" style="display:none; background: #d1fae5; border: 1px solid #10b981; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
                     <div>
-                        <span style="font-weight: 600; color: #065f46;">${pt('vacationRemaining')}:</span>
-                        <span id="quotaRemainingValue" style="font-weight: 700; color: #065f46;">${quota ? quota.vacation_days_remaining : '-'} ${pt('days')}</span>
+                        <span style="font-weight: 600; color: #065f46;" id="quotaRemainingLabel"></span>
+                        <span id="quotaRemainingValue" style="font-weight: 700; color: #065f46;"></span>
                     </div>
                     <div id="selectedDaysInfo" style="display: none;">
                         <span style="font-weight: 600; color: #065f46;">${pt('selectedDays')}:</span>
                         <span id="selectedDaysValue" style="font-weight: 700; color: #065f46;">0 ${pt('days')}</span>
                     </div>
+                </div>
+                <div class="quota-bar" id="requestQuotaBar" style="margin-top: 10px; display:none;">
+                    <div class="quota-bar-fill" id="requestQuotaBarFill" style="width: 0%"></div>
                 </div>
                 <div id="quotaWarning" style="display: none; margin-top: 8px; padding: 8px; background: #fef3c7; border-radius: 4px; color: #92400e; font-size: 13px;">
                 </div>
@@ -1155,24 +1158,87 @@ async function openNewRequestModal() {
 }
 
 // Toggle date fields based on ticket type
+/**
+ * Ktoré typy žiadostí majú kvótu, a v čom sa počíta.
+ *
+ * Dovolenka v dňoch, oba paragrafy v hodinách - osem hodín na pracovný deň,
+ * rovnako ako to ráta server v ticketService. Keby sa tie dve čísla rozišli,
+ * zamestnanec by na obrazovke videl, že mu zostatok stačí, a žiadosť by mu
+ * server aj tak odmietol.
+ *
+ * Kľúče `paragraph` a `ocr` sú vnútorné; na obrazovku ide `labelKey`.
+ */
+const HOURS_PER_WORKING_DAY = 8;
+
+const REQUEST_QUOTAS = {
+    'vacation':   { remainKey: 'vacation_days_remaining',  totalKey: 'vacation_days_total',  labelKey: 'vacationRemaining',  hours: false },
+    'sick-leave': { remainKey: 'sick_days_remaining',      totalKey: 'sick_days_total',      labelKey: 'sickDaysRemaining',  hours: false },
+    'paragraph':  { remainKey: 'paragraph_days_remaining', totalKey: 'paragraph_days_total', labelKey: 'paragraphRemaining', hours: true },
+    'ocr':        { remainKey: 'ocr_days_remaining',       totalKey: 'ocr_days_total',       labelKey: 'ocrRemaining',       hours: true }
+};
+
+/** Zostatok vybraného typu do zeleného boxu nad formulárom. */
+function renderRequestQuota(type) {
+    const config = REQUEST_QUOTAS[type];
+    const quota = window._currentQuota;
+    const box = document.getElementById('requestQuotaInfoBox');
+    if (!box || !config) return;
+
+    const remaining = quota ? Number(quota[config.remainKey] ?? 0) : null;
+    const total = quota ? Number(quota[config.totalKey] ?? 0) : 0;
+    const unit = config.hours ? pt('quotaInfoHours') : pt('days');
+
+    const label = document.getElementById('quotaRemainingLabel');
+    const value = document.getElementById('quotaRemainingValue');
+    if (label) label.textContent = `${pt(config.labelKey)}:`;
+    if (value) {
+        // Hodiny sa míňajú aj po polovičkách dňa, dni nie - tak sa aj píšu.
+        value.textContent = remaining === null ? '-'
+            : `${config.hours ? remaining.toFixed(2) : remaining} ${unit}`;
+    }
+
+    // Prúžok len tam, kde je z čoho ho počítať. Pri nenastavenej kvóte by
+    // ukazoval nulu z nuly, čo vyzerá ako vyčerpaný nárok.
+    const bar = document.getElementById('requestQuotaBar');
+    const fill = document.getElementById('requestQuotaBarFill');
+    if (bar && fill) {
+        const show = total > 0 && remaining !== null;
+        bar.style.display = show ? 'block' : 'none';
+        if (show) {
+            const usedPct = Math.max(0, Math.min(((total - remaining) / total) * 100, 100));
+            fill.style.width = `${usedPct}%`;
+            fill.className = `quota-bar-fill ${usedPct > 90 ? 'red' : usedPct > 70 ? 'amber' : 'green'}`;
+        }
+    }
+}
+
 function toggleRequestDates(type) {
     const row = document.getElementById('requestDatesRow');
-    const quotaBox = document.getElementById('vacationQuotaInfoBox');
+    const quotaBox = document.getElementById('requestQuotaInfoBox');
     if (row) {
         const types = window._loadedTicketTypes || [];
         const matched = types.find(t => t.key === type);
         const showDates = matched ? matched.requires_dates : false;
         row.style.display = showDates ? 'grid' : 'none';
 
-        // Show quota info box only for vacation type
+        // Zostatok sa ukáže pri každom type, ktorý nejakú kvótu míňa - teda aj
+        // pri oboch paragrafoch, nielen pri dovolenke.
         if (quotaBox) {
-            const isVacation = type === 'vacation';
-            quotaBox.style.display = (showDates && isVacation) ? 'block' : 'none';
-            // Reset selected days info when type changes
+            const hasQuota = Boolean(REQUEST_QUOTAS[type]);
+            quotaBox.style.display = (showDates && hasQuota) ? 'block' : 'none';
+            if (showDates && hasQuota) renderRequestQuota(type);
+
+            // Vybraný rozsah patrí k predošlému typu; po prepnutí už neplatí.
             const selectedDaysInfo = document.getElementById('selectedDaysInfo');
             if (selectedDaysInfo) selectedDaysInfo.style.display = 'none';
+            const warning = document.getElementById('quotaWarning');
+            if (warning) warning.style.display = 'none';
         }
     }
+
+    // Dátumy mohli zostať vyplnené z predošlého typu - prepočítaj ich rovno,
+    // nech sa zostatok nepýta až na druhé kliknutie.
+    updateWorkingDaysInfo();
 }
 
 // Update working days info when dates change
@@ -1188,8 +1254,9 @@ async function updateWorkingDaysInfo() {
     const selectedDaysValue = document.getElementById('selectedDaysValue');
     const quotaWarning = document.getElementById('quotaWarning');
 
-    // Only show for vacation type with both dates
-    if (ticketType !== 'vacation' || !startDate || !endDate) {
+    // Platí pre každý typ, ktorý míňa kvótu - dovolenku aj oba paragrafy.
+    const config = REQUEST_QUOTAS[ticketType];
+    if (!config || !startDate || !endDate) {
         if (selectedDaysInfo) selectedDaysInfo.style.display = 'none';
         if (quotaWarning) quotaWarning.style.display = 'none';
         return;
@@ -1212,16 +1279,26 @@ async function updateWorkingDaysInfo() {
         if (result.success && result.data) {
             const workingDays = result.data.working_days;
             const quota = window._currentQuota;
-            const remaining = quota ? quota.vacation_days_remaining : 0;
+            const remaining = quota ? Number(quota[config.remainKey] ?? 0) : 0;
+
+            // Paragrafy sa míňajú v hodinách, osem na pracovný deň - rovnako,
+            // ako to po odoslaní prepočíta server.
+            const requested = config.hours ? workingDays * HOURS_PER_WORKING_DAY : workingDays;
+            const unit = config.hours ? pt('quotaInfoHours') : pt('days');
 
             if (selectedDaysInfo) selectedDaysInfo.style.display = 'block';
-            if (selectedDaysValue) selectedDaysValue.textContent = `${workingDays} ${pt('days')}`;
+            if (selectedDaysValue) {
+                selectedDaysValue.textContent =
+                    `${config.hours ? requested.toFixed(2) : requested} ${unit}`;
+            }
 
             // Show warning if not enough days
             if (quotaWarning) {
-                if (workingDays > remaining) {
+                if (requested > remaining) {
                     quotaWarning.style.display = 'block';
-                    quotaWarning.innerHTML = `<strong>&#9888;</strong> ${pt('notEnoughDaysWarning').replace('{selected}', workingDays).replace('{remaining}', remaining)}`;
+                    quotaWarning.innerHTML = `<strong>&#9888;</strong> ${pt('notEnoughDaysWarning')
+                        .replace('{selected}', `${config.hours ? requested.toFixed(2) : requested} ${unit}`)
+                        .replace('{remaining}', `${config.hours ? remaining.toFixed(2) : remaining} ${unit}`)}`;
                 } else {
                     quotaWarning.style.display = 'none';
                 }
@@ -1868,7 +1945,7 @@ function renderAdminSickNotesTable(notes) {
             </thead>
             <tbody>
                 ${notes.map(n => {
-                    const docLabel = n.document_type === 'ocr' ? (pt('sickNoteDocTypeOcr') || 'OČR') : (pt('sickNoteDocTypeParagraph') || 'Paragraf');
+                    const docLabel = n.document_type === 'ocr' ? (pt('sickNoteDocTypeOcr') || 'Paragraf - sprievod') : (pt('sickNoteDocTypeParagraph') || 'Paragraf - lekár');
                     const docBadge = n.document_type === 'ocr' ? 'badge-sick' : 'badge-paragraph';
                     return `
                     <tr>
@@ -2501,8 +2578,8 @@ async function openEditTicketModal(ticketId) {
                                 <select class="form-select" name="ticket_type" id="editTicketType" onchange="toggleEditDateFields()" required>
                                     ${types.length === 0 ? `
                                         <option value="vacation" ${ticket.ticket_type === 'vacation' ? 'selected' : ''}>Dovolenka</option>
-                                        <option value="paragraph" ${ticket.ticket_type === 'paragraph' ? 'selected' : ''}>Paragraf</option>
-                                        <option value="ocr" ${ticket.ticket_type === 'ocr' ? 'selected' : ''}>OČR</option>
+                                        <option value="paragraph" ${ticket.ticket_type === 'paragraph' ? 'selected' : ''}>Paragraf - lekár</option>
+                                        <option value="ocr" ${ticket.ticket_type === 'ocr' ? 'selected' : ''}>Paragraf - sprievod</option>
                                         <option value="other" ${ticket.ticket_type === 'other' ? 'selected' : ''}>Iné</option>
                                     ` : types.map(t => `
                                         <option value="${escapeHtml(t.key)}" data-requires-dates="${t.requires_dates ? '1' : '0'}" ${ticket.ticket_type === t.key ? 'selected' : ''}>${escapeHtml(portalLang === 'sk' ? t.label_sk : t.label_en)}</option>

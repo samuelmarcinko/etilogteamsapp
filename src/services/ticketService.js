@@ -4,7 +4,7 @@ const Quota = require('../database/models/Quota');
 const Holiday = require('../database/models/Holiday');
 const logger = require('../utils/logger');
 
-// Hours per working day for paragraph and OČR quotas
+// Hours per working day for both kinds of paragraph leave
 const HOURS_PER_DAY = 8;
 
 class TicketService {
@@ -36,7 +36,7 @@ class TicketService {
             workingDays = 0.5;
           }
 
-          // Convert days to hours for paragraph and OČR
+          // Convert days to hours: both paragraphs are tracked in hours
           let quotaAmount = workingDays;
           if (hourBasedTypes.includes(ticketData.ticketType)) {
             quotaAmount = workingDays * HOURS_PER_DAY;
@@ -51,8 +51,8 @@ class TicketService {
             const typeLabels = {
               'vacation': 'dovolenky',
               'sick-leave': 'PN',
-              'paragraph': 'Paragraf',
-              'ocr': 'OČR'
+              'paragraph': 'Paragraf - lekár',
+              'ocr': 'Paragraf - sprievod'
             };
             const colPrefixes = {
               'vacation': 'vacation',
@@ -179,7 +179,7 @@ class TicketService {
             workingDays = 0.5;
           }
 
-          // Convert days to hours for paragraph and OČR
+          // Convert days to hours: both paragraphs are tracked in hours
           let quotaAmount = workingDays;
           if (hourBasedTypes.includes(ticket.ticket_type)) {
             quotaAmount = workingDays * HOURS_PER_DAY;
@@ -286,7 +286,7 @@ class TicketService {
             workingDays = 0.5;
           }
 
-          // Convert days to hours for paragraph and OČR
+          // Convert days to hours: both paragraphs are tracked in hours
           let quotaAmount = workingDays;
           if (hourBasedTypes.includes(ticket.ticket_type)) {
             quotaAmount = workingDays * HOURS_PER_DAY;
