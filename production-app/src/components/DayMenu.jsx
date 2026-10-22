@@ -1,6 +1,6 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import {
-  AlertTriangle, ArrowLeftRight, CalendarArrowDown, CalendarOff, Check, Copy,
+  AlertTriangle, ArrowLeftRight, CalendarArrowDown, CalendarOff, Check, CheckCheck, Copy,
   MoreHorizontal, MoveRight, Plus
 } from 'lucide-react';
 import clsx from 'clsx';
@@ -76,6 +76,21 @@ export default function DayMenu({ day, flag, onSetFlag, onAdd, onBulk }) {
               {label}
             </DropdownMenu.Item>
           ))}
+
+          <DropdownMenu.Separator className="my-1 h-px bg-gray-200" />
+
+          {/* Uzavretie celého dňa naraz. Majster na konci smeny nepotvrdzuje
+              osem kariet po jednej, a otázka, ktorú si kladie, znie „bol tento
+              deň odrobený?" - nie „bola odrobená ranná?". Preto to platí na
+              deň naprieč smenami. Nepýta sa na potvrdenie: vráti sa to jedným
+              kliknutím na Späť, rovnako ako presun dňa. */}
+          <DropdownMenu.Item
+            onSelect={() => onBulk('markDayDone', day)}
+            className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[14px] text-gray-700 outline-none data-[highlighted]:bg-gray-100"
+          >
+            <CheckCheck className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
+            Mark whole day as done
+          </DropdownMenu.Item>
 
           <DropdownMenu.Separator className="my-1 h-px bg-gray-200" />
 

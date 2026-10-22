@@ -399,6 +399,69 @@ class ProductionEntry {
    * Returns { needsDecision, occupants } when the target is occupied and no
    * mode was given, so the UI can ask rather than guess.
    */
+  /**
+   * Označ všetko, čo je na jednom dni, za hotové.
+   *
+   * Deň sa uzatvára naraz - majster na konci smeny nepotvrdzuje osem kariet po
+   * jednej. Platí to na celý deň naprieč smenami, lebo to je tá otázka, ktorú
+   * si plánovač kladie: „bol tento deň odrobený?", nie „bola odrobená ranná?".
+   *
+   * Karty, ktoré už hotové sú, sa nechávajú na pokoji a nie sú ani v snímke na
+   * vrátenie - inak by Späť otvorilo aj tie, ktoré niekto zavrel včera.
+   */
+  static async markDayDone(locationId, date, user) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const { rows: targets } = await client.query(
+        `SELECT * FROM production_plan_entries
+          WHERE location_id = $1 AND production_date = $2
+            AND deleted_at IS NULL AND status <> 'done'
+          ORDER BY shift_id, sort_order
+          FOR UPDATE`,
+        [locationId, date]
+      );
+
+      if (!targets.length) {
+        await client.query('ROLLBACK');
+        return { empty: true };
+      }
+
+      // Snímka nesie stav, ktorý karta mala. Vrátenie späť nie je „otvor
+      // všetko", ale „vráť každú kartu tam, kde bola" - a to sú dve rôzne veci
+      // vo chvíli, keď deň držal rozrobenú aj naplánovanú prácu.
+      const positions = targets.map((row) => ({ ...snapshot(row), status: row.status }));
+      const ids = targets.map((row) => row.id);
+
+      await client.query(
+        `UPDATE production_plan_entries
+            SET status = 'done', version = version + 1,
+                updated_by = $2, updated_by_name = $3
+          WHERE id = ANY($1::int[])`,
+        [ids, user?.id || null, user?.name || null]
+      );
+
+      await logChange(client, {
+        locationId,
+        entryId: ids[0],
+        action: 'updated',
+        summary: `Marked ${ids.length} card(s) on ${date} as done`,
+        before: { positions },
+        after: { ids },
+        user
+      });
+
+      await client.query('COMMIT');
+      return { marked: ids.length, undo: { positions } };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   static async move(id, target, mode, user) {
     const client = await pool.connect();
     try {
@@ -520,20 +583,33 @@ class ProductionEntry {
         // Restoring one that does not must leave the quantity alone, or undoing
         // a plain move would blank it.
         const hasQuantity = Object.prototype.hasOwnProperty.call(position, 'planned_quantity');
+        // To isté pre stav: nesie ho len snímka z operácie, ktorá ho menila -
+        // teda uzavretie celého dňa. Bez tejto podmienky by vrátenie obyčajného
+        // presunu prepísalo stav na `null` a karta by zmizla z oboch filtrov.
+        const hasStatus = Object.prototype.hasOwnProperty.call(position, 'status');
+
+        const sets = [
+          'production_date = $2', 'shift_id = $3', 'sort_order = $4', 'deleted_at = $5',
+          'version = version + 1', 'updated_by = $6', 'updated_by_name = $7'
+        ];
+        const extra = [];
+        if (hasQuantity) {
+          sets.push(`planned_quantity = $${7 + extra.length + 1}`);
+          // Snapshots written before migration 029 also carry the retired
+          // breakdown columns; the total beside them is what survived, and it
+          // is the only part still restorable.
+          extra.push(position.planned_quantity ?? null);
+        }
+        if (hasStatus) {
+          sets.push(`status = $${7 + extra.length + 1}`);
+          extra.push(position.status);
+        }
 
         const { rows } = await client.query(
-          hasQuantity
-            ? `UPDATE production_plan_entries
-                  SET production_date = $2, shift_id = $3, sort_order = $4, deleted_at = $5,
-                      planned_quantity = $8,
-                      version = version + 1, updated_by = $6, updated_by_name = $7
-                WHERE id = $1
-                RETURNING *`
-            : `UPDATE production_plan_entries
-                  SET production_date = $2, shift_id = $3, sort_order = $4, deleted_at = $5,
-                      version = version + 1, updated_by = $6, updated_by_name = $7
-                WHERE id = $1
-                RETURNING *`,
+          `UPDATE production_plan_entries
+              SET ${sets.join(', ')}
+            WHERE id = $1
+            RETURNING *`,
           [
             position.id,
             position.production_date || null,
@@ -542,10 +618,7 @@ class ProductionEntry {
             position.deleted_at || null,
             user?.id || null,
             user?.name || null,
-            // Snapshots written before migration 029 also carry the retired
-            // breakdown columns; the total beside them is what survived, and it
-            // is the only part still restorable.
-            ...(hasQuantity ? [position.planned_quantity ?? null] : [])
+            ...extra
           ]
         );
         if (rows[0]) restored.push(rows[0]);

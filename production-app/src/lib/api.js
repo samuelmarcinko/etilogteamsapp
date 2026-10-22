@@ -248,6 +248,9 @@ export const api = {
   swapDays: (payload) => request('/api/production/bulk/swap-days', json(payload)),
   shiftRange: (payload) => request('/api/production/bulk/shift-range', json(payload)),
   copyDays: (payload) => request('/api/production/bulk/copy', json(payload)),
+
+  /** Uzavrie celý deň naraz. Bez cieľa - deň je ten, na ktorom sa kliklo. */
+  markDayDone: (payload) => request('/api/production/bulk/mark-day-done', json(payload)),
   splitEntry: (id, payload) => request(`/api/production/entries/${id}/split`, json(payload)),
 
   /** Copy a card into the same slot. No payload - the copy is the card. */

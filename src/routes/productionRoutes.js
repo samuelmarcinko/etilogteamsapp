@@ -1006,6 +1006,28 @@ router.post('/bulk/shift-range', manageAccess, asyncHandler(async (req, res) => 
   res.json({ data: { shifted: result.shifted }, undo: result.undo });
 }));
 
+// POST /api/production/bulk/mark-day-done  { location, date }
+//
+// Uzatvára celý deň naraz, naprieč smenami. Karty, ktoré už hotové sú, sa
+// nechávajú na pokoji - vrátane toho, že nie sú v snímke na vrátenie späť.
+router.post('/bulk/mark-day-done', manageAccess, asyncHandler(async (req, res) => {
+  const location = await ProductionPlan.findLocationByCode(req.body.location);
+  if (!location) return res.status(404).json({ error: 'Location not found' });
+
+  if (!ISO_DATE.test(req.body.date || '')) {
+    return res.status(400).json({ error: 'Bad Request', message: 'date must be YYYY-MM-DD' });
+  }
+
+  const result = await ProductionEntry.markDayDone(location.id, req.body.date, currentUser(req));
+  if (result.empty) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: 'There is nothing on this day left to mark as done'
+    });
+  }
+  res.json({ data: { marked: result.marked }, undo: result.undo });
+}));
+
 // POST /api/production/bulk/copy  { location, fromDate, toDate, dayCount, mode }
 //
 // dayCount 1 copies a day, 7 copies a week - the same operation either way.

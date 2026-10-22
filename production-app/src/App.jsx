@@ -85,7 +85,8 @@ const BULK_PAST_TENSE = {
   copyDay: 'copied',
   copyWeek: 'copied',
   swapDays: 'swapped',
-  shiftRange: 'shifted'
+  shiftRange: 'shifted',
+  markDayDone: 'marked as done'
 };
 
 const cardLabel = (entry) =>
@@ -316,6 +317,8 @@ export default function App() {
           return api.swapDays({ location, dateA: sourceDate, dateB: target });
         case 'shiftRange':
           return api.shiftRange({ location, fromDate: sourceDate, toDate: rangeTo, days });
+        case 'markDayDone':
+          return api.markDayDone({ location, date: sourceDate });
         default:
           throw new Error(`Unknown bulk operation: ${kind}`);
       }
@@ -324,7 +327,7 @@ export default function App() {
       setBulk(null);
       refresh();
       const counts = result.data || {};
-      const n = counts.moved ?? counts.copied ?? counts.swapped ?? counts.shifted ?? 0;
+      const n = counts.moved ?? counts.copied ?? counts.swapped ?? counts.shifted ?? counts.marked ?? 0;
       offerUndo(`${n} card${n === 1 ? '' : 's'} ${BULK_PAST_TENSE[variables.kind]}`, result.undo);
     },
     onError: (error) => toast.error(error.message)
@@ -656,7 +659,16 @@ export default function App() {
                   onSetDayFlag={(day, flag) => dayFlagMutation.mutate({ date: day.iso, flag })}
                   onSetShiftNote={(date, shiftId, note) =>
                     shiftNoteMutation.mutate({ date, shiftId, note })}
-                  onBulk={(kind, day) => setBulk({ kind, sourceDate: day.iso })}
+                  onBulk={(kind, day) => {
+                    // Uzavretie dňa sa nemá koho pýtať na cieľ - deň je ten, na
+                    // ktorom sa kliklo. Ostatné hromadné akcie bez cieľa nedávajú
+                    // zmysel, tak si pýtajú dialóg.
+                    if (kind === 'markDayDone') {
+                      bulkMutation.mutate({ kind, sourceDate: day.iso });
+                      return;
+                    }
+                    setBulk({ kind, sourceDate: day.iso });
+                  }}
                   canManage={canManage}
                   density={spanWeeks === 1 ? 'roomy' : spanWeeks === 8 ? 'compact' : 'normal'}
                 />
