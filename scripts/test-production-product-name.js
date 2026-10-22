@@ -86,8 +86,10 @@ const MIRRORED = 'FG999001';   // v zrkadle je, názov má
 const FINISHED = 'FG999002';   // v zrkadle nie je a SAP je vypnutý
 const TOLD = 'FG999003';       // názov príde v požiadavke
 const KEPT = 'FG999004';       // popis už má a nemá sa prepísať
+const EMPTY = 'FG999005';      // v zozname už je, ale s prázdnym popisom
+const SILENT = 'FG999006';     // popis má, ale SAP o kóde nevie
 
-const CODES = [MIRRORED, FINISHED, TOLD, KEPT];
+const CODES = [MIRRORED, FINISHED, TOLD, KEPT, EMPTY, SILENT];
 const users = [];
 
 async function cleanup() {
@@ -149,18 +151,44 @@ async function main() {
   });
   check('použije sa ten', c.body.data?.description, 'Názov od klienta');
 
-  console.log('\n4. Existujúci popis sa neprepíše');
+  // SAP je pánom mena projektu. Keď ho tam niekto opraví, má sa to prejaviť aj
+  // tu - inak by si plánovač čítal roky starý popis bez toho, aby to tušil.
+  console.log('\n4. Meno zo SAPu vyhráva nad tým, čo máme odložené');
   await pool.query('INSERT INTO products (fg_number, description) VALUES ($1, $2)',
-                   [KEPT, 'Ručne dopísaný popis']);
+                   [KEPT, 'Starý popis spred premenovania']);
   await pool.query(
     `INSERT INTO sap_items (item_code, item_name, synced_at) VALUES ($1, $2, CURRENT_TIMESTAMP)`,
-    [KEPT, 'Niečo celkom iné zo SAPu']);
+    [KEPT, 'FG999004_00_GLT_premenovany_v_SAPe']);
 
   const d = await call('POST', '/api/production/products', { token, body: { fgNumber: KEPT } });
   check('požiadavka prejde', d.status, 201);
-  check('a ručný popis zostal', await describe(KEPT), 'Ručne dopísaný popis');
+  check('popis sa obnovil zo SAPu', await describe(KEPT), 'FG999004_00_GLT_premenovany_v_SAPe');
 
-  console.log('\n5. Čo sa ani nepokúsi založiť');
+  // Toto je ten prípad, ktorý prvá oprava minula. Projekt sa raz založil
+  // predtým, než sa názvy dopĺňali, takže položka v zozname už je - a má
+  // prázdny popis. Výber ju musí doplniť, nie ju obísť ako „už známu".
+  console.log('\n5. Položka, ktorá už existuje s prázdnym popisom');
+  await pool.query('INSERT INTO products (fg_number, description) VALUES ($1, NULL)', [EMPTY]);
+  await pool.query(
+    `INSERT INTO sap_items (item_code, item_name, synced_at) VALUES ($1, $2, CURRENT_TIMESTAMP)`,
+    [EMPTY, 'FG999005_00_KLT_doplneny_dodatocne']);
+  check('pred tým je popis prázdny', await describe(EMPTY), null);
+
+  const e = await call('POST', '/api/production/products', { token, body: { fgNumber: EMPTY } });
+  check('požiadavka prejde', e.status, 201);
+  check('popis sa doplnil', e.body.data?.description, 'FG999005_00_KLT_doplneny_dodatocne');
+  check('a ostal uložený', await describe(EMPTY), 'FG999005_00_KLT_doplneny_dodatocne');
+
+  // A to isté na druhú stranu, lebo „SAP vyhráva" sa ľahko zvrhne na „SAP
+  // mlčí, tak zmažeme". Keď meno nevie povedať nikto, ostáva to, čo máme.
+  console.log('\n6. Keď SAP meno nedá, starý popis zostáva');
+  await pool.query('INSERT INTO products (fg_number, description) VALUES ($1, $2)',
+                   [SILENT, 'Popis, o ktorý sa nesmie prísť']);
+  const f = await call('POST', '/api/production/products', { token, body: { fgNumber: SILENT } });
+  check('požiadavka prejde', f.status, 201);
+  check('popis sa nevymazal', await describe(SILENT), 'Popis, o ktorý sa nesmie prísť');
+
+  console.log('\n7. Čo sa ani nepokúsi založiť');
   check('kód, ktorý nie je FG, neprejde',
         (await call('POST', '/api/production/products', { token, body: { fgNumber: 'XYZ1' } })).status, 400);
   check('bez prihlásenia už vôbec nie',
@@ -191,7 +219,7 @@ async function liveReadFromSap() {
   const os = require('os');
   const path = require('path');
 
-  console.log('\n6. Názov prečítaný priamo zo SAPu');
+  console.log('\n8. Názov prečítaný priamo zo SAPu');
 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sap-name-'));
   try {

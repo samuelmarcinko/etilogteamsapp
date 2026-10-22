@@ -1337,14 +1337,28 @@ class ProductionEntry {
   }
 
   /** Find or create an FG so a card can reference a number typed by hand. */
-  static async findOrCreateProduct(fgNumber, description) {
+  /**
+   * Nájdi alebo založ položku FG.
+   *
+   * `overwrite` je pre názov, ktorý prišiel zo SAPu. SAP je pánom mena
+   * projektu - keď ho tam niekto opraví, má sa to prejaviť aj tu, inak by si
+   * plánovač čítal roky starý popis bez toho, aby to tušil.
+   *
+   * Prázdnym menom sa ale neprepisuje nikdy. Keď je SAP nedostupný alebo kód
+   * nepozná, popis, ktorý už máme, zostáva - vymazať ho kvôli výpadku linky by
+   * bola strata, nie aktualizácia.
+   */
+  static async findOrCreateProduct(fgNumber, description, { overwrite = false } = {}) {
     const { rows } = await pool.query(
       `INSERT INTO products (fg_number, description)
        VALUES ($1, $2)
        ON CONFLICT (fg_number) DO UPDATE
-         SET description = COALESCE(products.description, EXCLUDED.description)
+         SET description = CASE
+               WHEN $3::boolean AND EXCLUDED.description IS NOT NULL THEN EXCLUDED.description
+               ELSE COALESCE(products.description, EXCLUDED.description)
+             END
        RETURNING *`,
-      [fgNumber, description || null]
+      [fgNumber, description || null, overwrite]
     );
     return rows[0];
   }

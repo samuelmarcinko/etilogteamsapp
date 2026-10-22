@@ -73,9 +73,12 @@ export default function FgCombobox({ value, onChange, autoFocus }) {
   const chooseLoadedProject = async (code) => {
     setResolving(true);
     try {
-      const known = await api.searchProducts(code);
-      const match = (known || []).find((p) => p.fg_number.toUpperCase() === code);
-      const product = match || await api.createProduct(code, '');
+      // Vždy cez server, aj keď položku už poznáme. Je to vloženie-alebo-
+      // nájdenie, ktoré pri tej príležitosti doplní chýbajúci názov zo SAPu -
+      // a práve toho sa týka celý tento prípad. Keby sa tu položka vyhľadala
+      // a server sa preskočil, projekt raz založený s prázdnym popisom by ho
+      // mal prázdny navždy.
+      const product = await api.createProduct(code, '');
 
       onChange({
         productId: product.id,
@@ -103,11 +106,10 @@ export default function FgCombobox({ value, onChange, autoFocus }) {
   const chooseSapProject = async (project) => {
     setResolving(true);
     try {
-      const known = await api.searchProducts(project.itemCode);
-      const match = (known || []).find(
-        (p) => p.fg_number.toLowerCase() === project.itemCode.toLowerCase()
-      );
-      const product = match || await api.createProduct(project.itemCode, project.description || '');
+      // Rovnako ako nižšie: vždy cez server. Objednávka síce svoj popis nesie,
+      // ale položka, ktorá v zozname už je s prázdnym popisom, by si ho inak
+      // neodložila - na obrazovke by sa ukázal a pri ďalšom otvorení zmizol.
+      const product = await api.createProduct(project.itemCode, project.description || '');
 
       onChange({
         productId: product.id,

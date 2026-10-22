@@ -690,30 +690,34 @@ router.post('/products', manageAccess, asyncHandler(async (req, res) => {
   }
 
   const code = fgNumber.toUpperCase();
-  let description = String(req.body.description || '').trim();
+  const told = String(req.body.description || '').trim();
 
-  // Fill the name in from SAP when the caller has none.
+  // Meno projektu je v SAPe a odtiaľ sa aj berie - pri každom výbere nanovo,
+  // nielen keď chýba. Keď ho tam niekto opraví, plánovač má vidieť opravené
+  // meno, nie to, ktoré sme si odložili pri prvom založení.
   //
-  // Picking a project that still has an open order brings its description
-  // along; picking one that is finished brought nothing, and the card ended up
-  // with an empty description field that nobody could explain. The name is in
-  // SAP either way - it is our mirror that does not have it, because a full
-  // pass rebuilds the mirror from open orders only, so a project with every
-  // piece already made is in SAP and nowhere in our copy.
+  // Zrkadlo najprv, lebo stojí jeden lokálny dopyt; priamo zo SAPu až keď tam
+  // nie je. To je prípad dokončeného projektu: plná synchronizácia prestavuje
+  // zrkadlo z otvorených objednávok, takže projekt, na ktorom je všetko
+  // vyrobené, je v SAPe a v našej kópii nie.
   //
-  // Mirror first because it costs a local query, SAP only when that is empty.
-  // Both are best effort: a product has to stay creatable with SAP down, and
-  // an empty description is a cosmetic loss, not a failure.
-  if (!description) {
-    try {
-      const known = await SapAvailability.projectByItem(code);
-      description = known?.itemName || await SapSyncService.shared().itemName(code) || '';
-    } catch (error) {
-      logger.warn('Could not fill the product description from SAP', { code, error: error.message });
-    }
+  // Oboje je len pokus. Karta musí vzniknúť aj s nedostupným SAPom a popis,
+  // ktorý už máme, sa prázdnym menom neprepisuje - vymazať ho kvôli výpadku
+  // linky by bola strata, nie aktualizácia.
+  let fromSap = null;
+  try {
+    const known = await SapAvailability.projectByItem(code);
+    fromSap = known?.itemName || await SapSyncService.shared().itemName(code) || null;
+  } catch (error) {
+    logger.warn('Could not read the product name from SAP', { code, error: error.message });
   }
 
-  const product = await ProductionEntry.findOrCreateProduct(code, description);
+  // Čo prišlo v požiadavke, je popis z otvorenej objednávky - tiež zo SAPu,
+  // len inou cestou, tak má rovnakú váhu.
+  const description = told || fromSap;
+  const product = await ProductionEntry.findOrCreateProduct(code, description, {
+    overwrite: Boolean(description)
+  });
   res.status(201).json({ data: product });
 }));
 
