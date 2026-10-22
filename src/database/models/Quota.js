@@ -85,6 +85,17 @@ class Quota {
          COALESCE(eq.paragraph_days_used, 0) as paragraph_days_used,
          COALESCE(eq.ocr_days_total, $5) as ocr_days_total,
          COALESCE(eq.ocr_days_used, 0) as ocr_days_used,
+         -- Párovanie na PAM. Bez neho sa riadok v zozname nedá odlíšiť od
+         -- riadku človeka, ktorý v PAM nie je vôbec.
+         u.personal_number,
+         COALESCE(u.is_external, false) as is_external,
+         -- Čo naposledy povedal PAM. V tichom behu stoja tieto hodnoty vedľa
+         -- ručných a nič nimi zatiaľ nenahrádzame.
+         eq.pam_vacation_days_total,
+         eq.pam_vacation_days_used,
+         eq.pam_paragraph_days_used,
+         eq.pam_ocr_days_used,
+         eq.pam_synced_at,
          CASE WHEN eq.user_id IS NULL THEN true ELSE false END as needs_initialization
        FROM users u
        LEFT JOIN employee_quotas eq ON u.user_id = eq.user_id AND eq.year = $1
@@ -141,6 +152,33 @@ class Quota {
         userId,
         year
       ]
+    );
+    return result.rows[0];
+  }
+
+  /**
+   * Zapíše, čo o človeku povie PAM. Ručných hodnôt sa nedotýka.
+   *
+   * Volá sa len vtedy, keď PAM naozaj odpovedal. Keď je VPN dole, nevolá sa
+   * vôbec - staré hodnoty aj starý pam_synced_at zostanú ležať a na
+   * obrazovke je rozdiel medzi "PAM hovorí nula" a "PAM sa dva dni neozval".
+   * Keby sa to zapisovalo aj pri chybe, kvóta by sa niekomu tichučko
+   * vynulovala a nikto by nevedel prečo.
+   */
+  static async setPamValues(userId, year, { vacationTotal, vacationUsed, paragraphUsed, ocrUsed }) {
+    await this.getOrCreate(userId, year);
+
+    const result = await pool.query(
+      `UPDATE employee_quotas
+          SET pam_vacation_days_total = $1,
+              pam_vacation_days_used  = $2,
+              pam_paragraph_days_used = $3,
+              pam_ocr_days_used       = $4,
+              pam_synced_at           = CURRENT_TIMESTAMP,
+              updated_at              = CURRENT_TIMESTAMP
+        WHERE user_id = $5 AND year = $6
+        RETURNING *`,
+      [vacationTotal, vacationUsed, paragraphUsed, ocrUsed, userId, year]
     );
     return result.rows[0];
   }

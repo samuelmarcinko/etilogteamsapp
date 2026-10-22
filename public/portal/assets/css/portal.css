@@ -639,6 +639,21 @@ body.sidebar-collapsed .sidebar-toggle .toggle-icon {
 .badge-user { background: var(--gray-100); color: var(--gray-600); }
 .badge-visible { background: var(--green-50); color: var(--green-600); }
 .badge-hidden { background: #fee2e2; color: #991b1b; }
+
+/* Externý pracovník v zozname kvót. Zámerne pokojná, nie červená: nie je to
+   výstraha, len informácia, že tento človek v PAM nie je a kvóty sa mu
+   nastavujú ručne. */
+.badge-ext {
+  display: inline-flex;
+  padding: 0.2rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: var(--gray-100);
+  color: var(--gray-600);
+  border: 1px solid var(--gray-200);
+}
 .badge-active { background: var(--green-50); color: var(--green-600); }
 .badge-archived { background: var(--gray-100); color: var(--gray-500); }
 .badge-vacation { background: var(--blue-100); color: #1e40af; }

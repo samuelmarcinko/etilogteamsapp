@@ -1,4 +1,5 @@
 const Quota = require('../database/models/Quota');
+const User = require('../database/models/User');
 const Holiday = require('../database/models/Holiday');
 const GraphService = require('../services/graphService');
 const pool = require('../database/config');
@@ -327,6 +328,58 @@ class QuotaController {
         data: { start_date, end_date, working_days: workingDays }
       });
     } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Osobné číslo z PAM a príznak externého pracovníka.
+   * PUT /api/quotas/user/:userId/mapping
+   *
+   * Zámerne samostatný endpoint a nie ďalšie polia v updateUserQuota: toto
+   * sa ukladá na používateľa a platí navždy, kým kvóta sa ukladá na rok.
+   * Keby to šlo jedným volaním, zmena osobného čísla by sa viazala na rok,
+   * v ktorom ju kolegyňa práve prezerala.
+   */
+  static async updateUserMapping(req, res, next) {
+    try {
+      const { userId } = req.params;
+      const isExternal = Boolean(req.body.is_external);
+      const raw = req.body.personal_number;
+
+      // Externému sa osobné číslo nezadáva - model ho aj tak zahodí, ale
+      // nemá zmysel kvôli nemu padať na validácii.
+      let personalNumber = null;
+      if (!isExternal && raw !== undefined && raw !== null && String(raw).trim() !== '') {
+        personalNumber = Number.parseInt(String(raw).trim(), 10);
+        if (!Number.isInteger(personalNumber) || personalNumber <= 0) {
+          return res.status(400).json({
+            error: 'Bad Request',
+            message: 'Osobné číslo musí byť celé kladné číslo.'
+          });
+        }
+      }
+
+      const updated = await User.setPamMapping(userId, { personalNumber, isExternal });
+      if (!updated) {
+        return res.status(404).json({ error: 'Not Found', message: 'Používateľ neexistuje.' });
+      }
+
+      logger.info('PAM mapping updated', {
+        userId, personalNumber, isExternal, by: req.user?.id
+      });
+      res.json({ success: true, data: updated });
+    } catch (error) {
+      // Čiastočný unique index z migrácie 042. Dve osoby s rovnakým osobným
+      // číslom by si navzájom prepisovali kvóty a nikto by nevedel, ktorá
+      // hodnota komu patrí - preto to databáza odmietne a my to povieme
+      // zrozumiteľne namiesto 500.
+      if (error.code === '23505') {
+        return res.status(409).json({
+          error: 'Conflict',
+          message: 'Toto osobné číslo už má priradené iný zamestnanec.'
+        });
+      }
       next(error);
     }
   }

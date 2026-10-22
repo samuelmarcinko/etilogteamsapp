@@ -100,6 +100,55 @@ class User {
   }
 
   /**
+   * Osobné číslo z PAM a príznak externého pracovníka.
+   *
+   * Nastavujú sa naraz, lebo spolu rozhodujú o tom, odkiaľ sa berie kvóta:
+   * interný sa číta z PAM podľa osobného čísla, externý si drží ručné
+   * hodnoty ako doteraz. Keby sa ukladali zvlášť, medzi dvoma uloženiami by
+   * existoval stav "externý s osobným číslom", ktorý nedáva zmysel ani
+   * jednej strane.
+   *
+   * Pri zapnutí externého sa osobné číslo zámerne zahadzuje. Zahraniční
+   * spolupracovníci fakturujú a v PAM nie sú - keby im tam číslo zostalo
+   * ležať, nočná synchronizácia by k nim natiahla kvóty cudzieho človeka,
+   * ktorý to číslo medzitým dostal.
+   */
+  static async setPamMapping(userId, { personalNumber, isExternal }) {
+    const external = Boolean(isExternal);
+    const number = external ? null : (personalNumber ?? null);
+
+    const result = await pool.query(
+      `UPDATE users
+          SET personal_number = $1,
+              is_external     = $2,
+              updated_at      = CURRENT_TIMESTAMP
+        WHERE user_id = $3
+        RETURNING user_id, display_name, personal_number, is_external`,
+      [number, external, userId]
+    );
+    return result.rows[0];
+  }
+
+  /**
+   * Interní zamestnanci, ktorí majú doplnené osobné číslo.
+   *
+   * To je presne zoznam, ktorý vie nočná synchronizácia spracovať. Kto číslo
+   * nemá, ten sa nepreskakuje ticho - volajúci o ňom potrebuje vedieť, aby
+   * to kolegyni vedel ukázať.
+   */
+  static async findPamMapped() {
+    const result = await pool.query(
+      `SELECT user_id, display_name, personal_number
+         FROM users
+        WHERE is_external = FALSE
+          AND personal_number IS NOT NULL
+          AND COALESCE(hidden, false) = false
+        ORDER BY display_name`
+    );
+    return result.rows;
+  }
+
+  /**
    * Everyone whose role grants a permission.
    *
    * Used to decide who hears about something rather than who may do it, so the

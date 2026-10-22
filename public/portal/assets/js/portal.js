@@ -1763,6 +1763,14 @@ async function submitRoleChange(userId) {
 // ADMIN QUOTAS
 // ============================================
 
+// Posledný načítaný zoznam kvót, podľa user_id.
+//
+// Dialóg si riadok vyzdvihne odtiaľto namiesto toho, aby mu volajúci podával
+// osem hodnôt v onclick atribúte. Pribudlo osobné číslo a príznak externého a
+// pri desiatich pozičných parametroch je len otázkou času, kedy si dva z nich
+// vymenia poradie a kvóta sa niekomu prepíše cudzou hodnotou.
+let adminQuotaRows = new Map();
+
 async function renderAdminQuotas(container) {
     const year = new Date().getFullYear();
 
@@ -1778,6 +1786,7 @@ async function renderAdminQuotas(container) {
 
     const quotasRes = await apiCall(`/api/quotas/all?year=${year}`);
     const quotas = (await quotasRes.json()).data || [];
+    adminQuotaRows = new Map(quotas.map(q => [String(q.user_id), q]));
 
     container.innerHTML = `
         <div class="page-header">
@@ -1791,12 +1800,17 @@ async function renderAdminQuotas(container) {
                 <div class="card-body scrollable-table-container">
                     <table class="data-table sticky-header">
                         <thead>
-                            <tr><th>${pt('colEmployee')}</th><th>${pt('colVacTotal')}</th><th>${pt('colVacUsed')}</th><th>${pt('colBalance')}</th><th>${pt('colParagraphTotal')}</th><th>${pt('colParagraphUsed')}</th><th>${pt('colBalance')}</th><th>${pt('colOcrTotal')}</th><th>${pt('colOcrUsed')}</th><th>${pt('colBalance')}</th><th>${pt('colActions')}</th></tr>
+                            <tr><th>${pt('colEmployee')}</th><th>${pt('colPersonalNumber')}</th><th>${pt('colVacTotal')}</th><th>${pt('colVacUsed')}</th><th>${pt('colBalance')}</th><th>${pt('colParagraphTotal')}</th><th>${pt('colParagraphUsed')}</th><th>${pt('colBalance')}</th><th>${pt('colOcrTotal')}</th><th>${pt('colOcrUsed')}</th><th>${pt('colBalance')}</th><th>${pt('colActions')}</th></tr>
                         </thead>
                         <tbody>
                             ${quotas.map(q => `
                                 <tr>
                                     <td><strong>${escapeHtml(q.display_name || 'N/A')}</strong><br><small style="color:var(--gray-500)">${escapeHtml(q.email || '')}</small></td>
+                                    <td>${q.is_external
+                                        ? `<span class="badge-ext" title="${pt('badgeExternalTitle')}">${pt('badgeExternal')}</span>`
+                                        : (q.personal_number != null
+                                            ? `<strong>${q.personal_number}</strong>`
+                                            : `<small style="color:var(--gray-400)">${pt('personalNumberMissing')}</small>`)}</td>
                                     <td>${q.vacation_days_total}</td>
                                     <td>${q.vacation_days_used}</td>
                                     <td><strong style="color:${q.vacation_days_remaining <= 2 ? 'var(--red-500)' : 'var(--green-600)'}">${q.vacation_days_remaining}</strong></td>
@@ -1806,7 +1820,7 @@ async function renderAdminQuotas(container) {
                                     <td>${q.ocr_days_total || 7}</td>
                                     <td>${Number(q.ocr_days_used || 0).toFixed(2)}</td>
                                     <td><strong style="color:${q.ocr_days_remaining <= 1 ? 'var(--red-500)' : 'var(--green-600)'}">${Number(q.ocr_days_remaining).toFixed(2)}</strong></td>
-                                    <td><button class="btn-icon primary" onclick="editUserQuotas('${q.user_id}', '${escapeHtml(q.display_name || '')}', ${q.vacation_days_total}, ${q.vacation_days_remaining}, ${q.paragraph_days_total || 7}, ${q.paragraph_days_remaining}, ${q.ocr_days_total || 7}, ${q.ocr_days_remaining})" title="${pt('editQuota')}">&#9999;</button></td>
+                                    <td><button class="btn-icon primary" onclick="editUserQuotas('${q.user_id}')" title="${pt('editQuota')}">&#9999;</button></td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -1818,11 +1832,39 @@ async function renderAdminQuotas(container) {
 }
 
 // Edit individual user quotas
-async function editUserQuotas(userId, userName, vacTotal, vacRemaining, paragraphTotal, paragraphRemaining, ocrTotal, ocrRemaining) {
+async function editUserQuotas(userId) {
+    const row = adminQuotaRows.get(String(userId));
+    if (!row) return;
+
     const year = new Date().getFullYear();
+    const userName = row.display_name || '';
+    const vacRemaining = row.vacation_days_remaining;
+    const paragraphTotal = row.paragraph_days_total || 7;
+    const paragraphRemaining = row.paragraph_days_remaining;
+    const ocrTotal = row.ocr_days_total || 7;
+    const ocrRemaining = row.ocr_days_remaining;
+
     document.getElementById('modalTitle').textContent = `${pt('editQuota')} - ${userName}`;
     document.getElementById('modalBody').innerHTML = `
         <form id="userQuotaForm">
+            <div class="form-group">
+                <label class="form-label" style="font-weight:600;margin-bottom:8px;">${pt('quotaPamSection')}</label>
+                <div class="checkbox-group" style="margin-bottom:10px;">
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="is_external" ${row.is_external ? 'checked' : ''}
+                               onchange="togglePersonalNumber(this)">
+                        <span>${pt('quotaIsExternal')}</span>
+                    </label>
+                </div>
+                <small style="display:block;color:var(--gray-500);margin-bottom:10px;">${pt('quotaIsExternalHint')}</small>
+                <div class="form-group">
+                    <label class="form-label">${pt('quotaPersonalNumber')}</label>
+                    <input type="number" class="form-input" name="personal_number" min="1" step="1"
+                           value="${row.personal_number != null ? row.personal_number : ''}"
+                           ${row.is_external ? 'disabled' : ''}>
+                    <small style="display:block;color:var(--gray-500);margin-top:4px;">${pt('quotaPersonalNumberHint')}</small>
+                </div>
+            </div>
             <div class="form-group">
                 <label class="form-label" style="font-weight:600;margin-bottom:8px;">${pt('quotaFieldVacation')}</label>
                 <div class="form-group">
@@ -1865,6 +1907,18 @@ async function editUserQuotas(userId, userName, vacTotal, vacRemaining, paragrap
     openModal();
 }
 
+/**
+ * Externý v PAM nie je, tak sa mu osobné číslo nezadáva.
+ *
+ * Pole sa len uzamkne, nevyprázdni - keby si kolegyňa externého zaškrtla
+ * omylom, po odškrtnutí tam číslo zase je. Zahodí ho až uloženie, a to je
+ * vtedy vedomé rozhodnutie.
+ */
+function togglePersonalNumber(checkbox) {
+    const field = checkbox.form?.personal_number;
+    if (field) field.disabled = checkbox.checked;
+}
+
 async function saveUserQuotas(userId, year) {
     const form = document.getElementById('userQuotaForm');
 
@@ -1886,6 +1940,22 @@ async function saveUserQuotas(userId, year) {
     };
 
     try {
+        // Párovanie ide prvé. Keď sa osobné číslo nedá uložiť (má ho už
+        // niekto iný), chceme, aby dialóg zostal otvorený aj s číslom, ktoré
+        // kolegyňa zadala - nie aby sa zavrel a kvóty sa uložili pod zle
+        // spárovaným človekom.
+        const mappingRes = await apiCall(`/api/quotas/user/${userId}/mapping`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                is_external: form.is_external.checked,
+                personal_number: form.personal_number.value
+            })
+        });
+        if (!mappingRes.ok) {
+            const body = await mappingRes.json().catch(() => ({}));
+            throw new Error(body.message || pt('saveFailed'));
+        }
+
         const response = await apiCall(`/api/quotas/user/${userId}`, {
             method: 'PUT',
             body: JSON.stringify(data)
