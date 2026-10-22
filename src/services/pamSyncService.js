@@ -66,10 +66,14 @@ class PamSyncService {
   }
 
   /**
-   * Nočný beh o 05:30.
+   * Ranný beh o 05:45.
    *
    * Po tom, čo mzdová učtáreň spracuje nočné dávky, a pred tým, než si
    * ľudia sadnú k počítačom. Kolegyňa tak ráno vidí stav, ktorý sedí s PAM.
+   *
+   * Nie o 05:30, hoci by to inak sedelo: v tú minútu beží skladová
+   * synchronizácia so SAPom a obe by si ťahali ten istý VPN tunel na
+   * 192.168.18.41. Nič by sa nepokazilo, len by sa navzájom spomaľovali.
    *
    * Bez nastaveného PAM_DB_* sa neplánuje nič. Nasadenie, ktoré o PAM
    * nevie, sa má správať presne ako doteraz.
@@ -81,7 +85,7 @@ class PamSyncService {
       return;
     }
 
-    this.cronJob = cron.schedule('30 5 * * *', () => {
+    this.cronJob = cron.schedule('45 5 * * *', () => {
       this.syncAll()
         .then((summary) => { this.lastRun = { at: new Date().toISOString(), ...summary }; })
         .catch((error) => {
@@ -89,7 +93,7 @@ class PamSyncService {
           logger.error('PAM sync failed', { error: error.message });
         });
     });
-    logger.info('PAM sync service started', { schedule: 'daily at 05:30', ...PamClient.target });
+    logger.info('PAM sync service started', { schedule: 'daily at 05:45', ...PamClient.target });
   }
 
   stop() {
