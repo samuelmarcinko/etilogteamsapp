@@ -525,6 +525,33 @@ class SapSyncService {
    * not re-read, so rewriting it from stale knowledge would be a lie, and a
    * classification nobody re-derived must not be disturbed.
    */
+  /**
+   * The name SAP has for one item code. Nothing else, one read.
+   *
+   * The mirror only ever holds projects that have an open production order,
+   * because a full pass rebuilds it from exactly those. A project that is
+   * finished - every piece made - is therefore in SAP but nowhere in our copy,
+   * and the picker had no name to put in the description field. That is the
+   * case this exists for: planning a repeat of something already produced.
+   *
+   * Returns null rather than throwing when SAP is off or does not know the
+   * code. The caller is filling in a nicety, not deciding anything, and a
+   * product must still be creatable with SAP unreachable.
+   */
+  async itemName(itemCode) {
+    if (this.client.constructor.misconfigured) return null;
+
+    try {
+      const item = await this.client.getOrNull(
+        `/Items('${String(itemCode).replace(/'/g, "''")}')?$select=ItemCode,ItemName`
+      );
+      return item?.ItemName || null;
+    } catch (error) {
+      logger.warn('Could not read the item name from SAP', { itemCode, error: error.message });
+      return null;
+    }
+  }
+
   async #storeNumbers(itemCode, codes, items, open) {
     const client = await pool.connect();
 

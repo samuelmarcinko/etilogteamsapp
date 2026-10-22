@@ -10,6 +10,8 @@ const ProductionRevision = require('../database/models/ProductionRevision');
 const ProductionRetentionService = require('../services/productionRetentionService');
 const PlanChangeSummary = require('../services/planChangeSummary');
 const PlanNotificationService = require('../services/planNotificationService');
+const SapAvailability = require('../services/sapAvailability');
+const SapSyncService = require('../services/sapSyncService');
 const logger = require('../utils/logger');
 
 /**
@@ -686,7 +688,32 @@ router.post('/products', manageAccess, asyncHandler(async (req, res) => {
   if (!/^FG\d+/i.test(fgNumber)) {
     return res.status(400).json({ error: 'Bad Request', message: 'fgNumber must start with FG followed by digits' });
   }
-  const product = await ProductionEntry.findOrCreateProduct(fgNumber.toUpperCase(), req.body.description);
+
+  const code = fgNumber.toUpperCase();
+  let description = String(req.body.description || '').trim();
+
+  // Fill the name in from SAP when the caller has none.
+  //
+  // Picking a project that still has an open order brings its description
+  // along; picking one that is finished brought nothing, and the card ended up
+  // with an empty description field that nobody could explain. The name is in
+  // SAP either way - it is our mirror that does not have it, because a full
+  // pass rebuilds the mirror from open orders only, so a project with every
+  // piece already made is in SAP and nowhere in our copy.
+  //
+  // Mirror first because it costs a local query, SAP only when that is empty.
+  // Both are best effort: a product has to stay creatable with SAP down, and
+  // an empty description is a cosmetic loss, not a failure.
+  if (!description) {
+    try {
+      const known = await SapAvailability.projectByItem(code);
+      description = known?.itemName || await SapSyncService.shared().itemName(code) || '';
+    } catch (error) {
+      logger.warn('Could not fill the product description from SAP', { code, error: error.message });
+    }
+  }
+
+  const product = await ProductionEntry.findOrCreateProduct(code, description);
   res.status(201).json({ data: product });
 }));
 
