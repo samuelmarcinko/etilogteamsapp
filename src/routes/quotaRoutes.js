@@ -19,6 +19,7 @@ router.get('/all', requirePermission('hr.manage', { legacyRoles: ['admin', 'spra
 router.get('/user/:userId', requirePermission('hr.manage', { legacyRoles: ['admin', 'spravca'] }), asyncHandler(QuotaController.getUserQuota));
 router.put('/user/:userId', requirePermission('hr.manage', { legacyRoles: ['admin', 'spravca'] }), asyncHandler(QuotaController.updateUserQuota));
 router.put('/user/:userId/mapping', requirePermission('hr.manage', { legacyRoles: ['admin', 'spravca'] }), asyncHandler(QuotaController.updateUserMapping));
+router.post('/user/:userId/pam-sync', requirePermission('hr.manage', { legacyRoles: ['admin', 'spravca'] }), asyncHandler(QuotaController.syncUserFromPam));
 
 // Admin-only routes
 router.get('/settings', requireDbRole('admin'), asyncHandler(QuotaController.getSettings));

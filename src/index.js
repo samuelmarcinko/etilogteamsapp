@@ -101,6 +101,11 @@ warehouseBackupService.start();
 const productionRetentionService = new ProductionRetentionService();
 productionRetentionService.start();
 
+// Číta kvóty zo SOFTIP PAM. Iba číta, a bez nastavených PAM_DB_* sa
+// neplánuje vôbec - nasadenie, ktoré o PAM nevie, sa správa ako doteraz.
+const { PamSyncService } = require('./services/pamSyncService');
+PamSyncService.shared().start();
+
 // Mirrors the SAP data the production plan needs. Reads only, and does nothing
 // at all unless SAP_ENABLED=true and the connection is configured - so a
 // deployment without those settings behaves exactly as before.

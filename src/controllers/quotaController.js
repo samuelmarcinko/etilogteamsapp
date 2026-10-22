@@ -1,6 +1,8 @@
 const Quota = require('../database/models/Quota');
 const User = require('../database/models/User');
 const Holiday = require('../database/models/Holiday');
+const { PamSyncService, PamLookupError } = require('../services/pamSyncService');
+const { PamError } = require('../services/pamClient');
 const GraphService = require('../services/graphService');
 const pool = require('../database/config');
 const logger = require('../utils/logger');
@@ -378,6 +380,58 @@ class QuotaController {
         return res.status(409).json({
           error: 'Conflict',
           message: 'Toto osobné číslo už má priradené iný zamestnanec.'
+        });
+      }
+      next(error);
+    }
+  }
+
+  /**
+   * Natiahnuť kvóty jedného človeka z PAM.
+   * POST /api/quotas/user/:userId/pam-sync
+   *
+   * Odpoveď nesie meno, pod ktorým osobné číslo vedie PAM. To je tu to
+   * najdôležitejšie: preklep v čísle inak nemá ako vyjsť najavo - kvóty sa
+   * natiahnu, budú to platné čísla, len budú patriť niekomu inému.
+   */
+  static async syncUserFromPam(req, res, next) {
+    try {
+      const { userId } = req.params;
+      const year = parseInt(req.body?.year || req.query.year, 10) || new Date().getFullYear();
+
+      const user = await User.findByUserId(userId);
+      if (!user) {
+        return res.status(404).json({ error: 'Not Found', message: 'Používateľ neexistuje.' });
+      }
+
+      const fromPam = await PamSyncService.shared().syncUser(user, year);
+      logger.info('PAM sync (manual)', { userId, year, by: req.user?.id });
+
+      res.json({
+        success: true,
+        data: {
+          pam_name: fromPam.name,
+          personal_number: fromPam.personalNumber,
+          year: fromPam.year,
+          vacation_days_total: fromPam.vacationTotal,
+          vacation_days_used: fromPam.vacationUsed,
+          vacation_days_remaining: fromPam.vacationTotal - fromPam.vacationUsed,
+          paragraph_days_used: fromPam.paragraphUsed,
+          ocr_days_used: fromPam.ocrUsed
+        }
+      });
+    } catch (error) {
+      // Rozlišujeme dve veci, ktoré sa kolegyni hovoria úplne inak:
+      // „toto číslo nesedí" (opraví ho) a „PAM sa neozval" (počká alebo
+      // zavolá IT). Jedna spoločná hláška by jej nepomohla ani v jednom.
+      if (error instanceof PamLookupError) {
+        return res.status(400).json({ error: 'Bad Request', message: error.message, code: error.code });
+      }
+      if (error instanceof PamError) {
+        logger.warn('PAM unreachable during manual sync', { error: error.message });
+        return res.status(503).json({
+          error: 'Service Unavailable',
+          message: 'PAM sa neozval. Skontroluj VPN spojenie na ETILOGSAP2.'
         });
       }
       next(error);

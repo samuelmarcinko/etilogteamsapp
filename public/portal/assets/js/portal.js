@@ -1859,10 +1859,17 @@ async function editUserQuotas(userId) {
                 <small style="display:block;color:var(--gray-500);margin-bottom:10px;">${pt('quotaIsExternalHint')}</small>
                 <div class="form-group">
                     <label class="form-label">${pt('quotaPersonalNumber')}</label>
-                    <input type="number" class="form-input" name="personal_number" min="1" step="1"
-                           value="${row.personal_number != null ? row.personal_number : ''}"
-                           ${row.is_external ? 'disabled' : ''}>
+                    <div style="display:flex;gap:8px;align-items:flex-start;">
+                        <input type="number" class="form-input" name="personal_number" min="1" step="1"
+                               style="flex:1;"
+                               value="${row.personal_number != null ? row.personal_number : ''}"
+                               ${row.is_external ? 'disabled' : ''}>
+                        <button type="button" class="btn btn-secondary" id="pamSyncBtn"
+                                onclick="syncQuotaFromPam('${userId}')"
+                                ${row.is_external ? 'disabled' : ''}>${pt('quotaSyncFromPam')}</button>
+                    </div>
                     <small style="display:block;color:var(--gray-500);margin-top:4px;">${pt('quotaPersonalNumberHint')}</small>
+                    <div id="pamSyncResult" style="margin-top:10px;"></div>
                 </div>
             </div>
             <div class="form-group">
@@ -1917,6 +1924,87 @@ async function editUserQuotas(userId) {
 function togglePersonalNumber(checkbox) {
     const field = checkbox.form?.personal_number;
     if (field) field.disabled = checkbox.checked;
+    const button = document.getElementById('pamSyncBtn');
+    if (button) button.disabled = checkbox.checked;
+}
+
+/**
+ * Načíta kvóty z PAM a postaví ich vedľa tých, ktoré má appka.
+ *
+ * Zámerne neprepisuje polia vo formulári. Toto je prvé nasadenie, v ktorom
+ * sa obe strany porovnávajú - keby sa čísla rovno vpísali, porovnanie by
+ * zmizlo a nebolo by ako zistiť, či sa na PAM dá prepnúť.
+ *
+ * Meno z PAM je tu to najdôležitejšie. Preklep v osobnom čísle inak nemá
+ * ako vyjsť najavo: kvóty sa natiahnu, budú to platné čísla, len budú
+ * patriť niekomu inému.
+ */
+async function syncQuotaFromPam(userId) {
+    const form = document.getElementById('userQuotaForm');
+    const button = document.getElementById('pamSyncBtn');
+    const out = document.getElementById('pamSyncResult');
+    if (!form || !out) return;
+
+    const number = form.personal_number.value.trim();
+    if (!number) {
+        out.innerHTML = `<small style="color:var(--red-500)">${pt('quotaSyncNeedsNumber')}</small>`;
+        return;
+    }
+
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = pt('quotaSyncRunning');
+    out.innerHTML = '';
+
+    try {
+        // Párovanie ide prvé, inak by sa synchronizovalo podľa čísla, ktoré
+        // je zatiaľ len napísané vo formulári a server o ňom nevie.
+        const mappingRes = await apiCall(`/api/quotas/user/${userId}/mapping`, {
+            method: 'PUT',
+            body: JSON.stringify({ is_external: false, personal_number: number })
+        });
+        if (!mappingRes.ok) {
+            const body = await mappingRes.json().catch(() => ({}));
+            throw new Error(body.message || pt('saveFailed'));
+        }
+
+        const res = await apiCall(`/api/quotas/user/${userId}/pam-sync`, { method: 'POST' });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.message || pt('saveFailed'));
+
+        const pam = body.data;
+        const row = adminQuotaRows.get(String(userId)) || {};
+        const num = (value) => Number(value || 0).toFixed(2);
+        const compare = (label, fromPam, fromApp) => `
+            <tr>
+                <td style="padding:2px 10px 2px 0;">${label}</td>
+                <td style="padding:2px 10px;text-align:right;"><strong>${num(fromPam)}</strong></td>
+                <td style="padding:2px 0;text-align:right;color:var(--gray-500);">${num(fromApp)}</td>
+            </tr>`;
+
+        out.innerHTML = `
+            <div style="border:1px solid var(--gray-200);border-radius:8px;padding:10px;background:var(--gray-50);">
+                <div style="margin-bottom:8px;">
+                    ${pt('quotaSyncMatched')} <strong>${escapeHtml(pam.pam_name || '')}</strong>
+                </div>
+                <table style="font-size:0.85rem;width:100%;">
+                    <tr>
+                        <td></td>
+                        <td style="padding:2px 10px;text-align:right;font-weight:600;">PAM</td>
+                        <td style="padding:2px 0;text-align:right;color:var(--gray-500);">${pt('quotaSyncInApp')}</td>
+                    </tr>
+                    ${compare(pt('quotaFieldVacation'), pam.vacation_days_remaining, row.vacation_days_remaining)}
+                    ${compare(pt('quotaFieldParagraph'), (row.paragraph_days_total || 0) - pam.paragraph_days_used, row.paragraph_days_remaining)}
+                    ${compare(pt('quotaFieldOcr'), (row.ocr_days_total || 0) - pam.ocr_days_used, row.ocr_days_remaining)}
+                </table>
+                <small style="display:block;color:var(--gray-500);margin-top:8px;">${pt('quotaSyncShadowHint')}</small>
+            </div>`;
+    } catch (error) {
+        out.innerHTML = `<small style="color:var(--red-500)">${escapeHtml(error.message)}</small>`;
+    } finally {
+        button.disabled = form.is_external.checked;
+        button.textContent = original;
+    }
 }
 
 async function saveUserQuotas(userId, year) {
