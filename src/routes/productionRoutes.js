@@ -996,6 +996,17 @@ router.post('/bulk/copy', manageAccess, asyncHandler(async (req, res) => {
   res.json({ data: { copied: result.copied }, undo: result.undo });
 }));
 
+// POST /api/production/entries/:id/duplicate
+//
+// No body: the copy is the card, in the slot the card is already in. Anything
+// the planner wants different about it is an edit afterwards.
+router.post('/entries/:id/duplicate', manageAccess, asyncHandler(async (req, res) => {
+  const result = await ProductionEntry.duplicate(req.params.id, currentUser(req));
+
+  if (result.notFound) return res.status(404).json({ error: 'Entry not found' });
+  res.json({ data: result.entry, undo: result.undo });
+}));
+
 // POST /api/production/entries/:id/split  { keepQuantity, productionDate, shiftId }
 router.post('/entries/:id/split', manageAccess, asyncHandler(async (req, res) => {
   const keepQuantity = Number(req.body.keepQuantity);

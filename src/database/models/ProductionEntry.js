@@ -1130,6 +1130,98 @@ class ProductionEntry {
     }
   }
 
+  /**
+   * Copy a card into the same slot.
+   *
+   * The planner's "make another one of these". Everything that describes the
+   * work comes across - product, quantity, priority, colour, notes, the SAP
+   * order it is a slice of - and the copy lands at the bottom of the same day
+   * and shift, where every other arrival in this app lands.
+   *
+   * Two things are deliberately not copied:
+   *
+   *   `status` resets to planned. A duplicate is work still to be done; a copy
+   *   that arrives already finished would have to be reopened before it means
+   *   anything. This is the same rule copyDays runs on - copy the plan, not
+   *   its history.
+   *
+   *   Authorship and timestamps belong to whoever made the copy, not to
+   *   whoever created the original.
+   *
+   * Nothing that already existed is touched, so undo is just "remove the card
+   * that appeared".
+   */
+  static async duplicate(id, user) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // FOR UPDATE so the row cannot be moved or deleted between reading it
+      // and copying it - a duplicate of a card that no longer exists where it
+      // was would land in the wrong slot.
+      const { rows: current } = await client.query(
+        'SELECT * FROM production_plan_entries WHERE id = $1 AND deleted_at IS NULL FOR UPDATE',
+        [id]
+      );
+      if (!current[0]) {
+        await client.query('ROLLBACK');
+        return { notFound: true };
+      }
+
+      const entry = current[0];
+      const sortOrder = await nextSortOrder(
+        client, entry.location_id, entry.production_date, entry.shift_id
+      );
+
+      const { rows: created } = await client.query(
+        `INSERT INTO production_plan_entries
+           (location_id, production_date, shift_id, product_id, custom_product_name,
+            planned_quantity, priority, color, status, notes, due_date,
+            sap_order_entry, sort_order,
+            created_by, created_by_name, updated_by, updated_by_name)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'planned',$9,$10,$11,$12,$13,$14,$13,$14)
+         RETURNING *`,
+        [
+          entry.location_id,
+          entry.production_date,
+          entry.shift_id,
+          entry.product_id,
+          entry.custom_product_name,
+          entry.planned_quantity,
+          entry.priority,
+          entry.color,
+          entry.notes,
+          entry.due_date,
+          // Carried over on purpose: a copy of a slice of SAP order X is
+          // another slice of the same order, and the availability check should
+          // see both. Planning twice as much as the order covers is something
+          // the planner wants told, not hidden.
+          entry.sap_order_entry,
+          sortOrder,
+          user?.id || null,
+          user?.name || null
+        ]
+      );
+
+      await logChange(client, {
+        locationId: entry.location_id,
+        entryId: created[0].id,
+        action: 'created',
+        summary: `Duplicated card #${entry.id}`,
+        after: snapshot(created[0]),
+        user
+      });
+
+      await client.query('COMMIT');
+      return { entry: created[0], undo: { deleteIds: [created[0].id] } };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   // ------------------------------------------------------------------ history
   /**
    * Recent changes for a location, newest first.

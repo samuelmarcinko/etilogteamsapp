@@ -250,6 +250,9 @@ export const api = {
   copyDays: (payload) => request('/api/production/bulk/copy', json(payload)),
   splitEntry: (id, payload) => request(`/api/production/entries/${id}/split`, json(payload)),
 
+  /** Copy a card into the same slot. No payload - the copy is the card. */
+  duplicateEntry: (id) => request(`/api/production/entries/${id}/duplicate`, { method: 'POST' }),
+
   /**
    * One page of the log. `before` is the smallest id already seen; `entryId`
    * narrows it to one card, which is what the viewer's "what changed" panel

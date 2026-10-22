@@ -340,6 +340,17 @@ export default function App() {
     onError: (error) => toast.error(error.message)
   });
 
+  // Duplikát nemení nič, čo už existuje - vráti sa jediným zmazaním, takže
+  // ponuka Späť nesie len `deleteIds`.
+  const duplicateMutation = useMutation({
+    mutationFn: ({ entry }) => api.duplicateEntry(entry.id),
+    onSuccess: (result, variables) => {
+      refresh();
+      offerUndo(`${cardLabel(variables.entry)} duplicated`, result.undo);
+    },
+    onError: (error) => toast.error(error.message)
+  });
+
   const dayFlagMutation = useMutation({
     mutationFn: ({ date, flag }) => api.setDayFlag({ location: locationCode, date, flag }),
     onSuccess: () => refresh(),
@@ -739,6 +750,10 @@ export default function App() {
           onEdit={(entry) => {
             setCardMenu(null);
             setFormState({ entry });
+          }}
+          onDuplicate={(entry) => {
+            setCardMenu(null);
+            duplicateMutation.mutate({ entry });
           }}
           onSplit={(entry) => {
             setCardMenu(null);

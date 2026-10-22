@@ -1,7 +1,7 @@
 import * as Menu from '@radix-ui/react-dropdown-menu';
 import clsx from 'clsx';
 import {
-  AlertTriangle, Check, Inbox, Pencil, RotateCcw, Split, Trash2
+  AlertTriangle, Check, Copy, Inbox, Pencil, RotateCcw, Split, Trash2
 } from 'lucide-react';
 
 import { CARD_COLORS, DEFAULT_COLOR } from '../lib/colors';
@@ -72,7 +72,9 @@ function Swatch({ colour, selected, onSelect }) {
   );
 }
 
-export default function CardContextMenu({ target, onClose, onMark, onEdit, onSplit, onUnschedule, onDelete }) {
+export default function CardContextMenu({
+  target, onClose, onMark, onEdit, onDuplicate, onSplit, onUnschedule, onDelete
+}) {
   if (!target) return null;
 
   const { entry, x, y } = target;
@@ -156,6 +158,10 @@ export default function CardContextMenu({ target, onClose, onMark, onEdit, onSpl
           <Separator />
 
           <Item icon={Pencil} onSelect={() => onEdit(entry)}>Edit…</Item>
+
+          {/* No ellipsis: this one asks nothing and is done when the menu
+              closes. The copy lands under the original, in the same slot. */}
+          <Item icon={Copy} onSelect={() => onDuplicate(entry)}>Duplicate</Item>
 
           {canSplit && (
             <Item icon={Split} onSelect={() => onSplit(entry)}>Split…</Item>
