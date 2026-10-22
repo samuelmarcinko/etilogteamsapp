@@ -45,7 +45,7 @@ function DayHeader({ day, flag, isFree, size }) {
         // The column edges below continue it down the whole day so the eye can
         // follow it without counting across.
         day.isToday
-          ? 'bg-etilog text-white shadow-[inset_2px_0_0_0_#A00009,inset_-2px_0_0_0_#A00009]'
+          ? 'day-head-now bg-etilog text-white shadow-[inset_2px_0_0_0_#A00009,inset_-2px_0_0_0_#A00009]'
           : isFree
             ? 'bg-emerald-50'
             : flag
@@ -70,10 +70,14 @@ function DayHeader({ day, flag, isFree, size }) {
       </div>
 
       {/* Said in words as well as in colour: colour alone is not a label, and
-          on a shop floor screen somebody is always looking at it sideways. */}
+          on a shop floor screen somebody is always looking at it sideways.
+          The same badge as the planner's grid - the two are read side by side
+          and today should look like today on both. */}
       {day.isToday && (
-        <div className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-white/90">
-          Today
+        <div className="mt-1 flex items-center justify-center">
+          <span className="day-now rounded bg-white px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-etilog">
+            Today
+          </span>
         </div>
       )}
 

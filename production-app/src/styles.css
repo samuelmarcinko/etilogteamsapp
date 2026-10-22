@@ -263,6 +263,27 @@
     border-bottom: 2px solid #1d4ed8 !important;
   }
 
+  /* Dnešok mal ten istý problém a nikto si ho nevšimol, lebo na obrazovke je
+     to najvýraznejšia vec na stránke: červený pruh s bielym textom sa na
+     papieri vytlačí ako biely text na bielom. Pruh sa teda mení na červený
+     text s linkou pod ním, presne ako o riadok vyššie ten modrý. */
+  .day-head-now,
+  .day-head-now * {
+    background: transparent !important;
+    color: #D9000C !important;
+    box-shadow: none !important;
+  }
+
+  .day-head-now {
+    border-bottom: 2px solid #D9000C !important;
+  }
+
+  /* Odznak TODAY je biely na červenom; bez pozadia by z neho zostal biely
+     text. Obtiahnutý, nie vyplnený - to isté, čo robí `.week-now`. */
+  .day-now {
+    border: 1px solid #D9000C;
+  }
+
   .print-block {
     break-inside: avoid;
     box-shadow: none;

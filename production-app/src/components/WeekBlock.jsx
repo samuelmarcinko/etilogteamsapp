@@ -41,7 +41,7 @@ function DayHeader({ day, flag, isFree, exception, compact, canManage, onSetFlag
           // lands on today before it starts reading dates - the same treatment
           // the shop floor screen uses, because the two are read side by side
           // and a planner should not have to translate between them.
-          ? 'bg-etilog text-white shadow-[inset_2px_0_0_0_#A00009,inset_-2px_0_0_0_#A00009]'
+          ? 'day-head-now bg-etilog text-white shadow-[inset_2px_0_0_0_#A00009,inset_-2px_0_0_0_#A00009]'
           : isFree
             ? 'bg-emerald-50'
             : flag && DAY_FLAG_STYLE[flag.flag]
@@ -70,6 +70,19 @@ function DayHeader({ day, flag, isFree, exception, compact, canManage, onSetFlag
           {day.dayOfMonth}
         </span>
       </div>
+
+      {/* Said in words as well as in colour. The red band alone means "today"
+          only to someone who already knows it does; at 8-week density it is
+          also one red column among several that mean something else entirely -
+          an urgent day carries the same red. The badge is reversed out of the
+          band so it reads first, before the date. */}
+      {day.isToday && (
+        <div className="mt-0.5 flex items-center justify-center">
+          <span className="day-now rounded bg-white px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-etilog">
+            Today
+          </span>
+        </div>
+      )}
 
       {/* A day marked free but carrying production is not free any more. It
           reads as an ordinary day until the work is moved off it again, rather
