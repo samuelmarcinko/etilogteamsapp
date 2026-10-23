@@ -3,6 +3,7 @@ const fs = require('fs/promises');
 
 const pool = require('../database/config');
 const WarehouseSyncService = require('./warehouseSyncService');
+const { PamClient } = require('./pamClient');
 const logger = require('../utils/logger');
 
 /**
@@ -21,6 +22,10 @@ const logger = require('../utils/logger');
 // Synchronizácia beží o 05:30 a 13:30, teda medzery 8 a 16 hodín. Prah musí
 // byť nad tou dlhšou, inak by poplach zvonil každé ráno pred pol šiestou.
 const SYNC_STALE_HOURS = Number(process.env.HEALTH_SYNC_STALE_HOURS || 20);
+
+// Kvóty z PAM sa ťahajú raz denne o 05:45, teda medzera 24 hodín. Prah musí
+// byť nad ňou, inak by poplach zvonil každé ráno pred šiestou.
+const PAM_STALE_HOURS = Number(process.env.HEALTH_PAM_STALE_HOURS || 30);
 const DISK_MAX_PERCENT = Number(process.env.HEALTH_DISK_MAX_PERCENT || 85);
 const DB_TIMEOUT_MS = 5000;
 
@@ -144,6 +149,102 @@ async function checkSapSync() {
 }
 
 /**
+ * Kvóty z PAM.
+ *
+ * Toto zlyháva ticho a práve preto sa to musí strážiť. Keď sa ranný beh
+ * nespustí alebo PAM neodpovie, kvóty sa nevynulujú ani nezmiznú - zostanú
+ * ležať tie včerajšie. Na obrazovke to vyzerá úplne v poriadku a prísť na
+ * to by sa dalo až vtedy, keď niekomu nesedí zostatok.
+ *
+ * Rozlišujú sa dva rôzne problémy:
+ *
+ *   nikto sa dlho nesynchronizoval  -> neozval sa PAM alebo stojí plánovač
+ *   niekto konkrétny zaostáva       -> jeho osobné číslo PAM nepozná, alebo
+ *                                      za tento rok nemá nárok na dovolenku
+ *
+ * To druhé je typicky preklep v osobnom čísle. Bez tejto kontroly by taký
+ * človek ostal navždy na starých hodnotách a nikto by o tom nevedel.
+ */
+async function checkPamSync() {
+  // Nasadenie, ktoré PAM nepoužíva, nemá kvôli nemu hlásiť poruchu.
+  if (!PamClient.configured) {
+    return { ok: true, configured: false };
+  }
+
+  const year = new Date().getFullYear();
+  let row;
+  try {
+    const result = await pool.query(
+      `SELECT COUNT(*)::int AS mapped,
+              COUNT(eq.pam_synced_at)::int AS synced,
+              MAX(eq.pam_synced_at) AS newest,
+              COUNT(*) FILTER (
+                WHERE eq.pam_synced_at IS NULL
+                   OR eq.pam_synced_at < NOW() - ($2 || ' hours')::interval
+              )::int AS stale
+         FROM users u
+         LEFT JOIN employee_quotas eq ON eq.user_id = u.user_id AND eq.year = $1
+        WHERE COALESCE(u.is_external, FALSE) = FALSE
+          AND u.personal_number IS NOT NULL
+          AND COALESCE(u.hidden, FALSE) = FALSE`,
+      [year, PAM_STALE_HOURS]
+    );
+    row = result.rows[0];
+  } catch (error) {
+    return { ok: false, detail: `Stav kvót z PAM sa nedá prečítať: ${error.message}` };
+  }
+
+  // Nikoho ešte nespárovali. Nie je to porucha - kolegyňa osobné čísla
+  // dopĺňa postupne a kým ich nezadá, kvóty fungujú po starom.
+  if (!row.mapped) {
+    return { ok: true, configured: true, mapped: 0 };
+  }
+
+  // Hneď po Novom roku ešte riadky za nový rok neexistujú a prvý beh príde
+  // až o 05:45. Bez tejto výnimky by 1. januára nadránom zvonil poplach,
+  // ktorý by sa sám od seba stratil.
+  const sinceYearStart = Date.now() - new Date(year, 0, 1).getTime();
+  const tooEarly = sinceYearStart < PAM_STALE_HOURS * 3600000;
+
+  const newest = row.newest ? new Date(row.newest) : null;
+  const ageHours = newest
+    ? Math.round(((Date.now() - newest.getTime()) / 3600000) * 10) / 10
+    : null;
+
+  if (!newest) {
+    return {
+      ok: tooEarly, configured: true, mapped: row.mapped, synced: 0,
+      detail: tooEarly ? undefined
+        : `Kvóty z PAM sa za rok ${year} ešte ani raz nenačítali (${row.mapped} spárovaných ľudí)`
+    };
+  }
+
+  if (ageHours > PAM_STALE_HOURS) {
+    return {
+      ok: false, configured: true, mapped: row.mapped, synced: row.synced,
+      lastSyncAt: newest.toISOString(), ageHours,
+      detail: `Kvóty z PAM sa nenačítali ${ageHours} hodín (limit ${PAM_STALE_HOURS})`
+    };
+  }
+
+  // Beh prešiel, ale niekto v ňom neprešiel. Takmer vždy preklep v osobnom
+  // čísle - a práve tento človek vidí staré kvóty.
+  if (row.stale > 0) {
+    return {
+      ok: false, configured: true, mapped: row.mapped, synced: row.synced,
+      lastSyncAt: newest.toISOString(), ageHours, stale: row.stale,
+      detail: `${row.stale} z ${row.mapped} spárovaných ľudí nemá čerstvé kvóty z PAM `
+            + '- pravdepodobne nesedí osobné číslo alebo im v PAM chýba nárok'
+    };
+  }
+
+  return {
+    ok: true, configured: true, mapped: row.mapped, synced: row.synced,
+    lastSyncAt: newest.toISOString(), ageHours
+  };
+}
+
+/**
  * Celý stav naraz.
  *
  * Kontroly bežia súbežne a žiadna z nich nesmie zhodiť odpoveď - keby sa
@@ -151,13 +252,14 @@ async function checkSapSync() {
  * nedostupný" namiesto toho, čo je naozaj zle.
  */
 async function check() {
-  const [database, disk, sapSync] = await Promise.all([
+  const [database, disk, sapSync, pamSync] = await Promise.all([
     checkDatabase().catch((error) => ({ ok: false, detail: `Kontrola databázy padla: ${error.message}` })),
     checkDisks().catch((error) => ({ ok: false, detail: `Kontrola diskov padla: ${error.message}` })),
-    checkSapSync().catch((error) => ({ ok: false, detail: `Kontrola synchronizácie padla: ${error.message}` }))
+    checkSapSync().catch((error) => ({ ok: false, detail: `Kontrola synchronizácie padla: ${error.message}` })),
+    checkPamSync().catch((error) => ({ ok: false, detail: `Kontrola kvót z PAM padla: ${error.message}` }))
   ]);
 
-  const checks = { database, disk, sapSync };
+  const checks = { database, disk, sapSync, pamSync };
   const failing = Object.entries(checks).filter(([, value]) => !value.ok).map(([name]) => name);
 
   const report = {
@@ -178,4 +280,4 @@ async function check() {
   return report;
 }
 
-module.exports = { check, keyMatches, enabled, SYNC_STALE_HOURS, DISK_MAX_PERCENT };
+module.exports = { check, keyMatches, enabled, SYNC_STALE_HOURS, DISK_MAX_PERCENT, PAM_STALE_HOURS };

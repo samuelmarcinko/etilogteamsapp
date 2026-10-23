@@ -107,7 +107,71 @@ async function main() {
   check('vracia 503', stale.status, 503);
   check('a povie, koľko hodín', stale.body.summary.includes('nebežala'), true);
 
-  console.log('\n7. Prísnejší limit na disk zvoní');
+  console.log('\n7. Kvóty z PAM');
+  // Synchronizácia so SAPom nech je od tejto chvíle v poriadku, aby bolo
+  // vidieť práve to, čo hlási PAM.
+  await pool.query('DELETE FROM warehouse_sync_log');
+  await pool.query(
+    `INSERT INTO warehouse_sync_log (warehouse, codes, matched, ok, started_at, finished_at)
+     VALUES ('02-03', 10, 10, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`);
+
+  const ZZ = 'zz-health-pam';
+  const rok = new Date().getFullYear();
+  const pamHealth = async () => {
+    delete require.cache[require.resolve('../src/services/healthService')];
+    return (await require('../src/services/healthService').check()).checks.pamSync;
+  };
+
+  // Bez nastaveného PAM nemá appka kvôli nemu hlásiť poruchu - nasadenie,
+  // ktoré PAM nepoužíva, je úplne v poriadku.
+  check('bez nastaveného PAM mlčí', (await pamHealth()).ok, true);
+  check('a prizná sa, že ho nemá', (await pamHealth()).configured, false);
+
+  process.env.PAM_DB_HOST = '192.0.2.1';   // TEST-NET-1, nikam nevedie
+  process.env.PAM_DB_USER = 'test';
+  process.env.PAM_DB_PASSWORD = 'test';
+  delete require.cache[require.resolve('../src/services/pamClient')];
+
+  check('nikto spárovaný - stále ticho', (await pamHealth()).ok, true);
+
+  await pool.query(
+    `INSERT INTO users (user_id, email, display_name, role, auth_provider, is_active,
+                        personal_number, is_external)
+     VALUES ($1, $2, $1, 'user', 'azure', TRUE, 412, FALSE)`, [ZZ, `${ZZ}@etilog.local`]);
+  await pool.query(
+    'INSERT INTO employee_quotas (user_id, year) VALUES ($1, $2)', [ZZ, rok]);
+
+  // Spárovaný človek, ktorý sa ešte ani raz nenačítal. Toto je ten tichý
+  // prípad: na obrazovke mu svietia staré ručné hodnoty a nikto nevie, že
+  // sa k nemu PAM nikdy nedostal.
+  let stav = await pamHealth();
+  check('spárovaný, nikdy nenačítaný - poplach', stav.ok, false);
+  check('a povie koľkých sa to týka', stav.detail.includes('1'), true);
+
+  await pool.query(
+    'UPDATE employee_quotas SET pam_synced_at = NOW() WHERE user_id = $1 AND year = $2', [ZZ, rok]);
+  stav = await pamHealth();
+  check('po načítaní ticho', stav.ok, true);
+  check('a vie, koľkých načítal', [stav.mapped, stav.synced], [1, 1]);
+
+  await pool.query(
+    `UPDATE employee_quotas SET pam_synced_at = NOW() - INTERVAL '40 hours'
+      WHERE user_id = $1 AND year = $2`, [ZZ, rok]);
+  stav = await pamHealth();
+  check('staré kvóty sú poplach', stav.ok, false);
+  check('a povie, koľko hodín', /\d+(\.\d+)? hodín/.test(stav.detail), true);
+
+  // Externý v PAM nie je, takže sa na neho táto kontrola nevzťahuje vôbec -
+  // inak by poplach zvonil navždy pri každom zahraničnom spolupracovníkovi.
+  await pool.query('UPDATE users SET is_external = TRUE WHERE user_id = $1', [ZZ]);
+  check('externý sa do toho nepočíta', (await pamHealth()).ok, true);
+
+  await pool.query('DELETE FROM employee_quotas WHERE user_id = $1', [ZZ]);
+  await pool.query('DELETE FROM users WHERE user_id = $1', [ZZ]);
+  for (const key of ['PAM_DB_HOST', 'PAM_DB_USER', 'PAM_DB_PASSWORD']) delete process.env[key];
+  delete require.cache[require.resolve('../src/services/pamClient')];
+
+  console.log('\n8. Prísnejší limit na disk zvoní');
   process.env.HEALTH_DISK_MAX_PERCENT = '1';
   delete require.cache[require.resolve('../src/services/healthService')];
   const health = require('../src/services/healthService');
