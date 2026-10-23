@@ -640,6 +640,31 @@ body.sidebar-collapsed .sidebar-toggle .toggle-icon {
 .badge-visible { background: var(--green-50); color: var(--green-600); }
 .badge-hidden { background: #fee2e2; color: #991b1b; }
 
+/* K čomu sa zobrazený zostatok vzťahuje.
+   Informácia, nie výstraha - preto modrá a nie jantárová: nič nie je zle,
+   len to číslo nehovorí o dnešku, ale o poslednej zúčtovanej mzde. */
+.quota-notice {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid #bfdbfe;
+  border-left: 3px solid #2563eb;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+.quota-notice-icon {
+  font-size: 1rem;
+  line-height: 1.3;
+  flex-shrink: 0;
+}
+.quota-notice strong { display: block; margin-bottom: 0.15rem; }
+.quota-notice-pending { margin-top: 0.3rem; font-weight: 600; }
+
 /* Spracovala už mzdová učtáreň túto žiadosť?
    Ani jeden z tých dvoch stavov nie je chyba - jeden hovorí „zostatok to už
    obsahuje", druhý „ešte nie". Preto zelená a jantárová, nie červená. */

@@ -595,6 +595,8 @@ async function renderDashboard(container) {
                 </div>
             </div>
 
+            ${pamQuotaNotice(quota)}
+
             <div class="portal-card">
                 <div class="card-header">
                     <h2>${pt('myQuotasYear')} ${year}</h2>
@@ -678,6 +680,8 @@ async function renderMyQuotas(container) {
             <div><h1>${pt('myQuotasTitle')}</h1><p>${pt('myQuotasDesc')} ${year}</p></div>
         </div>
         <div class="page-body">
+            ${pamQuotaNotice(quota)}
+
             <div class="quota-card">
                 <div class="quota-icon">&#127796;</div>
                 <div class="quota-details">
@@ -1180,6 +1184,49 @@ const REQUEST_QUOTAS = {
     'paragraph':  { remainKey: 'paragraph_days_remaining', totalKey: 'paragraph_days_total', pendingKey: 'paragraph_days_pending', labelKey: 'paragraphRemaining', hours: true },
     'ocr':        { remainKey: 'ocr_days_remaining',       totalKey: 'ocr_days_total',       pendingKey: 'ocr_days_pending',       labelKey: 'ocrRemaining',       hours: true }
 };
+
+/**
+ * K čomu sa zobrazený zostatok vzťahuje.
+ *
+ * Zostatky napojených zamestnancov prichádzajú z PAM, a PAM pozná len to, čo
+ * mzdová učtáreň zúčtovala. Dovolenka vybratá minulý týždeň v tom čísle
+ * ešte nie je. Zamestnanec, ktorý to nevie, si naplánuje dni, ktoré už minul
+ * - a zistí to až keď mu žiadosť neprejde.
+ *
+ * Vypisuje sa konkrétny mesiac, nie „minulý mesiac": mzdy sa nezúčtovávajú
+ * vždy rovnako skoro a rozdiel medzi augustom a septembrom je presne to, čo
+ * človek potrebuje vedieť.
+ *
+ * Nenapojeným sa nezobrazuje nič - tým appka kvótu odpočítava hneď pri
+ * schválení, takže ich zostatok je aktuálny a veta by im klamala.
+ */
+function pamQuotaNotice(quota) {
+    if (!quota || quota.quota_source !== 'pam') return '';
+
+    const month = quota.pam_last_month
+        ? new Date(quota.year || new Date().getFullYear(), quota.pam_last_month - 1, 1)
+            .toLocaleDateString(portalLang === 'en' ? 'en-GB' : 'sk-SK', { month: 'long', year: 'numeric' })
+        : null;
+
+    const pending = [
+        [quota.vacation_days_pending, pt('vacation'), pt('days')],
+        [quota.paragraph_days_pending, pt('sickNoteDocTypeParagraph'), pt('hours')],
+        [quota.ocr_days_pending, pt('sickNoteDocTypeOcr'), pt('hours')]
+    ].filter(([amount]) => Number(amount) > 0)
+     .map(([amount, label, unit]) => `${Number(amount).toFixed(2)} ${unit} - ${label}`);
+
+    return `
+        <div class="quota-notice">
+            <span class="quota-notice-icon">&#8505;</span>
+            <div>
+                <strong>${pt('quotaNoticeTitle')}${month ? ` (${month})` : ''}</strong>
+                <div>${pt('quotaNoticeBody')}</div>
+                ${pending.length
+                    ? `<div class="quota-notice-pending">${pt('quotaNoticePending')}: ${pending.join(', ')}</div>`
+                    : ''}
+            </div>
+        </div>`;
+}
 
 /**
  * Štítok „Spracované / Nespracované" k schválenej žiadosti.

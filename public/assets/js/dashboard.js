@@ -313,6 +313,8 @@ function renderOverviewCards(data) {
         document.getElementById('ocrDetail').textContent = t('dashNoQuota');
     }
 
+    renderQuotaNotice(quota);
+
     // Next holiday card
     const holCard = document.getElementById('holidayCard');
     holCard.classList.remove('loading');
@@ -330,6 +332,55 @@ function renderOverviewCards(data) {
         document.getElementById('nextHolidayName').textContent = t('dashNoUpcomingHoliday');
         document.getElementById('nextHolidayDate').textContent = '';
     }
+}
+
+/**
+ * K čomu sa zobrazené zostatky vzťahujú.
+ *
+ * Zostatky napojených zamestnancov prichádzajú z PAM, a PAM pozná len to, čo
+ * mzdová učtáreň zúčtovala. Dovolenka vybratá minulý týždeň v tom čísle ešte
+ * nie je. Zamestnanec, ktorý to nevie, si naplánuje dni, ktoré už minul - a
+ * zistí to až keď mu žiadosť neprejde.
+ *
+ * Vypisuje sa konkrétny mesiac, nie „minulý mesiac": mzdy sa nezúčtovávajú
+ * vždy rovnako skoro a rozdiel medzi augustom a septembrom je presne to, čo
+ * človek potrebuje vedieť.
+ *
+ * Nenapojeným sa nezobrazuje nič - tým appka kvótu odpočítava hneď pri
+ * schválení, takže ich zostatok je aktuálny a veta by im klamala.
+ */
+function renderQuotaNotice(quota) {
+    const box = document.getElementById('quotaNotice');
+    if (!box) return;
+
+    if (!quota || quota.quota_source !== 'pam') {
+        box.style.display = 'none';
+        return;
+    }
+
+    const lang = getCurrentLang() === 'sk' ? 'sk-SK' : 'en-GB';
+    const month = quota.pam_last_month
+        ? new Date(quota.year || new Date().getFullYear(), quota.pam_last_month - 1, 1)
+            .toLocaleDateString(lang, { month: 'long', year: 'numeric' })
+        : null;
+
+    const pending = [
+        [quota.vacation_days_pending, t('dashVacationRemaining'), t('dashDays')],
+        [quota.paragraph_days_pending, t('dashParagraphRemaining'), t('dashHours')],
+        [quota.ocr_days_pending, t('dashOcrRemaining'), t('dashHours')]
+    ].filter(([amount]) => Number(amount) > 0)
+     .map(([amount, label, unit]) => `${Number(amount).toFixed(2)} ${unit} - ${label}`);
+
+    box.innerHTML = `
+        <span class="quota-notice-icon">&#8505;</span>
+        <div>
+            <strong>${t('quotaNoticeTitle')}${month ? ` (${month})` : ''}</strong>
+            <div>${t('quotaNoticeBody')}</div>
+            ${pending.length
+                ? `<div class="quota-notice-pending">${t('quotaNoticePending')}: ${pending.join(', ')}</div>`
+                : ''}
+        </div>`;
+    box.style.display = 'flex';
 }
 
 // Format holiday date nicely
