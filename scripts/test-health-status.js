@@ -117,10 +117,14 @@ async function main() {
 
   const ZZ = 'zz-health-pam';
   const rok = new Date().getFullYear();
-  const pamHealth = async () => {
+  // Čerstvá kópia modulu, aby sa prejavili premenné nastavené nižšie.
+  // Adresa /health/status beží nad kópiou načítanou pri štarte appky, takže
+  // tu sa stav kontroluje priamo na správe.
+  const pamReport = async () => {
     delete require.cache[require.resolve('../src/services/healthService')];
-    return (await require('../src/services/healthService').check()).checks.pamSync;
+    return require('../src/services/healthService').check();
   };
+  const pamHealth = async () => (await pamReport()).checks.pamSync;
 
   // Bez nastaveného PAM nemá appka kvôli nemu hlásiť poruchu - nasadenie,
   // ktoré PAM nepoužíva, je úplne v poriadku.
@@ -147,12 +151,37 @@ async function main() {
   let stav = await pamHealth();
   check('spárovaný, nikdy nenačítaný - poplach', stav.ok, false);
   check('a povie koľkých sa to týka', stav.detail.includes('1'), true);
+  // Nenačítal sa nikto - to je porucha PAM alebo plánovača, a dohľad o nej
+  // vedieť má.
+  check('nenačítal sa nikto = porucha', (await pamReport()).status, 'fail');
 
   await pool.query(
     'UPDATE employee_quotas SET pam_synced_at = NOW() WHERE user_id = $1 AND year = $2', [ZZ, rok]);
   stav = await pamHealth();
   check('po načítaní ticho', stav.ok, true);
   check('a vie, koľkých načítal', [stav.mapped, stav.synced], [1, 1]);
+
+  // Beh prešiel, ale jeden človek v ňom neprešiel. To je upozornenie, nie
+  // porucha: opraviť sa to dá len v HR module alebo v PAM, teda to patrí
+  // kolegyni cez deň. Keby to vracalo 503, dohľad by hlásil "portál
+  // nefunguje" kvôli jednému zle zadanému osobnému číslu - a po treťom
+  // takom hlásení by si ich nikto nevšímal ani vtedy, keď portál naozaj
+  // leží.
+  const ZZ2 = 'zz-health-pam-2';
+  await pool.query(
+    `INSERT INTO users (user_id, email, display_name, role, auth_provider, is_active,
+                        personal_number, is_external)
+     VALUES ($1, $2, $1, 'user', 'azure', TRUE, 827, FALSE)`, [ZZ2, `${ZZ2}@etilog.local`]);
+  await pool.query('INSERT INTO employee_quotas (user_id, year) VALUES ($1, $2)', [ZZ2, rok]);
+
+  const sJednym = await pamReport();
+  check('jeden zaostávajúci je upozornenie, nie porucha', sJednym.status, 'warn');
+  check('nič nezlyháva', sJednym.failing, []);
+  check('ale je to v zhrnutí', sJednym.summary.includes('1 z 2'), true);
+  check('a kontrola sama sa tvári ako v poriadku', sJednym.checks.pamSync.ok, true);
+
+  await pool.query('DELETE FROM employee_quotas WHERE user_id = $1', [ZZ2]);
+  await pool.query('DELETE FROM users WHERE user_id = $1', [ZZ2]);
 
   await pool.query(
     `UPDATE employee_quotas SET pam_synced_at = NOW() - INTERVAL '40 hours'

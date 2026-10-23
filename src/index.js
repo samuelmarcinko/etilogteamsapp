@@ -222,7 +222,11 @@ app.get('/health/status', asyncHealth(async (req, res) => {
   const report = await healthService.check();
   // Dohľad sa rozhoduje podľa návratového kódu; telo je pre človeka, ktorý
   // potom číta upozornenie v e-maile.
-  res.status(report.status === 'ok' ? 200 : 503).json(report);
+  //
+  // 503 len pri skutočnej poruche. Stav `warn` znamená, že systém funguje a
+  // niečo si vyžaduje človeka cez deň - to sa do tela napíše, ale dohľad sa
+  // kvôli tomu budiť nemá.
+  res.status(report.status === 'fail' ? 503 : 200).json(report);
 }));
 
 // Root endpoint - redirect to portal login (browser users).

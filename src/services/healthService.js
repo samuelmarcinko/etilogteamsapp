@@ -228,10 +228,16 @@ async function checkPamSync() {
   }
 
   // Beh prešiel, ale niekto v ňom neprešiel. Takmer vždy preklep v osobnom
-  // čísle - a práve tento človek vidí staré kvóty.
+  // čísle alebo chýbajúci nárok - a práve tento človek vidí staré kvóty.
+  //
+  // Upozornenie, nie porucha. Opraviť sa to dá len v HR module alebo v
+  // samotnom PAM, teda to patrí kolegyni cez deň - nie dohľadu, ktorý budí
+  // o pol jedenástej v noci. Keby to zhadzovalo celú adresu, zmizol by
+  // rozdiel medzi "portál nefunguje" a "jednej osemnástine ľudí treba
+  // opraviť osobné číslo".
   if (row.stale > 0) {
     return {
-      ok: false, configured: true, mapped: row.mapped, synced: row.synced,
+      ok: true, warn: true, configured: true, mapped: row.mapped, synced: row.synced,
       lastSyncAt: newest.toISOString(), ageHours, stale: row.stale,
       detail: `${row.stale} z ${row.mapped} spárovaných ľudí nemá čerstvé kvóty z PAM `
             + '- pravdepodobne nesedí osobné číslo alebo im v PAM chýba nárok'
@@ -250,6 +256,19 @@ async function checkPamSync() {
  * Kontroly bežia súbežne a žiadna z nich nesmie zhodiť odpoveď - keby sa
  * výnimka v jednej prepísala na chybu 500, dohľad by hlásil „server
  * nedostupný" namiesto toho, čo je naozaj zle.
+ *
+ * Stavy sú tri, nie dva, a ten rozdiel je tu podstatný:
+ *
+ *   ok     všetko sedí
+ *   warn   systém funguje, ale niečo si vyžaduje človeka - typicky zle
+ *          zadané osobné číslo. Vracia sa 200, takže dohľad nezvoní.
+ *   fail   systém je pokazený: databáza, disk, synchronizácia ako celok.
+ *          Vracia sa 503 a dohľad budí.
+ *
+ * Dohľad sa pozerá len na návratový kód. Keby upozornenie vracalo 503,
+ * hlásil by „portál nefunguje" v okamihu, keď jednému človeku z osemnástich
+ * treba opraviť číslo - a po treťom takom hlásení by si ich už nikto
+ * nevšímal ani vtedy, keď by portál naozaj ležal.
  */
 async function check() {
   const [database, disk, sapSync, pamSync] = await Promise.all([
@@ -261,21 +280,27 @@ async function check() {
 
   const checks = { database, disk, sapSync, pamSync };
   const failing = Object.entries(checks).filter(([, value]) => !value.ok).map(([name]) => name);
+  const warnings = Object.entries(checks).filter(([, value]) => value.ok && value.warn).map(([name]) => name);
+
+  // Poruchy prvé: v upozornení z dohľadu býva vidieť len začiatok odpovede.
+  const detailsOf = (names) => names.map((name) => checks[name].detail).filter(Boolean);
+  const details = [...detailsOf(failing), ...detailsOf(warnings)];
 
   const report = {
-    // `summary` je prvé a je celou vetou naschvál: v upozornení z dohľadu je
-    // často vidieť len začiatok odpovede, a práve tam má stáť, čo sa deje.
-    summary: failing.length
-      ? Object.values(checks).filter((c) => !c.ok).map((c) => c.detail).filter(Boolean).join(' | ')
-      : 'Všetko v poriadku',
-    status: failing.length ? 'fail' : 'ok',
+    // `summary` je prvé a je celou vetou naschvál: práve tam má stáť, čo sa
+    // deje, aj keď sa z odpovede nič iné neprečíta.
+    summary: details.length ? details.join(' | ') : 'Všetko v poriadku',
+    status: failing.length ? 'fail' : warnings.length ? 'warn' : 'ok',
     failing,
+    warnings,
     checkedAt: new Date().toISOString(),
     checks
   };
 
   if (failing.length) {
     logger.warn('Health check failed', { failing, summary: report.summary });
+  } else if (warnings.length) {
+    logger.info('Health check warning', { warnings, summary: report.summary });
   }
   return report;
 }
