@@ -2096,6 +2096,31 @@ async function saveUserQuotas(userId, year) {
             });
             if (!response.ok) throw new Error(pt('saveFailed'));
         }
+
+        // Zadané osobné číslo sa rovno aj použije.
+        //
+        // Bez tohto sa dal človek uložiť spárovaný, ale nenačítaný: kvóta mu
+        // zostala ručná, na obrazovke to vyzeralo úplne v poriadku a prišlo
+        // by sa na to až v dohľade. Niet dôvodu číslo uložiť a nepoužiť ho.
+        //
+        // Keď sa načítanie nepodarí, dialóg zostane otvorený aj s dôvodom -
+        // to je ten okamih, keď sa dá preklep v čísle ešte opraviť.
+        const number = form.personal_number.value.trim();
+        if (!form.is_external.checked && number) {
+            const sync = await apiCall(`/api/quotas/user/${userId}/pam-sync`, {
+                method: 'POST',
+                body: JSON.stringify({ personal_number: number })
+            });
+            if (!sync.ok) {
+                const body = await sync.json().catch(() => ({}));
+                const out = document.getElementById('pamSyncResult');
+                const message = body.message || pt('saveFailed');
+                if (out) out.innerHTML = `<small style="color:var(--red-500)">${escapeHtml(message)}</small>`;
+                showToast(message, 'error');
+                return;
+            }
+        }
+
         showToast(pt('quotaSaved'), 'success');
         closeModal();
         navigateToPage('admin-quotas');
