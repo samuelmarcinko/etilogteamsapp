@@ -47,7 +47,11 @@ class TicketService {
           );
 
           if (!hasEnough) {
-            const quota = await Quota.getOrCreate(ticketData.createdBy.id, year);
+            // Tie isté čísla, podľa ktorých sa rozhodovalo vyššie - teda
+            // vrátane zdroja (PAM / ručné) a toho, čo je schválené a ešte
+            // nespracované. Keby sa tu čítali surové stĺpce, hláška by
+            // človeku ukázala iný zostatok, než podľa ktorého ho odmietla.
+            const quota = await Quota.effective(ticketData.createdBy.id, year);
             const typeLabels = {
               'vacation': 'dovolenky',
               'sick-leave': 'PN',
@@ -62,7 +66,9 @@ class TicketService {
             };
             const label = typeLabels[ticketData.ticketType] || ticketData.ticketType;
             const col = colPrefixes[ticketData.ticketType] || 'sick';
-            const remaining = quota[`${col}_days_total`] - parseFloat(quota[`${col}_days_used`]);
+            // Vrátane schváleného a ešte nespracovaného, inak by hláška
+            // tvrdila, že zostatok stačí, a zároveň žiadosť odmietla.
+            const remaining = quota[`${col}_days_remaining`] - (quota[`${col}_days_pending`] || 0);
 
             // Use appropriate unit in error message
             if (hourBasedTypes.includes(ticketData.ticketType)) {
@@ -186,8 +192,24 @@ class TicketService {
           }
 
           await Quota.getOrCreate(ticket.created_by_id, year);
-          await Quota.addUsedDays(ticket.created_by_id, year, ticket.ticket_type, quotaAmount);
-          logger.debug('Quota deducted', { amount: quotaAmount, unit: hourBasedTypes.includes(ticket.ticket_type) ? 'hours' : 'days', type: ticket.ticket_type, userId: ticket.created_by_id, isHalfDay: ticket.is_half_day });
+
+          // Koľko žiadosť stojí, sa ukladá vždy - aj keď sa neodpočítava.
+          // Z toho sa potom sčíta, čo je schválené a PAM to ešte
+          // nespracoval, bez prepočítavania pracovných dní každej žiadosti
+          // zvlášť pri každom zobrazení kvóty.
+          await Ticket.setQuotaAmount(ticketId, quotaAmount);
+
+          // Vráti null, keď kvótu tomuto človeku vedie PAM. Vtedy sa
+          // neodpočítava nič: čerpanie počíta mzdová učtáreň a appka by jej
+          // doň vpisovala druhé, vlastné číslo.
+          const deducted = await Quota.addUsedDays(ticket.created_by_id, year, ticket.ticket_type, quotaAmount);
+          logger.debug(deducted ? 'Quota deducted' : 'Quota not deducted - PAM is the source', {
+            amount: quotaAmount,
+            unit: hourBasedTypes.includes(ticket.ticket_type) ? 'hours' : 'days',
+            type: ticket.ticket_type,
+            userId: ticket.created_by_id,
+            isHalfDay: ticket.is_half_day
+          });
         } catch (quotaError) {
           logger.error('Failed to deduct quota', { error: quotaError.message });
         }

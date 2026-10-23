@@ -642,7 +642,7 @@ async function renderDashboard(container) {
                                     <tr>
                                         <td><strong>${escapeHtml(t.title)}</strong></td>
                                         <td><span class="badge badge-${{'vacation':'vacation','sick-leave':'sick','paragraph':'paragraph','ocr':'ocr'}[t.ticket_type] || 'user'}">${translateType(t.ticket_type)}</span></td>
-                                        <td><span class="badge badge-${t.status.toLowerCase()}">${translateStatus(t.status)}</span></td>
+                                        <td><span class="badge badge-${t.status.toLowerCase()}">${translateStatus(t.status)}</span> ${pamStateBadge(t)}</td>
                                         <td>${formatDate(t.created_at)}</td>
                                     </tr>
                                 `).join('')}
@@ -1133,6 +1133,10 @@ async function openNewRequestModal() {
                 <div class="quota-bar" id="requestQuotaBar" style="margin-top: 10px; display:none;">
                     <div class="quota-bar-fill" id="requestQuotaBarFill" style="width: 0%"></div>
                 </div>
+                <!-- Čo je schválené a mzdy to ešte nespracovali. Bez tohto
+                     riadku vyzerá zostatok vyšší, než aký naozaj je - a to je
+                     presne tá vec, kvôli ktorej kolegyni nesedeli čísla. -->
+                <div id="quotaPendingInfo" style="display:none; margin-top: 8px; font-size: 13px; color: #065f46;"></div>
                 <div id="quotaWarning" style="display: none; margin-top: 8px; padding: 8px; background: #fef3c7; border-radius: 4px; color: #92400e; font-size: 13px;">
                 </div>
             </div>
@@ -1171,11 +1175,28 @@ async function openNewRequestModal() {
 const HOURS_PER_WORKING_DAY = 8;
 
 const REQUEST_QUOTAS = {
-    'vacation':   { remainKey: 'vacation_days_remaining',  totalKey: 'vacation_days_total',  labelKey: 'vacationRemaining',  hours: false },
-    'sick-leave': { remainKey: 'sick_days_remaining',      totalKey: 'sick_days_total',      labelKey: 'sickDaysRemaining',  hours: false },
-    'paragraph':  { remainKey: 'paragraph_days_remaining', totalKey: 'paragraph_days_total', labelKey: 'paragraphRemaining', hours: true },
-    'ocr':        { remainKey: 'ocr_days_remaining',       totalKey: 'ocr_days_total',       labelKey: 'ocrRemaining',       hours: true }
+    'vacation':   { remainKey: 'vacation_days_remaining',  totalKey: 'vacation_days_total',  pendingKey: 'vacation_days_pending',  labelKey: 'vacationRemaining',  hours: false },
+    'sick-leave': { remainKey: 'sick_days_remaining',      totalKey: 'sick_days_total',      pendingKey: null,                     labelKey: 'sickDaysRemaining',  hours: false },
+    'paragraph':  { remainKey: 'paragraph_days_remaining', totalKey: 'paragraph_days_total', pendingKey: 'paragraph_days_pending', labelKey: 'paragraphRemaining', hours: true },
+    'ocr':        { remainKey: 'ocr_days_remaining',       totalKey: 'ocr_days_total',       pendingKey: 'ocr_days_pending',       labelKey: 'ocrRemaining',       hours: true }
 };
+
+/**
+ * Štítok „Spracované / Nespracované" k schválenej žiadosti.
+ *
+ * Server posiela `pam_state` len vtedy, keď sa otázka na žiadosť vzťahuje -
+ * teda pri schválenej žiadosti s kvótou od človeka napojeného na PAM.
+ * Inde je null a štítok sa nekreslí: komu appka kvótu odpočítava sama,
+ * tomu niet na čo čakať a „Nespracované" by mu len klamalo.
+ */
+function pamStateBadge(ticket) {
+    if (ticket.pam_state !== 'processed' && ticket.pam_state !== 'pending') return '';
+    const done = ticket.pam_state === 'processed';
+    return `<span class="badge ${done ? 'badge-processed' : 'badge-unprocessed'}"
+                  title="${done ? pt('badgeProcessedTitle') : pt('badgeNotProcessedTitle')}">
+                ${done ? pt('badgeProcessed') : pt('badgeNotProcessed')}
+            </span>`;
+}
 
 /** Zostatok vybraného typu do zeleného boxu nad formulárom. */
 function renderRequestQuota(type) {
@@ -1195,6 +1216,20 @@ function renderRequestQuota(type) {
         // Hodiny sa míňajú aj po polovičkách dňa, dni nie - tak sa aj píšu.
         value.textContent = remaining === null ? '-'
             : `${config.hours ? remaining.toFixed(2) : remaining} ${unit}`;
+    }
+
+    // Schválené, ešte nespracované mzdami. Zostatok vyššie je číslo z PAM,
+    // takže o tieto dni je v skutočnosti menší - bez tohto riadku by to
+    // človek nemal ako vedieť a požiadal by si o dni, ktoré už minul.
+    // Nenapojeným je to vždy nula, tým appka odpočítava sama.
+    const pendingBox = document.getElementById('quotaPendingInfo');
+    if (pendingBox) {
+        const pending = config.pendingKey && quota ? Number(quota[config.pendingKey] || 0) : 0;
+        pendingBox.style.display = pending > 0 ? 'block' : 'none';
+        if (pending > 0) {
+            pendingBox.textContent =
+                `${pt('quotaPendingLabel')}: ${config.hours ? pending.toFixed(2) : pending} ${unit}`;
+        }
     }
 
     // Prúžok len tam, kde je z čoho ho počítať. Pri nenastavenej kvóte by
@@ -1844,6 +1879,12 @@ async function editUserQuotas(userId) {
     const ocrTotal = row.ocr_days_total || 7;
     const ocrRemaining = row.ocr_days_remaining;
 
+    // Komu kvótu vedie PAM, tomu sa tu už neprepisuje. Keby sa dala, bolo by
+    // to číslo, ktoré najbližšia nočná synchronizácia prepíše späť - a
+    // kolegyňa by si myslela, že niečo nastavila.
+    const fromPam = row.quota_source === 'pam';
+    const lock = fromPam ? 'disabled' : '';
+
     document.getElementById('modalTitle').textContent = `${pt('editQuota')} - ${userName}`;
     document.getElementById('modalBody').innerHTML = `
         <form id="userQuotaForm">
@@ -1871,12 +1912,18 @@ async function editUserQuotas(userId) {
                     <small style="display:block;color:var(--gray-500);margin-top:4px;">${pt('quotaPersonalNumberHint')}</small>
                     <div id="pamSyncResult" style="margin-top:10px;"></div>
                 </div>
+                ${fromPam ? `
+                    <div style="margin-top:10px;padding:8px 10px;border-radius:6px;background:var(--green-50);
+                                border:1px solid var(--green-100);">
+                        <strong style="color:var(--green-600);">${pt('quotaSourcePam')}</strong>
+                        <small style="display:block;color:var(--gray-600);margin-top:2px;">${pt('quotaSourcePamHint')}</small>
+                    </div>` : ''}
             </div>
             <div class="form-group">
                 <label class="form-label" style="font-weight:600;margin-bottom:8px;">${pt('quotaFieldVacation')}</label>
                 <div class="form-group">
                     <label class="form-label">${pt('quotaZostatok')}</label>
-                    <input type="number" class="form-input" name="vacation_days_remaining" value="${vacRemaining}" min="0" max="100" step="0.5">
+                    <input type="number" class="form-input" name="vacation_days_remaining" value="${vacRemaining}" min="0" max="100" step="0.5" ${lock}>
                 </div>
             </div>
             <div class="form-group">
@@ -1884,11 +1931,11 @@ async function editUserQuotas(userId) {
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">${pt('quotaNarok')}</label>
-                        <input type="number" class="form-input" name="paragraph_days_total" value="${paragraphTotal}" min="0" max="30" step="0.01">
+                        <input type="number" class="form-input" name="paragraph_days_total" value="${paragraphTotal}" min="0" max="30" step="0.01" ${lock}>
                     </div>
                     <div class="form-group">
                         <label class="form-label">${pt('quotaZostatok')}</label>
-                        <input type="number" class="form-input" name="paragraph_days_remaining" value="${paragraphRemaining}" min="0" max="30" step="0.01">
+                        <input type="number" class="form-input" name="paragraph_days_remaining" value="${paragraphRemaining}" min="0" max="30" step="0.01" ${lock}>
                     </div>
                 </div>
             </div>
@@ -1897,11 +1944,11 @@ async function editUserQuotas(userId) {
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">${pt('quotaNarok')}</label>
-                        <input type="number" class="form-input" name="ocr_days_total" value="${ocrTotal}" min="0" max="30" step="0.01">
+                        <input type="number" class="form-input" name="ocr_days_total" value="${ocrTotal}" min="0" max="30" step="0.01" ${lock}>
                     </div>
                     <div class="form-group">
                         <label class="form-label">${pt('quotaZostatok')}</label>
-                        <input type="number" class="form-input" name="ocr_days_remaining" value="${ocrRemaining}" min="0" max="30" step="0.01">
+                        <input type="number" class="form-input" name="ocr_days_remaining" value="${ocrRemaining}" min="0" max="30" step="0.01" ${lock}>
                     </div>
                 </div>
             </div>
@@ -2039,11 +2086,16 @@ async function saveUserQuotas(userId, year) {
             throw new Error(body.message || pt('saveFailed'));
         }
 
-        const response = await apiCall(`/api/quotas/user/${userId}`, {
-            method: 'PUT',
-            body: JSON.stringify(data)
-        });
-        if (!response.ok) throw new Error(pt('saveFailed'));
+        // Komu kvótu vedie PAM, tomu sa posielať nemá čo: polia sú zamknuté
+        // a najbližšia synchronizácia by hodnoty aj tak prepísala späť.
+        // Uloží sa len párovanie vyššie.
+        if (!form.vacation_days_remaining.disabled) {
+            const response = await apiCall(`/api/quotas/user/${userId}`, {
+                method: 'PUT',
+                body: JSON.stringify(data)
+            });
+            if (!response.ok) throw new Error(pt('saveFailed'));
+        }
         showToast(pt('quotaSaved'), 'success');
         closeModal();
         navigateToPage('admin-quotas');
@@ -2361,7 +2413,7 @@ function renderAdminTicketsTable(tickets) {
                         <td><span class="badge badge-${{'vacation':'vacation','sick-leave':'sick','paragraph':'paragraph','ocr':'ocr'}[t.ticket_type] || 'user'}">${translateType(t.ticket_type)}</span></td>
                         <td>${escapeHtml(t.created_by_name)}</td>
                         <td>${t.assigned_approver_name ? escapeHtml(t.assigned_approver_name) : '-'}</td>
-                        <td><span class="badge badge-${t.status.toLowerCase()}">${translateStatus(t.status)}</span></td>
+                        <td><span class="badge badge-${t.status.toLowerCase()}">${translateStatus(t.status)}</span> ${pamStateBadge(t)}</td>
                         <td>${formatDate(t.created_at)}${t.start_date ? `<br><small>${formatDate(t.start_date)} - ${formatDate(t.end_date)}</small>` : ''}</td>
                         <td style="white-space:nowrap;">
                             <button class="btn btn-sm btn-secondary" onclick="openTicketDetailModal('${t.ticket_id}')" title="${pt('ticketDetailTitle')}">&#128065;</button>
@@ -4102,7 +4154,7 @@ function renderTicketsTable(tickets) {
                                 </td>
                                 <td><span class="badge badge-${{'vacation':'vacation','sick-leave':'sick','paragraph':'paragraph','ocr':'ocr'}[t.ticket_type] || 'user'}">${translateType(t.ticket_type)}</span></td>
                                 <td>${t.assigned_approver_name ? escapeHtml(t.assigned_approver_name) : '-'}</td>
-                                <td><span class="badge badge-${t.status.toLowerCase()}">${translateStatus(t.status)}</span></td>
+                                <td><span class="badge badge-${t.status.toLowerCase()}">${translateStatus(t.status)}</span> ${pamStateBadge(t)}</td>
                                 <td>${formatDate(t.created_at)}${t.start_date ? `<br><small>${formatDate(t.start_date)} - ${formatDate(t.end_date)}</small>` : ''}</td>
                                 <td>
                                     ${t.attachment_count > 0 ? `<button class="btn btn-ghost btn-sm" onclick="openTicketAttachments('${t.ticket_id}', '${escapeHtml(t.title)}')">&#128206; ${pt('attachments')} (${t.attachment_count})</button>` : '<span style="color:var(--gray-300)">—</span>'}

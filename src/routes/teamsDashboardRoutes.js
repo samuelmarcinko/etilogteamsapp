@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../database/config');
+const Quota = require('../database/models/Quota');
 const logger = require('../utils/logger');
 
 /**
@@ -48,28 +49,12 @@ router.get('/', async (req, res) => {
   let ticketStats = { pending: 0, approved: 0, rejected: 0 };
 
   // 1. Get user's quota
+  //
+  // Cez model, nie priamym SELECT-om: zostatok dnes závisí od toho, či je
+  // človek napojený na PAM. Keby si to táto obrazovka počítala po svojom,
+  // ukazovala by iné číslo než portál, a nikto by nevedel ktoré platí.
   try {
-    const result = await pool.query(
-      'SELECT * FROM employee_quotas WHERE user_id = $1 AND year = $2',
-      [userId, year]
-    );
-    const quota = result.rows[0];
-    if (quota) {
-      quotaData = {
-        vacation_days_total: quota.vacation_days_total,
-        vacation_days_used: parseFloat(quota.vacation_days_used),
-        vacation_days_remaining: quota.vacation_days_total - parseFloat(quota.vacation_days_used),
-        sick_days_total: quota.sick_days_total,
-        sick_days_used: parseFloat(quota.sick_days_used),
-        sick_days_remaining: quota.sick_days_total - parseFloat(quota.sick_days_used),
-        paragraph_days_total: quota.paragraph_days_total || 7,
-        paragraph_days_used: parseFloat(quota.paragraph_days_used || 0),
-        paragraph_days_remaining: (quota.paragraph_days_total || 7) - parseFloat(quota.paragraph_days_used || 0),
-        ocr_days_total: quota.ocr_days_total || 7,
-        ocr_days_used: parseFloat(quota.ocr_days_used || 0),
-        ocr_days_remaining: (quota.ocr_days_total || 7) - parseFloat(quota.ocr_days_used || 0)
-      };
-    }
+    quotaData = await Quota.effective(userId, year);
   } catch (e) {
     logger.warn('Dashboard: quota query failed', { error: e.message, userId });
   }

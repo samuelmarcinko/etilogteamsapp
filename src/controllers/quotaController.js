@@ -15,22 +15,10 @@ class QuotaController {
   static async getMyQuota(req, res, next) {
     try {
       const year = parseInt(req.query.year) || new Date().getFullYear();
-      const quota = await Quota.getOrCreate(req.user.id, year);
-
-      res.json({
-        success: true,
-        data: {
-          ...quota,
-          vacation_days_used: parseFloat(quota.vacation_days_used),
-          sick_days_used: parseFloat(quota.sick_days_used),
-          vacation_days_remaining: quota.vacation_days_total - parseFloat(quota.vacation_days_used),
-          sick_days_remaining: quota.sick_days_total - parseFloat(quota.sick_days_used),
-          paragraph_days_used: parseFloat(quota.paragraph_days_used || 0),
-          paragraph_days_remaining: (quota.paragraph_days_total || 7) - parseFloat(quota.paragraph_days_used || 0),
-          ocr_days_used: parseFloat(quota.ocr_days_used || 0),
-          ocr_days_remaining: (quota.ocr_days_total || 7) - parseFloat(quota.ocr_days_used || 0)
-        }
-      });
+      // Prepočet aj zdroj rieši model. Zamestnanec napojený na PAM dostane
+      // čísla z PAM a k nim to, čo je schválené a ešte nespracované;
+      // ostatní to isté, čo doteraz.
+      res.json({ success: true, data: await Quota.effective(req.user.id, year) });
     } catch (error) {
       next(error);
     }
@@ -44,22 +32,7 @@ class QuotaController {
     try {
       const { userId } = req.params;
       const year = parseInt(req.query.year) || new Date().getFullYear();
-      const quota = await Quota.getOrCreate(userId, year);
-
-      res.json({
-        success: true,
-        data: {
-          ...quota,
-          vacation_days_used: parseFloat(quota.vacation_days_used),
-          sick_days_used: parseFloat(quota.sick_days_used),
-          vacation_days_remaining: quota.vacation_days_total - parseFloat(quota.vacation_days_used),
-          sick_days_remaining: quota.sick_days_total - parseFloat(quota.sick_days_used),
-          paragraph_days_used: parseFloat(quota.paragraph_days_used || 0),
-          paragraph_days_remaining: (quota.paragraph_days_total || 7) - parseFloat(quota.paragraph_days_used || 0),
-          ocr_days_used: parseFloat(quota.ocr_days_used || 0),
-          ocr_days_remaining: (quota.ocr_days_total || 7) - parseFloat(quota.ocr_days_used || 0)
-        }
-      });
+      res.json({ success: true, data: await Quota.effective(userId, year) });
     } catch (error) {
       next(error);
     }
@@ -73,21 +46,13 @@ class QuotaController {
     try {
       const year = parseInt(req.query.year) || new Date().getFullYear();
       const quotas = await Quota.findAllByYear(year);
+      // Jeden dotaz na nespracované za všetkých naraz, nie jeden na človeka.
+      const pending = await Quota.pendingByUser(year);
 
       res.json({
         success: true,
         count: quotas.length,
-        data: quotas.map(q => ({
-          ...q,
-          vacation_days_used: parseFloat(q.vacation_days_used),
-          sick_days_used: parseFloat(q.sick_days_used),
-          vacation_days_remaining: q.vacation_days_total - parseFloat(q.vacation_days_used),
-          sick_days_remaining: q.sick_days_total - parseFloat(q.sick_days_used),
-          paragraph_days_used: parseFloat(q.paragraph_days_used || 0),
-          paragraph_days_remaining: (q.paragraph_days_total || 7) - parseFloat(q.paragraph_days_used || 0),
-          ocr_days_used: parseFloat(q.ocr_days_used || 0),
-          ocr_days_remaining: (q.ocr_days_total || 7) - parseFloat(q.ocr_days_used || 0)
-        }))
+        data: quotas.map((q) => Quota.withEffectiveValues(q, pending))
       });
     } catch (error) {
       next(error);
@@ -439,7 +404,8 @@ class QuotaController {
         vacationTotal: fromPam.vacationTotal,
         vacationUsed: fromPam.vacationUsed,
         paragraphUsed: fromPam.paragraphUsed,
-        ocrUsed: fromPam.ocrUsed
+        ocrUsed: fromPam.ocrUsed,
+        lastMonth: fromPam.lastMonth
       });
       logger.info('PAM sync (manual)', { userId, personalNumber, year, by: req.user?.id });
 

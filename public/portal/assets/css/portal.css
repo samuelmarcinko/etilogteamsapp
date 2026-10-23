@@ -640,6 +640,12 @@ body.sidebar-collapsed .sidebar-toggle .toggle-icon {
 .badge-visible { background: var(--green-50); color: var(--green-600); }
 .badge-hidden { background: #fee2e2; color: #991b1b; }
 
+/* Spracovala už mzdová učtáreň túto žiadosť?
+   Ani jeden z tých dvoch stavov nie je chyba - jeden hovorí „zostatok to už
+   obsahuje", druhý „ešte nie". Preto zelená a jantárová, nie červená. */
+.badge-processed { background: var(--green-100); color: #065f46; }
+.badge-unprocessed { background: var(--amber-100); color: #92400e; }
+
 /* Externý pracovník v zozname kvót. Zámerne pokojná, nie červená: nie je to
    výstraha, len informácia, že tento človek v PAM nie je a kvóty sa mu
    nastavujú ručne. */

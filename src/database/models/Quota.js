@@ -1,6 +1,155 @@
 const pool = require('../config');
 
+/** Typy, ktoré majú kvótu. Ostatné (nákup, výdavok...) sa jej netýkajú. */
+const QUOTA_TYPES = ['vacation', 'paragraph', 'ocr'];
+
+/** Ako sa typ volá v stĺpcoch. sick-leave má historicky iný prefix. */
+const COLUMN_PREFIX = {
+  'vacation': 'vacation',
+  'sick-leave': 'sick',
+  'paragraph': 'paragraph',
+  'ocr': 'ocr'
+};
+
 class Quota {
+  /**
+   * Číta sa tomuto človeku kvóta z PAM?
+   *
+   * Musia platiť všetky tri veci naraz: nie je externý (externí v PAM nie
+   * sú), má osobné číslo, a aspoň raz sa naozaj úspešne synchronizoval.
+   *
+   * To tretie je tu zámerne. Kolegyňa bude osobné čísla dopĺňať postupne a
+   * samotné zadané číslo ešte nič neznamená - kým PAM neodpovedal, nemáme
+   * čo zobraziť. Taký človek zostáva na ručných hodnotách a funguje presne
+   * ako doteraz, namiesto toho, aby mu kvóta zhasla.
+   */
+  static readsFromPam(row) {
+    return Boolean(row)
+      && !row.is_external
+      && row.personal_number != null
+      && row.pam_synced_at != null;
+  }
+
+  /**
+   * Čo je schválené a PAM to ešte nezapočítal, po ľuďoch a typoch.
+   *
+   * Kľúč je `userId|typ`, hodnota číslo v tej jednotke, v ktorej sa typ
+   * vedie - dni pri dovolenke, hodiny pri paragrafoch.
+   *
+   * Žiadosť sa považuje za nespracovanú, keď je z mesiaca, ktorý PAM ešte
+   * nemá uzavretý. Nie je to dokonalé - PAM nevie povedať „túto konkrétnu
+   * žiadosť som započítal" - ale je to to najpresnejšie, čo sa z jeho dát
+   * dá zistiť, a dá sa to vysvetliť jednou vetou: mzdy sú spracované do
+   * augusta, tvoja žiadosť je zo septembra.
+   *
+   * Jeden dotaz za všetkých, lebo toto sa počíta aj pri zozname kvót celej
+   * firmy naraz.
+   */
+  static async pendingByUser(year, userId = null) {
+    const result = await pool.query(
+      `SELECT t.created_by_id AS user_id,
+              t.ticket_type,
+              COALESCE(SUM(t.quota_amount), 0)::float8 AS amount
+         FROM tickets t
+         JOIN employee_quotas eq
+           ON eq.user_id = t.created_by_id AND eq.year = $1
+        WHERE t.status = 'Approved'
+          AND t.ticket_type = ANY($2)
+          AND t.start_date IS NOT NULL
+          AND EXTRACT(YEAR FROM t.start_date) = $1
+          AND EXTRACT(MONTH FROM t.start_date) > COALESCE(eq.pam_last_month, 0)
+          AND ($3::varchar IS NULL OR t.created_by_id = $3)
+        GROUP BY t.created_by_id, t.ticket_type`,
+      [year, QUOTA_TYPES, userId]
+    );
+
+    return new Map(result.rows.map((r) => [`${r.user_id}|${r.ticket_type}`, Number(r.amount)]));
+  }
+
+  /**
+   * Doplní riadok o to, čo sa má naozaj zobraziť.
+   *
+   * Pri človeku napojenom na PAM je zdrojom PAM: nárok na dovolenku aj
+   * čerpanie prichádzajú odtiaľ. Nárok na paragrafy nie - ten PAM nevedie,
+   * je zo zákona a zostáva taký, aký je nastavený v appke. Odtiaľ prichádza
+   * len čerpanie.
+   *
+   * Zostatok je zámerne číslo PAM, nie číslo PAM zmenšené o nespracované.
+   * Kolegyňa musí vidieť to isté, čo vidí v PAM, inak sa to nedá porovnať.
+   * Čo je schválené navyše, stojí vedľa ako samostatný údaj - a práve to je
+   * ten rozdiel, ktorý by inak nikto nevedel vysvetliť.
+   */
+  static withEffectiveValues(row, pending = new Map()) {
+    const fromPam = Quota.readsFromPam(row);
+    const at = (type) => pending.get(`${row.user_id}|${type}`) || 0;
+
+    const total = {
+      vacation: fromPam && row.pam_vacation_days_total != null
+        ? Number(row.pam_vacation_days_total)
+        : Number(row.vacation_days_total),
+      // Nárok na paragrafy PAM nevedie - zo zákona, z nastavení appky.
+      paragraph: Number(row.paragraph_days_total ?? 7),
+      ocr: Number(row.ocr_days_total ?? 7),
+      sick: Number(row.sick_days_total ?? 5)
+    };
+
+    const used = {
+      vacation: fromPam && row.pam_vacation_days_used != null
+        ? Number(row.pam_vacation_days_used)
+        : Number(row.vacation_days_used || 0),
+      paragraph: fromPam && row.pam_paragraph_days_used != null
+        ? Number(row.pam_paragraph_days_used)
+        : Number(row.paragraph_days_used || 0),
+      ocr: fromPam && row.pam_ocr_days_used != null
+        ? Number(row.pam_ocr_days_used)
+        : Number(row.ocr_days_used || 0),
+      sick: Number(row.sick_days_used || 0)
+    };
+
+    return {
+      ...row,
+      quota_source: fromPam ? 'pam' : 'manual',
+      vacation_days_total: total.vacation,
+      vacation_days_used: used.vacation,
+      vacation_days_remaining: total.vacation - used.vacation,
+      paragraph_days_total: total.paragraph,
+      paragraph_days_used: used.paragraph,
+      paragraph_days_remaining: total.paragraph - used.paragraph,
+      ocr_days_total: total.ocr,
+      ocr_days_used: used.ocr,
+      ocr_days_remaining: total.ocr - used.ocr,
+      sick_days_total: total.sick,
+      sick_days_used: used.sick,
+      sick_days_remaining: total.sick - used.sick,
+      // Schválené, ešte nespracované. Pri ručnom zdroji je to nula: tam
+      // appka odpočítava sama, takže nič nečaká.
+      vacation_days_pending: fromPam ? at('vacation') : 0,
+      paragraph_days_pending: fromPam ? at('paragraph') : 0,
+      ocr_days_pending: fromPam ? at('ocr') : 0
+    };
+  }
+
+  /**
+   * Kvóta jedného človeka tak, ako sa má zobraziť - vrátane zdroja.
+   *
+   * Spája employee_quotas s párovaním na PAM, ktoré je na používateľovi.
+   * Bez toho spojenia sa nedá povedať, odkiaľ sa čísla berú.
+   */
+  static async effective(userId, year) {
+    await this.getOrCreate(userId, year);
+
+    const { rows } = await pool.query(
+      `SELECT eq.*, u.personal_number, COALESCE(u.is_external, false) AS is_external
+         FROM employee_quotas eq
+         JOIN users u ON u.user_id = eq.user_id
+        WHERE eq.user_id = $1 AND eq.year = $2`,
+      [userId, year]
+    );
+    if (!rows[0]) return null;
+
+    return Quota.withEffectiveValues(rows[0], await Quota.pendingByUser(year, userId));
+  }
+
   /**
    * Get or create quota for a user/year
    */
@@ -96,6 +245,7 @@ class Quota {
          eq.pam_paragraph_days_used,
          eq.pam_ocr_days_used,
          eq.pam_synced_at,
+         eq.pam_last_month,
          CASE WHEN eq.user_id IS NULL THEN true ELSE false END as needs_initialization
        FROM users u
        LEFT JOIN employee_quotas eq ON u.user_id = eq.user_id AND eq.year = $1
@@ -165,7 +315,7 @@ class Quota {
    * Keby sa to zapisovalo aj pri chybe, kvóta by sa niekomu tichučko
    * vynulovala a nikto by nevedel prečo.
    */
-  static async setPamValues(userId, year, { vacationTotal, vacationUsed, paragraphUsed, ocrUsed }) {
+  static async setPamValues(userId, year, { vacationTotal, vacationUsed, paragraphUsed, ocrUsed, lastMonth = null }) {
     await this.getOrCreate(userId, year);
 
     const result = await pool.query(
@@ -174,19 +324,50 @@ class Quota {
               pam_vacation_days_used  = $2,
               pam_paragraph_days_used = $3,
               pam_ocr_days_used       = $4,
+              pam_last_month          = $5,
               pam_synced_at           = CURRENT_TIMESTAMP,
               updated_at              = CURRENT_TIMESTAMP
-        WHERE user_id = $5 AND year = $6
+        WHERE user_id = $6 AND year = $7
         RETURNING *`,
-      [vacationTotal, vacationUsed, paragraphUsed, ocrUsed, userId, year]
+      [vacationTotal, vacationUsed, paragraphUsed, ocrUsed, lastMonth, userId, year]
     );
     return result.rows[0];
   }
 
   /**
+   * Berie tento človek kvótu z PAM? Ľahká otázka bez getOrCreate.
+   *
+   * Používa sa na miestach, kde ide len o rozhodnutie „odpočítať / neodpočítať"
+   * a bolo by zbytočné kvôli tomu zakladať riadok kvóty.
+   */
+  static async pamBacked(userId, year) {
+    const { rows } = await pool.query(
+      `SELECT u.personal_number,
+              COALESCE(u.is_external, false) AS is_external,
+              eq.pam_synced_at
+         FROM users u
+         LEFT JOIN employee_quotas eq ON eq.user_id = u.user_id AND eq.year = $2
+        WHERE u.user_id = $1`,
+      [userId, year]
+    );
+    return Quota.readsFromPam(rows[0]);
+  }
+
+  /**
    * Add used days (when ticket is approved)
+   *
+   * Pri človeku napojenom na PAM sa neodpočítava nič a vráti sa null. Kto
+   * počíta, ten je pánom čísla: čerpanie vedie mzdová učtáreň v PAM a
+   * appka by jej doň len vpisovala druhé, vlastné číslo. Presne to spôsobilo
+   * rozdiel, kvôli ktorému sa celé napojenie robilo - appka odrátala
+   * schválený sprievod, PAM o ňom ešte nevedel, a kolegyni nesedelo nič.
+   *
+   * Nenapojení (externí a tí, ktorým kolegyňa ešte nezadala osobné číslo)
+   * fungujú ďalej presne ako doteraz.
    */
   static async addUsedDays(userId, year, type, days) {
+    if (await this.pamBacked(userId, year)) return null;
+
     const columnMap = {
       'vacation': 'vacation_days_used',
       'sick-leave': 'sick_days_used',
@@ -206,8 +387,14 @@ class Quota {
 
   /**
    * Remove used days (when ticket is rejected/cancelled after approval)
+   *
+   * Zrkadlovo k addUsedDays: komu sa neodpočítalo, tomu sa nemá čo vracať.
+   * Bez tejto podmienky by zrušenie žiadosti pridalo človeku dni, ktoré mu
+   * appka nikdy nevzala.
    */
   static async removeUsedDays(userId, year, type, days) {
+    if (await this.pamBacked(userId, year)) return null;
+
     const columnMap = {
       'vacation': 'vacation_days_used',
       'sick-leave': 'sick_days_used',
@@ -227,26 +414,22 @@ class Quota {
 
   /**
    * Check if user has enough days
+   *
+   * Jediné miesto, kde sa od zostatku odpočítava aj to, čo je schválené a
+   * PAM to ešte nespracoval. Zobrazuje sa číslo PAM, aby sa dalo porovnať s
+   * PAM - ale povoliť ďalšiu žiadosť sa musí podľa toho, čo naozaj zostáva.
+   * Inak by si človek vybral tie isté dni dvakrát: raz v septembri, a znovu
+   * v októbri, kým PAM september nespracoval.
    */
   static async hasEnoughDays(userId, year, type, requestedDays) {
-    const quota = await this.getOrCreate(userId, year);
+    const prefix = COLUMN_PREFIX[type];
+    if (!prefix) return true; // Ostatné typy kvótu nemajú
+
+    const quota = await this.effective(userId, year);
     if (!quota) return false;
 
-    if (type === 'vacation') {
-      const remaining = quota.vacation_days_total - parseFloat(quota.vacation_days_used);
-      return remaining >= requestedDays;
-    } else if (type === 'sick-leave') {
-      const remaining = quota.sick_days_total - parseFloat(quota.sick_days_used);
-      return remaining >= requestedDays;
-    } else if (type === 'paragraph') {
-      const remaining = quota.paragraph_days_total - parseFloat(quota.paragraph_days_used || 0);
-      return remaining >= requestedDays;
-    } else if (type === 'ocr') {
-      const remaining = quota.ocr_days_total - parseFloat(quota.ocr_days_used || 0);
-      return remaining >= requestedDays;
-    }
-
-    return true; // Other types don't need quota check
+    const remaining = quota[`${prefix}_days_remaining`] - (quota[`${prefix}_days_pending`] || 0);
+    return remaining >= requestedDays;
   }
 
   // --- Quota Settings ---

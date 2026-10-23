@@ -196,6 +196,28 @@ class PamSyncService {
   }
 
   /**
+   * Posledný mesiac, za ktorý má PAM spracované mzdy.
+   *
+   * Zámerne cez všetky mzdové zložky, nielen cez dovolenku a paragrafy:
+   * kto si v septembri nevzal voľno, nemá za september riadok s dovolenkou,
+   * ale výplatu dostal. Keby sa počítalo len z našich kódov, jeho septembrová
+   * žiadosť by zostala navždy označená ako nespracovaná.
+   *
+   * Vráti null, keď za ten rok nie je nič - vtedy je nespracované všetko,
+   * čo je správne.
+   */
+  async lastProcessedMonth(personalNumber, year) {
+    const rows = await this.client.query(
+      `SELECT MAX(vysb_mes) AS mesiac
+         FROM dbo.z_vysl_brutto
+        WHERE osu_os_cis = @osobne AND vysb_rok = @rok`,
+      { osobne: personalNumber, rok: year }
+    );
+    const month = rows[0]?.mesiac;
+    return month == null ? null : Number(month);
+  }
+
+  /**
    * Všetko, čo PAM o jednom človeku za jeden rok povie.
    *
    * Nič nezapisuje - len číta a prepočíta. Zápis je vedome o úroveň vyššie,
@@ -205,11 +227,13 @@ class PamSyncService {
     const name = await this.identify(personalNumber);
     const entitlement = await this.vacationEntitlement(personalNumber, year);
     const used = await this.usage(personalNumber, year);
+    const lastMonth = await this.lastProcessedMonth(personalNumber, year);
 
     return {
       personalNumber,
       year,
       name,
+      lastMonth,
       // Dovolenka sa v appke vedie v dňoch, PAM ju čerpá v hodinách.
       vacationTotal: entitlement.days,
       vacationUsed: used.vacationHours / HOURS_PER_DAY,
@@ -247,7 +271,8 @@ class PamSyncService {
       vacationTotal: fromPam.vacationTotal,
       vacationUsed: fromPam.vacationUsed,
       paragraphUsed: fromPam.paragraphUsed,
-      ocrUsed: fromPam.ocrUsed
+      ocrUsed: fromPam.ocrUsed,
+      lastMonth: fromPam.lastMonth
     });
 
     if (fromPam.entitlementRows > 1) {
