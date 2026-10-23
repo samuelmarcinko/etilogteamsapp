@@ -404,8 +404,44 @@ class QuotaController {
         return res.status(404).json({ error: 'Not Found', message: 'Používateľ neexistuje.' });
       }
 
-      const fromPam = await PamSyncService.shared().syncUser(user, year);
-      logger.info('PAM sync (manual)', { userId, year, by: req.user?.id });
+      // Číslo sa smie poslať aj priamo z formulára, ešte neuložené. Je to
+      // tu zámerne: najprv sa spýtame PAM a uložíme až potom. Keby sa
+      // ukladalo vopred, preklep by zostal zapísaný aj po tom, čo
+      // vyhľadanie zlyhá - a nočný beh by na ňom padal každé ráno, kým by
+      // si toho niekto nevšimol.
+      let personalNumber = user.personal_number;
+      if (req.body?.personal_number !== undefined && String(req.body.personal_number).trim() !== '') {
+        personalNumber = Number.parseInt(String(req.body.personal_number).trim(), 10);
+        if (!Number.isInteger(personalNumber) || personalNumber <= 0) {
+          return res.status(400).json({
+            error: 'Bad Request',
+            message: 'Osobné číslo musí byť celé kladné číslo.'
+          });
+        }
+      }
+
+      if (personalNumber == null) {
+        return res.status(400).json({
+          error: 'Bad Request',
+          message: `${user.display_name || userId} nemá zadané osobné číslo.`,
+          code: 'unmapped'
+        });
+      }
+
+      const service = PamSyncService.shared();
+      const fromPam = await service.read(personalNumber, year);   // číta, nezapisuje
+
+      // Od tohto bodu je isté, že číslo v PAM existuje a nesie kvóty.
+      if (personalNumber !== user.personal_number || user.is_external) {
+        await User.setPamMapping(userId, { personalNumber, isExternal: false });
+      }
+      await Quota.setPamValues(userId, year, {
+        vacationTotal: fromPam.vacationTotal,
+        vacationUsed: fromPam.vacationUsed,
+        paragraphUsed: fromPam.paragraphUsed,
+        ocrUsed: fromPam.ocrUsed
+      });
+      logger.info('PAM sync (manual)', { userId, personalNumber, year, by: req.user?.id });
 
       res.json({
         success: true,
@@ -432,6 +468,12 @@ class QuotaController {
         return res.status(503).json({
           error: 'Service Unavailable',
           message: 'PAM sa neozval. Skontroluj VPN spojenie na ETILOGSAP2.'
+        });
+      }
+      if (error.code === '23505') {
+        return res.status(409).json({
+          error: 'Conflict',
+          message: 'Toto osobné číslo už má priradené iný zamestnanec.'
         });
       }
       next(error);

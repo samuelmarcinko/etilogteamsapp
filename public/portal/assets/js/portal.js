@@ -1957,18 +1957,13 @@ async function syncQuotaFromPam(userId) {
     out.innerHTML = '';
 
     try {
-        // Párovanie ide prvé, inak by sa synchronizovalo podľa čísla, ktoré
-        // je zatiaľ len napísané vo formulári a server o ňom nevie.
-        const mappingRes = await apiCall(`/api/quotas/user/${userId}/mapping`, {
-            method: 'PUT',
-            body: JSON.stringify({ is_external: false, personal_number: number })
+        // Číslo ide rovno do synchronizácie, ešte neuložené. Server ho uloží
+        // až keď ho v PAM nájde - inak by preklep zostal zapísaný aj po
+        // tom, čo vyhľadanie zlyhá, a nočný beh by na ňom padal každé ráno.
+        const res = await apiCall(`/api/quotas/user/${userId}/pam-sync`, {
+            method: 'POST',
+            body: JSON.stringify({ personal_number: number })
         });
-        if (!mappingRes.ok) {
-            const body = await mappingRes.json().catch(() => ({}));
-            throw new Error(body.message || pt('saveFailed'));
-        }
-
-        const res = await apiCall(`/api/quotas/user/${userId}/pam-sync`, { method: 'POST' });
         const body = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(body.message || pt('saveFailed'));
 

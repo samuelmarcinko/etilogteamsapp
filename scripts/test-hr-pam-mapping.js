@@ -184,6 +184,22 @@ async function main() {
   const anna = (all.body.data || []).find((q) => q.user_id === 'zz-pam-anna');
   check('Anna je označená ako externá', anna?.is_external, true);
 
+  console.log('\n9. Neúspešná synchronizácia neuloží osobné číslo');
+  // Tlačidlo Synchronizovať posiela číslo rovno do synchronizácie, ešte
+  // neuložené. Uložiť sa smie až keď PAM povie, že to číslo pozná - inak by
+  // preklep zostal zapísaný aj po tom, čo vyhľadanie zlyhá, a nočný beh by
+  // na ňom padal každé ráno, kým by si toho niekto nevšimol.
+  //
+  // Tu PAM nie je nastavený vôbec, takže synchronizácia padne na spojení.
+  // Pre tento test je to to isté ako neznáme číslo: v oboch prípadoch sa
+  // nesmie zapísať nič.
+  await setMapping(hr, 'zz-pam-anna', { personal_number: '', is_external: false });
+  const before = await mapping('zz-pam-anna');
+  const attempt = await call('POST', '/api/quotas/user/zz-pam-anna/pam-sync',
+                             { token: hr, body: { personal_number: 99999 } });
+  check('synchronizácia neprejde', attempt.status >= 400, true);
+  check('a číslo sa neuložilo', await mapping('zz-pam-anna'), before);
+
   server.close();
 }
 
