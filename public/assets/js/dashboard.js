@@ -134,6 +134,9 @@ function renderOutOfOffice(employees) {
                     <div class="ooo-name">${emp.name}</div>
                     <div class="ooo-details">
                         <span class="ooo-type-badge ${primaryAbsence.type}">${typeIcon} ${typeLabel}</span>
+                        ${primaryAbsence.halfDay
+                            ? `<span class="ooo-half-badge">&#9681; ${t('halfDayLabel')}</span>`
+                            : ''}
                         <span class="ooo-date-range">${dateRange}</span>
                     </div>
                 </div>

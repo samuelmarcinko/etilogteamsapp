@@ -419,6 +419,22 @@
         .ooo-type-badge.paragraph { background: #ede9fe; color: #7c3aed; }
         .ooo-type-badge.ocr { background: #fce7f3; color: #db2777; }
 
+        /* Pol dňa. Zámerne iná farba než typ neprítomnosti - je to iná
+           informácia: typ hovorí „prečo tu nie je", toto „ako dlho".
+           Ohraničené a nevyplnené, aby to vedľa farebného typu nekričalo. */
+        .ooo-half-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.15rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--gray-600, #4b5563);
+            background: #fff;
+            border: 1px solid var(--gray-300, #d1d5db);
+        }
+
         .ooo-date-range {
             font-size: 0.75rem;
             color: var(--gray-500, #6b7280);

@@ -36,9 +36,9 @@
                     <button id="applyFilterBtn" class="apply-filter-btn" data-i18n="calendarApplyFilter">Apply</button>
                 </div>
                 <div class="quick-filters">
-                    <button class="quick-filter-btn" data-range="today" data-i18n="calendarQuickToday">Today</button>
+                    <button class="quick-filter-btn active" data-range="today" data-i18n="calendarQuickToday">Today</button>
                     <button class="quick-filter-btn" data-range="week" data-i18n="calendarQuickWeek">This week</button>
-                    <button class="quick-filter-btn active" data-range="month" data-i18n="calendarQuickMonth">This month</button>
+                    <button class="quick-filter-btn" data-range="month" data-i18n="calendarQuickMonth">This month</button>
                 </div>
             </div>
         </div>
@@ -287,6 +287,21 @@
             flex-shrink: 0;
         }
 
+        /* Pol dňa. Iná informácia než typ neprítomnosti - typ hovorí „prečo
+           tu nie je", toto „ako dlho" - tak aj inak vyzerá: ohraničené a
+           nevyplnené, nech vedľa typu nekričí. */
+        .person-half-badge {
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: #4b5563;
+            background: #fff;
+            border: 1px solid #d1d5db;
+            padding: 0.1rem 0.35rem;
+            border-radius: 3px;
+            flex-shrink: 0;
+            margin-right: 0.25rem;
+        }
+
         .person-dates {
             font-size: 0.75rem;
             color: #6b7280;
@@ -434,6 +449,13 @@
                     typeLabel = ticket.ticket_type || t('typeOther');
             }
 
+            // Polovičný deň platí len na jednodňovej žiadosti - presne tak,
+            // ako to ráta ticketService pri odpočte kvóty. Keby sa príznak
+            // bral aj na viacdňovej, kalendár by tvrdil „pol dňa" o týždni
+            // dovolenky, ktorý sa z kvóty odpočítal celý.
+            const oneDay = String(ticket.start_date).slice(0, 10) === String(ticket.end_date).slice(0, 10);
+            const halfDay = Boolean(ticket.is_half_day) && oneDay;
+
             return `
                 <div class="person-card ${typeClass}">
                     <div class="person-header">
@@ -441,6 +463,7 @@
                         <div class="person-info">
                             <h3 class="person-name">${ticket.created_by_name}</h3>
                         </div>
+                        ${halfDay ? `<span class="person-half-badge">&#9681; ${t('halfDayLabel')}</span>` : ''}
                         <span class="person-type-badge">${typeLabel}</span>
                     </div>
                     <div class="person-dates">
@@ -607,8 +630,9 @@
                     ticket.end_date
                 );
 
-                // Default: show this month
-                setQuickFilter('month');
+                // Predvolene dnešok. Otázka, s ktorou sa sem chodí, znie „kto
+                // dnes nie je v práci?" - na celý mesiac sa kliká až potom.
+                setQuickFilter('today');
 
             } catch (error) {
                 console.error('Error loading time-off calendar:', error);

@@ -120,7 +120,8 @@ router.get('/out-of-office', async (req, res) => {
          t.end_date,
          t.created_by_name,
          t.created_by_id,
-         t.title
+         t.title,
+         t.is_half_day
        FROM tickets t
        WHERE t.status = 'Approved'
          AND LOWER(t.ticket_type) IN ('vacation', 'sick-leave', 'paragraph', 'ocr')
@@ -140,12 +141,20 @@ router.get('/out-of-office', async (req, res) => {
           absences: []
         });
       }
+      // Polovičný deň platí len na jednodňovej žiadosti - presne tak, ako to
+      // ráta ticketService pri odpočte kvóty. Keby sa príznak bral aj na
+      // viacdňovej, kalendár by tvrdil „pol dňa" o týždni dovolenky, ktorý
+      // sa z kvóty odpočítal celý.
+      const oneDay = row.start_date && row.end_date
+        && new Date(row.start_date).toDateString() === new Date(row.end_date).toDateString();
+
       userMap.get(row.created_by_id).absences.push({
         ticketId: row.ticket_id,
         type: row.ticket_type?.toLowerCase() || row.ticket_type,
         startDate: row.start_date,
         endDate: row.end_date,
-        title: row.title
+        title: row.title,
+        halfDay: Boolean(row.is_half_day) && oneDay
       });
     });
 
