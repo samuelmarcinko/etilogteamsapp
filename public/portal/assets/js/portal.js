@@ -2718,6 +2718,15 @@ async function handleExport(event) {
         a.remove();
 
         showToast(pt('exportSuccess'), 'success');
+
+        // Koho export vynechal. Do miezd idú len ľudia s osobným číslom, ale
+        // kratší súbor bez slova vysvetlenia vyzerá rovnako ako úplný - a
+        // chýbajúci zamestnanec by sa zistil až v PAM, ak vôbec.
+        const skipped = Number(response.headers.get('X-Export-Skipped') || 0);
+        if (skipped > 0) {
+            showToast(`${pt('exportSkippedNoNumber')} (${skipped})`, 'info');
+        }
+
         closeModal(document.querySelector('.modal-backdrop'));
     } catch (error) {
         console.error('Export error:', error);

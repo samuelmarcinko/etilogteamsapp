@@ -790,23 +790,34 @@ class AdminController {
       const statusArray = statuses ? statuses.split(',') : ['Approved'];
 
       // Build query
+      //
+      // Spojenie na users je tu kvôli osobnému číslu - podľa neho sa nižšie
+      // rozhoduje, kto do mzdového exportu patrí. Stĺpce sa od tejto chvíle
+      // musia kvalifikovať: `created_at` majú obe tabuľky.
       let query = `
-        SELECT * FROM tickets
-        WHERE 1=1
+        SELECT tk.*, (u.personal_number IS NOT NULL) AS author_has_number
+          FROM tickets tk
+          LEFT JOIN users u ON u.user_id = tk.created_by_id
+         WHERE 1=1
       `;
       const values = [];
       let paramCount = 1;
 
       // Filter by type
       if (type) {
-        query += ` AND ticket_type = $${paramCount}`;
+        query += ` AND tk.ticket_type = $${paramCount}`;
         values.push(type);
         paramCount++;
       }
 
       // Filter by employee
+      //
+      // Stĺpec `created_by` v tabuľke neexistuje - sú tam created_by_id,
+      // _name a _email. Export pre jedného konkrétneho zamestnanca preto
+      // doteraz končil chybou 500; filter sa nikdy neuplatnil, lebo zo
+      // zoznamu chodí user_id.
       if (employee) {
-        query += ` AND created_by = $${paramCount}`;
+        query += ` AND tk.created_by_id = $${paramCount}`;
         values.push(employee);
         paramCount++;
       }
@@ -814,28 +825,54 @@ class AdminController {
       // Filter by date range - use range overlap for tickets with start_date/end_date
       // Range overlap: ticket overlaps filter if start_date <= dateTo AND end_date >= dateFrom
       query += ` AND (
-        (start_date IS NOT NULL AND start_date <= $${paramCount + 1} AND COALESCE(end_date, start_date) >= $${paramCount})
-        OR (start_date IS NULL AND created_at >= $${paramCount} AND created_at <= $${paramCount + 1})
+        (tk.start_date IS NOT NULL AND tk.start_date <= $${paramCount + 1} AND COALESCE(tk.end_date, tk.start_date) >= $${paramCount})
+        OR (tk.start_date IS NULL AND tk.created_at >= $${paramCount} AND tk.created_at <= $${paramCount + 1})
       )`;
       values.push(dateFrom, dateTo);
       paramCount += 2;
 
       // Filter by statuses
       if (statusArray.length > 0) {
-        query += ` AND status = ANY($${paramCount})`;
+        query += ` AND tk.status = ANY($${paramCount})`;
         values.push(statusArray);
         paramCount++;
       }
 
-      query += ' ORDER BY start_date ASC NULLS LAST, created_at ASC';
+      query += ' ORDER BY tk.start_date ASC NULLS LAST, tk.created_at ASC';
 
       const result = await pool.query(query, values);
-      const tickets = result.rows;
+
+      // Do mzdového exportu patria len ľudia s osobným číslom.
+      //
+      // Kolegyňa ho odovzdáva do PAM a riadok človeka, ktorý tam nie je, sa
+      // nemá ako spárovať - je to práca navyše a zdroj omylov. Týka sa to aj
+      // tých, ktorí externí zaškrtnuté nemajú, len im číslo ešte nikto
+      // nedoplnil.
+      //
+      // Platí to výhradne na typy, ktoré idú do miezd. Nákup ani výdavok sa
+      // s PAM nepárujú, takže sa z exportu vyhadzovať nesmú.
+      const PAYROLL_TYPES = ['vacation', 'paragraph', 'ocr'];
+      const tickets = [];
+      let skipped = 0;
+      for (const row of result.rows) {
+        const forPayroll = PAYROLL_TYPES.includes(String(row.ticket_type || '').toLowerCase());
+        if (forPayroll && !row.author_has_number) { skipped += 1; continue; }
+        tickets.push(row);
+      }
+
+      // Nech sa vynechaní nestratia potichu: klient o nich povie, nech
+      // kolegyňa vie, že má komu doplniť osobné číslo.
+      res.setHeader('X-Export-Skipped', String(skipped));
 
       if (tickets.length === 0) {
         return res.status(404).json({
           success: false,
-          message: lang === 'sk' ? 'Žiadne dáta na export' : 'No data to export'
+          skipped,
+          message: skipped > 0
+            ? (lang === 'sk'
+                ? `Žiadne dáta na export - všetkých ${skipped} žiadostí patrí zamestnancom bez osobného čísla.`
+                : `No data to export - all ${skipped} requests belong to employees without a personal number.`)
+            : (lang === 'sk' ? 'Žiadne dáta na export' : 'No data to export')
         });
       }
 
