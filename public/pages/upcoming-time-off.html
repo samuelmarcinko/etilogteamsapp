@@ -199,7 +199,10 @@
 
         .calendar-list {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            /* 270 a nie 220: do riadku sa musí zmestiť celé meno aj so
+               štítkami. Pri užšom stĺpci sa meno lámalo na tri riadky a
+               karta vyzerala ako chyba. */
+            grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
             gap: 0.5rem;
         }
 
@@ -249,8 +252,11 @@
 
         .person-header {
             display: flex;
-            align-items: center;
-            gap: 0.5rem;
+            align-items: flex-start;
+            /* Štítky sa pri dlhom mene zalomia pod meno namiesto toho, aby
+               mu ukrajovali šírku. */
+            flex-wrap: wrap;
+            gap: 0.3rem 0.5rem;
             margin-bottom: 0.35rem;
         }
 
@@ -264,14 +270,18 @@
             min-width: 0;
         }
 
+        /* Meno sa nikdy neskracuje.
+           „Dominik..." je horšie než nič: kto sa pozerá do kalendára, chce
+           vedieť, s kým dnes rátať nemôže, a priezvisko je presne tá časť,
+           ktorá odlišuje dvoch Dominikov. Radšej sa zalomí na dva riadky. */
         .person-name {
             font-size: 0.85rem;
             font-weight: 600;
             color: #1f2937;
             margin: 0;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            line-height: 1.25;
         }
 
         .person-email {

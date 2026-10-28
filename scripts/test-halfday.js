@@ -194,7 +194,11 @@ async function main() {
     { ticket_id: 'ZZ-HALF-2', ticket_type: 'vacation', status: 'Approved',
       created_by_name: 'Boris Celodenny', start_date: TODAY, end_date: TODAY, is_half_day: false },
     { ticket_id: 'ZZ-HALF-3', ticket_type: 'vacation', status: 'Approved',
-      created_by_name: 'Cyril Tyzdenny', start_date: TODAY, end_date: zajtra, is_half_day: true }
+      created_by_name: 'Cyril Tyzdenny', start_date: TODAY, end_date: zajtra, is_half_day: true },
+    // Dlhé meno so štítkom vedľa - presne ten prípad, v ktorom sa karta
+    // skracovala na „Dominik…".
+    { ticket_id: 'ZZ-HALF-4', ticket_type: 'vacation', status: 'Approved',
+      created_by_name: 'Dominik Hrabovský-Štefanovič', start_date: TODAY, end_date: TODAY, is_half_day: true }
   ];
 
   ctx = await teamsContext(browser);
@@ -212,8 +216,8 @@ async function main() {
   check('a je to naozaj len jeden deň',
         [await page.inputValue('#dateFrom'), await page.inputValue('#dateTo')], [TODAY, TODAY]);
 
-  check('traja ľudia na dnešku', await page.locator('.person-card').count(), 3);
-  check('štítok je práve jeden', await page.locator('.person-half-badge').count(), 1);
+  check('štyria ľudia na dnešku', await page.locator('.person-card').count(), 4);
+  check('štítky sú dva', await page.locator('.person-half-badge').count(), 2);
   check('pri polovičnej',
         (await page.locator('.person-card', { hasText: 'Anna' }).innerText()).includes('Pol dňa'), true);
   check('celodennej nie',
@@ -223,7 +227,17 @@ async function main() {
   check('viacdňovej so zaškrtnutým pol dňom tiež nie',
         (await page.locator('.person-card', { hasText: 'Cyril' }).innerText()).includes('Pol dňa'), false);
 
-  console.log('\n4. Mesiac sa dá stále vybrať');
+  console.log('\n4. Celé meno, aj keď je dlhé');
+  // „Dominik…" je horšie než nič: kto sa pozerá do kalendára, chce vedieť,
+  // s kým dnes rátať nemôže, a priezvisko je práve tá časť, ktorá odlišuje
+  // dvoch Dominikov.
+  const dlhe = page.locator('.person-card', { hasText: 'Dominik' }).locator('.person-name');
+  check('meno je celé', (await dlhe.innerText()).trim(), 'Dominik Hrabovský-Štefanovič');
+  check('a nie je orezané', await dlhe.evaluate((el) => el.scrollWidth <= el.clientWidth + 1), true);
+  check('ani keď je vedľa štítok',
+        (await page.locator('.person-card', { hasText: 'Dominik' }).innerText()).includes('Pol dňa'), true);
+
+  console.log('\n5. Mesiac sa dá stále vybrať');
   await page.locator('.quick-filter-btn[data-range="month"]').click();
   await page.waitForTimeout(400);
   check('prepne sa', await page.locator('.quick-filter-btn.active').innerText(), 'Tento mesiac');

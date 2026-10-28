@@ -389,13 +389,15 @@
             flex: 1;
             min-width: 0;
         }
+        /* Meno sa nikdy neskracuje - priezvisko je presne tá časť, ktorá
+           odlišuje dvoch Dominikov. Radšej sa zalomí na dva riadky. */
         .ooo-name {
             font-weight: 600;
             font-size: 0.9rem;
             color: var(--gray-800, #1f2937);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            line-height: 1.3;
         }
         .ooo-details {
             font-size: 0.75rem;
