@@ -90,22 +90,42 @@ async function main() {
   check('zhrnutie je pokojné', good.body.summary, 'Všetko v poriadku');
   check('nič nezlyháva', good.body.failing, []);
 
-  console.log('\n5. Zlyhaná synchronizácia je poplach');
+  console.log('\n5. Zlyhaný beh pri čerstvých číslach je upozornenie, nie porucha');
+  // Presne to, čo sa stalo 4. a 5. novembra: ranný beh spadol na časovom
+  // limite, ale v databáze ležali hodnoty z predošlého poobedia. Nič nebolo
+  // pokazené, len o niečo staršie - a dohľad to osem hodín hlásil ako
+  // nedostupný portál. Otázka totiž neznie „prešiel posledný pokus?", ale
+  // „aké staré sú skladové čísla?".
   await pool.query(
     `INSERT INTO warehouse_sync_log (warehouse, codes, matched, ok, error, started_at, finished_at)
-     VALUES ('02-03', 10, 0, FALSE, 'SAP neodpovedal', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`);
+     VALUES ('02-03', 10, 0, FALSE, 'SAP timed out after 30000 ms', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`);
   const failed = await get(`/health/status?key=${process.env.HEALTH_CHECK_KEY}`);
-  check('vracia 503', failed.status, 503);
-  check('a cituje dôvod zo SAPu', failed.body.summary.includes('SAP neodpovedal'), true);
+  check('vracia 200, dohľad nezvoní', failed.status, 200);
+  check('ale hlási sa ako upozornenie', failed.body.status, 'warn');
+  check('nič nezlyháva', failed.body.failing, []);
+  check('a cituje dôvod zo SAPu', failed.body.summary.includes('SAP timed out'), true);
+  check('aj vek skladových čísel', /\d+(\.\d+)? hodín star/.test(failed.body.summary), true);
 
-  console.log('\n6. Stará synchronizácia je tiež poplach');
+  console.log('\n6. Staré čísla sú poplach, aj keď posledný beh prešiel');
+  // Tu už nejde o jeden zlyhaný pokus, ale o to, že sklad nemá čerstvé čísla
+  // ani po limite. To je porucha - SAP, tunel alebo zaseknutý plánovač.
   await pool.query('DELETE FROM warehouse_sync_log');
   await pool.query(
     `INSERT INTO warehouse_sync_log (warehouse, codes, matched, ok, started_at, finished_at)
      VALUES ('02-03', 10, 10, TRUE, CURRENT_TIMESTAMP - INTERVAL '30 hours', CURRENT_TIMESTAMP - INTERVAL '30 hours')`);
   const stale = await get(`/health/status?key=${process.env.HEALTH_CHECK_KEY}`);
   check('vracia 503', stale.status, 503);
-  check('a povie, koľko hodín', stale.body.summary.includes('nebežala'), true);
+  check('a povie, aké staré sú čísla', stale.body.summary.includes('30 hodín staré'), true);
+
+  console.log('\n6b. Zlyhaný beh nad starými číslami zostáva poruchou');
+  // Poistka proti tomu, aby zlyhanie nad zastaraným skladom spadlo do
+  // upozornenia. Vek čísel rozhoduje, nie posledný pokus.
+  await pool.query(
+    `INSERT INTO warehouse_sync_log (warehouse, codes, matched, ok, error, started_at, finished_at)
+     VALUES ('02-03', 10, 0, FALSE, 'SAP timed out after 30000 ms', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`);
+  const bothBad = await get(`/health/status?key=${process.env.HEALTH_CHECK_KEY}`);
+  check('stále 503', bothBad.status, 503);
+  check('a sapSync je medzi poruchami', bothBad.body.failing.includes('sapSync'), true);
 
   console.log('\n7. Kvóty z PAM');
   // Synchronizácia so SAPom nech je od tejto chvíle v poriadku, aby bolo

@@ -36,6 +36,9 @@ const WAREHOUSE = process.env.WAREHOUSE_SAP_STORE || '02-03';
 // nie každú hodinu, keď sa sklad tak často nemení.
 const SCHEDULE = process.env.WAREHOUSE_SYNC_CRON || '30 5,13 * * *';
 
+// Po zlyhanom behu sa raz počká a skúsi znova - pozri `start()`.
+const RETRY_AFTER_MS = Number(process.env.WAREHOUSE_SYNC_RETRY_MS || 10 * 60 * 1000);
+
 const FIELDS = 'ItemCode,ItemName,InventoryUOM,ItemWarehouseInfoCollection';
 
 /**
@@ -117,6 +120,26 @@ class WarehouseSyncService {
       `SELECT id, started_at, finished_at, duration_ms, warehouse, codes, matched,
               unknown, changed, http_calls, applied, triggered_by, ok, error
          FROM warehouse_sync_log
+        ORDER BY started_at DESC
+        LIMIT 1`
+    );
+    return rows[0] || null;
+  }
+
+  /**
+   * Posledný beh, ktorý naozaj prešiel.
+   *
+   * Dohľad sa totiž nepýta „prešiel posledný pokus?", ale „aké staré sú
+   * čísla zo skladu?". To sú dve rôzne otázky a 4. a 5. novembra sa
+   * rozchádzali: ranný beh spadol na časovom limite, ale v databáze stále
+   * ležali hodnoty z predošlého poobedia, teda osem hodín staré. Nič nebolo
+   * pokazené - len o niečo staršie.
+   */
+  static async lastSuccess() {
+    const { rows } = await pool.query(
+      `SELECT started_at, finished_at, codes, matched
+         FROM warehouse_sync_log
+        WHERE ok = TRUE
         ORDER BY started_at DESC
         LIMIT 1`
     );
@@ -387,7 +410,26 @@ class WarehouseSyncService {
     }
 
     this.cronJob = cron.schedule(SCHEDULE, () => {
-      this.runOnce().catch(() => {});
+      // Jeden zopakovaný pokus po desiatich minútach.
+      //
+      // 4. a 5. novembra ranný beh spadol na `SAP timed out after 30000 ms`
+      // a poobedný o osem hodín neskôr prešiel za šesť sekúnd. Bol to teda
+      // výpadok tunela alebo SAPu na pár minút, nie porucha - a stálo nás to
+      // osem hodín starých skladových čísel a dve hlásenia z dohľadu.
+      //
+      // Opakuje sa len raz. Keby sa to skúšalo donekonečna, zakrylo by to
+      // skutočný výpadok SAPu, o ktorom sa dozvedieť chceme.
+      //
+      // Vetví sa to na `catch`, lebo `runOnce` pri zlyhaní vyhodí výnimku;
+      // návratovú hodnotu s `ok: false` nevracia nikdy.
+      this.runOnce().catch(() => {
+        const timer = setTimeout(() => {
+          logger.info('Warehouse SAP sync: retrying after a failed run');
+          this.runOnce({ triggeredBy: 'retry' }).catch(() => {});
+        }, RETRY_AFTER_MS);
+        // Nech čakajúci pokus nedrží proces pri živote.
+        if (typeof timer.unref === 'function') timer.unref();
+      });
     });
     this.isRunning = true;
 

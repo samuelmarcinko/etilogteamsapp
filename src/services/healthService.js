@@ -115,15 +115,27 @@ async function checkDisks() {
 /**
  * Synchronizácia so SAPom.
  *
- * Poplach má dva dôvody a je medzi nimi rozdiel, ktorý sa oplatí povedať:
- * beh, ktorý zlyhal, znamená, že SAP alebo tunel neodpovedal práve teraz;
- * starý beh znamená, že sa už dlho ani nespustil. Prvé býva výpadok linky,
- * druhé zaseknutý plánovač.
+ * Otázka, na ktorú sa tu odpovedá, nie je „prešiel posledný pokus?", ale
+ * „aké staré sú skladové čísla?". To sú dve rôzne veci a 4. a 5. novembra
+ * sa rozišli: ranný beh spadol na časovom limite, ale v databáze ležali
+ * hodnoty z predošlého poobedia. Nič nebolo pokazené, len o osem hodín
+ * staršie - a dohľad to osem hodín hlásil ako nedostupný portál.
+ *
+ * Preto sa rozlišuje:
+ *
+ *   fail   nikto neuspel dlhšie ako SYNC_STALE_HOURS, alebo nikdy. To je
+ *          skutočná porucha - SAP, tunel alebo plánovač.
+ *   warn   posledný pokus zlyhal, ale predtým niekto uspel dosť nedávno.
+ *          Niekto sa na to má pozrieť cez deň; budiť kvôli tomu netreba.
  */
 async function checkSapSync() {
   let last;
+  let success;
   try {
-    last = await WarehouseSyncService.lastRun();
+    [last, success] = await Promise.all([
+      WarehouseSyncService.lastRun(),
+      WarehouseSyncService.lastSuccess()
+    ]);
   } catch (error) {
     return { ok: false, detail: `Stav synchronizácie sa nedá prečítať: ${error.message}` };
   }
@@ -132,19 +144,49 @@ async function checkSapSync() {
     return { ok: false, detail: 'Synchronizácia so SAPom ešte nikdy nebežala' };
   }
 
-  const when = new Date(last.finished_at || last.started_at);
-  const ageHours = Math.round(((Date.now() - when.getTime()) / 3600000) * 10) / 10;
-  const stale = ageHours > SYNC_STALE_HOURS;
+  const ageOf = (row) => {
+    const when = new Date(row.finished_at || row.started_at);
+    return { when, hours: Math.round(((Date.now() - when.getTime()) / 3600000) * 10) / 10 };
+  };
+
+  const lastAt = ageOf(last);
+
+  // Nikdy nič neprešlo, alebo sú čísla staršie než limit. Toto je porucha.
+  if (!success) {
+    return {
+      ok: false,
+      lastRunAt: lastAt.when.toISOString(),
+      detail: 'Synchronizácia so SAPom ešte nikdy neprešla'
+    };
+  }
+
+  const successAt = ageOf(success);
+  if (successAt.hours > SYNC_STALE_HOURS) {
+    return {
+      ok: false,
+      lastRunAt: lastAt.when.toISOString(),
+      lastSuccessAt: successAt.when.toISOString(),
+      ageHours: successAt.hours,
+      detail: `Skladové čísla zo SAPu sú ${successAt.hours} hodín staré (limit ${SYNC_STALE_HOURS})`
+    };
+  }
+
+  // Posledný pokus zlyhal, ale čísla sú stále v limite. Upozornenie.
+  if (!last.ok) {
+    return {
+      ok: true, warn: true,
+      lastRunAt: lastAt.when.toISOString(),
+      lastSuccessAt: successAt.when.toISOString(),
+      ageHours: successAt.hours,
+      detail: `Posledná synchronizácia so SAPom zlyhala (${last.error || 'bez bližšieho dôvodu'}), `
+            + `skladové čísla sú ${successAt.hours} hodín staré`
+    };
+  }
 
   return {
-    ok: Boolean(last.ok) && !stale,
-    lastRunAt: when.toISOString(),
-    ageHours,
-    detail: !last.ok
-      ? `Posledná synchronizácia so SAPom zlyhala (${when.toISOString()}): ${last.error || 'bez bližšieho dôvodu'}`
-      : stale
-        ? `Synchronizácia so SAPom nebežala ${ageHours} hodín (limit ${SYNC_STALE_HOURS})`
-        : undefined
+    ok: true,
+    lastRunAt: lastAt.when.toISOString(),
+    ageHours: successAt.hours
   };
 }
 
